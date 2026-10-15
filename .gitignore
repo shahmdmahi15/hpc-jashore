@@ -1,0 +1,25 @@
+# deps
+node_modules/
+
+# builds
+dist/
+.next/
+out/
+build/
+
+# env
+.env
+.env*.local
+
+# logs / os
+*.log
+.DS_Store
+Thumbs.db
+
+# sqlite dev data (never commit real clinic data)
+*.db
+*.db-*
+*.sqlite*
+
+# pm2
+.pm2/

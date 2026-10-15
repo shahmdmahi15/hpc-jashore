@@ -1,0 +1,8 @@
+{
+  "name": "@hpc/proto",
+  "version": "1.0.0",
+  "private": true,
+  "description": "HPC Jashore — shared realtime + REST contract (proto v1). Breaking change = major bump.",
+  "type": "module",
+  "main": "./v1/events.ts"
+}
