@@ -3,12 +3,12 @@
 Legend: `[ ]` todo · `[~]` in progress · `[x]` done + demoed · **P0** must-have for launch, **P1** should-have, **P2** post-launch.
 
 ## A. Identity, Auth & Access (P0)
-- [ ] Personal login: Admin, Doctor (email + password, JWT access + refresh, multi-device sessions)
+- [ ] Personal login: Admin, Head Doctor (Dr. Toufiq — all-doctor oversight + business reports), Doctor (own scope only) — email + password, JWT access + refresh, multi-device sessions
 - [ ] Desk accounts: Reception / Therapist / Cashier shared logins (one per desk device)
 - [ ] Per-action auth: staff selector + 4-digit PIN verify endpoint, rate-limited, 5-try lockout, admin reset
 - [ ] PIN policy: no sequential/repeated digits, forced change every 90 days (configurable), per-staff salt+hash (bcrypt/argon2)
 - [ ] Role-based access control on every API route + UI route guard
-- [ ] Permissions matrix documented (who can discount / void / delete / reset PIN / close day)
+- [ ] Permissions matrix documented (admin / head_doctor / doctor / desks: who can discount / void / delete / reset PIN / close day / view other doctors)
 - [ ] Device/desk registry: name desks (Reception-1, Cashier-1, Tab-Therapy-A), bind tokens, remote revoke
 - [ ] Audit log: actor + desk + PIN identity + action + before/after JSON + IP; immutable, admin-viewable, exportable
 - [ ] Password reset (admin-assisted), session list + remote logout
@@ -58,7 +58,7 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done + demoed · **P0** must-ha
 - [ ] Consultation workspace: SOAP, vitals, pain VAS/NPRS, ROM/MMT pickers
 - [ ] Diagnosis (ICD-11 physio subset), investigations advised, referral to therapy (auto-creates therapy plan)
 - [ ] Follow-up date → feeds appointment + recall list
-- [ ] Doctor dashboard: today's serials, pending follow-ups, stats
+- [ ] Doctor dashboard: today's serials, pending follow-ups, stats (own scope; Head Doctor sees all doctors)
 - [ ] **P1:** diagnosis favourites, note templates per condition
 
 ## G. Prescribing (P0)

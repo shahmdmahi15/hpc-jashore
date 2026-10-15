@@ -1,7 +1,7 @@
 # HPC Jashore — Health & Pain Care Center, Jashore
 
 In-house realtime physiotherapy center management platform.
-Owner: Dr. Toufiq (Md. Toufiq Uz Zaman) · Domain: `hpc.toufiquzzaman.com`
+Owner: Dr. Toufiq (Md. Toufiq Uz Zaman), Head Doctor · Domain: `hpc.toufiquzzaman.com`
 
 Start with [ROADMAP.md](ROADMAP.md), then [FEATURE_CHECKLIST.md](FEATURE_CHECKLIST.md)
 (scope source of truth), then [ARCHITECTURE.md](ARCHITECTURE.md) (locked decisions).

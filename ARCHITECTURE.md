@@ -3,6 +3,8 @@ Companion to [ROADMAP.md](ROADMAP.md). Lock these before writing feature code.
 
 ## 0. Locked decisions (2026-10-15, approved)
 - **Domain:** `hpc.toufiquzzaman.com` (user holds Cloudflare + AWS root accounts).
+- **Owner:** Dr. Toufiq (Md. Toufiq Uz Zaman) — Head Doctor + owner. The center has multiple doctors; Dr. Toufiq heads them.
+- **Roles (locked 2026-10-16):** `admin`, `head_doctor` (Dr. Toufiq only: full clinical oversight across all doctors + business reports), `doctor` (own serials/patients/stats only, unless granted), plus shared desk logins (`reception`, `therapist`, `cashier`) with per-action staff PIN.
 - **Package manager:** pnpm everywhere — never npm. Server runs Node 22 LTS (pnpm via corepack).
 - **Process manager:** PM2 for Node.js (`apps/api`, `apps/web`). No Docker in v1.
 - **Paper:** custom **5.5in × 8.27in** for prescriptions + invoices; **A4** for reports and everything else; thermal 80mm for token slips + receipts.
@@ -29,7 +31,7 @@ Companion to [ROADMAP.md](ROADMAP.md). Lock these before writing feature code.
 - Numbering tables: `sequences (mrn, bill, token, voucher)` — single-row increments inside transactions to avoid duplicates under concurrency.
 
 ## 4. Auth model (the desk+PIN system)
-- Admin/Doctor: personal credentials → JWT. Doctor sees only own serials/stats unless admin-granted.
+- Admin / Head Doctor / Doctor: personal credentials → JWT. Head Doctor (Dr. Toufiq) sees all doctors' serials, patients, and business reports. A Doctor sees only own serials/patients/stats unless granted wider scope.
 - Desk login: device holds a long-lived desk token (`desk:reception-1`, scopes limited, e.g. reception desk cannot void payments).
 - Per-action: UI shows staff-on-shift selector → staff enters 4-digit PIN → `POST /auth/pin-verify {staffId, pin, action, deskId}` → 60-second action grant token → action executes with `actorStaffId` in audit. PINs: argon2/bcrypt, per-staff salt, 5-fail lockout 15 min, admin reset audited.
 - TV: pairing-code → read-only token scoped `tv:feed` only. Revocable per device.

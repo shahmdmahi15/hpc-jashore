@@ -1,6 +1,6 @@
 # HPC Health & Pain Care Center — Jashore
 ## Full Realtime Physiotherapy Center Management Platform
-**Owner:** Dr. Toufiq (Md. Toufiq Uz Zaman)
+**Owner:** Dr. Toufiq (Md. Toufiq Uz Zaman) — Head Doctor + owner (multiple doctors at the center)
 **Repo root:** `hpc-jashore` | **Date:** 2026-10-15
 
 This is the master roadmap. Companion docs:
@@ -151,7 +151,7 @@ One repo, one release train. Each app has its own release channel (see §6).
 - **Exit criteria:** day-close reconciles 10/10 test days; expired batch cannot be dispensed without override + audit.
 
 ### Phase 6 — Reports + Staff performance + Admin panel complete (Week 21–23)
-**Goal:** Dr. Toufiq sees the whole business in one screen.
+**Goal:** Dr. Toufiq, as Head Doctor + owner, sees the whole business in one screen.
 
 - Reports: daily collection, doctor-wise income, therapist-wise sessions, dues/advances aging, package utilization, medicine margin, expense (add simple expense module — rent, salary, utilities), patient footfall, new vs repeat, peak hours.
 - Staff performance: attendance (PIN punch-in/out), sessions/hours, collection handled, discounts given, voids, patient feedback score, leaderboards + anomaly flags (e.g. unusual void rate).
