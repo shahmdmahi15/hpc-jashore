@@ -2,7 +2,7 @@ name: ci
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, develop, master]
   pull_request:
 
 jobs:
@@ -21,6 +21,12 @@ jobs:
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
+
+      - name: Typecheck / Lint
+        run: pnpm -r lint
+
+      - name: Unit Tests
+        run: pnpm --filter @hpc/api test:mrn
 
       - name: Build API
         run: pnpm --filter @hpc/api build

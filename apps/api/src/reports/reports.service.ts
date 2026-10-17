@@ -1,0 +1,190 @@
+import { Inject, Injectable } from '@nestjs/common';
+import { and, desc, eq, gte, lte, sql } from 'drizzle-orm';
+import { DB, type Db } from '../db/db.module';
+import {
+  beds,
+  bills,
+  consultations,
+  dues,
+  expenses,
+  feedback,
+  payments,
+  staff,
+  therapySessions,
+  visits,
+} from '../db/schema';
+
+@Injectable()
+export class ReportsService {
+  constructor(@Inject(DB) private readonly db: Db) {}
+
+  async getDailySummary(dateString?: string) {
+    const targetDate = dateString ?? new Date().toISOString().slice(0, 10);
+
+    const dayVisits = await this.db
+      .select()
+      .from(visits)
+      .where(eq(visits.visitDate, targetDate));
+
+    const totalFootfall = dayVisits.length;
+    const completedVisits = dayVisits.filter((v) => v.status === 'checked_out').length;
+
+    // Collections
+    const allPayments = await this.db.select().from(payments);
+    const dayPayments = allPayments.filter((p) => p.createdAt.startsWith(targetDate));
+
+    let cashTotal = 0;
+    let bkashTotal = 0;
+    let nagadTotal = 0;
+    let rocketTotal = 0;
+    let cardTotal = 0;
+    let bankTotal = 0;
+
+    for (const p of dayPayments) {
+      if (p.method === 'cash') cashTotal += p.amountPaisa;
+      else if (p.method === 'bkash') bkashTotal += p.amountPaisa;
+      else if (p.method === 'nagad') nagadTotal += p.amountPaisa;
+      else if (p.method === 'rocket') rocketTotal += p.amountPaisa;
+      else if (p.method === 'card') cardTotal += p.amountPaisa;
+      else if (p.method === 'bank') bankTotal += p.amountPaisa;
+    }
+    const totalCollectionPaisa =
+      cashTotal + bkashTotal + nagadTotal + rocketTotal + cardTotal + bankTotal;
+
+    // Outstanding dues
+    const pendingDues = await this.db
+      .select()
+      .from(dues)
+      .where(eq(dues.status, 'pending'));
+    const totalPendingDuesPaisa = pendingDues.reduce((acc, d) => acc + d.amountPaisa, 0);
+
+    // Active occupancy
+    const totalBeds = (await this.db.select().from(beds)).length;
+    const occupiedBeds = (
+      await this.db
+        .select()
+        .from(therapySessions)
+        .where(eq(therapySessions.status, 'in_progress'))
+    ).length;
+
+    return {
+      date: targetDate,
+      footfall: {
+        total: totalFootfall,
+        completed: completedVisits,
+        activeInClinic: totalFootfall - completedVisits,
+      },
+      collections: {
+        totalPaisa: totalCollectionPaisa,
+        totalBdt: totalCollectionPaisa / 100,
+        byMethod: {
+          cashPaisa: cashTotal,
+          bkashPaisa: bkashTotal,
+          nagadPaisa: nagadTotal,
+          rocketPaisa: rocketTotal,
+          cardPaisa: cardTotal,
+          bankPaisa: bankTotal,
+        },
+      },
+      dues: {
+        totalPendingDuesPaisa,
+        totalPendingDuesBdt: totalPendingDuesPaisa / 100,
+        count: pendingDues.length,
+      },
+      occupancy: {
+        totalBeds,
+        occupiedBeds,
+        ratePercent: totalBeds > 0 ? Math.round((occupiedBeds / totalBeds) * 100) : 0,
+      },
+    };
+  }
+
+  async getDoctorIncomeReport() {
+    const doctors = await this.db
+      .select()
+      .from(staff)
+      .where(and(eq(staff.role, 'doctor'), eq(staff.isActive, 1)));
+
+    const allConsults = await this.db.select().from(consultations);
+
+    return doctors.map((doc) => {
+      const docConsults = allConsults.filter((c) => c.doctorId === doc.id);
+      const feePaisa = doc.feeOverridePaisa ?? 50000;
+      const estimatedIncomePaisa = docConsults.length * feePaisa;
+
+      return {
+        doctorId: doc.id,
+        doctorName: doc.fullName,
+        specialization: doc.specialization,
+        totalConsultations: docConsults.length,
+        feePerConsultPaisa: feePaisa,
+        estimatedRevenuePaisa: estimatedIncomePaisa,
+      };
+    });
+  }
+
+  async getTherapistPerformance() {
+    const therapists = await this.db
+      .select()
+      .from(staff)
+      .where(and(eq(staff.role, 'therapist'), eq(staff.isActive, 1)));
+
+    const allSessions = await this.db.select().from(therapySessions);
+
+    return therapists.map((t) => {
+      const mySessions = allSessions.filter((s) => s.therapistStaffId === t.id);
+      const completed = mySessions.filter((s) => s.status === 'completed');
+      const overtime = completed.filter((s) => s.isOvertime === 1);
+      const onTimeRate =
+        completed.length > 0
+          ? Math.round(((completed.length - overtime.length) / completed.length) * 100)
+          : 100;
+
+      return {
+        therapistId: t.id,
+        therapistName: t.fullName,
+        totalAssigned: mySessions.length,
+        completedSessions: completed.length,
+        onTimeRatePercent: onTimeRate,
+      };
+    });
+  }
+
+  async getPnlSummary() {
+    const allPayments = await this.db.select().from(payments);
+    const totalRevenuePaisa = allPayments.reduce((acc, p) => acc + p.amountPaisa, 0);
+
+    const allExpenses = await this.db.select().from(expenses);
+    const totalExpensesPaisa = allExpenses.reduce((acc, e) => acc + e.amountPaisa, 0);
+
+    const netProfitPaisa = totalRevenuePaisa - totalExpensesPaisa;
+
+    // Group expenses by category
+    const byCategory: Record<string, number> = {};
+    for (const exp of allExpenses) {
+      byCategory[exp.category] = (byCategory[exp.category] ?? 0) + exp.amountPaisa;
+    }
+
+    return {
+      revenuePaisa: totalRevenuePaisa,
+      revenueBdt: totalRevenuePaisa / 100,
+      expensesPaisa: totalExpensesPaisa,
+      expensesBdt: totalExpensesPaisa / 100,
+      netProfitPaisa,
+      netProfitBdt: netProfitPaisa / 100,
+      expensesByCategory: byCategory,
+    };
+  }
+
+  async getFeedbackSummary() {
+    const rows = await this.db.select().from(feedback).orderBy(desc(feedback.createdAt));
+    const averageRating =
+      rows.length > 0 ? (rows.reduce((acc, f) => acc + f.rating, 0) / rows.length).toFixed(1) : '5.0';
+
+    return {
+      totalFeedbackCount: rows.length,
+      averageRating: Number(averageRating),
+      recentFeedback: rows.slice(0, 20),
+    };
+  }
+}

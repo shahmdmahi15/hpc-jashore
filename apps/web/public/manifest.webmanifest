@@ -1,12 +1,58 @@
 {
-  "name": "HPC Jashore",
-  "short_name": "HPC",
-  "description": "HPC Health & Pain Care Center, Jashore — realtime center management",
+  "name": "HPC Health & Pain Care Center — Jashore",
+  "short_name": "HPC Jashore",
+  "description": "Realtime physiotherapy clinic management platform — Reception, Doctors, Therapy Hall, Cashier, and Waiting Room TV.",
   "start_url": "/",
-  "scope": "/",
   "display": "standalone",
   "orientation": "any",
-  "background_color": "#ffffff",
+  "background_color": "#04120d",
   "theme_color": "#059669",
-  "icons": []
+  "lang": "bn-BD",
+  "categories": ["medical", "health", "productivity"],
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Doctor Chamber",
+      "short_name": "Doctor",
+      "description": "Doctor Chamber & SOAP Prescriptions",
+      "url": "/?tab=doctor"
+    },
+    {
+      "name": "Reception Desk",
+      "short_name": "Reception",
+      "description": "Patient Registration & Token Issue",
+      "url": "/?tab=reception"
+    },
+    {
+      "name": "Therapy Hall",
+      "short_name": "Therapy",
+      "description": "Bed Matrix & Modality Timers",
+      "url": "/?tab=therapy"
+    },
+    {
+      "name": "Cashier & Billing",
+      "short_name": "Billing",
+      "description": "Cash Drawer & Payment Invoicing",
+      "url": "/?tab=cashier"
+    },
+    {
+      "name": "Waiting Room TV",
+      "short_name": "Waiting TV",
+      "description": "Fullscreen Token Queue TV Display",
+      "url": "/tv"
+    }
+  ]
 }

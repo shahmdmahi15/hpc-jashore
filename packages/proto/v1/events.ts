@@ -16,6 +16,15 @@ export const Events = {
   SessionCompleted: 'session.completed',
   PaymentPosted: 'payment.posted',
   AnnouncementPublished: 'announcement.published',
+  // Phase 1 backbone events:
+  PresenceUpdated: 'presence.updated',
+  SettingsUpdated: 'settings.updated',
+  StaffUpdated: 'staff.updated',
+  ConsultationSaved: 'consultation.saved',
+  PrescriptionCreated: 'prescription.created',
+  BillCreated: 'bill.created',
+  DrawerClosed: 'drawer.closed',
+  InventoryAlert: 'inventory.alert',
 } as const;
 
 export type HpcEvent = (typeof Events)[keyof typeof Events];
