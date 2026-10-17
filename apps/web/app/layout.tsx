@@ -86,9 +86,9 @@ export default function RootLayout({
           }}
         />
         <script
-          // Register service worker for offline PWA resilience
+          // Register service worker for offline PWA resilience and force update check
           dangerouslySetInnerHTML={{
-            __html: `if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(){});});}`,
+            __html: `if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').then(function(reg){reg.update();}).catch(function(){});});}`,
           }}
         />
       </head>

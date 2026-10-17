@@ -1,7 +1,7 @@
 // apps/web/public/sw.js
 // HPC Jashore — Service Worker for PWA Offline Resilience
 
-const CACHE_NAME = 'hpc-cache-v1';
+const CACHE_NAME = 'hpc-cache-v3';
 const STATIC_ASSETS = [
   '/',
   '/manifest.webmanifest',
@@ -40,6 +40,22 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Network-first strategy for HTML page navigations (Landing page, TV, Login, etc.)
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request)
+        .then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const clone = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+          }
+          return networkResponse;
+        })
+        .catch(() => caches.match(event.request))
+    );
+    return;
+  }
+
   // Network-first strategy for API reads
   if (url.pathname.startsWith('/api/')) {
     event.respondWith(
@@ -56,7 +72,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Stale-while-revalidate for static pages, fonts, scripts, and CSS
+  // Stale-while-revalidate for static assets, fonts, and scripts
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       const fetchPromise = fetch(event.request)
