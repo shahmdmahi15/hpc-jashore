@@ -36,7 +36,23 @@ jobs:
       - name: Build API
         run: pnpm --filter @hpc/api build
 
-      - name: Deploy to Lightsail Server
+      - name: Build Web
+        run: pnpm --filter @hpc/web build
+
+      - name: Package Production Build Bundle
+        run: tar -czf build-bundle.tar.gz apps/api/dist apps/web/.next
+
+      - name: Upload Build Bundle to Lightsail
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.HOST_IP }}
+          username: ${{ secrets.HOST_USERNAME }}
+          key: ${{ secrets.HOST_KEY }}
+          port: 22
+          source: 'build-bundle.tar.gz'
+          target: '/var/www/hpc-jashore'
+
+      - name: Deploy & Reload on Lightsail
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.HOST_IP }}
@@ -45,18 +61,18 @@ jobs:
           port: 22
           script: |
             set -e
-            echo "🚀 Pulling latest code on Lightsail..."
+            echo "🚀 Updating code on Lightsail..."
             cd /var/www/hpc-jashore
             git fetch origin main
             git reset --hard origin/main
 
+            echo "📦 Extracting high-performance build artifacts..."
+            tar -xzf build-bundle.tar.gz
+            rm -f build-bundle.tar.gz
+
             echo "📦 Installing dependencies..."
             pnpm install
             pnpm rebuild better-sqlite3
-
-            echo "🔨 Building API & Web..."
-            pnpm --filter @hpc/api build
-            pnpm --filter @hpc/web build
 
             echo "🔄 Reloading PM2 processes..."
             pm2 reload ecosystem.config.cjs --update-env || pm2 start ecosystem.config.cjs
