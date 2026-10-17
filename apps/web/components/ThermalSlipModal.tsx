@@ -49,6 +49,13 @@ export default function ThermalSlipModal({ tokenData, onClose }: ThermalSlipModa
             maxWidth: '300px',
           }}
         >
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '6px' }}>
+            <img
+              src="/logo.jpg"
+              alt="HPC Logo"
+              style={{ width: '32px', height: '32px', borderRadius: '4px', objectFit: 'cover' }}
+            />
+          </div>
           <div style={{ fontWeight: 'bold', fontSize: '13px' }}>
             {tokenData.clinicNameBn || 'এইচপিসি হেলথ অ্যান্ড পেইন কেয়ার সেন্টার'}
           </div>

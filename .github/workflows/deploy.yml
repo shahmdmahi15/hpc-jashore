@@ -1,0 +1,68 @@
+name: Deploy to AWS Lightsail
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  test-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.0.0
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint Verification
+        run: pnpm -r lint
+
+      - name: Unit Tests
+        run: pnpm --filter @hpc/api test:mrn
+
+      - name: Build API
+        run: pnpm --filter @hpc/api build
+
+      - name: Deploy to Lightsail Server
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.HOST_IP }}
+          username: ${{ secrets.HOST_USERNAME }}
+          key: ${{ secrets.HOST_KEY }}
+          port: 22
+          script: |
+            set -e
+            echo "🚀 Pulling latest code on Lightsail..."
+            cd /var/www/hpc-jashore
+            git fetch origin main
+            git reset --hard origin/main
+
+            echo "📦 Installing dependencies..."
+            pnpm install
+            pnpm rebuild better-sqlite3
+
+            echo "🔨 Building API & Web..."
+            pnpm --filter @hpc/api build
+            pnpm --filter @hpc/web build
+
+            echo "🔄 Reloading PM2 processes..."
+            pm2 reload ecosystem.config.cjs --update-env || pm2 start ecosystem.config.cjs
+            pm2 save
+
+            echo "🌐 Reloading Nginx..."
+            sudo systemctl reload nginx
+
+            echo "✅ Deployment Successful!"

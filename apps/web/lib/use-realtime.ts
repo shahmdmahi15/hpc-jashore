@@ -23,7 +23,10 @@ export function useRealtime(onEvent?: (event: RealtimeEvent) => void) {
 
     function connect() {
       if (isCancelled) return;
-      const sseUrl = new URL(`${API_BASE}/sse/feed`);
+      const apiBase = typeof window !== 'undefined'
+        ? `${window.location.origin}/api`
+        : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api');
+      const sseUrl = new URL(`${apiBase}/sse/feed`);
       if (lastEventIdRef.current) {
         sseUrl.searchParams.set('lastEventId', lastEventIdRef.current);
       }

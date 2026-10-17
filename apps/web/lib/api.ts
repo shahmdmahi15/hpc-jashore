@@ -1,7 +1,12 @@
 // apps/web/lib/api.ts
 // Typed API Client for HPC Jashore
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+export function getApiBase(): string {
+  if (typeof window !== 'undefined') {
+    return `${window.location.origin}/api`;
+  }
+  return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+}
 
 export interface UserSession {
   accessToken: string;
@@ -53,7 +58,8 @@ export async function apiFetch<T>(
     headers.set('Authorization', `Bearer ${session.accessToken}`);
   }
 
-  const res = await fetch(`${API_BASE}${path}`, {
+  const base = getApiBase();
+  const res = await fetch(`${base}${path}`, {
     ...options,
     headers,
   });

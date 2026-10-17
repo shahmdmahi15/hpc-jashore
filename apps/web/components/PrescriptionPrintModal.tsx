@@ -84,16 +84,23 @@ export default function PrescriptionPrintModal({
         >
           {/* Header */}
           <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '2px solid #059669', paddingBottom: '8px' }}>
-              <div>
-                <h2 style={{ margin: 0, fontSize: '16px', color: '#047857', fontWeight: 800 }}>
-                  এইচপিসি হেলথ অ্যান্ড পেইন কেয়ার সেন্টার
-                </h2>
-                <div style={{ fontSize: '12px', fontWeight: 600, color: '#333' }}>
-                  HPC Health &amp; Pain Care Center, Jashore
-                </div>
-                <div style={{ fontSize: '10px', color: '#666' }}>
-                  Mujib Sarak, Jashore · Cell: 01XXXXXXXXX
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #059669', paddingBottom: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <img
+                  src="/logo.jpg"
+                  alt="HPC Logo"
+                  style={{ width: '42px', height: '42px', borderRadius: '8px', objectFit: 'cover', border: '1px solid #10b981' }}
+                />
+                <div>
+                  <h2 style={{ margin: 0, fontSize: '15px', color: '#047857', fontWeight: 800 }}>
+                    এইচপিসি হেলথ অ্যান্ড পেইন কেয়ার সেন্টার
+                  </h2>
+                  <div style={{ fontSize: '11px', fontWeight: 600, color: '#333' }}>
+                    HPC Health &amp; Pain Care Center, Jashore
+                  </div>
+                  <div style={{ fontSize: '10px', color: '#666' }}>
+                    Mujib Sarak, Jashore · Cell: 01XXXXXXXXX
+                  </div>
                 </div>
               </div>
 

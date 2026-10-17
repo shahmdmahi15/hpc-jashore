@@ -6,6 +6,7 @@ dist/
 .next/
 out/
 build/
+*.tsbuildinfo
 
 # env
 .env
@@ -20,6 +21,7 @@ Thumbs.db
 *.db
 *.db-*
 *.sqlite*
+data/
 
 # pm2
 .pm2/
