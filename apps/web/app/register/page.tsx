@@ -3,44 +3,90 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { api } from '../../lib/api';
-import { ArrowLeft, Loader2, Lock, Mail, Phone, ShieldAlert, User, UserPlus } from 'lucide-react';
+import {
+  CheckCircle2,
+  Eye,
+  EyeOff,
+  Loader2,
+  Lock,
+  Mail,
+  MessageSquare,
+  User,
+  UserPlus,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
+import { AuthLayout } from '../../components/AuthLayout';
 
 export default function RegisterPage() {
   const router = useRouter();
-  const [displayName, setDisplayName] = useState('');
+
+  // ONLY 5 fields required by specification:
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
+  const [whatsappNumber, setWhatsappNumber] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState('reception');
+  const [confirmPassword, setConfirmPassword] = useState('');
+
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!displayName || !email || !password) {
-      toast.error('অনুগ্রহ করে নাম, ইমেইল ও পাসওয়ার্ড প্রদান করুন');
+    setErrorMsg('');
+
+    // Field Validations
+    if (!name.trim()) {
+      setErrorMsg('অনুগ্রহ করে আপনার পূর্ণ নাম লিখুন');
+      toast.error('নাম প্রদান আবশ্যক');
       return;
     }
+
+    if (!email.trim() || !email.includes('@')) {
+      setErrorMsg('অনুগ্রহ করে একটি সঠিক ইমেইল ঠিকানা দিন');
+      toast.error('সঠিক ইমেইল ঠিকানা প্রয়োজন');
+      return;
+    }
+
+    if (!whatsappNumber.trim()) {
+      setErrorMsg('অনুগ্রহ করে আপনার সক্রিয় হোয়াটসঅ্যাপ নম্বর দিন');
+      toast.error('হোয়াটসঅ্যাপ নম্বর আবশ্যক');
+      return;
+    }
+
+    if (password.length < 6) {
+      setErrorMsg('পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে');
+      toast.error('পাসওয়ার্ড কমপক্ষে ৬ অক্ষর হতে হবে');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setErrorMsg('উভয় পাসওয়ার্ড হুবহু একই হতে হবে');
+      toast.error('পাসওয়ার্ড নিশ্চিতকরণ মেলেনি');
+      return;
+    }
+
     setLoading(true);
-    setErrorMsg('');
     try {
       const res = await api.auth.register({
-        displayName,
-        email,
-        phone,
+        displayName: name.trim(),
+        email: email.trim().toLowerCase(),
+        phone: whatsappNumber.trim(),
         password,
-        role,
       });
-      toast.success(res.message || 'নিবন্ধন সম্পন্ন হয়েছে! ভেরিফিকেশন পিন ইমেইলে পাঠানো হয়েছে।');
-      router.push(`/verify?email=${encodeURIComponent(email)}`);
+
+      toast.success(
+        res.message || 'নিবন্ধন সম্পন্ন হয়েছে! ভেরিফিকেশন লিঙ্ক ইমেইলে পাঠানো হয়েছে।'
+      );
+      router.push(`/verify?email=${encodeURIComponent(email.trim().toLowerCase())}`);
     } catch (err: any) {
-      const msg = err?.message || 'নিবন্ধন সম্পন্ন করা যায়নি। পুনরায় চেষ্টা করুন।';
+      const msg =
+        err?.message || 'নিবন্ধন সম্পন্ন করা যায়নি। তথ্য যাচাই করে পুনরায় চেষ্টা করুন।';
       setErrorMsg(msg);
       toast.error(msg);
     } finally {
@@ -49,165 +95,169 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white flex flex-col justify-center items-center p-4 relative overflow-hidden font-sans selection:bg-emerald-500/20">
-      <div className="pointer-events-none absolute -top-40 -left-40 w-96 h-96 rounded-full blur-3xl bg-emerald-500/10" />
-      <div className="pointer-events-none absolute -bottom-40 -right-40 w-96 h-96 rounded-full blur-3xl bg-emerald-600/10" />
-
-      <div className="w-full max-w-md mb-4 flex justify-between items-center z-10">
-        <Link
-          href="/"
-          className="inline-flex items-center gap-1.5 text-xs text-zinc-400 hover:text-emerald-400 transition-colors"
-        >
-          <ArrowLeft className="size-3.5" />
-          <span>হোমপেজে ফিরে যান (Home)</span>
-        </Link>
-        <Link
-          href="/login"
-          className="text-xs text-emerald-400 hover:text-emerald-300 font-semibold"
-        >
-          ইতিমধ্যে অ্যাকাউন্ট আছে? লগইন
-        </Link>
-      </div>
-
-      <div className="glass-panel w-full max-w-md p-6 sm:p-8 rounded-3xl border border-zinc-800 bg-zinc-950/85 shadow-2xl backdrop-blur-2xl z-10">
-        <div className="flex flex-col items-center text-center mb-6">
-          <div className="w-16 h-16 rounded-2xl bg-white p-1.5 shadow-lg shadow-black/40 mb-3 flex items-center justify-center border border-zinc-200">
-            <Image
-              src="/hpclogo-transparent.png"
-              alt="HPC Logo"
-              width={64}
-              height={64}
-              className="object-contain"
-              priority
+    <AuthLayout
+      title="অ্যাকাউন্ট রেজিস্ট্রেশন"
+      subtitle="নতুন ব্যবহারকারী ও ক্লিনিক্যাল স্টাফ নিবন্ধন ফরম"
+      badge="সুরক্ষিত নিবন্ধন"
+      errorMsg={errorMsg}
+      topRightLink={{
+        href: '/login',
+        label: 'লগইন করুন',
+      }}
+    >
+      <form onSubmit={handleSubmit} className="space-y-3.5">
+        {/* 1. Name */}
+        <div>
+          <label className="block text-xs font-semibold text-zinc-300 mb-1">
+            পূর্ণ নাম <span className="text-emerald-400">*</span> (Full Name)
+          </label>
+          <div className="relative">
+            <User className="size-4 text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <Input
+              type="text"
+              autoComplete="name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="ডাঃ / থেরাপিস্ট / স্টাফ / রোগীর নাম"
+              required
+              className="pl-10 h-11 text-base sm:text-sm bg-zinc-900/90 border-zinc-800 text-white placeholder:text-zinc-600 focus-visible:ring-emerald-500 focus-visible:border-emerald-500 transition-colors"
             />
           </div>
-          <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">
-            ক্লিনিক্যাল স্টাফ রেজিস্ট্রেশন
-          </h1>
-          <p className="text-xs text-zinc-400 mt-1">
-            Health &amp; Pain Care Center · Jashore
-          </p>
         </div>
 
-        {errorMsg && (
-          <div className="mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/30 flex items-start gap-2.5 text-red-300 text-xs">
-            <ShieldAlert className="size-4 shrink-0 mt-0.5 text-red-400" />
-            <span>{errorMsg}</span>
+        {/* 2. Email */}
+        <div>
+          <label className="block text-xs font-semibold text-zinc-300 mb-1">
+            ইমেইল অ্যাড্রেস <span className="text-emerald-400">*</span> (Email)
+          </label>
+          <div className="relative">
+            <Mail className="size-4 text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <Input
+              type="email"
+              autoComplete="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="name@example.com"
+              required
+              className="pl-10 h-11 text-base sm:text-sm bg-zinc-900/90 border-zinc-800 text-white placeholder:text-zinc-600 focus-visible:ring-emerald-500 focus-visible:border-emerald-500 transition-colors"
+            />
           </div>
-        )}
+        </div>
 
-        <form onSubmit={handleSubmit} className="space-y-3.5">
-          <div>
-            <label className="block text-xs font-semibold text-zinc-300 mb-1">
-              পূর্ণ নাম (Full Name)
-            </label>
-            <div className="relative">
-              <User className="size-4 text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-              <Input
-                type="text"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                placeholder="ডাঃ / থেরাপিস্ট / স্টাফের নাম"
-                required
-                className="pl-10 bg-zinc-900 border-zinc-800 text-white placeholder:text-zinc-600 focus-visible:ring-emerald-500"
-              />
-            </div>
+        {/* 3. WhatsApp Number */}
+        <div>
+          <label className="block text-xs font-semibold text-zinc-300 mb-1">
+            হোয়াটসঅ্যাপ নম্বর <span className="text-emerald-400">*</span> (WhatsApp Number)
+          </label>
+          <div className="relative">
+            <MessageSquare className="size-4 text-emerald-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <Input
+              type="tel"
+              autoComplete="tel"
+              value={whatsappNumber}
+              onChange={(e) => setWhatsappNumber(e.target.value)}
+              placeholder="+8801XXXXXXXXX"
+              required
+              className="pl-10 h-11 text-base sm:text-sm bg-zinc-900/90 border-zinc-800 text-white placeholder:text-zinc-600 focus-visible:ring-emerald-500 focus-visible:border-emerald-500 transition-colors"
+            />
           </div>
+        </div>
 
-          <div>
-            <label className="block text-xs font-semibold text-zinc-300 mb-1">
-              অফিশিয়াল ইমেইল (Email)
-            </label>
-            <div className="relative">
-              <Mail className="size-4 text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-              <Input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="staff@hpc.local"
-                required
-                className="pl-10 bg-zinc-900 border-zinc-800 text-white placeholder:text-zinc-600 focus-visible:ring-emerald-500"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-zinc-300 mb-1">
-              মোবাইল নম্বর (Phone)
-            </label>
-            <div className="relative">
-              <Phone className="size-4 text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-              <Input
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="01700-000000"
-                className="pl-10 bg-zinc-900 border-zinc-800 text-white placeholder:text-zinc-600 focus-visible:ring-emerald-500"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-zinc-300 mb-1">
-              ক্লিনিক্যাল পদবী / ডিপার্টমেন্ট (Role)
-            </label>
-            <select
-              value={role}
-              onChange={(e) => setRole(e.target.value)}
-              className="w-full px-3 py-2.5 rounded-lg bg-zinc-900 border border-zinc-800 text-white text-sm focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500 transition-colors"
+        {/* 4. Password */}
+        <div>
+          <label className="block text-xs font-semibold text-zinc-300 mb-1">
+            পাসওয়ার্ড <span className="text-emerald-400">*</span> (Password)
+          </label>
+          <div className="relative">
+            <Lock className="size-4 text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <Input
+              type={showPassword ? 'text' : 'password'}
+              autoComplete="new-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="কমপক্ষে ৬ অক্ষর..."
+              required
+              className="pl-10 pr-10 h-11 text-base sm:text-sm bg-zinc-900/90 border-zinc-800 text-white placeholder:text-zinc-600 focus-visible:ring-emerald-500 focus-visible:border-emerald-500 transition-colors"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 rounded"
+              title={showPassword ? 'Hide password' : 'Show password'}
             >
-              <option value="reception">রিসেপশন ও ফ্রন্ট ডেস্ক (Reception)</option>
-              <option value="doctor">চিফ কনসালট্যান্ট / মেডিকেল ডাক্তার (Doctor)</option>
-              <option value="therapy">ফিজিওথেরাপিস্ট ও রিহ্যাব হল (Therapist)</option>
-              <option value="cashier">ক্যাশিয়ার ও অ্যাকাউন্টস বিলিং (Cashier)</option>
-              <option value="pharmacy">ফার্মেসি ও ডিসপেনসারি (Pharmacy)</option>
-              <option value="admin">সিস্টেম অ্যাডমিনিস্ট্রেটর (Admin)</option>
-            </select>
+              {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+            </button>
           </div>
+        </div>
 
-          <div>
-            <label className="block text-xs font-semibold text-zinc-300 mb-1">
-              পাসওয়ার্ড (Password)
-            </label>
-            <div className="relative">
-              <Lock className="size-4 text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-              <Input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="কমপক্ষে ৬ অক্ষর..."
-                required
-                className="pl-10 bg-zinc-900 border-zinc-800 text-white placeholder:text-zinc-600 focus-visible:ring-emerald-500"
-              />
-            </div>
+        {/* 5. Confirm Password */}
+        <div>
+          <label className="block text-xs font-semibold text-zinc-300 mb-1">
+            পাসওয়ার্ড নিশ্চিতকরণ <span className="text-emerald-400">*</span> (Confirm Password)
+          </label>
+          <div className="relative">
+            <Lock className="size-4 text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <Input
+              type={showConfirmPassword ? 'text' : 'password'}
+              autoComplete="new-password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder="পুনরায় একই পাসওয়ার্ড লিখুন..."
+              required
+              className="pl-10 pr-10 h-11 text-base sm:text-sm bg-zinc-900/90 border-zinc-800 text-white placeholder:text-zinc-600 focus-visible:ring-emerald-500 focus-visible:border-emerald-500 transition-colors"
+            />
+            <button
+              type="button"
+              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 rounded"
+              title={showConfirmPassword ? 'Hide password' : 'Show password'}
+            >
+              {showConfirmPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+            </button>
           </div>
+        </div>
 
-          <Button
-            type="submit"
-            disabled={loading}
-            className="w-full mt-2 py-3 h-11 rounded-xl font-bold text-sm bg-emerald-500 hover:bg-emerald-400 text-black shadow-lg shadow-emerald-500/20"
+        {/* Submit Button */}
+        <Button
+          type="submit"
+          disabled={loading}
+          className="w-full mt-3 py-3 h-12 rounded-xl font-bold text-sm bg-emerald-500 hover:bg-emerald-400 text-black shadow-lg shadow-emerald-500/20 active:scale-[0.99] transition-all focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+        >
+          {loading ? (
+            <>
+              <Loader2 className="size-4 animate-spin" />
+              <span>নিবন্ধন যাচাই হচ্ছে...</span>
+            </>
+          ) : (
+            <>
+              <UserPlus className="size-4" />
+              <span>রেজিস্ট্রেশন সম্পন্ন করুন</span>
+            </>
+          )}
+        </Button>
+      </form>
+
+      {/* Navigation Footer */}
+      <div className="mt-5 text-center text-xs text-zinc-400 flex flex-col gap-1.5 border-t border-zinc-900 pt-4">
+        <div>
+          ইতিমধ্যে একটি অ্যাকাউন্ট আছে?{' '}
+          <Link
+            href="/login"
+            className="text-emerald-400 font-semibold hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-500 rounded"
           >
-            {loading ? (
-              <>
-                <Loader2 className="size-4 animate-spin" />
-                <span>অ্যাকাউন্ট তৈরি হচ্ছে...</span>
-              </>
-            ) : (
-              <>
-                <UserPlus className="size-4" />
-                <span>রেজিস্ট্রেশন সম্পন্ন করুন</span>
-              </>
-            )}
-          </Button>
-        </form>
-
-        <div className="mt-5 text-center text-xs text-zinc-400">
-          ইতিমধ্যে নিবন্ধিত?{' '}
-          <Link href="/login" className="text-emerald-400 font-semibold hover:underline">
-            লগইন করুন
+            লগইন করুন (Sign In)
+          </Link>
+        </div>
+        <div>
+          ভেরিফিকেশন লিঙ্ক পাননি?{' '}
+          <Link
+            href="/resend-verification"
+            className="text-zinc-400 hover:text-emerald-400 hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-500 rounded"
+          >
+            ভেরিফিকেশন লিঙ্ক পুনরায় পাঠান
           </Link>
         </div>
       </div>
-    </div>
+    </AuthLayout>
   );
 }

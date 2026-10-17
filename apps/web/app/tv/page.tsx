@@ -1,11 +1,14 @@
-// apps/web/app/tv/page.tsx
-import WaitingRoomTvView from '../../components/WaitingRoomTvView';
+'use client';
 
-export const metadata = {
-  title: 'Waiting Room TV Display — HPC Jashore',
-  description: 'Live token feed and now-serving display for patient waiting hall',
-};
+import React from 'react';
+import WaitingRoomTvView from '../../components/WaitingRoomTvView';
+import { AuthGuard } from '../../components/AuthGuard';
 
 export default function TvPage() {
-  return <WaitingRoomTvView />;
+  return (
+    <AuthGuard>
+      <WaitingRoomTvView />
+    </AuthGuard>
+  );
 }
+

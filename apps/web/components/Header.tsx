@@ -34,13 +34,13 @@ interface HeaderProps {
 }
 
 const TABS = [
-  { id: 'reception', label: 'Reception', icon: ClipboardList },
-  { id: 'doctor', label: 'Doctor Chamber', icon: Stethoscope },
-  { id: 'therapy', label: 'Therapy Hall', icon: Activity },
-  { id: 'cashier', label: 'Billing & Cashier', icon: CreditCard },
-  { id: 'pharmacy', label: 'Pharmacy FIFO', icon: Pill },
-  { id: 'admin', label: 'Executive Admin', icon: ShieldCheck },
-  { id: 'tv', label: 'Waiting TV', icon: Tv },
+  { id: 'reception', label: 'Reception', icon: ClipboardList, href: '/receptionist' },
+  { id: 'doctor', label: 'Doctor Chamber', icon: Stethoscope, href: '/doctor' },
+  { id: 'therapy', label: 'Therapy Hall', icon: Activity, href: '/therapy' },
+  { id: 'cashier', label: 'Billing & Cashier', icon: CreditCard, href: '/cashier' },
+  { id: 'pharmacy', label: 'Pharmacy FIFO', icon: Pill, href: '/pharmacy' },
+  { id: 'admin', label: 'Executive Admin', icon: ShieldCheck, href: '/admin' },
+  { id: 'tv', label: 'Waiting TV', icon: Tv, href: '/tv' },
 ];
 
 export default function Header({
@@ -76,11 +76,11 @@ export default function Header({
       const newSession = await quickLogin(role);
       onSessionChange(newSession);
       toast.success(`Logged in as ${newSession.displayName || newSession.email} (${newSession.role})`);
-      if (role === 'reception') onTabChange('reception');
-      else if (role === 'head_doctor' || role === 'doctor') onTabChange('doctor');
-      else if (role === 'therapist') onTabChange('therapy');
-      else if (role === 'cashier') onTabChange('cashier');
-      else if (role === 'admin') onTabChange('admin');
+      if (role === 'reception') router.push('/receptionist');
+      else if (role === 'head_doctor' || role === 'doctor') router.push('/doctor');
+      else if (role === 'therapist') router.push('/therapy');
+      else if (role === 'cashier') router.push('/cashier');
+      else if (role === 'admin') router.push('/admin');
     } catch (e: any) {
       toast.error(`Login failed: ${e.message}`);
     } finally {
@@ -98,7 +98,7 @@ export default function Header({
     <header className="w-full px-3 sm:px-6 py-2.5 border-b border-border/80 bg-card/85 backdrop-blur-xl sticky top-0 z-40 flex flex-wrap items-center justify-between gap-3 shadow-xs">
       {/* 1. Left: Brand & Telemetry Badge */}
       <div className="flex items-center gap-3 shrink-0">
-        <BrandLogo size="sm" variant="full" className="cursor-pointer" onClick={() => onTabChange('reception')} />
+        <BrandLogo size="sm" variant="full" className="cursor-pointer" onClick={() => router.push('/')} />
 
         {/* Realtime Live Telemetry Badge */}
         <div
@@ -135,7 +135,10 @@ export default function Header({
             <button
               key={tab.id}
               type="button"
-              onClick={() => onTabChange(tab.id)}
+              onClick={() => {
+                if (onTabChange) onTabChange(tab.id);
+                router.push(tab.href);
+              }}
               className={cn(
                 'flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer whitespace-nowrap active:scale-95 shrink-0 border',
                 isActive

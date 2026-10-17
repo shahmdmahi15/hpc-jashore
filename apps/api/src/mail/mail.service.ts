@@ -45,11 +45,19 @@ export class MailService {
         <p style="font-size: 14px; line-height: 1.5; margin-bottom: 12px;">Use the following 6-digit verification code to complete your password reset:</p>
 
         <div style="text-align: center; margin: 28px 0;">
-          <span style="display: inline-block; font-size: 36px; font-weight: 800; letter-spacing: 8px; color: #047857; background-color: #ecfdf5; border: 2px dashed #10b981; padding: 12px 28px; border-radius: 12px;">
+          <a href="https://hpc.toufiquzzaman.com/reset-password?email=${encodeURIComponent(email)}&code=${pin}" style="display: inline-block; background-color: #059669; color: #ffffff; text-decoration: none; font-weight: 700; font-size: 16px; padding: 14px 32px; border-radius: 12px; margin-bottom: 16px; box-shadow: 0 4px 6px -1px rgba(5, 150, 105, 0.3);">
+            পাসওয়ার্ড রিসেট করুন (Reset Password Link)
+          </a>
+          <p style="font-size: 13px; color: #64748b; margin-bottom: 8px;">অথবা নিচের ৬-ডিজিটের পিন কোডটি ব্যবহার করুন:</p>
+          <span style="display: inline-block; font-size: 32px; font-weight: 800; letter-spacing: 8px; color: #047857; background-color: #ecfdf5; border: 2px dashed #10b981; padding: 10px 24px; border-radius: 12px;">
             ${pin}
           </span>
           <p style="font-size: 12px; color: #94a3b8; margin-top: 8px;">This code will expire in 15 minutes.</p>
         </div>
+
+        <p style="font-size: 13px; color: #64748b; line-height: 1.5;">
+          Direct Link: <a href="https://hpc.toufiquzzaman.com/reset-password?email=${encodeURIComponent(email)}&code=${pin}" style="color: #059669; word-break: break-all;">https://hpc.toufiquzzaman.com/reset-password?email=${encodeURIComponent(email)}&code=${pin}</a>
+        </p>
 
         <p style="font-size: 13px; color: #64748b; line-height: 1.5;">
           If you did not request this password reset, please ignore this email or notify the reception counter immediately.
@@ -69,7 +77,7 @@ export class MailService {
         from,
         to: email,
         subject: `HPC Jashore - Password Reset Code: ${pin}`,
-        text: `Your password reset verification code is: ${pin}. It expires in 15 minutes.`,
+        text: `Reset your password directly: https://hpc.toufiquzzaman.com/reset-password?email=${encodeURIComponent(email)}&code=${pin}\n\nYour 6-digit code is: ${pin}`,
         html,
       });
       this.logger.log(`Password reset email sent to ${email} (MessageID: ${info.messageId})`);
@@ -99,11 +107,19 @@ export class MailService {
         </div>
 
         <div style="text-align: center; margin: 28px 0;">
-          <span style="display: inline-block; font-size: 36px; font-weight: 800; letter-spacing: 8px; color: #047857; background-color: #ecfdf5; border: 2px dashed #10b981; padding: 12px 28px; border-radius: 12px;">
+          <a href="https://hpc.toufiquzzaman.com/verify?email=${encodeURIComponent(email)}&code=${code}" style="display: inline-block; background-color: #059669; color: #ffffff; text-decoration: none; font-weight: 700; font-size: 16px; padding: 14px 32px; border-radius: 12px; margin-bottom: 16px; box-shadow: 0 4px 6px -1px rgba(5, 150, 105, 0.3);">
+            ইমেইল ভেরিফাই করুন (Verify Email Link)
+          </a>
+          <p style="font-size: 13px; color: #64748b; margin-bottom: 8px;">অথবা নিচের ভেরিফিকেশন কোডটি ব্যবহার করুন:</p>
+          <span style="display: inline-block; font-size: 32px; font-weight: 800; letter-spacing: 8px; color: #047857; background-color: #ecfdf5; border: 2px dashed #10b981; padding: 10px 24px; border-radius: 12px;">
             ${code}
           </span>
           <p style="font-size: 12px; color: #94a3b8; margin-top: 8px;">Enter this verification code in the portal to confirm your email.</p>
         </div>
+
+        <p style="font-size: 13px; color: #64748b; line-height: 1.5;">
+          Direct Link: <a href="https://hpc.toufiquzzaman.com/verify?email=${encodeURIComponent(email)}&code=${code}" style="color: #059669; word-break: break-all;">https://hpc.toufiquzzaman.com/verify?email=${encodeURIComponent(email)}&code=${code}</a>
+        </p>
 
         <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 24px 0;" />
         <div style="font-size: 11px; color: #94a3b8; text-align: center;">

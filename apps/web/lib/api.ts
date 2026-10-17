@@ -19,13 +19,36 @@ export interface UserSession {
 
 let activeSession: UserSession | null = null;
 
+export function getRoleHomeRoute(role?: string): string {
+  switch (role) {
+    case 'admin':
+      return '/admin';
+    case 'head_doctor':
+    case 'doctor':
+      return '/doctor';
+    case 'reception':
+    case 'receptionist':
+      return '/receptionist';
+    case 'cashier':
+      return '/cashier';
+    case 'therapist':
+      return '/therapy';
+    case 'pharmacy':
+      return '/pharmacy';
+    default:
+      return '/receptionist';
+  }
+}
+
 export function setSession(session: UserSession | null) {
   activeSession = session;
   if (typeof window !== 'undefined') {
     if (session) {
       localStorage.setItem('hpc_session', JSON.stringify(session));
+      document.cookie = `hpc_session=1; path=/; max-age=604800; SameSite=Lax`;
     } else {
       localStorage.removeItem('hpc_session');
+      document.cookie = `hpc_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax`;
     }
   }
 }

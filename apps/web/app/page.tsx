@@ -80,7 +80,7 @@ export default function LandingPage() {
           </Link>
 
           <Link
-            href="/dashboard"
+            href="/login"
             className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-bold bg-emerald-500 hover:bg-emerald-400 text-black shadow-md shadow-emerald-500/20 transition-all transform hover:-translate-y-0.5"
           >
             <span>ক্লিনিক্যাল পোর্টাল</span>
@@ -137,11 +137,11 @@ export default function LandingPage() {
             </Link>
 
             <Link
-              href="/dashboard"
+              href="/login"
               className="flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl text-sm sm:text-base font-bold bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-white/10 transition-all"
             >
               <Activity className="size-5 text-emerald-400" />
-              <span>ক্লিনিক্যাল ওয়ার্কস্টেশন পোর্টাল</span>
+              <span>ক্লিনিক্যাল ওয়ার্কস্টেশন লগইন</span>
             </Link>
           </div>
 
@@ -532,9 +532,6 @@ export default function LandingPage() {
             </Link>
             <Link href="/register" className="hover:text-emerald-400 transition-colors">
               Register (/register)
-            </Link>
-            <Link href="/dashboard" className="text-emerald-400 hover:text-emerald-300 transition-colors">
-              Clinical Dashboard (/dashboard)
             </Link>
           </div>
 
