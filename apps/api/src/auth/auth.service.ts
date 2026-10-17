@@ -14,6 +14,7 @@ import { and, eq } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
 import { AuditService } from '../audit/audit.service';
 import { DB, type Db } from '../db/db.module';
+import { MailService } from '../mail/mail.service';
 import {
   actionGrants,
   desks,
@@ -25,6 +26,7 @@ import {
 } from '../db/schema';
 import { validatePinPolicy } from './pin.util';
 import { hashToken } from './token.util';
+import type { RegisterDto, ResetPasswordDto, VerifyEmailDto } from './dto';
 
 const FAILED_LIMIT = 5;
 const LOCK_MS = 15 * 60 * 1000;
@@ -37,11 +39,15 @@ interface ReqMeta {
 
 @Injectable()
 export class AuthService {
+  private readonly passwordResetCodes = new Map<string, { code: string; expiresAt: number }>();
+  private readonly emailVerificationCodes = new Map<string, { code: string; expiresAt: number }>();
+
   constructor(
     @Inject(DB) private readonly db: Db,
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
     private readonly audit: AuditService,
+    private readonly mail: MailService,
   ) {}
 
   // --- Personal login ---------------------------------------------------------
@@ -539,5 +545,189 @@ export class AuthService {
       requestId: meta.requestId,
     });
     return { ok: true };
+  }
+
+  // --- Registration & Email Verification & Password Reset ---
+
+  async register(dto: RegisterDto, meta: ReqMeta) {
+    const normalized = dto.email.trim().toLowerCase();
+    const existing = await this.db.select().from(users).where(eq(users.email, normalized));
+    if (existing.length > 0) {
+      throw new BadRequestException('An account with this email already exists.');
+    }
+
+    const userId = randomUUID();
+    const passwordHash = await bcrypt.hash(dto.password, 10);
+    const role: Role = (dto.role as Role) || 'patient' as any;
+
+    await this.db.insert(users).values({
+      id: userId,
+      email: normalized,
+      passwordHash,
+      role: (['admin', 'head_doctor', 'doctor', 'reception', 'therapist', 'cashier'].includes(role) ? role : 'reception') as Role,
+      displayName: dto.displayName.trim(),
+      isActive: 1,
+      mustChangePassword: 0,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+
+    // Generate 6-digit verification code
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    this.emailVerificationCodes.set(normalized, {
+      code,
+      expiresAt: Date.now() + 24 * 60 * 60 * 1000,
+    });
+
+    // Send verification email asynchronously
+    this.mail.sendVerificationCode(normalized, code, dto.displayName).catch(() => {});
+
+    await this.audit.log({
+      actorUserId: userId,
+      actorRole: role,
+      action: 'auth.register',
+      entity: 'user',
+      entityId: userId,
+      ip: meta.ip,
+      requestId: meta.requestId,
+    });
+
+    return {
+      success: true,
+      message: 'Account successfully registered. A verification code has been dispatched to your email.',
+      userId,
+    };
+  }
+
+  async forgotPassword(email: string, meta: ReqMeta) {
+    const normalized = email.trim().toLowerCase();
+    const rows = await this.db.select().from(users).where(eq(users.email, normalized));
+    const user = rows[0];
+
+    // Generate 6-digit PIN
+    const pin = Math.floor(100000 + Math.random() * 900000).toString();
+    this.passwordResetCodes.set(normalized, {
+      code: pin,
+      expiresAt: Date.now() + 15 * 60 * 1000,
+    });
+
+    if (user) {
+      await this.mail.sendPasswordResetPin(normalized, pin, user.displayName);
+      await this.audit.log({
+        actorUserId: user.id,
+        actorRole: user.role,
+        action: 'auth.forgot_password_requested',
+        entity: 'user',
+        entityId: user.id,
+        ip: meta.ip,
+        requestId: meta.requestId,
+      });
+    }
+
+    return {
+      success: true,
+      message: 'If an account exists with this email, a 6-digit password reset PIN has been sent.',
+    };
+  }
+
+  async resetPassword(dto: ResetPasswordDto, meta: ReqMeta) {
+    const normalized = dto.email.trim().toLowerCase();
+    const cached = this.passwordResetCodes.get(normalized);
+
+    if (!cached || cached.code !== dto.code.trim() || cached.expiresAt < Date.now()) {
+      throw new BadRequestException('Invalid or expired password reset PIN.');
+    }
+
+    const rows = await this.db.select().from(users).where(eq(users.email, normalized));
+    const user = rows[0];
+    if (!user) {
+      throw new BadRequestException('User not found.');
+    }
+
+    const passwordHash = await bcrypt.hash(dto.newPassword, 10);
+    await this.db
+      .update(users)
+      .set({
+        passwordHash,
+        mustChangePassword: 0,
+        updatedAt: new Date().toISOString(),
+      })
+      .where(eq(users.id, user.id));
+
+    this.passwordResetCodes.delete(normalized);
+
+    await this.audit.log({
+      actorUserId: user.id,
+      actorRole: user.role,
+      action: 'auth.password_reset_completed',
+      entity: 'user',
+      entityId: user.id,
+      ip: meta.ip,
+      requestId: meta.requestId,
+    });
+
+    return {
+      success: true,
+      message: 'Your password has been reset successfully. You can now log in with your new credentials.',
+    };
+  }
+
+  async verifyEmail(dto: VerifyEmailDto, meta: ReqMeta) {
+    const normalized = dto.email.trim().toLowerCase();
+    const cached = this.emailVerificationCodes.get(normalized);
+
+    if (!cached || cached.code !== dto.code.trim() || cached.expiresAt < Date.now()) {
+      throw new BadRequestException('Invalid or expired email verification code.');
+    }
+
+    const rows = await this.db.select().from(users).where(eq(users.email, normalized));
+    const user = rows[0];
+    if (user) {
+      await this.db
+        .update(users)
+        .set({
+          isActive: 1,
+          updatedAt: new Date().toISOString(),
+        })
+        .where(eq(users.id, user.id));
+
+      await this.audit.log({
+        actorUserId: user.id,
+        actorRole: user.role,
+        action: 'auth.email_verified',
+        entity: 'user',
+        entityId: user.id,
+        ip: meta.ip,
+        requestId: meta.requestId,
+      });
+    }
+
+    this.emailVerificationCodes.delete(normalized);
+
+    return {
+      success: true,
+      message: 'Email successfully verified. Your account is active.',
+    };
+  }
+
+  async resendVerification(email: string, meta: ReqMeta) {
+    const normalized = email.trim().toLowerCase();
+    const rows = await this.db.select().from(users).where(eq(users.email, normalized));
+    const user = rows[0];
+
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    this.emailVerificationCodes.set(normalized, {
+      code,
+      expiresAt: Date.now() + 24 * 60 * 60 * 1000,
+    });
+
+    if (user) {
+      await this.mail.sendVerificationCode(normalized, code, user.displayName);
+    }
+
+    return {
+      success: true,
+      message: 'A fresh verification code has been dispatched to your email.',
+    };
   }
 }

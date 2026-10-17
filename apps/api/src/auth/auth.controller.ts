@@ -61,6 +61,36 @@ export class AuthController {
     return out;
   }
 
+  @Post('register')
+  @HttpCode(HttpStatus.CREATED)
+  async register(@Body() dto: any, @Req() req: Request) {
+    return this.auth.register(dto, reqMeta(req));
+  }
+
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.OK)
+  async forgotPassword(@Body() dto: any, @Req() req: Request) {
+    return this.auth.forgotPassword(dto.email, reqMeta(req));
+  }
+
+  @Post('reset-password')
+  @HttpCode(HttpStatus.OK)
+  async resetPassword(@Body() dto: any, @Req() req: Request) {
+    return this.auth.resetPassword(dto, reqMeta(req));
+  }
+
+  @Post('verify-email')
+  @HttpCode(HttpStatus.OK)
+  async verifyEmail(@Body() dto: any, @Req() req: Request) {
+    return this.auth.verifyEmail(dto, reqMeta(req));
+  }
+
+  @Post('resend-verification')
+  @HttpCode(HttpStatus.OK)
+  async resendVerification(@Body() dto: any, @Req() req: Request) {
+    return this.auth.resendVerification(dto.email, reqMeta(req));
+  }
+
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtRefreshAuthGuard)

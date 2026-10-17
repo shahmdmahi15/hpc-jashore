@@ -13,7 +13,7 @@ export class LoginDto {
   email!: string;
 
   @IsString()
-  @MinLength(8)
+  @MinLength(6)
   @MaxLength(128)
   password!: string;
 
@@ -21,6 +21,70 @@ export class LoginDto {
   @IsString()
   @MaxLength(120)
   deviceLabel?: string;
+}
+
+export class RegisterDto {
+  @IsEmail()
+  @MaxLength(320)
+  email!: string;
+
+  @IsString()
+  @MinLength(6)
+  @MaxLength(128)
+  password!: string;
+
+  @IsString()
+  @MinLength(2)
+  @MaxLength(120)
+  displayName!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(32)
+  phone?: string;
+
+  @IsOptional()
+  @IsString()
+  role?: string;
+}
+
+export class ForgotPasswordDto {
+  @IsEmail()
+  @MaxLength(320)
+  email!: string;
+}
+
+export class ResetPasswordDto {
+  @IsEmail()
+  @MaxLength(320)
+  email!: string;
+
+  @IsString()
+  @MinLength(4)
+  @MaxLength(32)
+  code!: string;
+
+  @IsString()
+  @MinLength(6)
+  @MaxLength(128)
+  newPassword!: string;
+}
+
+export class VerifyEmailDto {
+  @IsEmail()
+  @MaxLength(320)
+  email!: string;
+
+  @IsString()
+  @MinLength(4)
+  @MaxLength(32)
+  code!: string;
+}
+
+export class ResendVerificationDto {
+  @IsEmail()
+  @MaxLength(320)
+  email!: string;
 }
 
 export class RefreshDto {

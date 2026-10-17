@@ -9,12 +9,15 @@ import { and, desc, eq, or, sql } from 'drizzle-orm';
 import { AuditService } from '../audit/audit.service';
 import { DB, type Db } from '../db/db.module';
 import {
+  beds,
   bills,
   dues,
+  modalities,
   patients,
   sequences,
   serials,
   staff,
+  therapySessions,
   visits,
 } from '../db/schema';
 import { EventsGateway } from '../realtime/events.gateway';
@@ -454,11 +457,114 @@ export class VisitsService {
       });
     }
 
+    // Consultation Queue aggregate
+    const nowServingConsultation = await this.db
+      .select({
+        serialNumber: serials.serialNumber,
+        tokenNumber: visits.tokenNumber,
+        patientNameEn: patients.nameEn,
+        patientNameBn: patients.nameBn,
+        doctorId: staff.id,
+        doctorNameEn: staff.fullName,
+        doctorSpecialization: staff.specialization,
+        calledAt: serials.calledAt,
+        status: serials.status,
+      })
+      .from(serials)
+      .innerJoin(patients, eq(serials.patientId, patients.id))
+      .innerJoin(staff, eq(serials.doctorId, staff.id))
+      .innerJoin(visits, eq(serials.visitId, visits.id))
+      .where(
+        and(
+          eq(serials.date, today),
+          or(eq(serials.status, 'called'), eq(serials.status, 'in_chamber')),
+        ),
+      )
+      .orderBy(desc(serials.calledAt));
+
+    const waitingConsultation = await this.db
+      .select({
+        serialNumber: serials.serialNumber,
+        tokenNumber: visits.tokenNumber,
+        patientNameEn: patients.nameEn,
+        patientNameBn: patients.nameBn,
+        doctorNameEn: staff.fullName,
+        priority: visits.priority,
+      })
+      .from(serials)
+      .innerJoin(patients, eq(serials.patientId, patients.id))
+      .innerJoin(staff, eq(serials.doctorId, staff.id))
+      .innerJoin(visits, eq(serials.visitId, visits.id))
+      .where(and(eq(serials.date, today), eq(serials.status, 'waiting')))
+      .orderBy(serials.serialNumber)
+      .limit(10);
+
+    // Therapy Queue aggregate
+    const activeTherapies = await this.db
+      .select({
+        sessionId: therapySessions.id,
+        patientNameEn: patients.nameEn,
+        patientNameBn: patients.nameBn,
+        modalityCode: therapySessions.modalityCode,
+        modalityNameEn: modalities.nameEn,
+        modalityNameBn: modalities.nameBn,
+        bedName: beds.name,
+        startedAt: therapySessions.startedAt,
+        durationMinutes: therapySessions.durationMinutes,
+      })
+      .from(therapySessions)
+      .innerJoin(patients, eq(therapySessions.patientId, patients.id))
+      .leftJoin(modalities, eq(therapySessions.modalityCode, modalities.code))
+      .leftJoin(beds, eq(therapySessions.bedId, beds.id))
+      .where(eq(therapySessions.status, 'in_progress'))
+      .limit(8);
+
+    const waitingTherapies = await this.db
+      .select({
+        visitId: visits.id,
+        tokenNumber: visits.tokenNumber,
+        patientNameEn: patients.nameEn,
+        patientNameBn: patients.nameBn,
+        priority: visits.priority,
+        currentLocation: visits.currentLocation,
+        checkedInAt: visits.checkedInAt,
+      })
+      .from(visits)
+      .innerJoin(patients, eq(visits.patientId, patients.id))
+      .where(
+        and(
+          eq(visits.visitDate, today),
+          or(
+            and(eq(visits.status, 'checked_in'), eq(visits.currentLocation, 'therapy_hall')),
+            eq(visits.status, 'in_therapy'),
+          ),
+        ),
+      )
+      .orderBy(visits.tokenNumber)
+      .limit(10);
+
     return {
       date: today,
-      clinicName: 'HPC Health & Pain Care Center · Jashore',
+      clinicName: 'Health & Pain Care Center · Jashore',
+      clinicNameBn: 'হেলথ অ্যান্ড পেইন কেয়ার সেন্টার · যশোর',
+      chiefDoctor: 'ডাঃ মোঃ তৌফিক উজ জামান (BPT, PGD, MDMR, MPH)',
       timestamp: new Date().toISOString(),
       channels: snapshot,
+      consultationQueue: {
+        nowServing: nowServingConsultation,
+        waiting: waitingConsultation,
+      },
+      therapyQueue: {
+        nowServing: activeTherapies,
+        waiting: waitingTherapies,
+      },
+      bulletinNotices: [
+        'স্বাগতম: হেলথ অ্যান্ড পেইন কেয়ার সেন্টার (HPC) · যশোর | আধুনিক ফিজিওথেরাপি ও পুনর্বাসন কেন্দ্র',
+        'Welcome to HPC Jashore | Please monitor your token number on the screen',
+        'চিফ কনসালট্যান্ট: ডাঃ মোঃ তৌফিক উজ জামান | পরামর্শের জন্য সিরিয়াল অনুযায়ী অপেক্ষা করুন',
+        'থেরাপি চলাকালীন মোবাইল ফোন সাইলেন্ট রাখুন | Please silence your mobile phones in the therapy hall',
+        'জরুরি যোগাযোগ ও হটলাইন: 01711-000000 | নামাজের বিরতি: দুপুর ১:১৫ হতে ১:৪৫ পর্যন্ত',
+      ],
     };
   }
 }

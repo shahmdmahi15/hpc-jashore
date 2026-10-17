@@ -167,6 +167,31 @@ export const api = {
     quickLogin,
     logout: () => setSession(null),
     getSession,
+    register: (data: { email: string; password: string; displayName: string; phone?: string; role?: string }) =>
+      apiFetch<{ success: boolean; message: string; userId: string }>('/auth/register', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+    forgotPassword: (email: string) =>
+      apiFetch<{ success: boolean; message: string }>('/auth/forgot-password', {
+        method: 'POST',
+        body: JSON.stringify({ email }),
+      }),
+    resetPassword: (data: { email: string; code: string; newPassword: string }) =>
+      apiFetch<{ success: boolean; message: string }>('/auth/reset-password', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+    verifyEmail: (data: { email: string; code: string }) =>
+      apiFetch<{ success: boolean; message: string }>('/auth/verify-email', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+    resendVerification: (email: string) =>
+      apiFetch<{ success: boolean; message: string }>('/auth/resend-verification', {
+        method: 'POST',
+        body: JSON.stringify({ email }),
+      }),
   },
   patients: {
     list: (search?: string) =>

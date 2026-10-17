@@ -36,6 +36,12 @@ export const metadata: Metadata = {
   description:
     'Realtime physiotherapy center management — specialized pain care & rehabilitation portal.',
   manifest: '/manifest.webmanifest',
+  applicationName: 'HPC Jashore',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'HPC Jashore',
+  },
   icons: {
     icon: [
       { url: '/favicon.ico' },
@@ -69,10 +75,20 @@ export default function RootLayout({
       className={`${poppins.variable} font-sans min-h-screen antialiased`}
     >
       <head>
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="format-detection" content="telephone=no" />
         <script
           // Apply saved theme before first paint (no flash).
           dangerouslySetInnerHTML={{
             __html: `(function(){try{var t=localStorage.getItem('hpc-theme');if(!t){t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'}document.documentElement.dataset.theme=t;if(t==='dark'){document.documentElement.classList.add('dark')}else{document.documentElement.classList.remove('dark')}}catch(e){}})()`,
+          }}
+        />
+        <script
+          // Register service worker for offline PWA resilience
+          dangerouslySetInnerHTML={{
+            __html: `if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(){});});}`,
           }}
         />
       </head>

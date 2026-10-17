@@ -13,6 +13,7 @@ import { DbModule } from './db/db.module';
 import { DesksModule } from './desks/desks.module';
 import { HealthController } from './health/health.controller';
 import { InventoryModule } from './inventory/inventory.module';
+import { MailModule } from './mail/mail.module';
 import { PatientsModule } from './patients/patients.module';
 import { RbacModule } from './rbac/rbac.module';
 import { RealtimeModule } from './realtime/realtime.module';
@@ -30,6 +31,7 @@ import { VisitsModule } from './visits/visits.module';
     DbModule,
     AuditModule,
     AuditQueryModule,
+    MailModule,
     AuthModule,
     RbacModule,
     UsersModule,
