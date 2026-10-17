@@ -33,49 +33,45 @@ jobs:
       - name: Unit Tests
         run: pnpm --filter @hpc/api test:mrn
 
-      - name: Build API
-        run: pnpm --filter @hpc/api build
-
-      - name: Build Web
-        run: pnpm --filter @hpc/web build
-        env:
-          NODE_OPTIONS: '--max-old-space-size=4096'
-
-      - name: Package Production Build Bundle
-        run: tar -czf build-bundle.tar.gz apps/api/dist apps/web/.next apps/web/public ecosystem.config.cjs
-
-      - name: Upload Build Bundle to Lightsail
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.HOST_IP }}
-          username: ${{ secrets.HOST_USERNAME }}
-          key: ${{ secrets.HOST_KEY }}
-          port: 22
-          source: 'build-bundle.tar.gz'
-          target: '/var/www/hpc-jashore'
-
-      - name: Deploy & Reload on Lightsail
+      - name: Deploy, Build & Reload on Lightsail
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.HOST_IP }}
           username: ${{ secrets.HOST_USERNAME }}
           key: ${{ secrets.HOST_KEY }}
           port: 22
+          timeout: 10m
+          script_stop: true
           script: |
             set -e
-            echo "🚀 Updating code on Lightsail..."
+            echo "🚀 [Lightsail] Starting automated pull, install and Turbopack build via GitHub Action..."
             cd /var/www/hpc-jashore
+
+            # Export system paths for non-interactive shell
+            export PATH=$HOME/.local/share/pnpm:$HOME/.nvm/versions/node/$(ls $HOME/.nvm/versions/node 2>/dev/null | tail -n 1)/bin:/usr/local/bin:/usr/bin:/bin:$PATH
+            [ -s "$HOME/.nvm/nvm.sh" ] && . "$HOME/.nvm/nvm.sh"
+            [ -s "$HOME/.bashrc" ] && . "$HOME/.bashrc"
+
+            echo "📍 Node version: $(node -v)"
+            echo "📍 pnpm version: $(pnpm -v)"
+
+            echo "📥 Fetching and pulling latest code..."
             git fetch origin
             git checkout ${{ github.ref_name }}
             git reset --hard origin/${{ github.ref_name }}
 
-            echo "📦 Extracting high-performance build artifacts..."
-            tar -xzf build-bundle.tar.gz
-            rm -f build-bundle.tar.gz
+            # Ensure deprecated middleware is not present
+            rm -f apps/web/middleware.ts
 
-            echo "📦 Installing dependencies..."
+            echo "📦 Installing all dependencies on Lightsail..."
             pnpm install
             pnpm rebuild better-sqlite3
+
+            echo "🔨 Building API on Lightsail..."
+            pnpm --filter @hpc/api build
+
+            echo "⚡ Building Web with Next.js Turbopack on Lightsail..."
+            pnpm --filter @hpc/web build
 
             echo "🔄 Reloading PM2 processes..."
             pm2 reload ecosystem.config.cjs --update-env || pm2 start ecosystem.config.cjs
@@ -84,4 +80,8 @@ jobs:
             echo "🌐 Reloading Nginx..."
             sudo systemctl reload nginx
 
-            echo "✅ Deployment Successful!"
+            echo "🔍 Verifying live server health..."
+            sleep 2
+            curl -I -s http://127.0.0.1:3000/ | head -n 5
+
+            echo "✅ Lightsail Turbopack Deployment Successfully Finished!"
