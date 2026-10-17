@@ -5,14 +5,16 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { api } from '../../lib/api';
-import { Key, Loader2, Mail, Send } from 'lucide-react';
+import { Loader2, Mail, Send } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { AuthLayout } from '../../components/AuthLayout';
+import { useLanguage } from '../../lib/i18n';
 
 export default function ForgotPasswordPage() {
   const router = useRouter();
+  const { t, language } = useLanguage();
 
   // ONLY email input as strictly specified
   const [email, setEmail] = useState('');
@@ -24,21 +26,26 @@ export default function ForgotPasswordPage() {
     setErrorMsg('');
 
     if (!email.trim() || !email.includes('@')) {
-      setErrorMsg('অনুগ্রহ করে সঠিক ইমেইল ঠিকানা দিন');
-      toast.error('সঠিক ইমেইল ঠিকানা প্রয়োজন');
+      const msg = language === 'bn' ? 'অনুগ্রহ করে সঠিক ইমেইল ঠিকানা দিন' : 'Please provide a valid email address';
+      setErrorMsg(msg);
+      toast.error(msg);
       return;
     }
 
     setLoading(true);
     try {
       const res = await api.auth.forgotPassword(email.trim().toLowerCase());
-      toast.success(
-        res.message || 'পাসওয়ার্ড রিসেট লিঙ্ক ও পিন কোড আপনার ইমেইলে পাঠানো হয়েছে!'
-      );
+      const successMsg = language === 'bn'
+        ? (res.message || 'পাসওয়ার্ড রিসেট লিঙ্ক আপনার ইমেইলে পাঠানো হয়েছে!')
+        : (res.message || 'Password reset link sent to your email!');
+      toast.success(successMsg);
       router.push(`/reset-password?email=${encodeURIComponent(email.trim().toLowerCase())}`);
     } catch (err: any) {
       const msg =
-        err?.message || 'কোড পাঠাতে ব্যর্থ হয়েছে। ইমেইল ঠিকানা যাচাই করুন।';
+        err?.message ||
+        (language === 'bn'
+          ? 'লিঙ্ক পাঠাতে ব্যর্থ হয়েছে। ইমেইল ঠিকানা যাচাই করুন।'
+          : 'Failed to send reset link. Please check your email.');
       setErrorMsg(msg);
       toast.error(msg);
     } finally {
@@ -48,23 +55,23 @@ export default function ForgotPasswordPage() {
 
   return (
     <AuthLayout
-      title="পাসওয়ার্ড পুনরুদ্ধার"
-      subtitle="আপনার নিবন্ধিত ইমেইলে সুরক্ষিত পাসওয়ার্ড রিসেট লিঙ্ক পাঠানো হবে"
-      badge="পাসওয়ার্ড রিকভারি"
+      title={t.forgotTitle}
+      subtitle={t.forgotSub}
+      badge={t.forgotPasswordLink}
       errorMsg={errorMsg}
       topRightLink={{
         href: '/login',
-        label: 'লগইনে ফিরুন',
+        label: t.login,
       }}
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* ONLY Email Field */}
         <div>
-          <label className="block text-xs font-semibold text-zinc-300 mb-1.5">
-            নিবন্ধিত ইমেইল <span className="text-emerald-400">*</span> (Registered Email)
+          <label className="block text-xs font-semibold text-foreground mb-1.5">
+            {t.emailLabel} <span className="text-emerald-500">*</span>
           </label>
           <div className="relative">
-            <Mail className="size-4 text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <Mail className="size-4 text-muted-foreground absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             <Input
               type="email"
               autoComplete="email"
@@ -72,7 +79,7 @@ export default function ForgotPasswordPage() {
               onChange={(e) => setEmail(e.target.value)}
               placeholder="name@example.com"
               required
-              className="pl-10 h-11 text-base sm:text-sm bg-zinc-900/90 border-zinc-800 text-white placeholder:text-zinc-600 focus-visible:ring-emerald-500 focus-visible:border-emerald-500 transition-colors"
+              className="pl-10 h-11 text-base sm:text-sm bg-background border-input text-foreground placeholder:text-muted-foreground focus-visible:ring-emerald-500 focus-visible:border-emerald-500 transition-colors"
             />
           </div>
         </div>
@@ -81,40 +88,31 @@ export default function ForgotPasswordPage() {
         <Button
           type="submit"
           disabled={loading}
-          className="w-full mt-2 py-3 h-12 rounded-xl font-bold text-sm bg-emerald-500 hover:bg-emerald-400 text-black shadow-lg shadow-emerald-500/20 active:scale-[0.99] transition-all focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+          className="w-full mt-2 py-3 h-12 rounded-xl font-bold text-sm bg-emerald-500 hover:bg-emerald-400 text-black shadow-lg shadow-emerald-500/20 active:scale-[0.99] transition-all focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2"
         >
           {loading ? (
             <>
               <Loader2 className="size-4 animate-spin" />
-              <span>ইমেইল পাঠানো হচ্ছে...</span>
+              <span>{t.sending}</span>
             </>
           ) : (
             <>
               <Send className="size-4" />
-              <span>রিসেট লিঙ্ক পাঠান (Send Reset Link)</span>
+              <span>{t.sendResetBtn}</span>
             </>
           )}
         </Button>
       </form>
 
-      {/* Navigation Footer */}
-      <div className="mt-5 text-center text-xs text-zinc-400 flex flex-col gap-1.5 border-t border-zinc-900 pt-4">
+      {/* ONLY Link to Login as strictly specified */}
+      <div className="mt-5 text-center text-xs text-muted-foreground flex justify-center border-t border-border pt-4">
         <div>
-          পাসওয়ার্ড মনে পড়েছে?{' '}
+          {t.rememberPassword}{' '}
           <Link
             href="/login"
-            className="text-emerald-400 font-semibold hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-500 rounded"
+            className="text-emerald-600 dark:text-emerald-400 font-semibold hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-500 rounded"
           >
-            লগইন করুন (Sign In)
-          </Link>
-        </div>
-        <div>
-          ভেরিফিকেশন লিঙ্ক পাননি?{' '}
-          <Link
-            href="/resend-verification"
-            className="text-zinc-400 hover:text-emerald-400 hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-500 rounded"
-          >
-            ভেরিফিকেশন পুনরায় পাঠান
+            {t.loginLink}
           </Link>
         </div>
       </div>

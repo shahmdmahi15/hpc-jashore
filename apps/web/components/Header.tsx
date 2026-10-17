@@ -20,10 +20,11 @@ import {
 } from 'lucide-react';
 import { DEMO_ACCOUNTS, quickLogin, UserSession, clearSession } from '../lib/api';
 import { BrandLogo } from './brand/logo';
-import { ThemeToggle } from './theme-toggle';
-import { cn } from '../lib/utils';
-import { toast } from 'sonner';
+import { NavbarSwitchers } from './NavbarSwitchers';
+import { useLanguage } from '../lib/i18n';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
+import { cn } from '../lib/utils';
 
 interface HeaderProps {
   session: UserSession | null;
@@ -34,13 +35,13 @@ interface HeaderProps {
 }
 
 const TABS = [
-  { id: 'reception', label: 'Reception', icon: ClipboardList, href: '/receptionist' },
-  { id: 'doctor', label: 'Doctor Chamber', icon: Stethoscope, href: '/doctor' },
-  { id: 'therapy', label: 'Therapy Hall', icon: Activity, href: '/therapy' },
-  { id: 'cashier', label: 'Billing & Cashier', icon: CreditCard, href: '/cashier' },
-  { id: 'pharmacy', label: 'Pharmacy FIFO', icon: Pill, href: '/pharmacy' },
-  { id: 'admin', label: 'Executive Admin', icon: ShieldCheck, href: '/admin' },
-  { id: 'tv', label: 'Waiting TV', icon: Tv, href: '/tv' },
+  { id: 'reception', labelBn: 'রিসেপশন', labelEn: 'Reception', icon: ClipboardList, href: '/receptionist' },
+  { id: 'doctor', labelBn: 'ডাক্তার চেম্বার', labelEn: 'Doctor Chamber', icon: Stethoscope, href: '/doctor' },
+  { id: 'therapy', labelBn: 'থেরাপি হল', labelEn: 'Therapy Hall', icon: Activity, href: '/therapy' },
+  { id: 'cashier', labelBn: 'বিলিং ও ক্যাশ', labelEn: 'Billing & Cashier', icon: CreditCard, href: '/cashier' },
+  { id: 'pharmacy', labelBn: 'ফার্মেসি', labelEn: 'Pharmacy', icon: Pill, href: '/pharmacy' },
+  { id: 'admin', labelBn: 'অ্যাডমিন', labelEn: 'Admin', icon: ShieldCheck, href: '/admin' },
+  { id: 'tv', labelBn: 'টিভি কিউ', labelEn: 'Waiting TV', icon: Tv, href: '/tv' },
 ];
 
 export default function Header({
@@ -51,6 +52,7 @@ export default function Header({
   onTabChange,
 }: HeaderProps) {
   const router = useRouter();
+  const { language } = useLanguage();
   const [switching, setSwitching] = React.useState(false);
   const [isFullscreen, setIsFullscreen] = React.useState(false);
   const [currentTime, setCurrentTime] = React.useState<Date | null>(null);
@@ -152,7 +154,7 @@ export default function Header({
                   isActive ? 'text-white dark:text-black scale-110' : 'text-emerald-500/80',
                 )}
               />
-              <span>{tab.label}</span>
+              <span>{language === 'bn' ? tab.labelBn : tab.labelEn}</span>
             </button>
           );
         })}
@@ -201,8 +203,8 @@ export default function Header({
           {isFullscreen ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}
         </button>
 
-        {/* Dark / Light Theme Toggle */}
-        <ThemeToggle />
+        {/* Dual Switchers: Language + Theme */}
+        <NavbarSwitchers />
 
         {/* Logout Button */}
         <button

@@ -19,12 +19,14 @@ import { toast } from 'sonner';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { AuthLayout } from '../../components/AuthLayout';
+import { useLanguage } from '../../lib/i18n';
 
 function ResetPasswordForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const emailFromUrl = searchParams?.get('email') || '';
   const codeFromUrl = searchParams?.get('code') || searchParams?.get('token') || '';
+  const { t, language } = useLanguage();
 
   const hasLinkCredentials = Boolean(emailFromUrl && codeFromUrl);
 
@@ -46,26 +48,30 @@ function ResetPasswordForm() {
     const targetCode = (codeFromUrl || code).trim();
 
     if (!targetEmail) {
-      setErrorMsg('অনুগ্রহ করে আপনার ইমেইল প্রদান করুন');
-      toast.error('ইমেইল আবশ্যক');
+      const msg = language === 'bn' ? 'অনুগ্রহ করে আপনার ইমেইল প্রদান করুন' : 'Please enter your email';
+      setErrorMsg(msg);
+      toast.error(msg);
       return;
     }
 
     if (!targetCode) {
-      setErrorMsg('অনুগ্রহ করে রিসেট পিন কোড প্রদান করুন');
-      toast.error('রিসেট কোড আবশ্যক');
+      const msg = language === 'bn' ? 'অনুগ্রহ করে রিসেট পিন কোড প্রদান করুন' : 'Please provide the reset code';
+      setErrorMsg(msg);
+      toast.error(msg);
       return;
     }
 
     if (newPassword.length < 6) {
-      setErrorMsg('নতুন পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে');
-      toast.error('পাসওয়ার্ড কমপক্ষে ৬ অক্ষর হতে হবে');
+      const msg = language === 'bn' ? 'নতুন পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে' : 'New password must be at least 6 characters';
+      setErrorMsg(msg);
+      toast.error(msg);
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      setErrorMsg('উভয় পাসওয়ার্ড হুবহু একই হতে হবে');
-      toast.error('পাসওয়ার্ড নিশ্চিতকরণ মেলেনি');
+      const msg = language === 'bn' ? 'উভয় পাসওয়ার্ড হুবহু একই হতে হবে' : 'Passwords do not match';
+      setErrorMsg(msg);
+      toast.error(msg);
       return;
     }
 
@@ -77,13 +83,17 @@ function ResetPasswordForm() {
         newPassword,
       });
 
-      toast.success(
-        res.message || 'পাসওয়ার্ড সফলভাবে পরিবর্তন করা হয়েছে! নতুন পাসওয়ার্ড দিয়ে লগইন করুন।'
-      );
+      const successMsg = language === 'bn'
+        ? (res.message || 'পাসওয়ার্ড সফলভাবে পরিবর্তন করা হয়েছে! নতুন পাসওয়ার্ড দিয়ে লগইন করুন।')
+        : (res.message || 'Password reset successfully! You can now sign in with your new password.');
+      toast.success(successMsg);
       router.push('/login');
     } catch (err: any) {
       const msg =
-        err?.message || 'পাসওয়ার্ড পরিবর্তন ব্যর্থ হয়েছে। পিন বা লিঙ্ক মেয়াদোত্তীর্ণ হতে পারে।';
+        err?.message ||
+        (language === 'bn'
+          ? 'পাসওয়ার্ড পরিবর্তন ব্যর্থ হয়েছে। পিন বা লিঙ্ক মেয়াদোত্তীর্ণ হতে পারে।'
+          : 'Password reset failed. The link or PIN may be expired.');
       setErrorMsg(msg);
       toast.error(msg);
     } finally {
@@ -95,22 +105,22 @@ function ResetPasswordForm() {
     <>
       {/* If opened directly via link, show verified email badge */}
       {hasLinkCredentials ? (
-        <div className="mb-4 p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center gap-2.5 text-xs text-emerald-300">
-          <ShieldCheck className="size-4 text-emerald-400 shrink-0" />
+        <div className="mb-4 p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center gap-2.5 text-xs text-emerald-600 dark:text-emerald-400">
+          <ShieldCheck className="size-4 text-emerald-500 shrink-0" />
           <div className="truncate">
-            <span className="text-zinc-400">রিসেট লিঙ্ক ভেরিফাইড:</span>{' '}
-            <strong className="text-white font-mono">{emailFromUrl}</strong>
+            <span className="text-muted-foreground">{t.linkVerified}:</span>{' '}
+            <strong className="text-foreground font-mono">{emailFromUrl}</strong>
           </div>
         </div>
       ) : (
         /* If manual entry fallback */
         <div className="space-y-3.5 mb-3.5">
           <div>
-            <label className="block text-xs font-semibold text-zinc-300 mb-1">
-              নিবন্ধিত ইমেইল <span className="text-emerald-400">*</span> (Email)
+            <label className="block text-xs font-semibold text-foreground mb-1">
+              {t.emailLabel} <span className="text-emerald-500">*</span>
             </label>
             <div className="relative">
-              <Mail className="size-4 text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <Mail className="size-4 text-muted-foreground absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               <Input
                 type="email"
                 autoComplete="email"
@@ -118,17 +128,17 @@ function ResetPasswordForm() {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="name@example.com"
                 required
-                className="pl-10 h-11 text-base sm:text-sm bg-zinc-900/90 border-zinc-800 text-white placeholder:text-zinc-600 focus-visible:ring-emerald-500 focus-visible:border-emerald-500 transition-colors"
+                className="pl-10 h-11 text-base sm:text-sm bg-background border-input text-foreground placeholder:text-muted-foreground focus-visible:ring-emerald-500 focus-visible:border-emerald-500 transition-colors"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-zinc-300 mb-1">
-              ৬ ডিজিট সিকিউরিটি পিন <span className="text-emerald-400">*</span> (6-Digit PIN)
+            <label className="block text-xs font-semibold text-foreground mb-1">
+              {t.pinLabel} <span className="text-emerald-500">*</span>
             </label>
             <div className="relative">
-              <KeyRound className="size-4 text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <KeyRound className="size-4 text-muted-foreground absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               <Input
                 type="text"
                 maxLength={6}
@@ -136,7 +146,7 @@ function ResetPasswordForm() {
                 onChange={(e) => setCode(e.target.value)}
                 placeholder="123456"
                 required
-                className="pl-10 h-11 font-mono tracking-widest text-center text-base sm:text-sm bg-zinc-900/90 border-zinc-800 text-white placeholder:text-zinc-600 focus-visible:ring-emerald-500 focus-visible:border-emerald-500 transition-colors"
+                className="pl-10 h-11 font-mono tracking-widest text-center text-base sm:text-sm bg-background border-input text-foreground placeholder:text-muted-foreground focus-visible:ring-emerald-500 focus-visible:border-emerald-500 transition-colors"
               />
             </div>
           </div>
@@ -146,24 +156,24 @@ function ResetPasswordForm() {
       {/* Main Password Inputs: new password and confirm password */}
       <form onSubmit={handleSubmit} className="space-y-3.5">
         <div>
-          <label className="block text-xs font-semibold text-zinc-300 mb-1">
-            নতুন পাসওয়ার্ড <span className="text-emerald-400">*</span> (New Password)
+          <label className="block text-xs font-semibold text-foreground mb-1">
+            {t.newPasswordLabel} <span className="text-emerald-500">*</span>
           </label>
           <div className="relative">
-            <Lock className="size-4 text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <Lock className="size-4 text-muted-foreground absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             <Input
               type={showPassword ? 'text' : 'password'}
               autoComplete="new-password"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              placeholder="কমপক্ষে ৬ অক্ষর..."
+              placeholder={t.newPasswordPlaceholder}
               required
-              className="pl-10 pr-10 h-11 text-base sm:text-sm bg-zinc-900/90 border-zinc-800 text-white placeholder:text-zinc-600 focus-visible:ring-emerald-500 focus-visible:border-emerald-500 transition-colors"
+              className="pl-10 pr-10 h-11 text-base sm:text-sm bg-background border-input text-foreground placeholder:text-muted-foreground focus-visible:ring-emerald-500 focus-visible:border-emerald-500 transition-colors"
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 rounded"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 rounded"
               title={showPassword ? 'Hide password' : 'Show password'}
             >
               {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
@@ -172,24 +182,24 @@ function ResetPasswordForm() {
         </div>
 
         <div>
-          <label className="block text-xs font-semibold text-zinc-300 mb-1">
-            পাসওয়ার্ড নিশ্চিতকরণ <span className="text-emerald-400">*</span> (Confirm Password)
+          <label className="block text-xs font-semibold text-foreground mb-1">
+            {t.confirmPasswordLabel} <span className="text-emerald-500">*</span>
           </label>
           <div className="relative">
-            <Lock className="size-4 text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <Lock className="size-4 text-muted-foreground absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             <Input
               type={showConfirmPassword ? 'text' : 'password'}
               autoComplete="new-password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder="পুনরায় একই পাসওয়ার্ড লিখুন..."
+              placeholder={t.confirmPasswordPlaceholder}
               required
-              className="pl-10 pr-10 h-11 text-base sm:text-sm bg-zinc-900/90 border-zinc-800 text-white placeholder:text-zinc-600 focus-visible:ring-emerald-500 focus-visible:border-emerald-500 transition-colors"
+              className="pl-10 pr-10 h-11 text-base sm:text-sm bg-background border-input text-foreground placeholder:text-muted-foreground focus-visible:ring-emerald-500 focus-visible:border-emerald-500 transition-colors"
             />
             <button
               type="button"
               onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 rounded"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 rounded"
               title={showConfirmPassword ? 'Hide password' : 'Show password'}
             >
               {showConfirmPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
@@ -201,40 +211,30 @@ function ResetPasswordForm() {
         <Button
           type="submit"
           disabled={loading}
-          className="w-full mt-2 py-3 h-12 rounded-xl font-bold text-sm bg-emerald-500 hover:bg-emerald-400 text-black shadow-lg shadow-emerald-500/20 active:scale-[0.99] transition-all focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
+          className="w-full mt-2 py-3 h-12 rounded-xl font-bold text-sm bg-emerald-500 hover:bg-emerald-400 text-black shadow-lg shadow-emerald-500/20 active:scale-[0.99] transition-all focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2"
         >
           {loading ? (
             <>
               <Loader2 className="size-4 animate-spin" />
-              <span>পাসওয়ার্ড আপডেট হচ্ছে...</span>
+              <span>{t.resetting}</span>
             </>
           ) : (
             <>
               <CheckCircle2 className="size-4" />
-              <span>পাসওয়ার্ড পরিবর্তন ও সংরক্ষণ করুন</span>
+              <span>{t.resetBtn}</span>
             </>
           )}
         </Button>
       </form>
 
       {/* Navigation Footer */}
-      <div className="mt-5 text-center text-xs text-zinc-400 flex flex-col gap-1.5 border-t border-zinc-900 pt-4">
+      <div className="mt-5 text-center text-xs text-muted-foreground flex justify-center border-t border-border pt-4">
         <div>
-          পাসওয়ার্ড মনে পড়েছে?{' '}
           <Link
             href="/login"
-            className="text-emerald-400 font-semibold hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-500 rounded"
+            className="text-emerald-600 dark:text-emerald-400 font-semibold hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-500 rounded"
           >
-            লগইন করুন (Sign In)
-          </Link>
-        </div>
-        <div>
-          লিঙ্ক বা কোড পাননি?{' '}
-          <Link
-            href="/forgot-password"
-            className="text-zinc-400 hover:text-emerald-400 hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-500 rounded"
-          >
-            পুনরায় লিঙ্ক পাঠান (Resend)
+            {t.loginLink}
           </Link>
         </div>
       </div>
@@ -243,17 +243,19 @@ function ResetPasswordForm() {
 }
 
 export default function ResetPasswordPage() {
+  const { t } = useLanguage();
+
   return (
     <AuthLayout
-      title="নতুন পাসওয়ার্ড নির্ধারণ"
-      subtitle="ইমেইল লিঙ্কের মাধ্যমে নতুন পাসওয়ার্ড ও নিশ্চিতকরণ পাসওয়ার্ড সেট করুন"
-      badge="লিঙ্ক রিসেট"
+      title={t.resetTitle}
+      subtitle={t.resetSub}
+      badge={t.resetBtn}
       topRightLink={{
         href: '/login',
-        label: 'লগইন পেজ',
+        label: t.login,
       }}
     >
-      <Suspense fallback={<div className="text-zinc-400 text-sm text-center py-6">লোড হচ্ছে...</div>}>
+      <Suspense fallback={<div className="text-muted-foreground text-sm text-center py-6">...</div>}>
         <ResetPasswordForm />
       </Suspense>
     </AuthLayout>

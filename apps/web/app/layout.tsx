@@ -63,6 +63,8 @@ export const viewport: Viewport = {
   maximumScale: 5,
 };
 
+import { LanguageProvider } from '../lib/i18n';
+
 export default function RootLayout({
   children,
 }: {
@@ -70,7 +72,7 @@ export default function RootLayout({
 }) {
   return (
     <html
-      lang="en"
+      lang="bn"
       suppressHydrationWarning
       className={`${poppins.variable} font-sans min-h-screen antialiased`}
     >
@@ -94,8 +96,10 @@ export default function RootLayout({
       </head>
       <body className="min-h-screen flex flex-col font-sans bg-background text-foreground selection:bg-emerald-500/20 antialiased">
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          {children}
-          <Toaster position="top-right" richColors />
+          <LanguageProvider>
+            {children}
+            <Toaster position="top-right" richColors />
+          </LanguageProvider>
         </ThemeProvider>
       </body>
     </html>
