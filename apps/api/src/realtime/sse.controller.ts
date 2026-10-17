@@ -17,16 +17,19 @@ export class SseController {
   @Get('feed')
   @Sse()
   async feed(
-    @Query('token') token: string,
+    @Query('token') token?: string,
     @Query('lastEventId') _lastEventId?: string,
   ): Promise<Observable<SseMessage>> {
-    try {
-      const payload = await this.jwt.verifyAsync<Record<string, unknown>>(token ?? '', {
-        secret: this.config.getOrThrow<string>('jwt.accessSecret'),
-      });
-      if (payload.type !== 'access') throw new Error('not access');
-    } catch {
-      throw new UnauthorizedException('Invalid token for SSE feed');
+    let isStaff = false;
+    if (token) {
+      try {
+        const payload = await this.jwt.verifyAsync<Record<string, unknown>>(token, {
+          secret: this.config.getOrThrow<string>('jwt.accessSecret'),
+        });
+        if (payload.type === 'access') isStaff = true;
+      } catch {
+        // Fall back to public queue stream
+      }
     }
     const lastId = _lastEventId ? parseInt(_lastEventId, 10) : undefined;
     return this.realtime.stream(lastId).pipe(
@@ -36,7 +39,8 @@ export class SseController {
           m.event.startsWith('serial.') ||
           m.event.startsWith('presence.') ||
           m.event.startsWith('settings.') ||
-          m.event.startsWith('announcement.'),
+          m.event.startsWith('announcement.') ||
+          (isStaff && (m.event.startsWith('clinical.') || m.event.startsWith('billing.'))),
       ),
     );
   }

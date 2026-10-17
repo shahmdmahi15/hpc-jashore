@@ -2,8 +2,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+import { getSession } from './api';
 
 export interface RealtimeEvent {
   id?: string;
@@ -27,6 +26,10 @@ export function useRealtime(onEvent?: (event: RealtimeEvent) => void) {
         ? `${window.location.origin}/api`
         : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api');
       const sseUrl = new URL(`${apiBase}/sse/feed`);
+      const session = getSession();
+      if (session?.accessToken) {
+        sseUrl.searchParams.set('token', session.accessToken);
+      }
       if (lastEventIdRef.current) {
         sseUrl.searchParams.set('lastEventId', lastEventIdRef.current);
       }
