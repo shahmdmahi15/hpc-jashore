@@ -7,17 +7,29 @@ import Image from 'next/image';
 import {
   Activity,
   ArrowRight,
+  ArrowUpRight,
   Award,
+  Bell,
+  Brain,
+  Check,
   CheckCircle2,
   Clock,
+  Compass,
+  Cpu,
+  CreditCard,
+  DoorOpen,
   HeartPulse,
   Laptop,
   Layers,
   MapPin,
+  MessageCircle,
   Monitor,
   Phone,
+  Radio,
   ShieldCheck,
   Smartphone,
+  Sparkles,
+  Stethoscope,
   Tv,
   Users,
   Zap,
@@ -25,61 +37,54 @@ import {
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-emerald-500/20 selection:text-emerald-200">
+    <div className="min-h-screen bg-black text-white flex flex-col font-sans selection:bg-emerald-500/20 selection:text-emerald-300 antialiased overflow-x-hidden">
       {/* ============================================================== */}
       {/* TOP NAVIGATION BAR                                            */}
       {/* ============================================================== */}
-      <header className="sticky top-0 z-50 backdrop-blur-xl bg-slate-950/80 border-b border-emerald-900/40 px-4 sm:px-8 py-3.5 flex items-center justify-between">
+      <header className="sticky top-0 z-50 backdrop-blur-xl bg-black/80 border-b border-white/10 px-4 sm:px-8 py-3.5 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-xl bg-white p-1 shadow-md flex items-center justify-center overflow-hidden">
+          <div className="w-10 h-10 rounded-xl bg-white p-1 shadow-md flex items-center justify-center overflow-hidden border border-zinc-200">
             <Image
               src="/hpclogo-transparent.png"
               alt="HPC Jashore Logo"
-              width={44}
-              height={44}
+              width={40}
+              height={40}
               className="object-contain"
               priority
             />
           </div>
           <div>
-            <span className="font-extrabold text-lg sm:text-xl tracking-tight text-white flex items-center gap-2">
-              HPC <span className="text-emerald-400 font-semibold text-sm sm:text-base">Jashore</span>
+            <span className="font-extrabold text-lg tracking-tight text-white flex items-center gap-1.5">
+              HPC <span className="text-emerald-400 font-semibold text-sm">Jashore</span>
             </span>
-            <p className="text-[11px] text-slate-400 font-medium hidden sm:block">
-              Health &amp; Pain Care Center · আধুনিক ফিজিওথেরাপি ও পুনর্বাসন
+            <p className="text-[11px] text-zinc-400 font-medium hidden sm:block">
+              Health &amp; Pain Care Center · Dalmil Chachra
             </p>
           </div>
         </div>
 
-        <nav className="flex items-center gap-2 sm:gap-4">
+        <nav className="flex items-center gap-2 sm:gap-3">
           <Link
             href="/tv"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold bg-emerald-950 hover:bg-emerald-900 text-emerald-300 border border-emerald-700/50 transition-colors shadow-sm"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold bg-zinc-900 hover:bg-zinc-800 text-emerald-400 border border-emerald-500/30 transition-all shadow-sm"
           >
-            <Tv className="size-4" />
-            <span>লাইভ টিভি (TV Queue)</span>
+            <Tv className="size-3.5 text-emerald-400" />
+            <span>স্মার্ট টিভি কিউ (TV Queue)</span>
           </Link>
 
           <Link
             href="/login"
-            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-semibold text-slate-200 hover:text-white hover:bg-slate-800 transition-colors"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-semibold text-zinc-300 hover:text-white hover:bg-zinc-900 transition-colors border border-transparent hover:border-white/10"
           >
             <span>লগইন (Login)</span>
           </Link>
 
           <Link
-            href="/register"
-            className="hidden md:flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-semibold text-slate-200 hover:text-white hover:bg-slate-800 transition-colors"
-          >
-            <span>নিবন্ধন (Register)</span>
-          </Link>
-
-          <Link
             href="/dashboard"
-            className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs sm:text-sm font-bold bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-md shadow-emerald-500/20 transition-all transform hover:-translate-y-0.5"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-bold bg-emerald-500 hover:bg-emerald-400 text-black shadow-md shadow-emerald-500/20 transition-all transform hover:-translate-y-0.5"
           >
-            <span>ড্যাশবোর্ড (Portal)</span>
-            <ArrowRight className="size-4" />
+            <span>ক্লিনিক্যাল পোর্টাল</span>
+            <ArrowRight className="size-3.5" />
           </Link>
         </nav>
       </header>
@@ -87,55 +92,45 @@ export default function LandingPage() {
       {/* ============================================================== */}
       {/* HERO SECTION                                                  */}
       {/* ============================================================== */}
-      <section className="relative overflow-hidden pt-12 pb-20 sm:pt-20 sm:pb-28 px-4 sm:px-8">
-        {/* Glow ambient meshes */}
-        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[350px] bg-emerald-500/15 rounded-full blur-[120px] pointer-events-none -z-10" />
-        <div className="absolute top-1/3 right-10 w-96 h-96 bg-teal-500/10 rounded-full blur-[100px] pointer-events-none -z-10" />
+      <section className="relative overflow-hidden pt-12 pb-16 sm:pt-20 sm:pb-24 px-4 sm:px-8 border-b border-white/5">
+        {/* Subtle ambient lighting */}
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[650px] h-[320px] bg-emerald-500/10 rounded-full blur-[140px] pointer-events-none -z-10" />
 
         <div className="max-w-5xl mx-auto text-center flex flex-col items-center">
-          {/* Badge */}
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-950/80 border border-emerald-500/30 text-emerald-300 text-xs sm:text-sm font-semibold mb-6 shadow-inner">
+          {/* Eyebrow Pill */}
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-zinc-900 border border-white/10 text-emerald-400 text-xs sm:text-sm font-semibold mb-6 shadow-inner">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span>যশোরের সর্বাধুনিক বিশ্বমানের ফিজিওথেরাপি ও স্পেশালাইজড পেইন কেয়ার</span>
+            <span>Founder · CEO · Head Doctor · Dr. Toufiq Uz Zaman</span>
           </div>
 
           {/* Headline */}
-          <h1 className="text-3xl sm:text-5xl md:text-6xl font-extrabold tracking-tight text-white leading-[1.15] mb-6">
-            ব্যথামুক্ত স্বাভাবিক জীবনের জন্য{' '}
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400">
-              নির্ভরযোগ্য আধুনিক চিকিৎসা
+          <h1 className="text-3xl sm:text-5xl md:text-6xl font-black tracking-tight text-white leading-[1.12] mb-6">
+            Move beyond pain.{' '}
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-300 to-emerald-500">
+              Return to life.
             </span>
           </h1>
 
-          {/* Subtitle */}
-          <p className="text-base sm:text-xl text-slate-300 max-w-3xl leading-relaxed mb-8">
-            <strong className="text-white">হেলথ অ্যান্ড পেইন কেয়ার সেন্টার (HPC) · যশোর</strong> এ আমরা সরবরাহ করি
-            আধুনিক ইলেকট্রোথেরাপি, লেজার, স্পাইনাল ট্র্যাকশন, ম্যানিপুলেটিভ থেরাপি এবং স্ট্রোক পুনর্বাসন সেবা।
+          <p className="text-sm sm:text-lg text-zinc-300 max-w-2xl leading-relaxed mb-8 font-normal">
+            Evidence-led physiotherapy, pain management and neuro rehabilitation in Jashore for people ready to feel stronger, steadier and fully themselves again.
           </p>
 
-          {/* Doctor Card Highlight */}
-          <div className="glass-panel p-4 sm:p-5 rounded-2xl border border-emerald-900/60 bg-slate-900/70 max-w-2xl w-full mb-10 flex flex-col sm:flex-row items-center gap-4 text-left shadow-xl shadow-black/40">
-            <div className="w-14 h-14 rounded-full bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center text-emerald-400 shrink-0">
-              <Award className="size-8" />
-            </div>
-            <div className="flex-1 text-center sm:text-left">
-              <div className="text-xs uppercase font-extrabold tracking-wider text-emerald-400">
-                চিফ কনসালট্যান্ট ও ফিজিওথেরাপি বিশেষজ্ঞ
-              </div>
-              <h2 className="text-lg sm:text-xl font-bold text-white mt-0.5">
-                ডাঃ মোঃ তৌফিক উজ জামান
-              </h2>
-              <p className="text-xs sm:text-sm text-slate-300 font-medium">
-                BPT (DU), PGD (Acupuncture, China), MDMR (Pain, DU), MPH · স্পেশালাইজড পেইন ও স্পাইন কেয়ার
-              </p>
-            </div>
-          </div>
+          {/* Action CTAs */}
+          <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4 w-full mb-12">
+            <a
+              href="https://wa.me/8801515615188?text=Hello%2C%20I%20would%20like%20to%20know%20more%20about%20booking%20an%20appointment%20with%20Dr.%20Toufiq."
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl text-sm sm:text-base font-bold bg-emerald-500 hover:bg-emerald-400 text-black shadow-lg shadow-emerald-500/20 transition-all transform hover:-translate-y-0.5"
+            >
+              <MessageCircle className="size-5" />
+              <span>Talk to Dr. Toufiq (WhatsApp)</span>
+              <ArrowUpRight className="size-4" />
+            </a>
 
-          {/* CTA Buttons */}
-          <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4 w-full">
             <Link
               href="/tv"
-              className="flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl text-sm sm:text-base font-bold bg-emerald-950 hover:bg-emerald-900 text-emerald-200 border border-emerald-500/40 shadow-lg shadow-emerald-950/50 transition-all transform hover:-translate-y-0.5"
+              className="flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl text-sm sm:text-base font-bold bg-zinc-900 hover:bg-zinc-800 text-white border border-white/10 transition-all"
             >
               <Tv className="size-5 text-emerald-400" />
               <span>স্মার্ট টিভি কিউ লাইভ দেখুন (TV Mode)</span>
@@ -143,199 +138,365 @@ export default function LandingPage() {
 
             <Link
               href="/dashboard"
-              className="flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl text-sm sm:text-base font-bold bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-lg shadow-emerald-500/25 transition-all transform hover:-translate-y-0.5"
+              className="flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl text-sm sm:text-base font-bold bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-white/10 transition-all"
             >
-              <Activity className="size-5" />
+              <Activity className="size-5 text-emerald-400" />
               <span>ক্লিনিক্যাল ওয়ার্কস্টেশন পোর্টাল</span>
             </Link>
+          </div>
 
-            <Link
-              href="/login"
-              className="flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl text-sm sm:text-base font-semibold bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700/80 transition-all"
-            >
-              <ShieldCheck className="size-5 text-slate-400" />
-              <span>স্টাফ অথেন্টিকেশন লগইন</span>
-            </Link>
+          {/* Stats Bar */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-8 w-full max-w-3xl pt-8 border-t border-white/10 text-center">
+            <div>
+              <div className="text-2xl sm:text-4xl font-black font-mono text-emerald-400">12+</div>
+              <div className="text-xs sm:text-sm text-zinc-400 mt-1">Years of Care</div>
+            </div>
+            <div>
+              <div className="text-2xl sm:text-4xl font-black font-mono text-white">10k+</div>
+              <div className="text-xs sm:text-sm text-zinc-400 mt-1">Patients Supported</div>
+            </div>
+            <div>
+              <div className="text-2xl sm:text-4xl font-black font-mono text-emerald-400">98%</div>
+              <div className="text-xs sm:text-sm text-zinc-400 mt-1">Patient Trust</div>
+            </div>
+            <div>
+              <div className="text-2xl sm:text-4xl font-black font-mono text-white">100%</div>
+              <div className="text-xs sm:text-sm text-zinc-400 mt-1">Realtime Offline EMR</div>
+            </div>
           </div>
         </div>
       </section>
 
       {/* ============================================================== */}
-      {/* CLINICAL SPECIALTIES & MODALITIES                             */}
+      {/* 01. THE HPC DIFFERENCE & DOCTOR TOUFIQ                         */}
       {/* ============================================================== */}
-      <section className="py-16 sm:py-24 bg-slate-900/50 border-y border-slate-800/80 px-4 sm:px-8">
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center max-w-2xl mx-auto mb-12">
-            <h2 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
-              আমাদের আধুনিক চিকিৎসা সেবা ও মডালিটিসমূহ
+      <section className="py-16 sm:py-24 px-4 sm:px-8 border-b border-white/5 bg-zinc-950/40">
+        <div className="max-w-5xl mx-auto">
+          <div className="flex items-center gap-2 text-xs font-mono font-bold uppercase tracking-widest text-emerald-400 mb-3">
+            <span>01</span>
+            <span className="w-8 h-px bg-emerald-500/40" />
+            <span>THE HPC DIFFERENCE</span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+            <div>
+              <h2 className="text-2xl sm:text-4xl font-black tracking-tight text-white mb-4">
+                Care that sees the whole person.
+              </h2>
+              <p className="text-zinc-300 text-sm sm:text-base leading-relaxed mb-4">
+                At HPC Health &amp; Pain Care Center, recovery is not rushed or generic. Each plan begins with listening, thorough clinical assessment, and an evidence-based roadmap tailored to your body.
+              </p>
+              <div className="p-4 rounded-2xl bg-zinc-900 border border-white/10 mt-6">
+                <div className="text-xs uppercase font-extrabold tracking-wider text-emerald-400">
+                  Head Doctor &amp; Director
+                </div>
+                <div className="text-lg font-bold text-white mt-0.5">Doctor Toufiq Uz Zaman</div>
+                <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
+                  BPT (DU), PGD (Acupuncture, China), MDMR (Pain Management, DU), MPH · Founder, CEO &amp; Head Doctor
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div className="p-4 sm:p-5 rounded-2xl bg-zinc-900/60 border border-white/10 flex items-start gap-3.5">
+                <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-500/20 font-bold text-xs">
+                  01
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white">Listen first</h3>
+                  <p className="text-xs text-zinc-400 mt-1">
+                    Your personal story, pain timeline, daily routines, and functional goals shape the baseline of all clinical actions.
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-4 sm:p-5 rounded-2xl bg-zinc-900/60 border border-white/10 flex items-start gap-3.5">
+                <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-500/20 font-bold text-xs">
+                  02
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white">Understand clearly</h3>
+                  <p className="text-xs text-zinc-400 mt-1">
+                    Targeted neurological and musculoskeletal assessments turn uncertainty into a practical, step-by-step prescription.
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-4 sm:p-5 rounded-2xl bg-zinc-900/60 border border-white/10 flex items-start gap-3.5">
+                <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-500/20 font-bold text-xs">
+                  03
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white">Build forward</h3>
+                  <p className="text-xs text-zinc-400 mt-1">
+                    Progressive electrotherapy, spinal decompression, manual mobilization, and therapeutic exercise help you regain long-term independence.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ============================================================== */}
+      {/* 02. AREAS OF EXPERTISE                                         */}
+      {/* ============================================================== */}
+      <section className="py-16 sm:py-24 px-4 sm:px-8 border-b border-white/5">
+        <div className="max-w-5xl mx-auto">
+          <div className="flex items-center gap-2 text-xs font-mono font-bold uppercase tracking-widest text-emerald-400 mb-3">
+            <span>02</span>
+            <span className="w-8 h-px bg-emerald-500/40" />
+            <span>AREAS OF EXPERTISE</span>
+          </div>
+
+          <div className="mb-10">
+            <h2 className="text-2xl sm:text-4xl font-black tracking-tight text-white">
+              Specialized care, thoughtfully delivered.
             </h2>
-            <p className="text-sm sm:text-base text-slate-400 mt-2">
-              প্রতিটি রোগীর জন্য নির্ভুল ডায়াগনোসিস ও আন্তর্জাতিক মানের ফিজিওথেরাপি প্রোটোকল
+            <p className="text-sm sm:text-base text-zinc-400 mt-2 max-w-2xl">
+              From everyday spinal strain to complex neurological recovery, Dr. Toufiq combines modern clinical modalities with personalized attention.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* 1 */}
-            <div className="glass-panel p-6 rounded-2xl border border-slate-800 bg-slate-900/60 hover:border-emerald-500/40 transition-all hover:-translate-y-1">
-              <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mb-4">
-                <Zap className="size-5" />
+            <div className="p-6 rounded-2xl bg-zinc-900/60 border border-white/10 hover:border-emerald-500/40 transition-all flex flex-col justify-between">
+              <div>
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center justify-center mb-4">
+                  <HeartPulse className="size-5" />
+                </div>
+                <h3 className="text-base sm:text-lg font-bold text-white">
+                  Physiotherapy &amp; Pain Management
+                </h3>
+                <p className="text-xs sm:text-sm text-zinc-400 mt-2 leading-relaxed">
+                  Targeted relief plans for lumbar PLID, cervical spondylosis, sciatica, arthritis, knee osteoarthritis, and frozen shoulder.
+                </p>
               </div>
-              <h3 className="text-lg font-bold text-white">আল্ট্রাসাউন্ড ও ইলেক্ট্রোথেরাপি (UST / IFT)</h3>
-              <p className="text-xs sm:text-sm text-slate-400 mt-2 leading-relaxed">
-                ডিপ টিস্যু মাইক্রোম্যাসাজ ও রক্ত সঞ্চালন বাড়িয়ে কোমর ব্যথা, ঘাড় ব্যথা ও ফ্রোজেন শোল্ডারের তীব্র ব্যথা দ্রুত প্রশমিত করে।
-              </p>
+              <div className="mt-6 pt-4 border-t border-white/10 text-xs font-bold text-emerald-400 flex items-center gap-1">
+                <span>Electrotherapy &amp; Manual Mobilization</span>
+              </div>
             </div>
 
             {/* 2 */}
-            <div className="glass-panel p-6 rounded-2xl border border-slate-800 bg-slate-900/60 hover:border-emerald-500/40 transition-all hover:-translate-y-1">
-              <div className="w-10 h-10 rounded-xl bg-teal-500/10 border border-teal-500/20 text-teal-400 flex items-center justify-center mb-4">
-                <Layers className="size-5" />
+            <div className="p-6 rounded-2xl bg-zinc-900/60 border border-white/10 hover:border-emerald-500/40 transition-all flex flex-col justify-between">
+              <div>
+                <div className="w-10 h-10 rounded-xl bg-purple-500/10 text-purple-400 border border-purple-500/20 flex items-center justify-center mb-4">
+                  <Brain className="size-5" />
+                </div>
+                <h3 className="text-base sm:text-lg font-bold text-white">
+                  Neuro Rehabilitation
+                </h3>
+                <p className="text-xs sm:text-sm text-zinc-400 mt-2 leading-relaxed">
+                  Guided neurological training that restores coordination, motor control, gait stability, and daily movement confidence.
+                </p>
               </div>
-              <h3 className="text-lg font-bold text-white">স্পাইনাল ট্র্যাকশন থেরাপি (Traction)</h3>
-              <p className="text-xs sm:text-sm text-slate-400 mt-2 leading-relaxed">
-                PLID (ডিস্ক প্রোল্যাপ্স), সায়াটিকা ও সার্ভাইকেল স্পন্ডিলোসিস রোগীদের মেকানিক্যাল ট্র্যাকশন দ্বারা নার্ভের চাপ মুক্ত করা হয়।
-              </p>
+              <div className="mt-6 pt-4 border-t border-white/10 text-xs font-bold text-purple-400 flex items-center gap-1">
+                <span>Motor Relearning &amp; Balance Restoration</span>
+              </div>
             </div>
 
             {/* 3 */}
-            <div className="glass-panel p-6 rounded-2xl border border-slate-800 bg-slate-900/60 hover:border-emerald-500/40 transition-all hover:-translate-y-1">
-              <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 flex items-center justify-center mb-4">
-                <HeartPulse className="size-5" />
+            <div className="p-6 rounded-2xl bg-zinc-900/60 border border-white/10 hover:border-emerald-500/40 transition-all flex flex-col justify-between">
+              <div>
+                <div className="w-10 h-10 rounded-xl bg-teal-500/10 text-teal-400 border border-teal-500/20 flex items-center justify-center mb-4">
+                  <ShieldCheck className="size-5" />
+                </div>
+                <h3 className="text-base sm:text-lg font-bold text-white">
+                  Stroke Management
+                </h3>
+                <p className="text-xs sm:text-sm text-zinc-400 mt-2 leading-relaxed">
+                  Compassionate, structured post-stroke rehabilitation helping patients regain limb function, facial symmetry, and self-reliance.
+                </p>
               </div>
-              <h3 className="text-lg font-bold text-white">শর্ট ওয়েভ ডায়াথার্মি (SWD)</h3>
-              <p className="text-xs sm:text-sm text-slate-400 mt-2 leading-relaxed">
-                গভীর মাংসপেশিতে নিরাপদ তাপ উৎপন্ন করে অস্টিওআর্থ্রাইটিস ও হাঁটুর ক্ষয়রোধে অত্যন্ত কার্যকরী।
-              </p>
-            </div>
-
-            {/* 4 */}
-            <div className="glass-panel p-6 rounded-2xl border border-slate-800 bg-slate-900/60 hover:border-emerald-500/40 transition-all hover:-translate-y-1">
-              <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mb-4">
-                <Activity className="size-5" />
+              <div className="mt-6 pt-4 border-t border-white/10 text-xs font-bold text-teal-400 flex items-center gap-1">
+                <span>Comprehensive Post-Stroke Recovery</span>
               </div>
-              <h3 className="text-lg font-bold text-white">ক্লাস ফোর লেজার থেরাপি (Laser)</h3>
-              <p className="text-xs sm:text-sm text-slate-400 mt-2 leading-relaxed">
-                স্পোর্টস ইনজুরি, লিগামেন্ট ইনজুরি ও টেন্ডিনাইটিসে সেলুলার রিজেনারেশন ত্বরান্বিত করে প্রদাহ দ্রুত কমায়।
-              </p>
-            </div>
-
-            {/* 5 */}
-            <div className="glass-panel p-6 rounded-2xl border border-slate-800 bg-slate-900/60 hover:border-emerald-500/40 transition-all hover:-translate-y-1">
-              <div className="w-10 h-10 rounded-xl bg-teal-500/10 border border-teal-500/20 text-teal-400 flex items-center justify-center mb-4">
-                <Users className="size-5" />
-              </div>
-              <h3 className="text-lg font-bold text-white">স্ট্রোক ও নিউরো-রিহ্যাবিলিটেশন</h3>
-              <p className="text-xs sm:text-sm text-slate-400 mt-2 leading-relaxed">
-                প্যারালাইসিস, ফেসিয়াল পালসি (মুখ বেঁকে যাওয়া) এবং নিউরোপ্যাথিক রোগীর মোটর রিকভারির জন্য বিশেষায়িত থেরাপিউটিক এক্সারসাইজ।
-              </p>
-            </div>
-
-            {/* 6 */}
-            <div className="glass-panel p-6 rounded-2xl border border-slate-800 bg-slate-900/60 hover:border-emerald-500/40 transition-all hover:-translate-y-1">
-              <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 flex items-center justify-center mb-4">
-                <CheckCircle2 className="size-5" />
-              </div>
-              <h3 className="text-lg font-bold text-white">থেরাপিউটিক জিম ও পশ্চার কারেকশন</h3>
-              <p className="text-xs sm:text-sm text-slate-400 mt-2 leading-relaxed">
-                কোর স্ট্যাবিলিটি, মাসল স্ট্রেন্থেনিং এবং সঠিক অঙ্গবিন্যাস নিশ্চিত করার আধুনিক জিম সরঞ্জাম ও ম্যানিপুলেশন।
-              </p>
             </div>
           </div>
         </div>
       </section>
 
       {/* ============================================================== */}
-      {/* PWA & CROSS-DEVICE ARCHITECTURE                                */}
+      {/* 03. CUSTOM REALTIME SOFTWARE (EMR & CLINICAL ECOSYSTEM)       */}
       {/* ============================================================== */}
-      <section className="py-16 sm:py-20 px-4 sm:px-8">
-        <div className="max-w-5xl mx-auto glass-panel p-8 sm:p-12 rounded-3xl border border-emerald-900/50 bg-gradient-to-br from-slate-900 via-slate-950 to-emerald-950/40">
-          <div className="text-center max-w-xl mx-auto mb-10">
-            <span className="text-xs uppercase font-extrabold tracking-wider text-emerald-400">
-              CROSS-PLATFORM ARCHITECTURE
-            </span>
-            <h2 className="text-2xl sm:text-3xl font-extrabold text-white mt-1">
-              যেকোনো ডিভাইসে সুপার স্মুথ ও অফলাইন রেডি
+      <section className="py-16 sm:py-24 px-4 sm:px-8 border-b border-white/5 bg-zinc-950/60">
+        <div className="max-w-5xl mx-auto">
+          <div className="flex items-center gap-2 text-xs font-mono font-bold uppercase tracking-widest text-emerald-400 mb-3">
+            <span>03</span>
+            <span className="w-8 h-px bg-emerald-500/40" />
+            <span>CUSTOM REALTIME CLINICAL PLATFORM</span>
+          </div>
+
+          <div className="mb-10">
+            <h2 className="text-2xl sm:text-4xl font-black tracking-tight text-white">
+              যশোরের সর্বাধুনিক রিয়েল-টাইম ক্লিনিক্যাল সফটওয়্যার
             </h2>
-            <p className="text-xs sm:text-sm text-slate-300 mt-2">
-              অ্যান্ড্রয়েড, আইওএস, আইপ্যাড, উইন্ডোজ ও অ্যান্ড্রয়েড টিভিতে ইন্সটল করে একটি পূর্ণাঙ্গ অ্যাপ হিসেবে ব্যবহার করুন
+            <p className="text-sm sm:text-base text-zinc-400 mt-2 max-w-3xl leading-relaxed">
+              এইচপিসি সেন্টারের জন্য তৈরি সম্পূর্ণ কাস্টমাইজড সফটওয়্যার স্যুট—যেখানে রিসেপশন, ডাক্তার চেম্বার, থেরাপি হল, ক্যাশিয়ার এবং ওয়েটিং রুম টিভি মিলি-সেকেন্ডে সিঙ্ক্রোনাইজড থাকে।
             </p>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4 text-center">
-            <div className="p-4 rounded-xl bg-slate-900/70 border border-slate-800 flex flex-col items-center">
-              <Smartphone className="size-6 text-emerald-400 mb-2" />
-              <span className="text-xs font-bold text-white">Android</span>
-              <span className="text-[10px] text-slate-400">PWA / Chrome</span>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
+            {/* 1. Reception */}
+            <div className="p-5 rounded-2xl bg-zinc-900 border border-white/10">
+              <div className="flex items-center gap-2 text-emerald-400 mb-2">
+                <DoorOpen className="size-4" />
+                <span className="text-xs font-mono font-bold uppercase">Workstation 1</span>
+              </div>
+              <h3 className="text-sm font-bold text-white">রিসেপশন ও পেশেন্ট ডিরেক্টরি</h3>
+              <p className="text-xs text-zinc-400 mt-1.5 leading-relaxed">
+                তাত্ক্ষণিক পেশেন্ট রেজিস্ট্রেশন, ইউনিক MRN তৈরি, সিরিয়াল ট্র্যাকিং এবং থেরাপি স্লট বুকিং।
+              </p>
             </div>
 
-            <div className="p-4 rounded-xl bg-slate-900/70 border border-slate-800 flex flex-col items-center">
-              <Smartphone className="size-6 text-teal-400 mb-2" />
-              <span className="text-xs font-bold text-white">iPhone (iOS)</span>
-              <span className="text-[10px] text-slate-400">Add to Home</span>
+            {/* 2. Doctor Chamber */}
+            <div className="p-5 rounded-2xl bg-zinc-900 border border-white/10">
+              <div className="flex items-center gap-2 text-emerald-400 mb-2">
+                <Stethoscope className="size-4" />
+                <span className="text-xs font-mono font-bold uppercase">Workstation 2</span>
+              </div>
+              <h3 className="text-sm font-bold text-white">ডাক্তার চেম্বার ও SOAP নোটস</h3>
+              <p className="text-xs text-zinc-400 mt-1.5 leading-relaxed">
+                চিফ কমপ্লেইন্টস, পেইন স্কোর (VAS), স্পেশালাইজড এসেসমেন্ট, এবং ডিজিটাল প্রেসক্রিপশন জেনারেশন।
+              </p>
             </div>
 
-            <div className="p-4 rounded-xl bg-slate-900/70 border border-slate-800 flex flex-col items-center">
-              <Laptop className="size-6 text-cyan-400 mb-2" />
-              <span className="text-xs font-bold text-white">iPadOS</span>
-              <span className="text-[10px] text-slate-400">Landscape Grid</span>
+            {/* 3. Therapy Hall */}
+            <div className="p-5 rounded-2xl bg-zinc-900 border border-white/10">
+              <div className="flex items-center gap-2 text-emerald-400 mb-2">
+                <Activity className="size-4" />
+                <span className="text-xs font-mono font-bold uppercase">Workstation 3</span>
+              </div>
+              <h3 className="text-sm font-bold text-white">থেরাপি হল বেড ও টাইমার মেট্রিক্স</h3>
+              <p className="text-xs text-zinc-400 mt-1.5 leading-relaxed">
+                রিয়েলটাইম বেড অকুপেন্সি, মডালিটি মেশিন অ্যাসাইনমেন্ট (UST, IFT, Traction) এবং অটো কাউন্টডাউন অ্যালার্ট।
+              </p>
             </div>
 
-            <div className="p-4 rounded-xl bg-slate-900/70 border border-slate-800 flex flex-col items-center">
-              <Monitor className="size-6 text-emerald-400 mb-2" />
-              <span className="text-xs font-bold text-white">Windows / Mac</span>
-              <span className="text-[10px] text-slate-400">Desktop App</span>
+            {/* 4. Cashier */}
+            <div className="p-5 rounded-2xl bg-zinc-900 border border-white/10">
+              <div className="flex items-center gap-2 text-emerald-400 mb-2">
+                <CreditCard className="size-4" />
+                <span className="text-xs font-mono font-bold uppercase">Workstation 4</span>
+              </div>
+              <h3 className="text-sm font-bold text-white">ক্যাশিয়ার ও ড্রয়ার রিকনসিলিয়েশন</h3>
+              <p className="text-xs text-zinc-400 mt-1.5 leading-relaxed">
+                ইনভয়েসিং, প্যাকেজ পারচেজ, ক্যাশ ড্রয়ার ওপেন/ক্লোজ এবং অডিট-লগ ভিত্তিক দৈনিক আয় রিপোর্ট।
+              </p>
             </div>
 
-            <div className="p-4 rounded-xl bg-slate-900/70 border border-slate-800 flex flex-col items-center">
-              <Tv className="size-6 text-teal-400 mb-2" />
-              <span className="text-xs font-bold text-white">Android TV</span>
-              <span className="text-[10px] text-slate-400">Leanback Mode</span>
+            {/* 5. Waiting Room TV */}
+            <div className="p-5 rounded-2xl bg-zinc-900 border border-white/10">
+              <div className="flex items-center gap-2 text-emerald-400 mb-2">
+                <Tv className="size-4" />
+                <span className="text-xs font-mono font-bold uppercase">Workstation 5</span>
+              </div>
+              <h3 className="text-sm font-bold text-white">স্মার্ট ওয়েটিং রুম টিভি ডিসপ্লে</h3>
+              <p className="text-xs text-zinc-400 mt-1.5 leading-relaxed">
+                জিরো স্ক্রোলিং ফিট, ডাক্তার ও থেরাপি ডুয়াল কিউ, ভয়েস কলিং ও সাউন্ড বেলসহ লাইভ নোটিশ বার।
+              </p>
             </div>
 
-            <div className="p-4 rounded-xl bg-slate-900/70 border border-slate-800 flex flex-col items-center">
-              <ShieldCheck className="size-6 text-cyan-400 mb-2" />
-              <span className="text-xs font-bold text-white">Offline Cache</span>
-              <span className="text-[10px] text-slate-400">Service Worker</span>
+            {/* 6. Realtime Telemetry & PWA */}
+            <div className="p-5 rounded-2xl bg-zinc-900 border border-white/10">
+              <div className="flex items-center gap-2 text-emerald-400 mb-2">
+                <Cpu className="size-4" />
+                <span className="text-xs font-mono font-bold uppercase">Workstation 6</span>
+              </div>
+              <h3 className="text-sm font-bold text-white">অফলাইন-রেডি PWA ও ডিস্ট্রিবিউটেড সিঙ্ক</h3>
+              <p className="text-xs text-zinc-400 mt-1.5 leading-relaxed">
+                সিঙ্গেল-রাইটার SQLite ইঞ্জিন, ডিস্ট্রিবিউটেড SSE টেলিম্যাট্রি এবং ইন্টারনেট ছাড়াও লোকাল নেটওয়ার্কে ফুল রানটাইম।
+              </p>
             </div>
           </div>
         </div>
       </section>
 
       {/* ============================================================== */}
-      {/* CLINIC INFO & CONTACT BAR                                     */}
+      {/* 04. LOCATION & CLINIC HOURS                                   */}
       {/* ============================================================== */}
-      <section className="py-12 bg-slate-900/80 border-t border-slate-800 px-4 sm:px-8">
-        <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8 text-center sm:text-left">
-          <div className="flex flex-col sm:flex-row items-center sm:items-start gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0">
-              <Phone className="size-5" />
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-white">সিরিয়াল ও তথ্য হটলাইন</h3>
-              <p className="text-xs text-slate-300 mt-1">01711-000000 | 01900-000000</p>
-              <p className="text-[11px] text-slate-400">সকাল ৮:০০ হতে রাত ৯:০০ পর্যন্ত উন্মুক্ত</p>
-            </div>
+      <section className="py-16 sm:py-24 px-4 sm:px-8 border-b border-white/5">
+        <div className="max-w-5xl mx-auto">
+          <div className="flex items-center gap-2 text-xs font-mono font-bold uppercase tracking-widest text-emerald-400 mb-3">
+            <span>04</span>
+            <span className="w-8 h-px bg-emerald-500/40" />
+            <span>VISIT HPC JASHORE</span>
           </div>
 
-          <div className="flex flex-col sm:flex-row items-center sm:items-start gap-3">
-            <div className="w-10 h-10 rounded-xl bg-teal-500/10 text-teal-400 flex items-center justify-center shrink-0">
-              <Clock className="size-5" />
-            </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
             <div>
-              <h3 className="text-sm font-bold text-white">রোগী দেখার সময়সূচি</h3>
-              <p className="text-xs text-slate-300 mt-1">শনিবার - বৃহস্পতিবার: সকাল ৮:০০ - রাত ৯:০০</p>
-              <p className="text-[11px] text-slate-400">শুক্রবার: বিকাল ৪:০০ - রাত ৯:০০</p>
-            </div>
-          </div>
+              <h2 className="text-2xl sm:text-4xl font-black tracking-tight text-white mb-4">
+                Find HPC in Jashore
+              </h2>
+              <p className="text-zinc-300 text-sm sm:text-base leading-relaxed mb-6">
+                Visit HPC Health &amp; Pain Care Center opposite Chachra Police Fari, Dalmil Chachra, Jashore Sadar. Prior booking is recommended.
+              </p>
 
-          <div className="flex flex-col sm:flex-row items-center sm:items-start gap-3">
-            <div className="w-10 h-10 rounded-xl bg-cyan-500/10 text-cyan-400 flex items-center justify-center shrink-0">
-              <MapPin className="size-5" />
+              <div className="space-y-4">
+                <div className="flex items-start gap-3">
+                  <MapPin className="size-5 text-emerald-400 shrink-0 mt-0.5" />
+                  <div>
+                    <div className="text-xs uppercase font-mono font-bold text-zinc-400">Clinic Address</div>
+                    <div className="text-sm font-bold text-white">
+                      Opposite Chachra Police Fari, Dalmil Chachra
+                    </div>
+                    <div className="text-xs text-zinc-400">Jashore Sadar, Jashore 7400, Bangladesh</div>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <Phone className="size-5 text-emerald-400 shrink-0 mt-0.5" />
+                  <div>
+                    <div className="text-xs uppercase font-mono font-bold text-zinc-400">Direct Contact &amp; WhatsApp</div>
+                    <div className="text-sm font-bold text-white">+880 1515-615188</div>
+                    <div className="text-xs text-zinc-400">Direct WhatsApp reply from Dr. Toufiq</div>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <Clock className="size-5 text-emerald-400 shrink-0 mt-0.5" />
+                  <div>
+                    <div className="text-xs uppercase font-mono font-bold text-zinc-400">Working Hours</div>
+                    <div className="text-sm font-bold text-white">Saturday – Thursday: 8:00 AM – 9:00 PM</div>
+                    <div className="text-xs text-zinc-400">Friday: 4:00 PM – 9:00 PM</div>
+                  </div>
+                </div>
+              </div>
             </div>
-            <div>
-              <h3 className="text-sm font-bold text-white">ক্লিনিকের ঠিকানা</h3>
-              <p className="text-xs text-slate-300 mt-1">হাসপাতাল রোড, সদর, যশোর</p>
-              <p className="text-[11px] text-slate-400">যশোর ২৫০ শয্যা জেনারেল হাসপাতালের সন্নিকটে</p>
+
+            <div className="p-6 rounded-3xl bg-zinc-900 border border-white/10 flex flex-col justify-between">
+              <div>
+                <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                  MAP &amp; DIRECTIONS
+                </span>
+                <h3 className="text-lg font-bold text-white mt-3">Chachra, Jashore</h3>
+                <p className="text-xs text-zinc-400 mt-1">
+                  Opposite Chachra Police Fari, Dalmil Chachra, Jashore Sadar · 7400
+                </p>
+              </div>
+
+              <div className="mt-8 pt-4 border-t border-white/10 flex flex-col sm:flex-row gap-3">
+                <a
+                  href="https://www.google.com/maps/search/?api=1&query=HPC+Health+and+Pain+Care+Center+Chachra+Jashore"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl text-xs font-bold bg-zinc-800 hover:bg-zinc-700 text-white transition-colors"
+                >
+                  <MapPin className="size-3.5" />
+                  <span>Open in Google Maps</span>
+                  <ArrowUpRight className="size-3.5" />
+                </a>
+
+                <a
+                  href="https://wa.me/8801515615188"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-black transition-colors"
+                >
+                  <MessageCircle className="size-3.5" />
+                  <span>Book Appointment</span>
+                </a>
+              </div>
             </div>
           </div>
         </div>
@@ -344,12 +505,22 @@ export default function LandingPage() {
       {/* ============================================================== */}
       {/* FOOTER                                                        */}
       {/* ============================================================== */}
-      <footer className="py-8 bg-slate-950 border-t border-slate-900 px-4 sm:px-8 text-center text-xs text-slate-400">
-        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-4">
-          <div className="flex items-center gap-2">
-            <span className="font-bold text-slate-200">HPC Jashore</span>
-            <span>·</span>
-            <span>Health &amp; Pain Care Center</span>
+      <footer className="py-10 bg-black border-t border-white/10 px-4 sm:px-8 text-xs text-zinc-400">
+        <div className="max-w-5xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-6">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-white p-0.5 flex items-center justify-center overflow-hidden">
+              <Image
+                src="/hpclogo-transparent.png"
+                alt="HPC Logo"
+                width={32}
+                height={32}
+                className="object-contain"
+              />
+            </div>
+            <div>
+              <div className="font-bold text-white text-sm">HPC Health &amp; Pain Care Center</div>
+              <div className="text-[10px] text-zinc-500">Dalmil Chachra, Jashore 7400, Bangladesh</div>
+            </div>
           </div>
 
           <div className="flex flex-wrap items-center justify-center gap-4 text-xs font-semibold">
@@ -362,18 +533,12 @@ export default function LandingPage() {
             <Link href="/register" className="hover:text-emerald-400 transition-colors">
               Register (/register)
             </Link>
-            <Link href="/forgot-password" className="hover:text-emerald-400 transition-colors">
-              Forgot Password
-            </Link>
-            <Link href="/verify" className="hover:text-emerald-400 transition-colors">
-              Verify Code
-            </Link>
             <Link href="/dashboard" className="text-emerald-400 hover:text-emerald-300 transition-colors">
-              Clinical Dashboard
+              Clinical Dashboard (/dashboard)
             </Link>
           </div>
 
-          <div>
+          <div className="text-[11px] text-zinc-500">
             &copy; {new Date().getFullYear()} HPC Jashore. All rights reserved.
           </div>
         </div>

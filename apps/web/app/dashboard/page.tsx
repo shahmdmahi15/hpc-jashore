@@ -15,6 +15,7 @@ import { useRealtime } from '../../lib/use-realtime';
 import { BrandLogo } from '../../components/brand/logo';
 import { Loader2, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 export default function DashboardPage() {
   const [session, setSession] = useState<UserSession | null>(null);
@@ -27,10 +28,11 @@ export default function DashboardPage() {
     console.log('Realtime event received on frontend:', evt);
   });
 
+  const router = useRouter();
+
   useEffect(() => {
-    // Restore existing session or default to Reception / Doctor demo login
     const saved = getSession();
-    if (saved) {
+    if (saved && saved.accessToken) {
       setSession(saved);
       if (saved.role === 'reception') setActiveTab('reception');
       else if (saved.role === 'therapist') setActiveTab('therapy');
@@ -39,19 +41,9 @@ export default function DashboardPage() {
       else setActiveTab('doctor');
       setIsInitializing(false);
     } else {
-      quickLogin('reception')
-        .then((s) => {
-          setSession(s);
-          setActiveTab('reception');
-        })
-        .catch((err) => {
-          console.warn('Initial quickLogin skipped:', err);
-        })
-        .finally(() => {
-          setIsInitializing(false);
-        });
+      router.replace('/login?redirect=/dashboard');
     }
-  }, []);
+  }, [router]);
 
   if (isInitializing) {
     return (

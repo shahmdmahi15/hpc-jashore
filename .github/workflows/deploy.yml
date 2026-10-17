@@ -38,9 +38,11 @@ jobs:
 
       - name: Build Web
         run: pnpm --filter @hpc/web build
+        env:
+          NODE_OPTIONS: '--max-old-space-size=4096'
 
       - name: Package Production Build Bundle
-        run: tar -czf build-bundle.tar.gz apps/api/dist apps/web/.next
+        run: tar -czf build-bundle.tar.gz apps/api/dist apps/web/.next apps/web/public ecosystem.config.cjs
 
       - name: Upload Build Bundle to Lightsail
         uses: appleboy/scp-action@v0.1.7
