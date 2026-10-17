@@ -8,6 +8,8 @@ import { useRouter } from 'next/navigation';
 import { api } from '../../lib/api';
 import { ArrowLeft, Loader2, Lock, Mail, Phone, ShieldAlert, User, UserPlus } from 'lucide-react';
 import { toast } from 'sonner';
+import { Button } from '../../components/ui/button';
+import { Input } from '../../components/ui/input';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -47,29 +49,29 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-center items-center p-4 relative overflow-hidden font-sans selection:bg-emerald-500/20">
-      <div className="pointer-events-none absolute -top-40 -left-40 w-96 h-96 rounded-full blur-3xl bg-emerald-500/15" />
-      <div className="pointer-events-none absolute -bottom-40 -right-40 w-96 h-96 rounded-full blur-3xl bg-teal-500/15" />
+    <div className="min-h-screen bg-black text-white flex flex-col justify-center items-center p-4 relative overflow-hidden font-sans selection:bg-emerald-500/20">
+      <div className="pointer-events-none absolute -top-40 -left-40 w-96 h-96 rounded-full blur-3xl bg-emerald-500/10" />
+      <div className="pointer-events-none absolute -bottom-40 -right-40 w-96 h-96 rounded-full blur-3xl bg-emerald-600/10" />
 
       <div className="w-full max-w-md mb-4 flex justify-between items-center z-10">
         <Link
           href="/"
-          className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-emerald-400 transition-colors"
+          className="inline-flex items-center gap-1.5 text-xs text-zinc-400 hover:text-emerald-400 transition-colors"
         >
           <ArrowLeft className="size-3.5" />
           <span>হোমপেজে ফিরে যান (Home)</span>
         </Link>
         <Link
           href="/login"
-          className="inline-flex items-center gap-1.5 text-xs text-emerald-400 hover:text-emerald-300 font-semibold transition-colors"
+          className="text-xs text-emerald-400 hover:text-emerald-300 font-semibold"
         >
-          <span>ইতিমধ্যে একাউন্ট আছে? লগইন</span>
+          ইতিমধ্যে অ্যাকাউন্ট আছে? লগইন
         </Link>
       </div>
 
-      <div className="glass-panel w-full max-w-md p-6 sm:p-8 rounded-3xl border border-slate-800 bg-slate-900/80 shadow-2xl backdrop-blur-2xl z-10">
+      <div className="glass-panel w-full max-w-md p-6 sm:p-8 rounded-3xl border border-zinc-800 bg-zinc-950/85 shadow-2xl backdrop-blur-2xl z-10">
         <div className="flex flex-col items-center text-center mb-6">
-          <div className="w-16 h-16 rounded-2xl bg-white p-1.5 shadow-lg shadow-black/40 mb-3 flex items-center justify-center">
+          <div className="w-16 h-16 rounded-2xl bg-white p-1.5 shadow-lg shadow-black/40 mb-3 flex items-center justify-center border border-zinc-200">
             <Image
               src="/hpclogo-transparent.png"
               alt="HPC Logo"
@@ -80,128 +82,129 @@ export default function RegisterPage() {
             />
           </div>
           <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">
-            নতুন একাউন্ট নিবন্ধন
+            ক্লিনিক্যাল স্টাফ রেজিস্ট্রেশন
           </h1>
-          <p className="text-xs text-slate-400 mt-1">
-            HPC Jashore · Health &amp; Pain Care Center Management
+          <p className="text-xs text-zinc-400 mt-1">
+            Health &amp; Pain Care Center · Jashore
           </p>
         </div>
 
         {errorMsg && (
-          <div className="mb-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-start gap-2.5 text-rose-300 text-xs">
-            <ShieldAlert className="size-4 shrink-0 mt-0.5 text-rose-400" />
+          <div className="mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/30 flex items-start gap-2.5 text-red-300 text-xs">
+            <ShieldAlert className="size-4 shrink-0 mt-0.5 text-red-400" />
             <span>{errorMsg}</span>
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-3.5">
           <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1">
-              সম্পূর্ণ নাম (Full Name)
+            <label className="block text-xs font-semibold text-zinc-300 mb-1">
+              পূর্ণ নাম (Full Name)
             </label>
             <div className="relative">
-              <User className="size-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-              <input
+              <User className="size-4 text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <Input
                 type="text"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
-                placeholder="মোঃ রফিকুল ইসলাম"
+                placeholder="ডাঃ / থেরাপিস্ট / স্টাফের নাম"
                 required
-                className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-950/70 border border-slate-800 text-white text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all placeholder:text-slate-600"
+                className="pl-10 bg-zinc-900 border-zinc-800 text-white placeholder:text-zinc-600 focus-visible:ring-emerald-500"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1">
-              ইমেইল অ্যাড্রেস (Email)
+            <label className="block text-xs font-semibold text-zinc-300 mb-1">
+              অফিশিয়াল ইমেইল (Email)
             </label>
             <div className="relative">
-              <Mail className="size-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-              <input
+              <Mail className="size-4 text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <Input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="name@example.com"
+                placeholder="staff@hpc.local"
                 required
-                className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-950/70 border border-slate-800 text-white text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all placeholder:text-slate-600"
+                className="pl-10 bg-zinc-900 border-zinc-800 text-white placeholder:text-zinc-600 focus-visible:ring-emerald-500"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1">
+            <label className="block text-xs font-semibold text-zinc-300 mb-1">
               মোবাইল নম্বর (Phone)
             </label>
             <div className="relative">
-              <Phone className="size-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-              <input
+              <Phone className="size-4 text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <Input
                 type="tel"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                placeholder="017XXXXXXXX"
-                className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-950/70 border border-slate-800 text-white text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all placeholder:text-slate-600"
+                placeholder="01700-000000"
+                className="pl-10 bg-zinc-900 border-zinc-800 text-white placeholder:text-zinc-600 focus-visible:ring-emerald-500"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1">
-              পাসওয়ার্ড (Password)
-            </label>
-            <div className="relative">
-              <Lock className="size-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="নূন্যতম ৬ অক্ষর"
-                minLength={6}
-                required
-                className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-950/70 border border-slate-800 text-white text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all placeholder:text-slate-600"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1">
-              ভূমিকা / পদবি (Role)
+            <label className="block text-xs font-semibold text-zinc-300 mb-1">
+              ক্লিনিক্যাল পদবী / ডিপার্টমেন্ট (Role)
             </label>
             <select
               value={role}
               onChange={(e) => setRole(e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950/70 border border-slate-800 text-white text-sm focus:outline-none focus:border-emerald-500 transition-all"
+              className="w-full px-3 py-2.5 rounded-lg bg-zinc-900 border border-zinc-800 text-white text-sm focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500 transition-colors"
             >
-              <option value="reception">রিসেপশনিস্ট (Reception)</option>
-              <option value="therapist">ফিজিওথেরাপিস্ট (Therapist)</option>
-              <option value="cashier">ক্যাশিয়ার ও বিলিং (Cashier)</option>
-              <option value="doctor">কনসালট্যান্ট ডক্টর (Doctor)</option>
+              <option value="reception">রিসেপশন ও ফ্রন্ট ডেস্ক (Reception)</option>
+              <option value="doctor">চিফ কনসালট্যান্ট / মেডিকেল ডাক্তার (Doctor)</option>
+              <option value="therapy">ফিজিওথেরাপিস্ট ও রিহ্যাব হল (Therapist)</option>
+              <option value="cashier">ক্যাশিয়ার ও অ্যাকাউন্টস বিলিং (Cashier)</option>
+              <option value="pharmacy">ফার্মেসি ও ডিসপেনসারি (Pharmacy)</option>
+              <option value="admin">সিস্টেম অ্যাডমিনিস্ট্রেটর (Admin)</option>
             </select>
           </div>
 
-          <button
+          <div>
+            <label className="block text-xs font-semibold text-zinc-300 mb-1">
+              পাসওয়ার্ড (Password)
+            </label>
+            <div className="relative">
+              <Lock className="size-4 text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <Input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="কমপক্ষে ৬ অক্ষর..."
+                required
+                className="pl-10 bg-zinc-900 border-zinc-800 text-white placeholder:text-zinc-600 focus-visible:ring-emerald-500"
+              />
+            </div>
+          </div>
+
+          <Button
             type="submit"
             disabled={loading}
-            className="w-full mt-2 py-3 rounded-xl font-bold text-sm bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-lg shadow-emerald-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
+            className="w-full mt-2 py-3 h-11 rounded-xl font-bold text-sm bg-emerald-500 hover:bg-emerald-400 text-black shadow-lg shadow-emerald-500/20"
           >
             {loading ? (
               <>
                 <Loader2 className="size-4 animate-spin" />
-                <span>প্রসেসিং হচ্ছে...</span>
+                <span>অ্যাকাউন্ট তৈরি হচ্ছে...</span>
               </>
             ) : (
               <>
                 <UserPlus className="size-4" />
-                <span>নিবন্ধন সম্পন্ন করুন (Register)</span>
+                <span>রেজিস্ট্রেশন সম্পন্ন করুন</span>
               </>
             )}
-          </button>
+          </Button>
         </form>
 
-        <div className="mt-5 text-center text-xs text-slate-400">
+        <div className="mt-5 text-center text-xs text-zinc-400">
           ইতিমধ্যে নিবন্ধিত?{' '}
           <Link href="/login" className="text-emerald-400 font-semibold hover:underline">
-            লগইন করুন (Sign In)
+            লগইন করুন
           </Link>
         </div>
       </div>

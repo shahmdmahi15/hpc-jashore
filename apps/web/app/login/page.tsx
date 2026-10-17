@@ -8,6 +8,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { api, DEMO_ACCOUNTS } from '../../lib/api';
 import { ArrowLeft, KeyRound, Loader2, Lock, Mail, ShieldAlert, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
+import { Button } from '../../components/ui/button';
+import { Input } from '../../components/ui/input';
 
 function LoginForm() {
   const router = useRouter();
@@ -78,8 +80,8 @@ function LoginForm() {
       </div>
 
       {errorMsg && (
-        <div className="mb-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-start gap-2.5 text-rose-300 text-xs">
-          <ShieldAlert className="size-4 shrink-0 mt-0.5 text-rose-400" />
+        <div className="mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/30 flex items-start gap-2.5 text-red-300 text-xs">
+          <ShieldAlert className="size-4 shrink-0 mt-0.5 text-red-400" />
           <span>{errorMsg}</span>
         </div>
       )}
@@ -92,13 +94,13 @@ function LoginForm() {
           </label>
           <div className="relative">
             <Mail className="size-4 text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-            <input
+            <Input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="doctor@hpc.local"
               required
-              className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-black/70 border border-zinc-800 text-white text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all placeholder:text-zinc-600"
+              className="pl-10 bg-zinc-900 border-zinc-800 text-white placeholder:text-zinc-600 focus-visible:ring-emerald-500"
             />
           </div>
         </div>
@@ -117,21 +119,21 @@ function LoginForm() {
           </div>
           <div className="relative">
             <Lock className="size-4 text-zinc-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
-            <input
+            <Input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
               required
-              className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-black/70 border border-zinc-800 text-white text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all placeholder:text-zinc-600"
+              className="pl-10 bg-zinc-900 border-zinc-800 text-white placeholder:text-zinc-600 focus-visible:ring-emerald-500"
             />
           </div>
         </div>
 
-        <button
+        <Button
           type="submit"
           disabled={loading}
-          className="w-full py-3 rounded-xl font-bold text-sm bg-emerald-500 hover:bg-emerald-400 text-black shadow-lg shadow-emerald-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
+          className="w-full py-3 h-11 rounded-xl font-bold text-sm bg-emerald-500 hover:bg-emerald-400 text-black shadow-lg shadow-emerald-500/20"
         >
           {loading ? (
             <>
@@ -144,71 +146,87 @@ function LoginForm() {
               <span>লগইন করুন (Sign In)</span>
             </>
           )}
-        </button>
+        </Button>
       </form>
 
       {/* Quick Demo Role Switcher */}
-      <div className="mt-6 pt-5 border-t border-zinc-850">
+      <div className="mt-6 pt-5 border-t border-zinc-800">
         <div className="flex items-center gap-1.5 text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-2.5">
           <Sparkles className="size-3 text-emerald-400" />
           <span>ওয়ান-ক্লিক টেস্ট একাউন্ট (Quick Switch)</span>
         </div>
 
         <div className="grid grid-cols-2 gap-2">
-          <button
+          <Button
             type="button"
+            variant="outline"
             onClick={() => handleQuickLogin('doctor')}
             disabled={loading}
-            className="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-zinc-900/80 hover:bg-zinc-850 border border-zinc-800 hover:border-emerald-500/40 text-zinc-200 transition-colors text-left flex items-center justify-between cursor-pointer"
+            className="h-auto p-2.5 rounded-xl border-zinc-800 bg-zinc-900/60 hover:border-emerald-500/50 hover:bg-zinc-800/80 text-left flex flex-col items-start gap-0.5 justify-start"
           >
-            <span>🩺 ডাঃ তৌফিক</span>
-            <span className="text-[10px] text-emerald-400 font-mono">Doctor</span>
-          </button>
+            <div className="text-xs font-bold text-white flex items-center gap-1">
+              <span>🩺</span>
+              <span>ডাক্তার চেম্বার</span>
+            </div>
+            <div className="text-[10px] text-zinc-400 font-mono">doctor@hpc.local</div>
+          </Button>
 
-          <button
+          <Button
             type="button"
+            variant="outline"
             onClick={() => handleQuickLogin('reception')}
             disabled={loading}
-            className="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-zinc-900/80 hover:bg-zinc-850 border border-zinc-800 hover:border-emerald-500/40 text-zinc-200 transition-colors text-left flex items-center justify-between cursor-pointer"
+            className="h-auto p-2.5 rounded-xl border-zinc-800 bg-zinc-900/60 hover:border-emerald-500/50 hover:bg-zinc-800/80 text-left flex flex-col items-start gap-0.5 justify-start"
           >
-            <span>📋 রিসেপশন</span>
-            <span className="text-[10px] text-teal-400 font-mono">Reception</span>
-          </button>
+            <div className="text-xs font-bold text-white flex items-center gap-1">
+              <span>📋</span>
+              <span>রিসেপশন ডেস্ক</span>
+            </div>
+            <div className="text-[10px] text-zinc-400 font-mono">reception@hpc.local</div>
+          </Button>
 
-          <button
+          <Button
             type="button"
+            variant="outline"
             onClick={() => handleQuickLogin('therapist')}
             disabled={loading}
-            className="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-zinc-900/80 hover:bg-zinc-850 border border-zinc-800 hover:border-emerald-500/40 text-zinc-200 transition-colors text-left flex items-center justify-between cursor-pointer"
+            className="h-auto p-2.5 rounded-xl border-zinc-800 bg-zinc-900/60 hover:border-emerald-500/50 hover:bg-zinc-800/80 text-left flex flex-col items-start gap-0.5 justify-start"
           >
-            <span>⚡ থেরাপিস্ট</span>
-            <span className="text-[10px] text-purple-400 font-mono">Therapy</span>
-          </button>
+            <div className="text-xs font-bold text-white flex items-center gap-1">
+              <span>⚡</span>
+              <span>থেরাপি হল</span>
+            </div>
+            <div className="text-[10px] text-zinc-400 font-mono">therapy@hpc.local</div>
+          </Button>
 
-          <button
+          <Button
             type="button"
+            variant="outline"
             onClick={() => handleQuickLogin('cashier')}
             disabled={loading}
-            className="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-zinc-900/80 hover:bg-zinc-850 border border-zinc-800 hover:border-emerald-500/40 text-zinc-200 transition-colors text-left flex items-center justify-between cursor-pointer"
+            className="h-auto p-2.5 rounded-xl border-zinc-800 bg-zinc-900/60 hover:border-emerald-500/50 hover:bg-zinc-800/80 text-left flex flex-col items-start gap-0.5 justify-start"
           >
-            <span>💳 ক্যাশিয়ার</span>
-            <span className="text-[10px] text-amber-400 font-mono">Cashier</span>
-          </button>
+            <div className="text-xs font-bold text-white flex items-center gap-1">
+              <span>💳</span>
+              <span>ক্যাশিয়ার বিলিং</span>
+            </div>
+            <div className="text-[10px] text-zinc-400 font-mono">cashier@hpc.local</div>
+          </Button>
         </div>
       </div>
 
-      {/* Links to Register & Verify */}
+      {/* Footer Navigation */}
       <div className="mt-5 text-center text-xs text-zinc-400 flex flex-col gap-1.5">
         <div>
-          নতুন একাউন্ট প্রয়োজন?{' '}
+          নতুন স্টাফ একাউন্ট প্রয়োজন?{' '}
           <Link href="/register" className="text-emerald-400 font-semibold hover:underline">
-            নিবন্ধন করুন (Register)
+            রেজিস্ট্রেশন করুন
           </Link>
         </div>
         <div>
-          ভেরিফিকেশন কোড আছে?{' '}
-          <Link href="/verify" className="text-zinc-300 hover:text-emerald-400 hover:underline">
-            কোড যাচাই করুন (Verify Email)
+          অ্যাকাউন্ট ভেরিফাই করেননি?{' '}
+          <Link href="/verify" className="text-zinc-400 hover:text-emerald-400 hover:underline">
+            পিন ভেরিফাই করুন
           </Link>
         </div>
       </div>
@@ -219,6 +237,10 @@ function LoginForm() {
 export default function LoginPage() {
   return (
     <div className="min-h-screen bg-black text-white flex flex-col justify-center items-center p-4 relative overflow-hidden font-sans selection:bg-emerald-500/20">
+      <div className="pointer-events-none absolute -top-40 -left-40 w-96 h-96 rounded-full blur-3xl bg-emerald-500/10" />
+      <div className="pointer-events-none absolute -bottom-40 -right-40 w-96 h-96 rounded-full blur-3xl bg-emerald-600/10" />
+
+      {/* Top Bar with Home Link & TV Route link */}
       <div className="w-full max-w-md mb-4 flex justify-between items-center z-10">
         <Link
           href="/"
@@ -229,9 +251,10 @@ export default function LoginPage() {
         </Link>
         <Link
           href="/tv"
-          className="inline-flex items-center gap-1.5 text-xs text-emerald-400/80 hover:text-emerald-300 transition-colors"
+          className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-all font-semibold"
         >
-          <span>লাইভ টিভি কিউ (TV)</span>
+          <span>📺</span>
+          <span>ওয়েটিং রুম টিভি</span>
         </Link>
       </div>
 

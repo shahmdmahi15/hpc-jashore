@@ -30,6 +30,10 @@ export function setSession(session: UserSession | null) {
   }
 }
 
+export function clearSession() {
+  setSession(null);
+}
+
 export function getSession(): UserSession | null {
   if (activeSession) return activeSession;
   if (typeof window !== 'undefined') {

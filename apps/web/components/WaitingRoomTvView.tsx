@@ -1,8 +1,9 @@
 // apps/web/components/WaitingRoomTvView.tsx
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { api } from '../lib/api';
 import {
   Activity,
@@ -11,6 +12,7 @@ import {
   CheckCircle2,
   Clock,
   DoorOpen,
+  LogIn,
   Maximize2,
   Minimize2,
   Moon,
@@ -24,6 +26,7 @@ import {
 
 type Language = 'bn' | 'en';
 type Theme = 'dark' | 'light';
+type DepartmentFilter = 'ALL' | 'CONSULTATION' | 'THERAPY';
 
 interface ConsultationItem {
   serialNumber: number;
@@ -76,13 +79,16 @@ interface TvSnapshotData {
 export default function WaitingRoomTvView() {
   const [lang, setLang] = useState<Language>('bn');
   const [theme, setTheme] = useState<Theme>('dark');
+  const [departmentFilter, setDepartmentFilter] = useState<DepartmentFilter>('ALL');
   const [audioEnabled, setAudioEnabled] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isWakeLockActive, setIsWakeLockActive] = useState(false);
   const [currentTime, setCurrentTime] = useState('');
   const [currentDateFormatted, setCurrentDateFormatted] = useState('');
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'reconnecting' | 'offline'>('connected');
   const [lastSyncTime, setLastSyncTime] = useState<string>('');
   const [activeCallAlert, setActiveCallAlert] = useState<ConsultationItem | null>(null);
+  const [callCountdown, setCallCountdown] = useState<number>(12);
 
   const [snapshot, setSnapshot] = useState<TvSnapshotData>({
     date: new Date().toISOString().slice(0, 10),
@@ -95,16 +101,51 @@ export default function WaitingRoomTvView() {
     therapyQueue: { nowServing: [], waiting: [] },
     bulletinNotices: [
       'স্বাগতম: হেলথ অ্যান্ড পেইন কেয়ার সেন্টার (HPC) · যশোর | আধুনিক ফিজিওথেরাপি ও পুনর্বাসন কেন্দ্র',
-      'চিফ কনসালট্যান্ট: ডাঃ মোঃ তৌফিক উজ জামান (BPT, PGD, MDMR, MPH) · স্পেশালাইজড পেইন ও স্ট্রোক কেয়ার',
-      'জরুরি হটলাইন: 01515-615188 | অনুগ্রহ করে আপনার টোকেন নম্বর ডিসপ্লেতে লক্ষ্য করুন',
+      'চিফ কনসালট্যান্ট: ডাঃ মোঃ তৌফিক উজ জামান (BPT DU, PGD Acupuncture China, MDMR Pain Management DU, MPH)',
+      'জরুরি হটলাইন: +880 1515-615188 | অনুগ্রহ করে আপনার টোকেন নম্বর ডিসপ্লেতে লক্ষ্য করুন',
+      'চাচড়া পুলিশ ফাঁড়ির বিপরীতে, ডালমিল মোড়, যশোর ৭৪০০ | সিরিয়ালের জন্য অপেক্ষা করুন',
       'থেরাপির সময় মোবাইল ফোন সাইলেন্ট রাখুন | নামাজের বিরতি: দুপুর ১:১৫ হতে ১:৪৫ পর্যন্ত',
-      'Welcome to HPC Jashore | Evidence-led pain management, stroke rehabilitation, and physiotherapy',
+      'Welcome to HPC Jashore | Evidence-led pain management, stroke rehabilitation, and physical therapy',
     ],
   });
 
   const lastCalledSerialRef = useRef<number | null>(null);
+  const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Play crisp dual-tone hospital announcement chime
+  // Screen Wake Lock API to prevent TV display from sleeping
+  useEffect(() => {
+    let wakeLock: any = null;
+    const requestWakeLock = async () => {
+      try {
+        if ('wakeLock' in navigator) {
+          wakeLock = await (navigator as any).wakeLock.request('screen');
+          setIsWakeLockActive(true);
+          wakeLock.addEventListener('release', () => {
+            setIsWakeLockActive(false);
+          });
+        }
+      } catch (err) {
+        // WakeLock not supported or denied
+      }
+    };
+    requestWakeLock();
+
+    const handleVisibilityChange = () => {
+      if (wakeLock !== null && document.visibilityState === 'visible') {
+        requestWakeLock();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (wakeLock) {
+        wakeLock.release().catch(() => {});
+      }
+    };
+  }, []);
+
+  // Web Audio chime
   const playChime = () => {
     try {
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
@@ -185,6 +226,7 @@ export default function WaitingRoomTvView() {
         if (latestCalled && latestCalled.serialNumber !== lastCalledSerialRef.current) {
           lastCalledSerialRef.current = latestCalled.serialNumber;
           setActiveCallAlert(latestCalled);
+          setCallCountdown(12);
 
           if (audioEnabled) {
             playChime();
@@ -203,26 +245,33 @@ export default function WaitingRoomTvView() {
             }, 600);
           }
 
-          // Auto-hide calling popup after 12 seconds
-          setTimeout(() => {
-            setActiveCallAlert(null);
-          }, 12000);
+          if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+          countdownIntervalRef.current = setInterval(() => {
+            setCallCountdown((prev) => {
+              if (prev <= 1) {
+                if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+                setActiveCallAlert(null);
+                return 0;
+              }
+              return prev - 1;
+            });
+          }, 1000);
         }
       }
     } catch (err) {
-      console.warn('TV Snapshot fetch error:', err);
       setConnectionStatus('reconnecting');
     }
   };
 
+  // Clock ticker & polling loop
   useEffect(() => {
     loadData();
-    const pollTimer = setInterval(loadData, 4000);
+    const pollTimer = setInterval(loadData, 3000);
 
-    const clockTimer = setInterval(() => {
+    const updateClock = () => {
       const now = new Date();
       setCurrentTime(
-        now.toLocaleTimeString(lang === 'bn' ? 'bn-BD' : 'en-GB', {
+        now.toLocaleTimeString(lang === 'bn' ? 'bn-BD' : 'en-US', {
           hour: '2-digit',
           minute: '2-digit',
           second: '2-digit',
@@ -232,16 +281,20 @@ export default function WaitingRoomTvView() {
       setCurrentDateFormatted(
         now.toLocaleDateString(lang === 'bn' ? 'bn-BD' : 'en-GB', {
           weekday: 'long',
-          day: 'numeric',
-          month: 'long',
           year: 'numeric',
+          month: 'long',
+          day: 'numeric',
         }),
       );
-    }, 1000);
+    };
+
+    updateClock();
+    const clockTimer = setInterval(updateClock, 1000);
 
     return () => {
       clearInterval(pollTimer);
       clearInterval(clockTimer);
+      if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
     };
   }, [lang, audioEnabled]);
 
@@ -259,10 +312,15 @@ export default function WaitingRoomTvView() {
 
   return (
     <div
-      className={`h-screen max-h-screen w-screen max-w-screen overflow-hidden flex flex-col justify-between font-sans select-none transition-colors duration-200 ${
+      className={`h-[100dvh] max-h-[100dvh] h-screen max-h-screen w-[100dvw] max-w-[100dvw] w-screen max-w-screen overflow-hidden flex flex-col justify-between font-sans select-none transition-colors duration-200 ${
         isDark ? 'bg-black text-white' : 'bg-white text-zinc-950'
       }`}
       style={{
+        height: '100dvh',
+        maxHeight: '100dvh',
+        width: '100dvw',
+        maxWidth: '100dvw',
+        overflow: 'hidden',
         paddingTop: 'env(safe-area-inset-top, 0px)',
         paddingBottom: 'env(safe-area-inset-bottom, 0px)',
         paddingLeft: 'env(safe-area-inset-left, 0px)',
@@ -270,38 +328,38 @@ export default function WaitingRoomTvView() {
       }}
     >
       {/* ============================================================== */}
-      {/* 1. TOP HEADER: STRICTLY FIXED HEIGHT, NO OVERFLOW             */}
+      {/* 1. TOP HEADER: STRICTLY FIXED HEIGHT, NEVER OVERFLOWS         */}
       {/* ============================================================== */}
       <header
-        className={`h-14 lg:h-16 shrink-0 w-full px-3 sm:px-5 flex items-center justify-between border-b gap-3 transition-colors ${
+        className={`h-12 sm:h-14 2xl:h-20 shrink-0 w-full px-3 sm:px-5 2xl:px-8 flex items-center justify-between border-b gap-2 sm:gap-4 transition-colors z-20 ${
           isDark
-            ? 'bg-zinc-950/95 border-white/10 text-white'
+            ? 'bg-zinc-950/95 border-zinc-800 text-white'
             : 'bg-zinc-50 border-zinc-200 text-zinc-950 shadow-xs'
         }`}
       >
         {/* Left: HPC Brand Identity */}
-        <div className="flex items-center gap-2.5 shrink-0">
-          <div className="w-10 h-10 lg:w-11 lg:h-11 rounded-xl bg-white p-1 shadow-sm flex items-center justify-center shrink-0 border border-zinc-200">
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          <div className="w-9 h-9 sm:w-10 sm:h-10 2xl:w-14 2xl:h-14 rounded-xl bg-white p-1 shadow-sm flex items-center justify-center shrink-0 border border-zinc-200">
             <Image
               src="/hpclogo-transparent.png"
               alt="HPC Logo"
-              width={40}
-              height={40}
+              width={56}
+              height={56}
               className="object-contain"
               priority
             />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-sm sm:text-base lg:text-lg font-black tracking-tight leading-none text-emerald-500">
+              <h1 className="text-xs sm:text-base 2xl:text-2xl font-black tracking-tight leading-none text-emerald-500">
                 {lang === 'bn' ? snapshot.clinicNameBn : snapshot.clinicName}
               </h1>
-              <span className="hidden md:inline-flex text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-500 border border-emerald-500/25 uppercase">
+              <span className="hidden md:inline-flex text-[9px] 2xl:text-xs font-bold px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-500 border border-emerald-500/25 uppercase">
                 {lang === 'bn' ? 'স্মার্ট টিভি কিউ' : 'Smart TV Queue'}
               </span>
             </div>
             <p
-              className={`text-[10px] sm:text-xs mt-0.5 font-medium leading-none ${
+              className={`text-[9px] sm:text-xs 2xl:text-sm mt-0.5 font-medium leading-none truncate max-w-[200px] sm:max-w-md ${
                 isDark ? 'text-zinc-400' : 'text-zinc-600'
               }`}
             >
@@ -312,13 +370,77 @@ export default function WaitingRoomTvView() {
           </div>
         </div>
 
-        {/* Center: Controls Toolbar */}
-        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+        {/* Center: Department Switcher + Control Tools */}
+        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+          {/* Department Filter Toggle (Allows single or dual column TV mode) */}
+          <div
+            className={`hidden sm:inline-flex items-center rounded-lg p-0.5 border ${
+              isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-zinc-200/70 border-zinc-300'
+            }`}
+          >
+            <button
+              type="button"
+              onClick={() => setDepartmentFilter('ALL')}
+              className={`px-2 py-0.5 2xl:px-3 2xl:py-1 rounded-md text-[10px] 2xl:text-xs font-bold cursor-pointer transition-all ${
+                departmentFilter === 'ALL'
+                  ? 'bg-emerald-500 text-black shadow-xs font-black'
+                  : isDark
+                  ? 'text-zinc-400 hover:text-white'
+                  : 'text-zinc-700 hover:text-black'
+              }`}
+            >
+              {lang === 'bn' ? 'সকল' : 'All'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setDepartmentFilter('CONSULTATION')}
+              className={`px-2 py-0.5 2xl:px-3 2xl:py-1 rounded-md text-[10px] 2xl:text-xs font-bold cursor-pointer transition-all ${
+                departmentFilter === 'CONSULTATION'
+                  ? 'bg-emerald-500 text-black shadow-xs font-black'
+                  : isDark
+                  ? 'text-zinc-400 hover:text-white'
+                  : 'text-zinc-700 hover:text-black'
+              }`}
+            >
+              {lang === 'bn' ? 'চেম্বার' : 'Chambers'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setDepartmentFilter('THERAPY')}
+              className={`px-2 py-0.5 2xl:px-3 2xl:py-1 rounded-md text-[10px] 2xl:text-xs font-bold cursor-pointer transition-all ${
+                departmentFilter === 'THERAPY'
+                  ? 'bg-emerald-500 text-black shadow-xs font-black'
+                  : isDark
+                  ? 'text-zinc-400 hover:text-white'
+                  : 'text-zinc-700 hover:text-black'
+              }`}
+            >
+              {lang === 'bn' ? 'থেরাপি' : 'Therapy'}
+            </button>
+          </div>
+
+          {/* Wake Lock Status Badge */}
+          <div
+            className={`hidden xl:inline-flex items-center gap-1 px-2 py-0.5 2xl:px-3 2xl:py-1 rounded-md text-[10px] 2xl:text-xs font-bold border ${
+              isWakeLockActive
+                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                : 'bg-zinc-900/60 text-zinc-500 border-zinc-800'
+            }`}
+            title={
+              isWakeLockActive
+                ? 'Screen Wake Lock active (TV display will stay awake)'
+                : 'Wake Lock inactive'
+            }
+          >
+            <Tv className="size-3" />
+            <span>{isWakeLockActive ? (lang === 'bn' ? 'সজাগ' : 'Awake') : 'TV'}</span>
+          </div>
+
           {/* Live Status Badge */}
           <div
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border ${
+            className={`flex items-center gap-1.5 px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full text-[10px] sm:text-xs 2xl:text-sm font-bold border ${
               isDark
-                ? 'bg-zinc-900 border-white/10 text-emerald-400'
+                ? 'bg-zinc-900 border-zinc-800 text-emerald-400'
                 : 'bg-white border-zinc-200 text-emerald-600 shadow-2xs'
             }`}
           >
@@ -348,25 +470,25 @@ export default function WaitingRoomTvView() {
               setAudioEnabled(next);
               if (next) playChime();
             }}
-            className={`h-8 px-2 rounded-lg text-xs font-bold border transition-colors flex items-center gap-1 cursor-pointer ${
+            className={`h-7 sm:h-8 2xl:h-10 px-2 rounded-lg text-xs 2xl:text-sm font-bold border transition-colors flex items-center gap-1 cursor-pointer ${
               audioEnabled
-                ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30'
+                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
                 : isDark
-                ? 'bg-zinc-900 text-zinc-500 border-white/10'
+                ? 'bg-zinc-900 text-zinc-500 border-zinc-800'
                 : 'bg-white text-zinc-400 border-zinc-200'
             }`}
             title="Toggle Chime Sound"
           >
-            {audioEnabled ? <Volume2 className="size-3.5" /> : <VolumeX className="size-3.5" />}
+            {audioEnabled ? <Volume2 className="size-3.5 2xl:size-4" /> : <VolumeX className="size-3.5 2xl:size-4" />}
           </button>
 
           {/* Language Switcher */}
           <button
             type="button"
             onClick={() => setLang(lang === 'bn' ? 'en' : 'bn')}
-            className={`h-8 px-2.5 rounded-lg text-xs font-bold border transition-colors cursor-pointer ${
+            className={`h-7 sm:h-8 2xl:h-10 px-2 sm:px-2.5 rounded-lg text-xs 2xl:text-sm font-bold border transition-colors cursor-pointer ${
               isDark
-                ? 'bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border-white/10'
+                ? 'bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border-zinc-800'
                 : 'bg-white hover:bg-zinc-100 text-zinc-800 border-zinc-200'
             }`}
           >
@@ -377,38 +499,51 @@ export default function WaitingRoomTvView() {
           <button
             type="button"
             onClick={() => setTheme(isDark ? 'light' : 'dark')}
-            className={`h-8 w-8 rounded-lg text-xs font-bold border transition-colors flex items-center justify-center cursor-pointer ${
+            className={`h-7 w-7 sm:h-8 sm:w-8 2xl:h-10 2xl:w-10 rounded-lg text-xs font-bold border transition-colors flex items-center justify-center cursor-pointer ${
               isDark
-                ? 'bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border-white/10'
+                ? 'bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border-zinc-800'
                 : 'bg-white hover:bg-zinc-100 text-zinc-800 border-zinc-200'
             }`}
             title="Toggle Dark/Light Theme"
           >
-            {isDark ? <Sun className="size-3.5 text-amber-400" /> : <Moon className="size-3.5 text-zinc-700" />}
+            {isDark ? <Sun className="size-3.5 2xl:size-4 text-amber-400" /> : <Moon className="size-3.5 2xl:size-4 text-zinc-700" />}
           </button>
 
           {/* Fullscreen Toggle */}
           <button
             type="button"
             onClick={toggleFullscreen}
-            className={`h-8 w-8 rounded-lg text-xs font-bold border transition-colors flex items-center justify-center cursor-pointer ${
+            className={`h-7 w-7 sm:h-8 sm:w-8 2xl:h-10 2xl:w-10 rounded-lg text-xs font-bold border transition-colors flex items-center justify-center cursor-pointer ${
               isDark
-                ? 'bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border-white/10'
+                ? 'bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border-zinc-800'
                 : 'bg-white hover:bg-zinc-100 text-zinc-800 border-zinc-200'
             }`}
             title="Toggle Fullscreen"
           >
-            {isFullscreen ? <Minimize2 className="size-3.5" /> : <Maximize2 className="size-3.5" />}
+            {isFullscreen ? <Minimize2 className="size-3.5 2xl:size-4" /> : <Maximize2 className="size-3.5 2xl:size-4" />}
           </button>
+
+          {/* Staff Login Link */}
+          <Link
+            href="/login"
+            className={`h-7 w-7 sm:h-8 sm:w-8 2xl:h-10 2xl:w-10 rounded-lg border transition-colors flex items-center justify-center cursor-pointer ${
+              isDark
+                ? 'bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white border-zinc-800'
+                : 'bg-white hover:bg-zinc-100 text-zinc-600 hover:text-black border-zinc-200'
+            }`}
+            title="Staff Login Portal"
+          >
+            <LogIn className="size-3.5 2xl:size-4" />
+          </Link>
         </div>
 
         {/* Right: Digital Clock & Date */}
         <div className="text-right shrink-0">
-          <div className="text-base sm:text-xl lg:text-2xl font-black font-mono text-emerald-500 leading-none tracking-tight">
+          <div className="text-sm sm:text-lg 2xl:text-3xl font-black font-mono text-emerald-500 leading-none tracking-tight">
             {currentTime || '00:00:00'}
           </div>
           <div
-            className={`text-[9px] sm:text-[11px] font-semibold mt-0.5 leading-none ${
+            className={`text-[8px] sm:text-[10px] 2xl:text-xs font-semibold mt-0.5 leading-none ${
               isDark ? 'text-zinc-400' : 'text-zinc-600'
             }`}
           >
@@ -424,16 +559,16 @@ export default function WaitingRoomTvView() {
         <aside
           role="status"
           aria-live="assertive"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-xl animate-in fade-in zoom-in-95 duration-200 select-none overflow-hidden"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl animate-in fade-in zoom-in-95 duration-200 select-none overflow-hidden"
         >
-          <div className="w-full max-w-3xl p-6 sm:p-10 rounded-3xl border-4 border-emerald-500 bg-zinc-950 shadow-[0_0_100px_rgba(16,185,129,0.35)] text-center text-white relative overflow-hidden">
+          <div className="w-full max-w-3xl p-6 sm:p-10 rounded-3xl border-4 border-emerald-500 bg-zinc-950 shadow-[0_0_120px_rgba(16,185,129,0.4)] text-center text-white relative overflow-hidden">
             <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-500/15 border border-emerald-500/40 text-emerald-400 text-xs sm:text-sm font-black uppercase tracking-widest mb-4 animate-pulse">
-              <Radio className="size-4 animate-ping" />
+              <Radio className="size-4 animate-ping text-emerald-400" />
               <span>{lang === 'bn' ? 'রোগীকে ডাকা হচ্ছে • NOW CALLING' : 'NOW CALLING PATIENT'}</span>
             </div>
 
             <div className="mb-2">
-              <span className="px-4 py-1 rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-mono font-black text-2xl sm:text-3xl">
+              <span className="px-5 py-1.5 rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-mono font-black text-2xl sm:text-4xl shadow-inner">
                 {lang === 'bn'
                   ? `টোকেন #${toBnNum(activeCallAlert.tokenNumber || activeCallAlert.serialNumber)}`
                   : `TOKEN #${activeCallAlert.tokenNumber || activeCallAlert.serialNumber}`}
@@ -447,8 +582,8 @@ export default function WaitingRoomTvView() {
             </h2>
 
             <div className="p-4 sm:p-6 rounded-2xl bg-gradient-to-r from-emerald-600 to-emerald-800 text-white border border-emerald-400/40 shadow-xl flex items-center justify-center gap-4 mt-6">
-              <div className="p-3 rounded-xl bg-white/20 border border-white/30">
-                <DoorOpen className="size-10 text-white" />
+              <div className="p-3 rounded-xl bg-white/20 border border-white/30 shrink-0">
+                <DoorOpen className="size-10 sm:size-12 text-white" />
               </div>
               <div className="text-left">
                 <div className="text-xs uppercase tracking-widest text-emerald-100 font-bold">
@@ -460,352 +595,366 @@ export default function WaitingRoomTvView() {
               </div>
             </div>
 
-            <button
-              type="button"
-              onClick={() => setActiveCallAlert(null)}
-              className="mt-6 px-4 py-1.5 rounded-lg text-xs font-semibold bg-white/10 hover:bg-white/20 text-zinc-300 cursor-pointer"
-            >
-              {lang === 'bn' ? 'পর্দা বন্ধ করুন (Close)' : 'Dismiss'}
-            </button>
+            {/* Countdown dismissal */}
+            <div className="mt-4 flex items-center justify-between text-xs text-zinc-400">
+              <span>{lang === 'bn' ? `স্বয়ংক্রিয়ভাবে বন্ধ হবে: ${toBnNum(callCountdown)} সেকেন্ড` : `Auto dismiss in: ${callCountdown}s`}</span>
+              <button
+                type="button"
+                onClick={() => setActiveCallAlert(null)}
+                className="px-3 py-1 rounded-md text-xs font-bold bg-zinc-800 hover:bg-zinc-700 text-white cursor-pointer"
+              >
+                {lang === 'bn' ? 'বন্ধ করুন' : 'Dismiss'}
+              </button>
+            </div>
           </div>
         </aside>
       )}
 
       {/* ============================================================== */}
-      {/* 3. MAIN LIVE QUEUE DISPLAY (FITS 100% OF VIEWPORT)             */}
+      {/* 3. MAIN LIVE QUEUE DISPLAY (FITS 100% OF VIEWPORT, ZERO SCROLL) */}
       {/* ============================================================== */}
-      <main className="flex-1 min-h-0 w-full p-2 sm:p-3 lg:p-4 grid grid-cols-1 md:grid-cols-2 gap-2.5 sm:gap-3.5 overflow-hidden">
+      <main
+        className={`flex-1 min-h-0 w-full p-2 sm:p-3 2xl:p-5 grid gap-2 sm:gap-3 2xl:gap-5 overflow-hidden ${
+          departmentFilter === 'ALL'
+            ? 'grid-cols-1 md:grid-cols-2 grid-rows-2 md:grid-rows-1'
+            : 'grid-cols-1 grid-rows-1'
+        }`}
+      >
         {/* ============================================================ */}
         {/* COLUMN 1: DOCTOR CONSULTATION QUEUE                          */}
         {/* ============================================================ */}
-        <section
-          className={`flex flex-col h-full min-h-0 rounded-2xl border transition-colors shadow-sm overflow-hidden ${
-            isDark
-              ? 'bg-zinc-950/80 border-white/10'
-              : 'bg-white border-zinc-200'
-          }`}
-        >
-          {/* Header */}
-          <div
-            className={`h-11 sm:h-12 shrink-0 px-3.5 flex items-center justify-between border-b ${
-              isDark ? 'bg-zinc-900/60 border-white/10' : 'bg-zinc-50 border-zinc-200'
+        {(departmentFilter === 'ALL' || departmentFilter === 'CONSULTATION') && (
+          <section
+            className={`flex flex-col h-full min-h-0 rounded-2xl border transition-colors shadow-sm overflow-hidden ${
+              isDark
+                ? 'bg-zinc-950/90 border-zinc-800'
+                : 'bg-white border-zinc-200'
             }`}
           >
-            <div className="flex items-center gap-2">
-              <div className="p-1 rounded-md bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
-                <Stethoscope className="size-4" />
-              </div>
-              <h2 className="text-xs sm:text-sm font-black tracking-tight">
-                {lang === 'bn' ? 'ডাক্তার কনসাল্টেশন কিউ' : 'Doctor Consultation Queue'}
-              </h2>
-            </div>
-            <span className="px-2 py-0.5 rounded-full text-xs font-mono font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/30">
-              {lang === 'bn'
-                ? `অপেক্ষারত: ${toBnNum(snapshot.consultationQueue.waiting.length)}`
-                : `Waiting: ${snapshot.consultationQueue.waiting.length}`}
-            </span>
-          </div>
-
-          {/* NOW SERVING CARD (COMPACT & PROMINENT) */}
-          <div className="p-2 sm:p-2.5 shrink-0">
+            {/* Header */}
             <div
-              className={`p-3 rounded-xl border-2 text-center transition-all ${
-                isDark
-                  ? 'border-emerald-500/80 bg-zinc-900/90 shadow-[0_0_20px_rgba(16,185,129,0.12)]'
-                  : 'border-emerald-500 bg-emerald-50/50 shadow-sm'
+              className={`h-10 sm:h-12 2xl:h-14 shrink-0 px-3 sm:px-4 flex items-center justify-between border-b ${
+                isDark ? 'bg-zinc-900/60 border-zinc-800' : 'bg-zinc-50 border-zinc-200'
               }`}
             >
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500 text-black text-[10px] font-black uppercase tracking-wider mb-1">
-                <span>📢</span>
-                <span>{lang === 'bn' ? 'বর্তমান সিরিয়াল · ডাক পড়েছে' : 'NOW SERVING'}</span>
+              <div className="flex items-center gap-2">
+                <div className="p-1 rounded-md bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+                  <Stethoscope className="size-3.5 sm:size-4 2xl:size-5" />
+                </div>
+                <h2 className="text-xs sm:text-sm 2xl:text-base font-black tracking-tight">
+                  {lang === 'bn' ? 'ডাক্তার কনসাল্টেশন কিউ' : 'Doctor Consultation Queue'}
+                </h2>
               </div>
+              <span className="px-2 py-0.5 rounded-full text-[10px] sm:text-xs 2xl:text-sm font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                {lang === 'bn'
+                  ? `অপেক্ষারত: ${toBnNum(snapshot.consultationQueue.waiting.length)}`
+                  : `Waiting: ${snapshot.consultationQueue.waiting.length}`}
+              </span>
+            </div>
 
-              {snapshot.consultationQueue.nowServing.length > 0 ? (
-                <div>
-                  <div className="text-4xl sm:text-5xl lg:text-6xl font-black font-mono text-emerald-500 leading-none my-1">
-                    {toBnNum(
-                      snapshot.consultationQueue.nowServing[0].tokenNumber ||
-                        snapshot.consultationQueue.nowServing[0].serialNumber,
-                    )}
+            {/* NOW SERVING CARD (COMPACT, HIGH CONTRAST) */}
+            <div className="p-2 sm:p-2.5 2xl:p-4 shrink-0">
+              <div
+                className={`p-2.5 sm:p-3 2xl:p-5 rounded-xl border-2 text-center transition-all ${
+                  isDark
+                    ? 'border-emerald-500/80 bg-zinc-900/90 shadow-[0_0_20px_rgba(16,185,129,0.12)]'
+                    : 'border-emerald-500 bg-emerald-50/50 shadow-sm'
+                }`}
+              >
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500 text-black text-[9px] sm:text-[10px] 2xl:text-xs font-black uppercase tracking-wider mb-1">
+                  <span>📢</span>
+                  <span>{lang === 'bn' ? 'বর্তমান সিরিয়াল · ডাক পড়েছে' : 'NOW SERVING'}</span>
+                </div>
+
+                {snapshot.consultationQueue.nowServing.length > 0 ? (
+                  <div>
+                    <div className="text-3xl sm:text-5xl 2xl:text-7xl font-black font-mono text-emerald-500 leading-none my-0.5 sm:my-1">
+                      {toBnNum(
+                        snapshot.consultationQueue.nowServing[0].tokenNumber ||
+                          snapshot.consultationQueue.nowServing[0].serialNumber,
+                      )}
+                    </div>
+                    <div className="text-xs sm:text-base 2xl:text-xl font-extrabold text-foreground truncate">
+                      {lang === 'bn'
+                        ? snapshot.consultationQueue.nowServing[0].patientNameBn ||
+                          snapshot.consultationQueue.nowServing[0].patientNameEn
+                        : snapshot.consultationQueue.nowServing[0].patientNameEn}
+                    </div>
+                    <div className="flex items-center justify-center gap-2 mt-1">
+                      <span className="text-[10px] sm:text-xs font-bold px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                        {lang === 'bn' ? 'চেম্বার ১ · ডাঃ তৌফিক' : 'Chamber 1 · Dr. Toufiq'}
+                      </span>
+                      <span
+                        className={`text-[9px] sm:text-xs font-medium ${
+                          isDark ? 'text-zinc-400' : 'text-zinc-600'
+                        }`}
+                      >
+                        {lang === 'bn'
+                          ? `সিরিয়াল #${toBnNum(snapshot.consultationQueue.nowServing[0].serialNumber)}`
+                          : `Serial #${snapshot.consultationQueue.nowServing[0].serialNumber}`}
+                      </span>
+                    </div>
                   </div>
-                  <div className="text-sm sm:text-base font-extrabold text-foreground truncate">
-                    {lang === 'bn'
-                      ? snapshot.consultationQueue.nowServing[0].patientNameBn ||
-                        snapshot.consultationQueue.nowServing[0].patientNameEn
-                      : snapshot.consultationQueue.nowServing[0].patientNameEn}
-                  </div>
-                  <div className="flex items-center justify-center gap-2 mt-1">
-                    <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                      {lang === 'bn' ? 'চেম্বার ১ · ডাঃ তৌফিক' : 'Chamber 1 · Dr. Toufiq'}
-                    </span>
-                    <span
-                      className={`text-[10px] font-medium ${
+                ) : (
+                  <div className="py-2">
+                    <div className="text-xs sm:text-sm 2xl:text-base font-bold text-emerald-500">
+                      {lang === 'bn' ? 'চেম্বার প্রস্তুত · পরবর্তী সিরিয়াল আসছে' : 'Chamber Ready · Calling Next'}
+                    </div>
+                    <p
+                      className={`text-[10px] sm:text-xs mt-0.5 ${
                         isDark ? 'text-zinc-400' : 'text-zinc-600'
                       }`}
                     >
-                      {lang === 'bn'
-                        ? `সিরিয়াল #${toBnNum(snapshot.consultationQueue.nowServing[0].serialNumber)}`
-                        : `Serial #${snapshot.consultationQueue.nowServing[0].serialNumber}`}
-                    </span>
+                      {lang === 'bn' ? 'অনুগ্রহ করে ওয়েটিং রুমে অপেক্ষা করুন' : 'Please wait comfortably in waiting hall'}
+                    </p>
                   </div>
-                </div>
-              ) : (
-                <div className="py-2.5">
-                  <div className="text-sm font-bold text-emerald-500">
-                    {lang === 'bn' ? 'চেম্বার প্রস্তুত · পরবর্তী সিরিয়াল আসছে' : 'Chamber Ready · Calling Next'}
-                  </div>
-                  <p
-                    className={`text-[11px] mt-0.5 ${
-                      isDark ? 'text-zinc-400' : 'text-zinc-600'
-                    }`}
-                  >
-                    {lang === 'bn' ? 'অনুগ্রহ করে ওয়েটিং রুমে অপেক্ষা করুন' : 'Please wait comfortably in waiting hall'}
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* UPCOMING LIST (SCROLLS WITHIN ITS BOUNDED CONTAINER ONLY) */}
-          <div className="flex-1 min-h-0 flex flex-col px-2 sm:px-2.5 pb-2">
-            <div
-              className={`text-[11px] font-bold pb-1 px-1 flex justify-between shrink-0 ${
-                isDark ? 'text-zinc-400' : 'text-zinc-600'
-              }`}
-            >
-              <span>{lang === 'bn' ? 'পরবর্তী অপেক্ষারত সিরিয়াল' : 'Upcoming Queue'}</span>
-              <span>{lang === 'bn' ? 'টোকেন নং' : 'Token No.'}</span>
+                )}
+              </div>
             </div>
 
-            <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar flex flex-col gap-1.5">
-              {snapshot.consultationQueue.waiting.length === 0 ? (
-                <div
-                  className={`text-center py-6 text-xs rounded-xl border border-dashed ${
-                    isDark
-                      ? 'border-white/10 text-zinc-500 bg-zinc-900/40'
-                      : 'border-zinc-200 text-zinc-500 bg-zinc-50'
-                  }`}
-                >
-                  {lang === 'bn' ? 'বর্তমানে কোনো সিরিয়াল অপেক্ষারত নেই' : 'No patients waiting'}
-                </div>
-              ) : (
-                snapshot.consultationQueue.waiting.map((item, idx) => (
+            {/* UPCOMING LIST: STAYS BOUNDED, NEVER VERTICALLY OVERFLOWS WINDOW */}
+            <div className="flex-1 min-h-0 flex flex-col px-2 sm:px-2.5 2xl:px-4 pb-2">
+              <div
+                className={`text-[10px] sm:text-xs 2xl:text-sm font-bold pb-1 px-1 flex justify-between shrink-0 ${
+                  isDark ? 'text-zinc-400' : 'text-zinc-600'
+                }`}
+              >
+                <span>{lang === 'bn' ? 'পরবর্তী অপেক্ষারত সিরিয়াল' : 'Upcoming Queue'}</span>
+                <span>{lang === 'bn' ? 'টোকেন নং' : 'Token No.'}</span>
+              </div>
+
+              <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar flex flex-col gap-1 sm:gap-1.5">
+                {snapshot.consultationQueue.waiting.length === 0 ? (
                   <div
-                    key={idx}
-                    className={`px-3 py-2 rounded-xl border flex items-center justify-between shrink-0 transition-colors ${
+                    className={`text-center py-6 text-xs rounded-xl border border-dashed ${
                       isDark
-                        ? 'bg-zinc-900/70 border-white/5 hover:border-emerald-500/40'
-                        : 'bg-zinc-50 border-zinc-200 hover:border-emerald-500/40'
+                        ? 'border-zinc-800 text-zinc-500 bg-zinc-900/40'
+                        : 'border-zinc-200 text-zinc-500 bg-zinc-50'
                     }`}
                   >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <span className="w-5 text-center text-xs font-mono font-bold text-zinc-500">
-                        #{toBnNum(idx + 1)}
-                      </span>
-                      <div className="min-w-0">
-                        <div className="text-xs sm:text-sm font-bold text-foreground truncate">
-                          {lang === 'bn' ? item.patientNameBn || item.patientNameEn : item.patientNameEn}
-                        </div>
-                        <div
-                          className={`text-[10px] ${
-                            isDark ? 'text-zinc-400' : 'text-zinc-600'
-                          }`}
-                        >
-                          {item.priority === 'emergency' ? '🚨 জরুরি' : 'সাধারণ'} ·{' '}
-                          {lang === 'bn' ? `সিরিয়াল #${toBnNum(item.serialNumber)}` : `Serial #${item.serialNumber}`}
+                    {lang === 'bn' ? 'বর্তমানে কোনো সিরিয়াল অপেক্ষারত নেই' : 'No patients waiting'}
+                  </div>
+                ) : (
+                  snapshot.consultationQueue.waiting.map((item, idx) => (
+                    <div
+                      key={idx}
+                      className={`px-2.5 py-1.5 sm:px-3 sm:py-2 2xl:px-4 2xl:py-2.5 rounded-xl border flex items-center justify-between shrink-0 transition-colors ${
+                        isDark
+                          ? 'bg-zinc-900/70 border-zinc-800/80 hover:border-emerald-500/40'
+                          : 'bg-zinc-50 border-zinc-200 hover:border-emerald-500/40'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+                        <span className="w-5 text-center text-xs font-mono font-bold text-zinc-500">
+                          #{toBnNum(idx + 1)}
+                        </span>
+                        <div className="min-w-0">
+                          <div className="text-xs sm:text-sm 2xl:text-base font-bold text-foreground truncate">
+                            {lang === 'bn' ? item.patientNameBn || item.patientNameEn : item.patientNameEn}
+                          </div>
+                          <div
+                            className={`text-[9px] sm:text-[10px] 2xl:text-xs ${
+                              isDark ? 'text-zinc-400' : 'text-zinc-600'
+                            }`}
+                          >
+                            {item.priority === 'emergency' ? '🚨 জরুরি' : 'সাধারণ'} ·{' '}
+                            {lang === 'bn' ? `সিরিয়াল #${toBnNum(item.serialNumber)}` : `Serial #${item.serialNumber}`}
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    <div className="text-right shrink-0">
-                      <span className="text-base sm:text-lg font-black font-mono text-emerald-500">
-                        {toBnNum(item.tokenNumber || item.serialNumber)}
-                      </span>
+                      <div className="text-right shrink-0">
+                        <span className="text-sm sm:text-base 2xl:text-xl font-black font-mono text-emerald-500">
+                          {toBnNum(item.tokenNumber || item.serialNumber)}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                ))
-              )}
+                  ))
+                )}
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
+        )}
 
         {/* ============================================================ */}
         {/* COLUMN 2: PHYSIOTHERAPY & REHAB QUEUE                        */}
         {/* ============================================================ */}
-        <section
-          className={`flex flex-col h-full min-h-0 rounded-2xl border transition-colors shadow-sm overflow-hidden ${
-            isDark
-              ? 'bg-zinc-950/80 border-white/10'
-              : 'bg-white border-zinc-200'
-          }`}
-        >
-          {/* Header */}
-          <div
-            className={`h-11 sm:h-12 shrink-0 px-3.5 flex items-center justify-between border-b ${
-              isDark ? 'bg-zinc-900/60 border-white/10' : 'bg-zinc-50 border-zinc-200'
+        {(departmentFilter === 'ALL' || departmentFilter === 'THERAPY') && (
+          <section
+            className={`flex flex-col h-full min-h-0 rounded-2xl border transition-colors shadow-sm overflow-hidden ${
+              isDark
+                ? 'bg-zinc-950/90 border-zinc-800'
+                : 'bg-white border-zinc-200'
             }`}
           >
-            <div className="flex items-center gap-2">
-              <div className="p-1 rounded-md bg-purple-500/10 text-purple-400 border border-purple-500/20">
-                <Activity className="size-4" />
-              </div>
-              <h2 className="text-xs sm:text-sm font-black tracking-tight">
-                {lang === 'bn' ? 'ফিজিওথেরাপি ও পুনর্বাসন কিউ' : 'Physiotherapy & Rehab Queue'}
-              </h2>
-            </div>
-            <span className="px-2 py-0.5 rounded-full text-xs font-mono font-bold bg-purple-500/10 text-purple-400 border border-purple-500/30">
-              {lang === 'bn'
-                ? `চলমান: ${toBnNum(snapshot.therapyQueue.nowServing.length)} | অপেক্ষারত: ${toBnNum(snapshot.therapyQueue.waiting.length)}`
-                : `Active: ${snapshot.therapyQueue.nowServing.length} | Waiting: ${snapshot.therapyQueue.waiting.length}`}
-            </span>
-          </div>
-
-          {/* ACTIVE THERAPY SESSIONS (COMPACT MATRIX) */}
-          <div className="p-2 sm:p-2.5 shrink-0">
+            {/* Header */}
             <div
-              className={`p-2.5 rounded-xl border-2 text-center transition-all ${
-                isDark
-                  ? 'border-purple-500/60 bg-zinc-900/90 shadow-[0_0_20px_rgba(168,85,247,0.12)]'
-                  : 'border-purple-400 bg-purple-50/50 shadow-sm'
+              className={`h-10 sm:h-12 2xl:h-14 shrink-0 px-3 sm:px-4 flex items-center justify-between border-b ${
+                isDark ? 'bg-zinc-900/60 border-zinc-800' : 'bg-zinc-50 border-zinc-200'
               }`}
             >
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-purple-500 text-white text-[10px] font-black uppercase tracking-wider mb-1.5">
-                <span>⚡</span>
-                <span>{lang === 'bn' ? 'চলমান থেরাপি সেশন · সক্রিয় বেড' : 'ACTIVE THERAPY IN PROGRESS'}</span>
+              <div className="flex items-center gap-2">
+                <div className="p-1 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                  <Activity className="size-3.5 sm:size-4 2xl:size-5" />
+                </div>
+                <h2 className="text-xs sm:text-sm 2xl:text-base font-black tracking-tight">
+                  {lang === 'bn' ? 'ফিজিওথেরাপি ও পুনর্বাসন কিউ' : 'Physiotherapy & Rehab Queue'}
+                </h2>
               </div>
-
-              {snapshot.therapyQueue.nowServing.length > 0 ? (
-                <div className="grid grid-cols-2 gap-1.5 text-left">
-                  {snapshot.therapyQueue.nowServing.slice(0, 4).map((th, idx) => (
-                    <div
-                      key={idx}
-                      className={`p-2 rounded-lg border flex flex-col justify-between ${
-                        isDark ? 'bg-black/60 border-white/10' : 'bg-white border-zinc-200'
-                      }`}
-                    >
-                      <div className="flex justify-between items-center text-[10px]">
-                        <span className="font-extrabold px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-300 font-mono">
-                          {th.bedName || (lang === 'bn' ? `বেড ${toBnNum(idx + 1)}` : `Bed ${idx + 1}`)}
-                        </span>
-                        <span
-                          className={`font-semibold ${
-                            isDark ? 'text-zinc-400' : 'text-zinc-600'
-                          }`}
-                        >
-                          {toBnNum(th.durationMinutes || 20)} {lang === 'bn' ? 'মি.' : 'min'}
-                        </span>
-                      </div>
-                      <div className="text-xs font-black text-foreground truncate mt-1">
-                        {lang === 'bn' ? th.patientNameBn || th.patientNameEn : th.patientNameEn}
-                      </div>
-                      <div className="text-[10px] text-purple-400 truncate font-semibold">
-                        {th.modalityNameBn || th.modalityNameEn || th.modalityCode || 'ফিজিওথেরাপি'}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="py-2.5">
-                  <div className="text-sm font-bold text-purple-400">
-                    {lang === 'bn' ? 'থেরাপি বেড প্রস্তুত' : 'Therapy Beds Ready'}
-                  </div>
-                  <p
-                    className={`text-[11px] mt-0.5 ${
-                      isDark ? 'text-zinc-400' : 'text-zinc-600'
-                    }`}
-                  >
-                    {lang === 'bn' ? 'নির্ধারিত মডালিটি অনুযায়ী রোগী প্রস্তুত' : 'Scheduled sessions initializing'}
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* UPCOMING THERAPY QUEUE LIST */}
-          <div className="flex-1 min-h-0 flex flex-col px-2 sm:px-2.5 pb-2">
-            <div
-              className={`text-[11px] font-bold pb-1 px-1 flex justify-between shrink-0 ${
-                isDark ? 'text-zinc-400' : 'text-zinc-600'
-              }`}
-            >
-              <span>{lang === 'bn' ? 'অপেক্ষারত থেরাপি রোগী তালিকা' : 'Waiting for Therapy Hall Entry'}</span>
-              <span>{lang === 'bn' ? 'টোকেন নং' : 'Token No.'}</span>
+              <span className="px-2 py-0.5 rounded-full text-[10px] sm:text-xs 2xl:text-sm font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                {lang === 'bn'
+                  ? `চলমান: ${toBnNum(snapshot.therapyQueue.nowServing.length)} | অপেক্ষারত: ${toBnNum(snapshot.therapyQueue.waiting.length)}`
+                  : `Active: ${snapshot.therapyQueue.nowServing.length} | Waiting: ${snapshot.therapyQueue.waiting.length}`}
+              </span>
             </div>
 
-            <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar flex flex-col gap-1.5">
-              {snapshot.therapyQueue.waiting.length === 0 ? (
-                <div
-                  className={`text-center py-6 text-xs rounded-xl border border-dashed ${
-                    isDark
-                      ? 'border-white/10 text-zinc-500 bg-zinc-900/40'
-                      : 'border-zinc-200 text-zinc-500 bg-zinc-50'
-                  }`}
-                >
-                  {lang === 'bn' ? 'থেরাপির জন্য কোনো রোগী অপেক্ষারত নেই' : 'No patients waiting for therapy'}
+            {/* ACTIVE THERAPY SESSIONS (COMPACT MATRIX) */}
+            <div className="p-2 sm:p-2.5 2xl:p-4 shrink-0">
+              <div
+                className={`p-2 sm:p-2.5 2xl:p-4 rounded-xl border-2 text-center transition-all ${
+                  isDark
+                    ? 'border-emerald-500/50 bg-zinc-900/90 shadow-[0_0_20px_rgba(16,185,129,0.08)]'
+                    : 'border-emerald-400 bg-emerald-50/40 shadow-sm'
+                }`}
+              >
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-600 text-white text-[9px] sm:text-[10px] 2xl:text-xs font-black uppercase tracking-wider mb-1">
+                  <span>⚡</span>
+                  <span>{lang === 'bn' ? 'চলমান থেরাপি সেশন · সক্রিয় বেড' : 'ACTIVE THERAPY IN PROGRESS'}</span>
                 </div>
-              ) : (
-                snapshot.therapyQueue.waiting.map((th, idx) => (
-                  <div
-                    key={idx}
-                    className={`px-3 py-2 rounded-xl border flex items-center justify-between shrink-0 transition-colors ${
-                      isDark
-                        ? 'bg-zinc-900/70 border-white/5 hover:border-purple-500/40'
-                        : 'bg-zinc-50 border-zinc-200 hover:border-purple-500/40'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <span className="w-5 text-center text-xs font-mono font-bold text-zinc-500">
-                        #{toBnNum(idx + 1)}
-                      </span>
-                      <div className="min-w-0">
-                        <div className="text-xs sm:text-sm font-bold text-foreground truncate">
+
+                {snapshot.therapyQueue.nowServing.length > 0 ? (
+                  <div className="grid grid-cols-2 gap-1.5 text-left">
+                    {snapshot.therapyQueue.nowServing.slice(0, 4).map((th, idx) => (
+                      <div
+                        key={idx}
+                        className={`p-1.5 sm:p-2 rounded-lg border flex flex-col justify-between ${
+                          isDark ? 'bg-black/60 border-zinc-800' : 'bg-white border-zinc-200'
+                        }`}
+                      >
+                        <div className="flex justify-between items-center text-[9px] sm:text-[10px]">
+                          <span className="font-extrabold px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-400 font-mono">
+                            {th.bedName || (lang === 'bn' ? `বেড ${toBnNum(idx + 1)}` : `Bed ${idx + 1}`)}
+                          </span>
+                          <span
+                            className={`font-semibold ${
+                              isDark ? 'text-zinc-400' : 'text-zinc-600'
+                            }`}
+                          >
+                            {toBnNum(th.durationMinutes || 20)} {lang === 'bn' ? 'মি.' : 'min'}
+                          </span>
+                        </div>
+                        <div className="text-xs font-black text-foreground truncate mt-0.5">
                           {lang === 'bn' ? th.patientNameBn || th.patientNameEn : th.patientNameEn}
                         </div>
-                        <div
-                          className={`text-[10px] ${
-                            isDark ? 'text-zinc-400' : 'text-zinc-600'
-                          }`}
-                        >
-                          {lang === 'bn' ? 'থেরাপি হল ওয়েটিং লাউঞ্জ' : 'Therapy Hall Lounge'}
+                        <div className="text-[9px] sm:text-[10px] text-emerald-400 truncate font-semibold">
+                          {th.modalityNameBn || th.modalityNameEn || th.modalityCode || 'ফিজিওথেরাপি'}
                         </div>
                       </div>
-                    </div>
-
-                    <div className="text-right shrink-0">
-                      <span className="text-base sm:text-lg font-black font-mono text-purple-400">
-                        {toBnNum(th.tokenNumber)}
-                      </span>
-                    </div>
+                    ))}
                   </div>
-                ))
-              )}
+                ) : (
+                  <div className="py-2">
+                    <div className="text-xs sm:text-sm font-bold text-emerald-400">
+                      {lang === 'bn' ? 'থেরাপি বেড প্রস্তুত' : 'Therapy Beds Ready'}
+                    </div>
+                    <p
+                      className={`text-[10px] mt-0.5 ${
+                        isDark ? 'text-zinc-400' : 'text-zinc-600'
+                      }`}
+                    >
+                      {lang === 'bn' ? 'নির্ধারিত মডালিটি অনুযায়ী রোগী প্রস্তুত' : 'Scheduled sessions initializing'}
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        </section>
+
+            {/* UPCOMING THERAPY QUEUE LIST */}
+            <div className="flex-1 min-h-0 flex flex-col px-2 sm:px-2.5 2xl:px-4 pb-2">
+              <div
+                className={`text-[10px] sm:text-xs 2xl:text-sm font-bold pb-1 px-1 flex justify-between shrink-0 ${
+                  isDark ? 'text-zinc-400' : 'text-zinc-600'
+                }`}
+              >
+                <span>{lang === 'bn' ? 'অপেক্ষারত থেরাপি রোগী তালিকা' : 'Waiting for Therapy Hall Entry'}</span>
+                <span>{lang === 'bn' ? 'টোকেন নং' : 'Token No.'}</span>
+              </div>
+
+              <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar flex flex-col gap-1 sm:gap-1.5">
+                {snapshot.therapyQueue.waiting.length === 0 ? (
+                  <div
+                    className={`text-center py-6 text-xs rounded-xl border border-dashed ${
+                      isDark
+                        ? 'border-zinc-800 text-zinc-500 bg-zinc-900/40'
+                        : 'border-zinc-200 text-zinc-500 bg-zinc-50'
+                    }`}
+                  >
+                    {lang === 'bn' ? 'থেরাপির জন্য কোনো রোগী অপেক্ষারত নেই' : 'No patients waiting for therapy'}
+                  </div>
+                ) : (
+                  snapshot.therapyQueue.waiting.map((th, idx) => (
+                    <div
+                      key={idx}
+                      className={`px-2.5 py-1.5 sm:px-3 sm:py-2 2xl:px-4 2xl:py-2.5 rounded-xl border flex items-center justify-between shrink-0 transition-colors ${
+                        isDark
+                          ? 'bg-zinc-900/70 border-zinc-800/80 hover:border-emerald-500/40'
+                          : 'bg-zinc-50 border-zinc-200 hover:border-emerald-500/40'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+                        <span className="w-5 text-center text-xs font-mono font-bold text-zinc-500">
+                          #{toBnNum(idx + 1)}
+                        </span>
+                        <div className="min-w-0">
+                          <div className="text-xs sm:text-sm 2xl:text-base font-bold text-foreground truncate">
+                            {lang === 'bn' ? th.patientNameBn || th.patientNameEn : th.patientNameEn}
+                          </div>
+                          <div
+                            className={`text-[9px] sm:text-[10px] 2xl:text-xs ${
+                              isDark ? 'text-zinc-400' : 'text-zinc-600'
+                            }`}
+                          >
+                            {lang === 'bn' ? 'থেরাপি হল ওয়েটিং লাউঞ্জ' : 'Therapy Hall Lounge'}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="text-right shrink-0">
+                        <span className="text-sm sm:text-base 2xl:text-xl font-black font-mono text-emerald-400">
+                          {toBnNum(th.tokenNumber)}
+                        </span>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </section>
+        )}
       </main>
 
       {/* ============================================================== */}
-      {/* 4. BOTTOM BULLETIN NOTICE TICKER: FIXED HEIGHT                */}
+      {/* 4. BOTTOM BULLETIN NOTICE TICKER: FIXED HEIGHT, NEVER OVERFLOWS */}
       {/* ============================================================== */}
       <footer
-        className={`h-9 lg:h-10 shrink-0 w-full px-4 flex items-center gap-3 border-t overflow-hidden ${
+        className={`h-8 sm:h-9 2xl:h-12 shrink-0 w-full px-3 sm:px-4 2xl:px-8 flex items-center gap-2 sm:gap-3 border-t overflow-hidden ${
           isDark
-            ? 'bg-zinc-950 border-white/10 text-zinc-300'
+            ? 'bg-zinc-950 border-zinc-800 text-zinc-300'
             : 'bg-zinc-900 border-zinc-800 text-white shadow-inner'
         }`}
       >
-        <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-emerald-500 text-black text-[10px] font-black uppercase tracking-wider shrink-0">
+        <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-emerald-500 text-black text-[9px] sm:text-[10px] 2xl:text-xs font-black uppercase tracking-wider shrink-0">
           <span>📢</span>
           <span>{lang === 'bn' ? 'জরুরি নোটিশ' : 'BULLETIN'}</span>
         </div>
 
         <div className="flex-1 overflow-hidden relative">
-          <div className="inline-block whitespace-nowrap animate-marquee text-xs font-semibold text-emerald-400">
+          <div className="inline-block whitespace-nowrap animate-marquee text-[11px] sm:text-xs 2xl:text-sm font-semibold text-emerald-400">
             {snapshot.bulletinNotices.join('　•　')}
           </div>
         </div>
 
-        <div className="text-[10px] font-mono text-zinc-400 shrink-0 hidden sm:block">
+        <div className="text-[9px] sm:text-[10px] 2xl:text-xs font-mono text-zinc-400 shrink-0 hidden sm:block">
           Sync: {lastSyncTime || 'Active'}
         </div>
       </footer>

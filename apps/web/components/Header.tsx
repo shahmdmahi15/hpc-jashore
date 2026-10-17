@@ -16,12 +16,14 @@ import {
   Minimize2,
   User,
   Radio,
+  LogOut,
 } from 'lucide-react';
-import { DEMO_ACCOUNTS, quickLogin, UserSession } from '../lib/api';
+import { DEMO_ACCOUNTS, quickLogin, UserSession, clearSession } from '../lib/api';
 import { BrandLogo } from './brand/logo';
 import { ThemeToggle } from './theme-toggle';
 import { cn } from '../lib/utils';
 import { toast } from 'sonner';
+import { useRouter } from 'next/navigation';
 
 interface HeaderProps {
   session: UserSession | null;
@@ -32,13 +34,13 @@ interface HeaderProps {
 }
 
 const TABS = [
-  { id: 'reception', label: 'Reception', icon: ClipboardList, color: 'text-emerald-500' },
-  { id: 'doctor', label: 'Doctor Chamber', icon: Stethoscope, color: 'text-teal-500' },
-  { id: 'therapy', label: 'Therapy Hall', icon: Activity, color: 'text-amber-500' },
-  { id: 'cashier', label: 'Billing & Cashier', icon: CreditCard, color: 'text-blue-500' },
-  { id: 'pharmacy', label: 'Pharmacy FIFO', icon: Pill, color: 'text-violet-500' },
-  { id: 'admin', label: 'Executive Admin', icon: ShieldCheck, color: 'text-rose-500' },
-  { id: 'tv', label: 'Waiting TV', icon: Tv, color: 'text-cyan-400' },
+  { id: 'reception', label: 'Reception', icon: ClipboardList },
+  { id: 'doctor', label: 'Doctor Chamber', icon: Stethoscope },
+  { id: 'therapy', label: 'Therapy Hall', icon: Activity },
+  { id: 'cashier', label: 'Billing & Cashier', icon: CreditCard },
+  { id: 'pharmacy', label: 'Pharmacy FIFO', icon: Pill },
+  { id: 'admin', label: 'Executive Admin', icon: ShieldCheck },
+  { id: 'tv', label: 'Waiting TV', icon: Tv },
 ];
 
 export default function Header({
@@ -48,6 +50,7 @@ export default function Header({
   activeTab,
   onTabChange,
 }: HeaderProps) {
+  const router = useRouter();
   const [switching, setSwitching] = React.useState(false);
   const [isFullscreen, setIsFullscreen] = React.useState(false);
   const [currentTime, setCurrentTime] = React.useState<Date | null>(null);
@@ -73,7 +76,6 @@ export default function Header({
       const newSession = await quickLogin(role);
       onSessionChange(newSession);
       toast.success(`Logged in as ${newSession.displayName || newSession.email} (${newSession.role})`);
-      // Auto switch relevant tab
       if (role === 'reception') onTabChange('reception');
       else if (role === 'head_doctor' || role === 'doctor') onTabChange('doctor');
       else if (role === 'therapist') onTabChange('therapy');
@@ -84,6 +86,12 @@ export default function Header({
     } finally {
       setSwitching(false);
     }
+  };
+
+  const handleLogout = () => {
+    clearSession();
+    toast.success('লগআউট সম্পন্ন হয়েছে');
+    router.push('/login');
   };
 
   return (
@@ -98,14 +106,14 @@ export default function Header({
             'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border transition-all duration-300',
             isConnected
               ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
-              : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30 animate-pulse',
+              : 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/30 animate-pulse',
           )}
           title={isConnected ? 'SSE Live Stream Connected' : 'Disconnected, reconnecting...'}
         >
           <span
             className={cn(
               'size-2 rounded-full',
-              isConnected ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500',
+              isConnected ? 'bg-emerald-500 animate-pulse' : 'bg-red-500',
             )}
           />
           <Radio className="size-3" />
@@ -131,14 +139,14 @@ export default function Header({
               className={cn(
                 'flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer whitespace-nowrap active:scale-95 shrink-0 border',
                 isActive
-                  ? 'bg-emerald-600 text-white shadow-sm border-emerald-600 dark:bg-emerald-500 dark:border-emerald-500'
+                  ? 'bg-emerald-600 text-white shadow-sm border-emerald-600 dark:bg-emerald-500 dark:text-black dark:border-emerald-500 font-bold'
                   : 'bg-card/60 text-muted-foreground border-transparent hover:text-foreground hover:bg-muted/70 hover:border-border/60',
               )}
             >
               <Icon
                 className={cn(
                   'size-3.5 sm:size-4 transition-transform duration-200',
-                  isActive ? 'text-white scale-110' : tab.color,
+                  isActive ? 'text-white dark:text-black scale-110' : 'text-emerald-500/80',
                 )}
               />
               <span>{tab.label}</span>
@@ -192,6 +200,16 @@ export default function Header({
 
         {/* Dark / Light Theme Toggle */}
         <ThemeToggle />
+
+        {/* Logout Button */}
+        <button
+          type="button"
+          onClick={handleLogout}
+          title="Logout"
+          className="size-9 rounded-xl border border-border/80 bg-card/80 hover:bg-red-500/10 hover:border-red-500/40 text-muted-foreground hover:text-red-500 flex items-center justify-center transition-all duration-200 cursor-pointer shadow-xs active:scale-95 shrink-0"
+        >
+          <LogOut className="size-4" />
+        </button>
       </div>
     </header>
   );
