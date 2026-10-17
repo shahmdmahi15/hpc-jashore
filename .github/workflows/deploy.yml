@@ -88,7 +88,7 @@ jobs:
             pnpm rebuild better-sqlite3
 
             echo "🔨 Building API on Lightsail..."
-            pnpm --filter @hpc/api build
+            NODE_OPTIONS="--max-old-space-size=2048" pnpm --filter @hpc/api build
 
             echo "⚡ Building Web with Next.js Turbopack on Lightsail..."
             NODE_OPTIONS="--max-old-space-size=2048" pnpm --filter @hpc/web build
