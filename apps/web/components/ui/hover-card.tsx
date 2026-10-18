@@ -1,83 +1,50 @@
-// apps/web/components/ui/hover-card.tsx
-'use client';
+"use client"
 
-import * as React from 'react';
-import { cn } from '../../lib/utils';
+import { PreviewCard as PreviewCardPrimitive } from "@base-ui/react/preview-card"
+import { cn } from "cn"
 
-interface HoverCardContextType {
-  open: boolean;
-  setOpen: React.Dispatch<React.SetStateAction<boolean>>;
+function HoverCard({ ...props }: PreviewCardPrimitive.Root.Props) {
+  return <PreviewCardPrimitive.Root data-slot="hover-card" {...props} />
 }
 
-const HoverCardContext = React.createContext<HoverCardContextType>({
-  open: false,
-  setOpen: () => {},
-});
-
-export function HoverCard({ children }: { children: React.ReactNode }) {
-  const [open, setOpen] = React.useState(false);
-  const timeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const handleMouseEnter = () => {
-    if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    setOpen(true);
-  };
-
-  const handleMouseLeave = () => {
-    timeoutRef.current = setTimeout(() => {
-      setOpen(false);
-    }, 150);
-  };
-
+function HoverCardTrigger({ ...props }: PreviewCardPrimitive.Trigger.Props) {
   return (
-    <HoverCardContext.Provider value={{ open, setOpen }}>
-      <div
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
-        className="relative inline-block"
+    <PreviewCardPrimitive.Trigger data-slot="hover-card-trigger" {...props} />
+  )
+}
+
+function HoverCardContent({
+  className,
+  side = "bottom",
+  sideOffset = 4,
+  align = "center",
+  alignOffset = 4,
+  ...props
+}: PreviewCardPrimitive.Popup.Props &
+  Pick<
+    PreviewCardPrimitive.Positioner.Props,
+    "align" | "alignOffset" | "side" | "sideOffset"
+  >) {
+  return (
+    <PreviewCardPrimitive.Portal data-slot="hover-card-portal">
+      <PreviewCardPrimitive.Positioner
+        align={align}
+        alignOffset={alignOffset}
+        side={side}
+        sideOffset={sideOffset}
+        className="isolate z-50"
       >
-        {children}
-      </div>
-    </HoverCardContext.Provider>
-  );
+        <PreviewCardPrimitive.Popup
+          data-slot="hover-card-content"
+          className={cn(
+            "z-50 w-64 origin-(--transform-origin) rounded-lg bg-popover p-2.5 text-sm text-popover-foreground shadow-md ring-1 ring-foreground/10 outline-hidden duration-100 data-[side=bottom]:slide-in-from-top-2 data-[side=inline-end]:slide-in-from-left-2 data-[side=inline-start]:slide-in-from-right-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+            className
+          )}
+          {...props}
+        />
+      </PreviewCardPrimitive.Positioner>
+    </PreviewCardPrimitive.Portal>
+  )
 }
 
-export const HoverCardTrigger = React.forwardRef<
-  HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement>
->(({ className, children, ...props }, ref) => (
-  <div ref={ref} className={cn('inline-block cursor-pointer', className)} {...props}>
-    {children}
-  </div>
-));
-HoverCardTrigger.displayName = 'HoverCardTrigger';
-
-export const HoverCardContent = React.forwardRef<
-  HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement> & { align?: 'start' | 'center' | 'end' }
->(({ className, align = 'center', children, ...props }, ref) => {
-  const { open } = React.useContext(HoverCardContext);
-  if (!open) return null;
-
-  const alignClass =
-    align === 'start'
-      ? 'left-0'
-      : align === 'center'
-      ? 'left-1/2 -translate-x-1/2'
-      : 'right-0';
-
-  return (
-    <div
-      ref={ref}
-      className={cn(
-        'absolute z-50 mt-2 w-64 rounded-2xl border border-border bg-popover p-4 text-popover-foreground shadow-xl outline-none backdrop-blur-xl animate-in fade-in zoom-in-95',
-        alignClass,
-        className,
-      )}
-      {...props}
-    >
-      {children}
-    </div>
-  );
-});
-HoverCardContent.displayName = 'HoverCardContent';
+export { HoverCard, HoverCardTrigger, HoverCardContent }

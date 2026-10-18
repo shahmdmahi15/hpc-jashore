@@ -110,9 +110,21 @@ export default function WaitingRoomTvView() {
   });
 
   const lastCalledSerialRef = useRef<number | null>(null);
-  const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
 
-  // Screen Wake Lock API to prevent TV display from sleeping
+  // Synchronize available voices for Web Speech API
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+    const updateVoices = () => {
+      setVoices(window.speechSynthesis.getVoices());
+    };
+    updateVoices();
+    window.speechSynthesis.addEventListener('voiceschanged', updateVoices);
+    return () => window.speechSynthesis.removeEventListener('voiceschanged', updateVoices);
+  }, []);
+
+  // Screen Wake Lock API to prevent TV display from sleeping with automatic re-acquisition
   useEffect(() => {
     let wakeLock: any = null;
     const requestWakeLock = async () => {
@@ -131,7 +143,7 @@ export default function WaitingRoomTvView() {
     requestWakeLock();
 
     const handleVisibilityChange = () => {
-      if (wakeLock !== null && document.visibilityState === 'visible') {
+      if (document.visibilityState === 'visible') {
         requestWakeLock();
       }
     };
@@ -307,6 +319,62 @@ export default function WaitingRoomTvView() {
       setIsFullscreen(false);
     }
   };
+
+  // Fullscreen change synchronization
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+    };
+  }, []);
+
+  // TV Remote D-Pad / Keyboard navigation shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement)?.tagName)) return;
+
+      switch (e.key) {
+        case 'f':
+        case 'F':
+          toggleFullscreen();
+          break;
+        case 'm':
+        case 'M':
+          setAudioEnabled((prev) => !prev);
+          break;
+        case 'l':
+        case 'L':
+          setLang((prev) => (prev === 'bn' ? 'en' : 'bn'));
+          break;
+        case 't':
+        case 'T':
+          setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
+          break;
+        case '1':
+          setDepartmentFilter('ALL');
+          break;
+        case '2':
+          setDepartmentFilter('CONSULTATION');
+          break;
+        case '3':
+          setDepartmentFilter('THERAPY');
+          break;
+        case 'Escape':
+        case ' ':
+          if (activeCallAlert) {
+            setActiveCallAlert(null);
+          }
+          break;
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeCallAlert]);
 
   const isDark = theme === 'dark';
 
@@ -960,7 +1028,7 @@ export default function WaitingRoomTvView() {
       </footer>
 
       {/* CSS marquee animation */}
-      <style jsx>{`
+      <style>{`
         @keyframes marquee {
           0% {
             transform: translateX(100%);

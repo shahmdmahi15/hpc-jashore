@@ -56,7 +56,7 @@ export const metadata: Metadata = {
   },
 };
 
-import { Hind_Siliguri, Noto_Sans_Bengali } from 'next/font/google';
+import { Hind_Siliguri, Noto_Sans_Bengali, Geist } from 'next/font/google';
 
 const hindSiliguri = Hind_Siliguri({
   weight: ['400', '500', '600', '700'],
@@ -84,6 +84,10 @@ export const viewport: Viewport = {
 };
 
 import { LanguageProvider } from '../lib/i18n';
+import { cn } from "@/lib/utils";
+
+const geist = Geist({subsets:['latin'],variable:'--font-sans'});
+
 
 export default function RootLayout({
   children,
@@ -94,7 +98,7 @@ export default function RootLayout({
     <html
       lang="bn"
       suppressHydrationWarning
-      className={`${poppins.variable} ${hindSiliguri.variable} ${notoSansBengali.variable} font-sans min-h-screen antialiased`}
+      className={cn("min-h-screen", "antialiased", poppins.variable, hindSiliguri.variable, notoSansBengali.variable, "font-sans", geist.variable)}
     >
       <head>
         <meta name="mobile-web-app-capable" content="yes" />
@@ -119,7 +123,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className="min-h-screen flex flex-col font-sans bg-background text-foreground selection:bg-emerald-500/20 antialiased">
+      <body className="min-h-screen min-h-dvh flex flex-col font-sans bg-background text-foreground selection:bg-emerald-500/20 antialiased overscroll-none touch-manipulation">
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem storageKey="hpc-theme">
           <LanguageProvider>
             {children}

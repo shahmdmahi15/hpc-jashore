@@ -1,72 +1,37 @@
-// apps/web/components/ui/radio-group.tsx
-'use client';
+"use client"
 
-import * as React from 'react';
-import { cn } from '../../lib/utils';
-import { Circle } from 'lucide-react';
+import { Radio as RadioPrimitive } from "@base-ui/react/radio"
+import { RadioGroup as RadioGroupPrimitive } from "@base-ui/react/radio-group"
+import { cn } from "cn"
 
-interface RadioGroupContextType {
-  value?: string;
-  onChange?: (value: string) => void;
-  name?: string;
+function RadioGroup({ className, ...props }: RadioGroupPrimitive.Props) {
+  return (
+    <RadioGroupPrimitive
+      data-slot="radio-group"
+      className={cn("grid w-full gap-2", className)}
+      {...props}
+    />
+  )
 }
 
-const RadioGroupContext = React.createContext<RadioGroupContextType>({});
-
-export const RadioGroup = React.forwardRef<
-  HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement> & {
-    value?: string;
-    defaultValue?: string;
-    onValueChange?: (value: string) => void;
-    name?: string;
-  }
->(({ className, value: controlledValue, defaultValue, onValueChange, name, children, ...props }, ref) => {
-  const [uncontrolledValue, setUncontrolledValue] = React.useState(defaultValue || '');
-  const isControlled = controlledValue !== undefined;
-  const currentValue = isControlled ? controlledValue : uncontrolledValue;
-
-  const handleChange = (val: string) => {
-    if (!isControlled) {
-      setUncontrolledValue(val);
-    }
-    onValueChange?.(val);
-  };
-
+function RadioGroupItem({ className, ...props }: RadioPrimitive.Root.Props) {
   return (
-    <RadioGroupContext.Provider value={{ value: currentValue, onChange: handleChange, name }}>
-      <div ref={ref} role="radiogroup" className={cn('grid gap-2', className)} {...props}>
-        {children}
-      </div>
-    </RadioGroupContext.Provider>
-  );
-});
-RadioGroup.displayName = 'RadioGroup';
-
-export const RadioGroupItem = React.forwardRef<
-  HTMLButtonElement,
-  React.ButtonHTMLAttributes<HTMLButtonElement> & { value: string }
->(({ className, value, id, disabled, ...props }, ref) => {
-  const context = React.useContext(RadioGroupContext);
-  const checked = context.value === value;
-
-  return (
-    <button
-      ref={ref}
-      type="button"
-      role="radio"
-      aria-checked={checked}
-      disabled={disabled}
-      onClick={() => context.onChange?.(value)}
+    <RadioPrimitive.Root
+      data-slot="radio-group-item"
       className={cn(
-        'aspect-square size-4 rounded-full border border-primary text-primary ring-offset-background focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 inline-flex items-center justify-center transition-all cursor-pointer',
-        checked && 'border-emerald-500 bg-emerald-500/10 text-emerald-500',
-        className,
+        "group/radio-group-item peer relative flex aspect-square size-4 shrink-0 rounded-full border border-input outline-none group-has-[:focus-visible]/field-label:ring-0 group-has-[:focus-visible]/field-label:not-data-checked:border-input after:absolute after:-inset-x-3 after:-inset-y-2 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 aria-invalid:aria-checked:border-primary dark:bg-input/30 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 data-checked:border-primary data-checked:bg-primary data-checked:text-primary-foreground group-has-[:focus-visible]/field-label:data-checked:border-primary dark:data-checked:bg-primary",
+        className
       )}
       {...props}
     >
-      {checked && <Circle className="size-2 fill-current text-current" />}
-    </button>
-  );
-});
-RadioGroupItem.displayName = 'RadioGroupItem';
+      <RadioPrimitive.Indicator
+        data-slot="radio-group-indicator"
+        className="flex size-4 items-center justify-center"
+      >
+        <span className="absolute top-1/2 left-1/2 size-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary-foreground" />
+      </RadioPrimitive.Indicator>
+    </RadioPrimitive.Root>
+  )
+}
+
+export { RadioGroup, RadioGroupItem }

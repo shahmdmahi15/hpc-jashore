@@ -9,6 +9,7 @@ import { Select } from './ui/select';
 import { Textarea } from './ui/textarea';
 import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
+import { Slider } from './ui/slider';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { cn } from '../lib/utils';
 
@@ -482,14 +483,16 @@ export default function TherapyHallView({ session: propSession }: TherapyHallPro
                 <label className="text-xs font-semibold text-muted-foreground">
                   Pain Score After Session (0-10): <span className="text-foreground font-bold">{painScoreAfter}/10</span>
                 </label>
-                <input
-                  type="range"
-                  min="0"
-                  max="10"
-                  value={painScoreAfter}
-                  onChange={(e) => setPainScoreAfter(parseInt(e.target.value))}
-                  className="w-full accent-emerald-600 cursor-pointer"
-                />
+                <div className="py-2">
+                  <Slider
+                    min={0}
+                    max={10}
+                    step={1}
+                    value={painScoreAfter}
+                    onValueChange={(val: any) => setPainScoreAfter(Array.isArray(val) ? val[0] : val)}
+                    className="w-full"
+                  />
+                </div>
               </div>
 
               <Textarea

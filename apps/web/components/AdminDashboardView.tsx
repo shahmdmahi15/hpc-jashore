@@ -35,6 +35,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
+import { Select } from './ui/select';
 import { Label } from './ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
@@ -440,7 +441,7 @@ export default function AdminDashboardView({ session: propSession }: AdminDashbo
                 {/* 1. Staff Select */}
                 <div className="space-y-1.5">
                   <Label htmlFor="staff-select">{isBn ? 'কর্মী নির্বাচন' : 'Staff Member'}</Label>
-                  <select
+                  <Select
                     id="staff-select"
                     value={punchStaffId}
                     onChange={(e) => setPunchStaffId(e.target.value)}
@@ -452,13 +453,13 @@ export default function AdminDashboardView({ session: propSession }: AdminDashbo
                         {s.fullName} ({s.role})
                       </option>
                     ))}
-                  </select>
+                  </Select>
                 </div>
 
                 {/* 2. Punch Type */}
                 <div className="space-y-1.5">
                   <Label htmlFor="punch-type">{isBn ? 'পাঞ্চের ধরন' : 'Punch Type'}</Label>
-                  <select
+                  <Select
                     id="punch-type"
                     value={punchType}
                     onChange={(e) => setPunchType(e.target.value as any)}
@@ -466,7 +467,7 @@ export default function AdminDashboardView({ session: propSession }: AdminDashbo
                   >
                     <option value="in">{isBn ? '🟢 প্রবেশ (Punch IN)' : '🟢 Punch IN'}</option>
                     <option value="out">{isBn ? '🔴 প্রস্থান (Punch OUT)' : '🔴 Punch OUT'}</option>
-                  </select>
+                  </Select>
                 </div>
 
                 {/* 3. PIN Code */}

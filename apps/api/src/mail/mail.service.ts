@@ -46,7 +46,7 @@ export class MailService {
         <p style="font-size: 14px; line-height: 1.5; margin-bottom: 12px;">Use the following 6-digit verification code to complete your password reset:</p>
 
         <div style="text-align: center; margin: 28px 0;">
-          <a href="https://hpc.toufiquzzaman.com/reset-password?email=${encodeURIComponent(email)}&code=${pin}" style="display: inline-block; background-color: #059669; color: #ffffff; text-decoration: none; font-weight: 700; font-size: 16px; padding: 14px 32px; border-radius: 12px; margin-bottom: 16px; box-shadow: 0 4px 6px -1px rgba(5, 150, 105, 0.3);">
+          <a href="https://hpc.toufiquzzaman.com/auth/reset-password?email=${encodeURIComponent(email)}&code=${pin}" style="display: inline-block; background-color: #059669; color: #ffffff; text-decoration: none; font-weight: 700; font-size: 16px; padding: 14px 32px; border-radius: 12px; margin-bottom: 16px; box-shadow: 0 4px 6px -1px rgba(5, 150, 105, 0.3);">
             পাসওয়ার্ড রিসেট করুন (Reset Password Link)
           </a>
           <p style="font-size: 13px; color: #64748b; margin-bottom: 8px;">অথবা নিচের ৬-ডিজিটের পিন কোডটি ব্যবহার করুন:</p>
@@ -57,7 +57,7 @@ export class MailService {
         </div>
 
         <p style="font-size: 13px; color: #64748b; line-height: 1.5;">
-          Direct Link: <a href="https://hpc.toufiquzzaman.com/reset-password?email=${encodeURIComponent(email)}&code=${pin}" style="color: #059669; word-break: break-all;">https://hpc.toufiquzzaman.com/reset-password?email=${encodeURIComponent(email)}&code=${pin}</a>
+          Direct Link: <a href="https://hpc.toufiquzzaman.com/auth/reset-password?email=${encodeURIComponent(email)}&code=${pin}" style="color: #059669; word-break: break-all;">https://hpc.toufiquzzaman.com/auth/reset-password?email=${encodeURIComponent(email)}&code=${pin}</a>
         </p>
 
         <p style="font-size: 13px; color: #64748b; line-height: 1.5;">
@@ -78,7 +78,7 @@ export class MailService {
         from,
         to: email,
         subject: `HPC Jashore - Password Reset Code: ${pin}`,
-        text: `Reset your password directly: https://hpc.toufiquzzaman.com/reset-password?email=${encodeURIComponent(email)}&code=${pin}\n\nYour 6-digit code is: ${pin}`,
+        text: `Reset your password directly: https://hpc.toufiquzzaman.com/auth/reset-password?email=${encodeURIComponent(email)}&code=${pin}\n\nYour 6-digit code is: ${pin}`,
         html,
       });
       this.logger.log(`Password reset email sent to ${email} (MessageID: ${info.messageId})`);
@@ -108,7 +108,7 @@ export class MailService {
         </div>
 
         <div style="text-align: center; margin: 28px 0;">
-          <a href="https://hpc.toufiquzzaman.com/verify?email=${encodeURIComponent(email)}&code=${code}" style="display: inline-block; background-color: #059669; color: #ffffff; text-decoration: none; font-weight: 700; font-size: 16px; padding: 14px 32px; border-radius: 12px; margin-bottom: 16px; box-shadow: 0 4px 6px -1px rgba(5, 150, 105, 0.3);">
+          <a href="https://hpc.toufiquzzaman.com/auth/verify?email=${encodeURIComponent(email)}&code=${code}" style="display: inline-block; background-color: #059669; color: #ffffff; text-decoration: none; font-weight: 700; font-size: 16px; padding: 14px 32px; border-radius: 12px; margin-bottom: 16px; box-shadow: 0 4px 6px -1px rgba(5, 150, 105, 0.3);">
             ইমেইল ভেরিফাই করুন (Verify Email Link)
           </a>
           <p style="font-size: 13px; color: #64748b; margin-bottom: 8px;">অথবা নিচের ভেরিফিকেশন কোডটি ব্যবহার করুন:</p>
@@ -119,7 +119,7 @@ export class MailService {
         </div>
 
         <p style="font-size: 13px; color: #64748b; line-height: 1.5;">
-          Direct Link: <a href="https://hpc.toufiquzzaman.com/verify?email=${encodeURIComponent(email)}&code=${code}" style="color: #059669; word-break: break-all;">https://hpc.toufiquzzaman.com/verify?email=${encodeURIComponent(email)}&code=${code}</a>
+          Direct Link: <a href="https://hpc.toufiquzzaman.com/auth/verify?email=${encodeURIComponent(email)}&code=${code}" style="color: #059669; word-break: break-all;">https://hpc.toufiquzzaman.com/auth/verify?email=${encodeURIComponent(email)}&code=${code}</a>
         </p>
 
         <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 24px 0;" />

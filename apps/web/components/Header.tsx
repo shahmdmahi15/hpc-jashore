@@ -25,6 +25,8 @@ import { useLanguage } from '../lib/i18n';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { cn } from '../lib/utils';
+import { Select } from './ui/select';
+import { Button } from './ui/button';
 
 interface HeaderProps {
   session: UserSession | null;
@@ -169,8 +171,8 @@ export default function Header({
         {/* Role Quick Switcher */}
         <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-card border border-border/80 shadow-2xs">
           <User className="size-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-          <select
-            className="bg-transparent border-none text-xs font-semibold text-foreground focus:outline-none cursor-pointer pr-1"
+          <Select
+            className="bg-transparent border-none text-xs font-semibold text-foreground focus:outline-none cursor-pointer pr-1 h-auto py-0 shadow-none"
             value={session?.role || 'head_doctor'}
             onChange={(e) => handleQuickSwitch(e.target.value as any)}
             disabled={switching}
@@ -181,31 +183,35 @@ export default function Header({
             <option value="therapist" className="bg-card text-foreground">Therapy Staff</option>
             <option value="cashier" className="bg-card text-foreground">Cashier Desk</option>
             <option value="admin" className="bg-card text-foreground">Clinic Admin</option>
-          </select>
+          </Select>
         </div>
 
         {/* Fullscreen Toggle */}
-        <button
+        <Button
           type="button"
+          variant="outline"
+          size="icon"
           onClick={toggleFullscreen}
           title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
-          className="size-9 rounded-xl border border-border/80 bg-card/80 hover:bg-muted/80 hover:border-emerald-500/40 text-muted-foreground hover:text-foreground flex items-center justify-center transition-all duration-200 cursor-pointer shadow-xs active:scale-95 shrink-0"
+          className="size-9 rounded-xl border-border/80 bg-card/80 hover:bg-muted/80 hover:border-emerald-500/40 text-muted-foreground hover:text-foreground shrink-0 cursor-pointer"
         >
           {isFullscreen ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}
-        </button>
+        </Button>
 
         {/* Dual Switchers: Language + Theme */}
         <NavbarSwitchers />
 
         {/* Logout Button */}
-        <button
+        <Button
           type="button"
+          variant="outline"
+          size="icon"
           onClick={handleLogout}
           title="Logout"
-          className="size-9 rounded-xl border border-border/80 bg-card/80 hover:bg-red-500/10 hover:border-red-500/40 text-muted-foreground hover:text-red-500 flex items-center justify-center transition-all duration-200 cursor-pointer shadow-xs active:scale-95 shrink-0"
+          className="size-9 rounded-xl border-border/80 bg-card/80 hover:bg-red-500/10 hover:border-red-500/40 text-muted-foreground hover:text-red-500 shrink-0 cursor-pointer"
         >
           <LogOut className="size-4" />
-        </button>
+        </Button>
       </div>
     </header>
   );
