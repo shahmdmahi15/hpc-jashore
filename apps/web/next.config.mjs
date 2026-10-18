@@ -33,8 +33,11 @@ const nextConfig = {
   async rewrites() {
     return [
       {
-        source: '/api/:path*',
-        destination: process.env.API_INTERNAL_URL || 'http://localhost:4000/api/:path*',
+        // Only stream SSE events directly; all other API routes pass strictly through Server Actions
+        source: '/api/sse/:path*',
+        destination: process.env.API_INTERNAL_URL
+          ? `${process.env.API_INTERNAL_URL}/sse/:path*`
+          : 'http://127.0.0.1:4000/api/sse/:path*',
       },
     ];
   },
