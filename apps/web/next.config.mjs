@@ -40,6 +40,7 @@ const nextConfig = {
           : 'http://127.0.0.1:4000/api/sse/:path*',
       },
     ];
+  },
 };
 
 export default nextConfig;
