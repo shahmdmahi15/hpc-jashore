@@ -12,14 +12,7 @@ export function proxy(request: NextRequest) {
   }
 
   // 2. Auth flow pages are public
-  if (
-    pathname.startsWith('/login') ||
-    pathname.startsWith('/register') ||
-    pathname.startsWith('/forgot-password') ||
-    pathname.startsWith('/reset-password') ||
-    pathname.startsWith('/resend-verification') ||
-    pathname.startsWith('/verify')
-  ) {
+  if (pathname.startsWith('/auth')) {
     return NextResponse.next();
   }
 
@@ -53,7 +46,7 @@ export function proxy(request: NextRequest) {
     if (sessionCookie) {
       return NextResponse.redirect(new URL('/receptionist', request.url));
     }
-    return NextResponse.redirect(new URL('/login', request.url));
+    return NextResponse.redirect(new URL('/auth/login', request.url));
   }
 
   // 5. ALL OTHER PAGES REQUIRE AUTHENTICATION
@@ -64,7 +57,7 @@ export function proxy(request: NextRequest) {
     request.cookies.get('SESSION_TOKEN')?.value;
 
   if (!sessionCookie) {
-    const loginUrl = new URL('/login', request.url);
+    const loginUrl = new URL('/auth/login', request.url);
     loginUrl.searchParams.set('redirect', pathname);
     return NextResponse.redirect(loginUrl);
   }

@@ -53,6 +53,12 @@
       "short_name": "Waiting TV",
       "description": "Fullscreen Token Queue TV Display",
       "url": "/tv"
+    },
+    {
+      "name": "Staff Login",
+      "short_name": "Login",
+      "description": "Clinical Staff Authentication Portal",
+      "url": "/auth/login"
     }
   ]
 }
