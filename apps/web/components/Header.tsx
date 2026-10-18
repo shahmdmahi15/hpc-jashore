@@ -93,7 +93,7 @@ export default function Header({
   const handleLogout = () => {
     clearSession();
     toast.success('লগআউট সম্পন্ন হয়েছে');
-    router.push('/login');
+    router.push('/auth/login');
   };
 
   return (

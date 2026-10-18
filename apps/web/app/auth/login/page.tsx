@@ -1,10 +1,10 @@
-// apps/web/app/login/page.tsx
+// apps/web/app/auth/login/page.tsx
 'use client';
 
 import React, { Suspense, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { api, getRoleHomeRoute } from '../../lib/api';
+import { api, getRoleHomeRoute } from '../../../lib/api';
 import {
   AlertCircle,
   Eye,
@@ -15,12 +15,12 @@ import {
   Mail,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { Button } from '../../components/ui/button';
-import { Input } from '../../components/ui/input';
-import { Label } from '../../components/ui/label';
-import { Alert, AlertDescription } from '../../components/ui/alert';
-import { AuthLayout } from '../../components/AuthLayout';
-import { useLanguage } from '../../lib/i18n';
+import { Button } from '../../../components/ui/button';
+import { Input } from '../../../components/ui/input';
+import { Label } from '../../../components/ui/label';
+import { Alert, AlertDescription } from '../../../components/ui/alert';
+import { AuthLayout } from '../../../components/AuthLayout';
+import { useLanguage } from '../../../lib/i18n';
 
 function LoginForm() {
   const router = useRouter();
@@ -113,7 +113,7 @@ function LoginForm() {
               {t.passwordLabel} <span className="text-emerald-500">*</span>
             </Label>
             <Link
-              href="/forgot-password"
+              href="/auth/forgot-password"
               className="text-[11px] text-emerald-600 dark:text-emerald-400 hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-500 rounded"
             >
               {t.forgotPasswordLink}
@@ -169,7 +169,7 @@ function LoginForm() {
         <div>
           {t.noAccount}{' '}
           <Link
-            href="/register"
+            href="/auth/register"
             className="text-emerald-600 dark:text-emerald-400 font-semibold hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-500 rounded"
           >
             {t.registerLink}
@@ -178,7 +178,7 @@ function LoginForm() {
         <div>
           {t.unverifiedAccount}{' '}
           <Link
-            href="/resend-verification"
+            href="/auth/resend-verification"
             className="text-muted-foreground hover:text-emerald-500 hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-500 rounded"
           >
             {t.resendLink}
@@ -198,7 +198,7 @@ export default function LoginPage() {
       subtitle={t.loginSub}
       badge={t.login}
       topRightLink={{
-        href: '/register',
+        href: '/auth/register',
         label: t.register,
       }}
     >

@@ -78,7 +78,7 @@ export default function LandingPage() {
 
           {/* Login */}
           <Link
-            href="/login"
+            href="/auth/login"
             className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-bold bg-emerald-500 hover:bg-emerald-400 text-black shadow-md shadow-emerald-500/20 transition-all active:scale-95"
           >
             <span>{t.login}</span>
@@ -162,7 +162,7 @@ export default function LandingPage() {
             </Link>
 
             <Link
-              href="/login"
+              href="/auth/login"
               className="flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl text-sm sm:text-base font-bold bg-card hover:bg-muted text-foreground border border-border transition-all"
             >
               <Activity className="size-5 text-emerald-500" />
@@ -652,16 +652,16 @@ export default function LandingPage() {
               {t.tvQueue} (/tv)
             </Link>
             <Link
-              href="/login"
+              href="/auth/login"
               className="hover:text-emerald-500 transition-colors"
             >
-              {t.login} (/login)
+              {t.login} (/auth/login)
             </Link>
             <Link
-              href="/register"
+              href="/auth/register"
               className="hover:text-emerald-500 transition-colors"
             >
-              {t.register} (/register)
+              {t.register} (/auth/register)
             </Link>
           </div>
 

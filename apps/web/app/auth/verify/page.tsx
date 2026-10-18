@@ -1,10 +1,10 @@
-// apps/web/app/verify/page.tsx
+// apps/web/app/auth/verify/page.tsx
 'use client';
 
 import React, { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { api } from '../../lib/api';
+import { api } from '../../../lib/api';
 import {
   AlertCircle,
   CheckCircle2,
@@ -13,12 +13,12 @@ import {
   Mail,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { Button } from '../../components/ui/button';
-import { Input } from '../../components/ui/input';
-import { Label } from '../../components/ui/label';
-import { Alert, AlertDescription } from '../../components/ui/alert';
-import { AuthLayout } from '../../components/AuthLayout';
-import { useLanguage } from '../../lib/i18n';
+import { Button } from '../../../components/ui/button';
+import { Input } from '../../../components/ui/input';
+import { Label } from '../../../components/ui/label';
+import { Alert, AlertDescription } from '../../../components/ui/alert';
+import { AuthLayout } from '../../../components/AuthLayout';
+import { useLanguage } from '../../../lib/i18n';
 
 function VerifyContent() {
   const router = useRouter();
@@ -52,7 +52,7 @@ function VerifyContent() {
             : (res.message || 'Email verified successfully!');
           toast.success(successMsg);
           setTimeout(() => {
-            router.push('/login');
+            router.push('/auth/login');
           }, 1800);
         } catch (err: any) {
           const msg =
@@ -99,7 +99,7 @@ function VerifyContent() {
         : (res.message || 'Email verified successfully!');
       toast.success(successMsg);
       setTimeout(() => {
-        router.push('/login');
+        router.push('/auth/login');
       }, 1500);
     } catch (err: any) {
       const msg =
@@ -143,7 +143,7 @@ function VerifyContent() {
           </p>
         </div>
         <Link
-          href="/login"
+          href="/auth/login"
           className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-emerald-500 text-black font-bold text-xs hover:bg-emerald-400 transition-all cursor-pointer"
         >
           <span>{t.directLoginBtn}</span>
@@ -226,7 +226,7 @@ function VerifyContent() {
       <div className="mt-5 text-center text-xs text-muted-foreground flex justify-center border-t border-border pt-4">
         <div>
           <Link
-            href="/login"
+            href="/auth/login"
             className="text-emerald-600 dark:text-emerald-400 font-semibold hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-500 rounded"
           >
             {t.loginLink}
@@ -246,7 +246,7 @@ export default function VerifyPage() {
       subtitle={t.verifySub}
       badge={t.login}
       topRightLink={{
-        href: '/login',
+        href: '/auth/login',
         label: t.login,
       }}
     >

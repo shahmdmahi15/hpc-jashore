@@ -21,13 +21,13 @@ export function AuthGuard({ children, allowedRoles }: AuthGuardProps) {
   useEffect(() => {
     const current = getSession();
     if (!current || !current.accessToken) {
-      const redirectUrl = `/login?redirect=${encodeURIComponent(pathname || '/')}`;
+      const redirectUrl = `/auth/login?redirect=${encodeURIComponent(pathname || '/')}`;
       router.replace(redirectUrl);
       return;
     }
 
     if (allowedRoles && allowedRoles.length > 0 && !allowedRoles.includes(current.role)) {
-      router.replace('/login');
+      router.replace('/auth/login');
       return;
     }
 

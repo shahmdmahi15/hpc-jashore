@@ -1,10 +1,10 @@
-// apps/web/app/reset-password/page.tsx
+// apps/web/app/auth/reset-password/page.tsx
 'use client';
 
 import React, { Suspense, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { api } from '../../lib/api';
+import { api } from '../../../lib/api';
 import {
   AlertCircle,
   CheckCircle2,
@@ -17,13 +17,13 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { Button } from '../../components/ui/button';
-import { Input } from '../../components/ui/input';
-import { Label } from '../../components/ui/label';
-import { Badge } from '../../components/ui/badge';
-import { Alert, AlertDescription } from '../../components/ui/alert';
-import { AuthLayout } from '../../components/AuthLayout';
-import { useLanguage } from '../../lib/i18n';
+import { Button } from '../../../components/ui/button';
+import { Input } from '../../../components/ui/input';
+import { Label } from '../../../components/ui/label';
+import { Badge } from '../../../components/ui/badge';
+import { Alert, AlertDescription } from '../../../components/ui/alert';
+import { AuthLayout } from '../../../components/AuthLayout';
+import { useLanguage } from '../../../lib/i18n';
 
 function ResetPasswordForm() {
   const router = useRouter();
@@ -91,7 +91,7 @@ function ResetPasswordForm() {
         ? (res.message || 'পাসওয়ার্ড সফলভাবে পরিবর্তন করা হয়েছে! নতুন পাসওয়ার্ড দিয়ে লগইন করুন।')
         : (res.message || 'Password reset successfully! You can now sign in with your new password.');
       toast.success(successMsg);
-      router.push('/login');
+      router.push('/auth/login');
     } catch (err: any) {
       const msg =
         err?.message ||
@@ -251,7 +251,7 @@ function ResetPasswordForm() {
       <div className="mt-5 text-center text-xs text-muted-foreground flex justify-center border-t border-border pt-4">
         <div>
           <Link
-            href="/login"
+            href="/auth/login"
             className="text-emerald-600 dark:text-emerald-400 font-semibold hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-500 rounded"
           >
             {t.loginLink}
@@ -271,7 +271,7 @@ export default function ResetPasswordPage() {
       subtitle={t.resetSub}
       badge={t.resetBtn}
       topRightLink={{
-        href: '/login',
+        href: '/auth/login',
         label: t.login,
       }}
     >

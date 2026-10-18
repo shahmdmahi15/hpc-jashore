@@ -525,7 +525,7 @@ export default function WaitingRoomTvView() {
 
           {/* Staff Login Link */}
           <Link
-            href="/login"
+            href="/auth/login"
             className={`h-7 w-7 sm:h-8 sm:w-8 2xl:h-10 2xl:w-10 rounded-lg border transition-colors flex items-center justify-center cursor-pointer ${
               isDark
                 ? 'bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white border-zinc-800'

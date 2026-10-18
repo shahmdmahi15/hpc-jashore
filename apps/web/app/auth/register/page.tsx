@@ -1,10 +1,10 @@
-// apps/web/app/register/page.tsx
+// apps/web/app/auth/register/page.tsx
 'use client';
 
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { api } from '../../lib/api';
+import { api } from '../../../lib/api';
 import {
   AlertCircle,
   Eye,
@@ -17,12 +17,12 @@ import {
   UserPlus,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { Button } from '../../components/ui/button';
-import { Input } from '../../components/ui/input';
-import { Label } from '../../components/ui/label';
-import { Alert, AlertDescription } from '../../components/ui/alert';
-import { AuthLayout } from '../../components/AuthLayout';
-import { useLanguage } from '../../lib/i18n';
+import { Button } from '../../../components/ui/button';
+import { Input } from '../../../components/ui/input';
+import { Label } from '../../../components/ui/label';
+import { Alert, AlertDescription } from '../../../components/ui/alert';
+import { AuthLayout } from '../../../components/AuthLayout';
+import { useLanguage } from '../../../lib/i18n';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -92,7 +92,7 @@ export default function RegisterPage() {
         ? (res.message || 'নিবন্ধন সম্পন্ন হয়েছে! ভেরিফিকেশন লিঙ্ক ইমেইলে পাঠানো হয়েছে।')
         : (res.message || 'Registration successful! Verification link sent to your email.');
       toast.success(successMsg);
-      router.push(`/verify?email=${encodeURIComponent(email.trim().toLowerCase())}`);
+      router.push(`/auth/verify?email=${encodeURIComponent(email.trim().toLowerCase())}`);
     } catch (err: any) {
       const msg =
         err?.message ||
@@ -112,7 +112,7 @@ export default function RegisterPage() {
       subtitle={t.registerSub}
       badge={t.register}
       topRightLink={{
-        href: '/login',
+        href: '/auth/login',
         label: t.login,
       }}
     >
@@ -269,7 +269,7 @@ export default function RegisterPage() {
         <div>
           {t.alreadyAccount}{' '}
           <Link
-            href="/login"
+            href="/auth/login"
             className="text-emerald-600 dark:text-emerald-400 font-semibold hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-500 rounded"
           >
             {t.loginLink}
