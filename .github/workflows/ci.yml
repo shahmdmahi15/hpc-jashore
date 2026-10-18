@@ -2,12 +2,13 @@ name: ci
 
 on:
   push:
-    branches: [main, develop, master]
+    branches: [main]
   pull_request:
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     env:
       COREPACK_ENABLE_DOWNLOAD_PROMPT: 0
     steps:

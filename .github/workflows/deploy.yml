@@ -8,6 +8,7 @@ on:
 jobs:
   test-and-deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     env:
       COREPACK_ENABLE_DOWNLOAD_PROMPT: 0
 
@@ -42,7 +43,8 @@ jobs:
           username: ${{ secrets.HOST_USERNAME }}
           key: ${{ secrets.HOST_KEY }}
           port: 22
-          timeout: 15m
+          timeout: 10m
+          command_timeout: 45m
           script_stop: true
           script: |
             set -e
