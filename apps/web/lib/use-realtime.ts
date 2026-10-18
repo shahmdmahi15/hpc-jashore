@@ -15,6 +15,7 @@ export function useRealtime(onEvent?: (event: RealtimeEvent) => void) {
   const [isConnected, setIsConnected] = useState(false);
   const [lastEvent, setLastEvent] = useState<RealtimeEvent | null>(null);
   const onEventRef = useRef(onEvent);
+  const lastEventIdRef = useRef<string | null>(null);
   useEffect(() => {
     onEventRef.current = onEvent;
   }, [onEvent]);
