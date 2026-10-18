@@ -16,7 +16,7 @@ const HoverCardContext = React.createContext<HoverCardContextType>({
 
 export function HoverCard({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = React.useState(false);
-  const timeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+  const timeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleMouseEnter = () => {
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
