@@ -59,7 +59,7 @@ export async function loginAction(credentials: { email: string; password: string
     // fallback gracefully
   }
 
-  // Set secure HTTP-only cookie on the Next.js server
+  // Set secure HTTP-only cookies on the Next.js server for stateful sessions
   try {
     const cookieStore = await cookies();
     cookieStore.set('hpc_access_token', data.accessToken, {
@@ -68,6 +68,19 @@ export async function loginAction(credentials: { email: string; password: string
       sameSite: 'lax',
       path: '/',
       maxAge: 60 * 60 * 24 * 7, // 7 days
+    });
+    cookieStore.set('hpc_session', JSON.stringify({
+      userId: session.userId,
+      email: session.email,
+      role: session.role,
+      displayName: session.displayName,
+      staffId: session.staffId,
+    }), {
+      httpOnly: false,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 60 * 60 * 24 * 7,
     });
   } catch {
     // cookies may fail in non-standard execution contexts
@@ -80,6 +93,7 @@ export async function logoutAction() {
   try {
     const cookieStore = await cookies();
     cookieStore.delete('hpc_access_token');
+    cookieStore.delete('hpc_session');
   } catch {
     // ignore
   }
