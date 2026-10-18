@@ -8,12 +8,15 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      COREPACK_ENABLE_DOWNLOAD_PROMPT: 0
     steps:
       - uses: actions/checkout@v4
 
-      - uses: pnpm/action-setup@v4
+      - name: Setup pnpm (reads packageManager from package.json)
+        uses: pnpm/action-setup@v4
         with:
-          version: 10.0.0
+          run_install: false
 
       - uses: actions/setup-node@v4
         with:

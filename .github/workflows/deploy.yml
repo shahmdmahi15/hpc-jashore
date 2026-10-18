@@ -8,15 +8,17 @@ on:
 jobs:
   test-and-deploy:
     runs-on: ubuntu-latest
+    env:
+      COREPACK_ENABLE_DOWNLOAD_PROMPT: 0
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Setup pnpm
+      - name: Setup pnpm (reads packageManager from package.json)
         uses: pnpm/action-setup@v4
         with:
-          version: 10.0.0
+          run_install: false
 
       - name: Setup Node.js 22
         uses: actions/setup-node@v4
@@ -49,6 +51,7 @@ jobs:
 
             # Export system & user paths safely
             export PATH="$HOME/.local/share/pnpm:/usr/local/bin:/usr/bin:/bin:$PATH"
+            export COREPACK_ENABLE_DOWNLOAD_PROMPT=0
 
             # Safely source profiles if present (using if statements so set -e is never triggered)
             if [ -f "$HOME/.profile" ]; then
