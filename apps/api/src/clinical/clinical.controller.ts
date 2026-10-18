@@ -14,7 +14,11 @@ import { CurrentUser, type RequestUser } from '../rbac/current-user.decorator';
 import { Roles } from '../rbac/roles.decorator';
 import { RolesGuard } from '../rbac/roles.guard';
 import { ClinicalService } from './clinical.service';
-import { CreateAssessmentDto, CreateConsultationDto } from './dto';
+import {
+  CreateAssessmentDto,
+  CreateConsultationDto,
+  CreateStandalonePrescriptionDto,
+} from './dto';
 
 @ApiTags('clinical')
 @ApiBearerAuth()
@@ -59,6 +63,22 @@ export class ClinicalController {
   @Get('prescriptions/:id')
   getPrescription(@Param('id') id: string) {
     return this.clinical.getPrescription(id);
+  }
+
+  @Post('prescriptions')
+  @Roles('admin', 'head_doctor', 'doctor')
+  createPrescription(
+    @CurrentUser() user: RequestUser,
+    @Body() dto: CreateStandalonePrescriptionDto,
+    @Req() req: Request,
+  ) {
+    const doctorId = user.staffId ?? user.sub;
+    return this.clinical.createPrescription(
+      { sub: user.sub, role: user.role },
+      doctorId,
+      dto,
+      this.meta(req),
+    );
   }
 
   @Post('assessments')

@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { api } from '../../lib/api';
 import {
+  AlertCircle,
   CheckCircle2,
   Eye,
   EyeOff,
@@ -18,6 +19,9 @@ import {
 import { toast } from 'sonner';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
+import { Label } from '../../components/ui/label';
+import { Badge } from '../../components/ui/badge';
+import { Alert, AlertDescription } from '../../components/ui/alert';
 import { AuthLayout } from '../../components/AuthLayout';
 import { useLanguage } from '../../lib/i18n';
 
@@ -103,25 +107,34 @@ function ResetPasswordForm() {
 
   return (
     <>
+      {errorMsg && (
+        <Alert variant="destructive" className="mb-4">
+          <AlertCircle className="size-4" />
+          <AlertDescription>{errorMsg}</AlertDescription>
+        </Alert>
+      )}
+
       {/* If opened directly via link, show verified email badge */}
       {hasLinkCredentials ? (
-        <div className="mb-4 p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center gap-2.5 text-xs text-emerald-600 dark:text-emerald-400">
-          <ShieldCheck className="size-4 text-emerald-500 shrink-0" />
-          <div className="truncate">
-            <span className="text-muted-foreground">{t.linkVerified}:</span>{' '}
-            <strong className="text-foreground font-mono">{emailFromUrl}</strong>
+        <div className="mb-4 p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-between text-xs text-emerald-600 dark:text-emerald-400">
+          <div className="flex items-center gap-2 truncate">
+            <ShieldCheck className="size-4 text-emerald-500 shrink-0" />
+            <span className="text-muted-foreground">{t.linkVerified}:</span>
+            <strong className="text-foreground font-mono truncate">{emailFromUrl}</strong>
           </div>
+          <Badge variant="emerald" className="shrink-0 text-[10px]">Active</Badge>
         </div>
       ) : (
         /* If manual entry fallback */
         <div className="space-y-3.5 mb-3.5">
-          <div>
-            <label className="block text-xs font-semibold text-foreground mb-1">
+          <div className="space-y-1">
+            <Label htmlFor="reset-email">
               {t.emailLabel} <span className="text-emerald-500">*</span>
-            </label>
+            </Label>
             <div className="relative">
               <Mail className="size-4 text-muted-foreground absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               <Input
+                id="reset-email"
                 type="email"
                 autoComplete="email"
                 value={email}
@@ -133,13 +146,14 @@ function ResetPasswordForm() {
             </div>
           </div>
 
-          <div>
-            <label className="block text-xs font-semibold text-foreground mb-1">
+          <div className="space-y-1">
+            <Label htmlFor="reset-code">
               {t.pinLabel} <span className="text-emerald-500">*</span>
-            </label>
+            </Label>
             <div className="relative">
               <KeyRound className="size-4 text-muted-foreground absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               <Input
+                id="reset-code"
                 type="text"
                 maxLength={6}
                 value={code}
@@ -155,13 +169,14 @@ function ResetPasswordForm() {
 
       {/* Main Password Inputs: new password and confirm password */}
       <form onSubmit={handleSubmit} className="space-y-3.5">
-        <div>
-          <label className="block text-xs font-semibold text-foreground mb-1">
+        <div className="space-y-1">
+          <Label htmlFor="reset-new-password">
             {t.newPasswordLabel} <span className="text-emerald-500">*</span>
-          </label>
+          </Label>
           <div className="relative">
             <Lock className="size-4 text-muted-foreground absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             <Input
+              id="reset-new-password"
               type={showPassword ? 'text' : 'password'}
               autoComplete="new-password"
               value={newPassword}
@@ -170,24 +185,27 @@ function ResetPasswordForm() {
               required
               className="pl-10 pr-10 h-11 text-base sm:text-sm bg-background border-input text-foreground placeholder:text-muted-foreground focus-visible:ring-emerald-500 focus-visible:border-emerald-500 transition-colors"
             />
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="icon"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 rounded"
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 h-8 w-8 text-muted-foreground hover:text-foreground"
               title={showPassword ? 'Hide password' : 'Show password'}
             >
               {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-            </button>
+            </Button>
           </div>
         </div>
 
-        <div>
-          <label className="block text-xs font-semibold text-foreground mb-1">
+        <div className="space-y-1">
+          <Label htmlFor="reset-confirm-password">
             {t.confirmPasswordLabel} <span className="text-emerald-500">*</span>
-          </label>
+          </Label>
           <div className="relative">
             <Lock className="size-4 text-muted-foreground absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             <Input
+              id="reset-confirm-password"
               type={showConfirmPassword ? 'text' : 'password'}
               autoComplete="new-password"
               value={confirmPassword}
@@ -196,14 +214,16 @@ function ResetPasswordForm() {
               required
               className="pl-10 pr-10 h-11 text-base sm:text-sm bg-background border-input text-foreground placeholder:text-muted-foreground focus-visible:ring-emerald-500 focus-visible:border-emerald-500 transition-colors"
             />
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="icon"
               onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 rounded"
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 h-8 w-8 text-muted-foreground hover:text-foreground"
               title={showConfirmPassword ? 'Hide password' : 'Show password'}
             >
               {showConfirmPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -211,7 +231,7 @@ function ResetPasswordForm() {
         <Button
           type="submit"
           disabled={loading}
-          className="w-full mt-2 py-3 h-12 rounded-xl font-bold text-sm bg-emerald-500 hover:bg-emerald-400 text-black shadow-lg shadow-emerald-500/20 active:scale-[0.99] transition-all focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2"
+          className="w-full mt-2 py-3 h-12 rounded-xl font-bold text-sm bg-emerald-500 hover:bg-emerald-400 text-black shadow-lg shadow-emerald-500/20 active:scale-[0.99] transition-all focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 cursor-pointer"
         >
           {loading ? (
             <>

@@ -42,10 +42,6 @@ export class RegisterDto {
   @IsString()
   @MaxLength(32)
   phone?: string;
-
-  @IsOptional()
-  @IsString()
-  role?: string;
 }
 
 export class ForgotPasswordDto {

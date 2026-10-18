@@ -66,6 +66,28 @@ export class CreateBillDto {
   @Min(0)
   overallDiscountPaisa?: number;
 
+  @ApiPropertyOptional({ example: 0, description: 'Discount in paisa' })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  discountPaisa?: number;
+
+  @ApiPropertyOptional({ example: 0, description: 'Initial paid amount in paisa' })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  paidPaisa?: number;
+
+  @ApiPropertyOptional({ enum: ['cash', 'bkash', 'nagad', 'rocket', 'card', 'bank'] })
+  @IsOptional()
+  @IsString()
+  paymentMethod?: 'cash' | 'bkash' | 'nagad' | 'rocket' | 'card' | 'bank';
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  txnId?: string;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()

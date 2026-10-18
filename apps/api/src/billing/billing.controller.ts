@@ -86,6 +86,18 @@ export class BillingController {
     );
   }
 
+  @Get('bills')
+  @Roles('admin', 'head_doctor', 'cashier')
+  getAllBills() {
+    return this.billing.getAllBills();
+  }
+
+  @Get('dues')
+  @Roles('admin', 'head_doctor', 'cashier')
+  getAllDues() {
+    return this.billing.getAllDues();
+  }
+
   @Get('bills/:id')
   getBill(@Param('id') id: string) {
     return this.billing.getBill(id);
@@ -121,10 +133,33 @@ export class BillingController {
     return this.billing.getCurrentDrawer(cashierStaffId);
   }
 
+  @Get('drawers/status/:cashierStaffId')
+  @Roles('admin', 'cashier')
+  getDrawerStatusByStaffId(@Param('cashierStaffId') cashierStaffId: string) {
+    return this.billing.getCurrentDrawer(cashierStaffId);
+  }
+
   @Post('drawers/close')
   @Roles('admin', 'cashier')
   closeDrawer(
     @CurrentUser() user: RequestUser,
+    @Body() dto: CloseDrawerDto,
+    @Req() req: Request,
+  ) {
+    const cashierStaffId = user.staffId ?? user.sub;
+    return this.billing.closeDrawer(
+      { sub: user.sub, role: user.role },
+      cashierStaffId,
+      dto,
+      this.meta(req),
+    );
+  }
+
+  @Post('drawers/:id/close')
+  @Roles('admin', 'cashier')
+  closeDrawerById(
+    @CurrentUser() user: RequestUser,
+    @Param('id') _id: string,
     @Body() dto: CloseDrawerDto,
     @Req() req: Request,
   ) {

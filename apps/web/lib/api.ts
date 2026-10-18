@@ -2,10 +2,13 @@
 // Typed API Client for HPC Jashore
 
 export function getApiBase(): string {
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    return process.env.NEXT_PUBLIC_API_URL;
+  }
   if (typeof window !== 'undefined') {
     return `${window.location.origin}/api`;
   }
-  return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+  return 'http://localhost:4000/api';
 }
 
 export interface UserSession {

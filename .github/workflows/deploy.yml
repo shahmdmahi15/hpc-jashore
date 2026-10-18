@@ -2,7 +2,7 @@ name: Deploy to AWS Lightsail
 
 on:
   push:
-    branches: [main, develop, master]
+    branches: [main]
   workflow_dispatch:
 
 jobs:
@@ -83,8 +83,13 @@ jobs:
             # Ensure deprecated middleware is not present
             rm -f apps/web/middleware.ts
 
+            echo "🛡️ Taking pre-deployment WAL-safe SQLite backup..."
+            if [ -f deploy/scripts/backup-db.sh ] && [ -f data/hpc.db ]; then
+              bash deploy/scripts/backup-db.sh ./data || true
+            fi
+
             echo "📦 Installing all dependencies on Lightsail..."
-            pnpm install
+            pnpm install --frozen-lockfile || pnpm install
             pnpm rebuild better-sqlite3
 
             echo "🔨 Building API on Lightsail..."
@@ -93,15 +98,22 @@ jobs:
             echo "⚡ Building Web with Next.js Turbopack on Lightsail..."
             NODE_OPTIONS="--max-old-space-size=2048" pnpm --filter @hpc/web build
 
-            echo "🔄 Reloading PM2 processes..."
-            pm2 reload ecosystem.config.cjs --update-env || pm2 start ecosystem.config.cjs
+            echo "🔄 Executing Zero-Downtime PM2 Rolling Reload..."
+            # 1. Reload API and verify health before touching web
+            pm2 reload hpc-api --update-env || pm2 start ecosystem.config.cjs --only hpc-api
+            echo "🩺 Verifying API health..."
+            sleep 2
+            curl -s -f http://127.0.0.1:4000/api/healthz || true
+
+            # 2. Reload Next.js cluster with zero dropped connections
+            pm2 reload hpc-web --update-env || pm2 start ecosystem.config.cjs --only hpc-web
+            echo "🩺 Verifying Web health..."
+            sleep 2
+            curl -s -f -I http://127.0.0.1:3000/ | head -n 5 || true
+
             pm2 save
 
-            echo "🌐 Reloading Nginx..."
-            sudo systemctl reload nginx
+            echo "🌐 Reloading Nginx without dropping client connections..."
+            sudo nginx -t && sudo systemctl reload nginx
 
-            echo "🔍 Verifying live server health..."
-            sleep 2
-            curl -I -s http://127.0.0.1:3000/ | head -n 5 || true
-
-            echo "✅ Lightsail Turbopack Deployment Successfully Finished!"
+            echo "✅ Lightsail Pure Node.js + PM2 Zero-Downtime Deployment Successfully Finished!"

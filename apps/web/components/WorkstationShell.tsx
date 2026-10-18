@@ -6,6 +6,10 @@ import Header from './Header';
 import { AuthGuard } from './AuthGuard';
 import { getSession, UserSession } from '../lib/api';
 import { useRealtime } from '../lib/use-realtime';
+import { ClipboardList, Stethoscope, Activity, CreditCard, Tv, ShieldCheck } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { cn } from '../lib/utils';
+import { useLanguage } from '../lib/i18n';
 
 interface WorkstationShellProps {
   activeTab: string;
@@ -13,11 +17,21 @@ interface WorkstationShellProps {
   children: (session: UserSession | null) => React.ReactNode;
 }
 
+const MOBILE_NAV_ITEMS = [
+  { id: 'reception', labelBn: 'রিসেপশন', labelEn: 'Reception', icon: ClipboardList, href: '/receptionist' },
+  { id: 'doctor', labelBn: 'ডাক্তার', labelEn: 'Doctor', icon: Stethoscope, href: '/doctor' },
+  { id: 'therapy', labelBn: 'থেরাপি', labelEn: 'Therapy', icon: Activity, href: '/therapy' },
+  { id: 'cashier', labelBn: 'ক্যাশিয়ার', labelEn: 'Cashier', icon: CreditCard, href: '/cashier' },
+  { id: 'tv', labelBn: 'টিভি', labelEn: 'TV Display', icon: Tv, href: '/tv' },
+];
+
 export function WorkstationShell({
   activeTab,
   allowedRoles,
   children,
 }: WorkstationShellProps) {
+  const router = useRouter();
+  const { language } = useLanguage();
   const [session, setSession] = useState<UserSession | null>(null);
 
   useEffect(() => {
@@ -47,12 +61,73 @@ export function WorkstationShell({
           onTabChange={() => {}}
         />
 
-        <main className="flex-1 w-full max-w-[1720px] mx-auto p-3 sm:p-5 md:p-6 transition-all duration-300">
+        <main className="flex-1 w-full max-w-[1720px] mx-auto p-2.5 sm:p-5 md:p-6 pb-20 md:pb-6 transition-all duration-300">
           {children(session)}
         </main>
+
+        {/* Mobile & Small Screen Persistent Bottom Navigation Bar */}
+        <nav
+          aria-label="Mobile Navigation"
+          className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-card/95 backdrop-blur-xl border-t border-border/80 shadow-lg px-1 pt-1.5 pb-safe flex items-center justify-around"
+        >
+          {MOBILE_NAV_ITEMS.map((item) => {
+            const Icon = item.icon;
+            const isActive = activeTab === item.id;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => router.push(item.href)}
+                className={cn(
+                  'flex-1 flex flex-col items-center justify-center gap-0.5 py-1 px-1 rounded-xl text-[10px] font-semibold transition-all duration-150 active:scale-95 touch-manipulation',
+                  isActive
+                    ? 'text-emerald-600 dark:text-emerald-400 font-bold'
+                    : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                <div
+                  className={cn(
+                    'p-1.5 rounded-xl transition-all',
+                    isActive && 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 shadow-2xs',
+                  )}
+                >
+                  <Icon className="size-4 sm:size-5" />
+                </div>
+                <span className="truncate max-w-[64px]">
+                  {language === 'bn' ? item.labelBn : item.labelEn}
+                </span>
+              </button>
+            );
+          })}
+          {session?.role === 'admin' && (
+            <button
+              type="button"
+              onClick={() => router.push('/admin')}
+              className={cn(
+                'flex-1 flex flex-col items-center justify-center gap-0.5 py-1 px-1 rounded-xl text-[10px] font-semibold transition-all duration-150 active:scale-95 touch-manipulation',
+                activeTab === 'admin'
+                  ? 'text-emerald-600 dark:text-emerald-400 font-bold'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              <div
+                className={cn(
+                  'p-1.5 rounded-xl transition-all',
+                  activeTab === 'admin' && 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 shadow-2xs',
+                )}
+              >
+                <ShieldCheck className="size-4 sm:size-5" />
+              </div>
+              <span className="truncate max-w-[64px]">
+                {language === 'bn' ? 'অ্যাডমিন' : 'Admin'}
+              </span>
+            </button>
+          )}
+        </nav>
       </div>
     </AuthGuard>
   );
 }
 
 export default WorkstationShell;
+

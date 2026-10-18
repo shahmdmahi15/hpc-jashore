@@ -23,6 +23,7 @@ import { RealtimeService } from '../realtime/realtime.service';
 import type {
   CreateAssessmentDto,
   CreateConsultationDto,
+  CreateStandalonePrescriptionDto,
 } from './dto';
 
 @Injectable()
@@ -310,5 +311,94 @@ export class ClinicalService {
       .from(assessments)
       .where(eq(assessments.patientId, patientId))
       .orderBy(desc(assessments.createdAt));
+  }
+
+  async createPrescription(
+    actor: { sub?: string; role?: string },
+    doctorId: string,
+    dto: CreateStandalonePrescriptionDto,
+    meta: { ip?: string | null; requestId?: string | null },
+  ) {
+    const now = new Date().toISOString();
+    const rxId = randomUUID();
+    const effectiveDoctorId = dto.doctorId ?? doctorId;
+
+    let consultId = dto.consultationId ?? null;
+    if (!consultId) {
+      const existingConsult = await this.db
+        .select()
+        .from(consultations)
+        .where(eq(consultations.visitId, dto.visitId))
+        .limit(1);
+      if (existingConsult[0]) {
+        consultId = existingConsult[0].id;
+      }
+    }
+
+    const rxRow = {
+      id: rxId,
+      consultationId: consultId,
+      visitId: dto.visitId,
+      patientId: dto.patientId,
+      doctorId: effectiveDoctorId,
+      advice: dto.advice ?? null,
+      createdAt: now,
+      updatedAt: now,
+    };
+    await this.db.insert(prescriptions).values(rxRow);
+
+    const items = dto.prescriptionItems ?? dto.medicines ?? [];
+    const createdItems = [];
+    for (const item of items) {
+      const itemRow = {
+        id: randomUUID(),
+        prescriptionId: rxId,
+        medicineId: item.medicineId ?? null,
+        medicineName: item.medicineName ?? item.name ?? 'Unspecified Medicine',
+        dosage: item.dosage ?? '1+0+1',
+        durationDays: Number(item.durationDays ?? item.duration ?? 7),
+        instructionsBn: item.instructionsBn ?? item.instructions ?? null,
+        instructionsEn: item.instructionsEn ?? null,
+        isDispensed: 0,
+      };
+      await this.db.insert(prescriptionItems).values(itemRow);
+      createdItems.push(itemRow);
+    }
+
+    if (dto.modalities && dto.modalities.length > 0) {
+      for (const mod of dto.modalities) {
+        await this.db.insert(therapyPlans).values({
+          id: randomUUID(),
+          consultationId: consultId,
+          visitId: dto.visitId,
+          patientId: dto.patientId,
+          doctorId: effectiveDoctorId,
+          modalityCode: mod.modalityCode ?? mod.modalityId ?? mod.name,
+          totalSessionsPrescribed: Number(mod.totalSessions ?? mod.sessions ?? 10),
+          completedSessions: 0,
+          frequency: mod.frequency ?? 'daily',
+          notes: mod.notes ?? null,
+          status: 'active',
+          createdAt: now,
+          updatedAt: now,
+        });
+      }
+    }
+
+    await this.audit.log({
+      actorUserId: actor.sub,
+      actorRole: actor.role,
+      action: 'clinical.prescription_create',
+      entity: 'prescriptions',
+      entityId: rxId,
+      after: { ...rxRow, items: createdItems },
+      ip: meta.ip,
+      requestId: meta.requestId,
+    });
+
+    return {
+      ...rxRow,
+      items: createdItems,
+    };
   }
 }

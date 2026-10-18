@@ -37,9 +37,16 @@ async function bootstrap() {
   // Served at /api/docs (setup path is appended after the global prefix).
   SwaggerModule.setup('docs', app, doc, { useGlobalPrefix: true });
 
+  app.enableShutdownHooks();
+
   const port = config.get<number>('port') ?? 4000;
   await app.listen(port, '0.0.0.0');
   // eslint-disable-next-line no-console
   console.log(`hpc-api listening on :${port} (prefix /api)`);
+
+  // Signal PM2 that the process is ready to receive traffic (zero-downtime handshake)
+  if (typeof process.send === 'function') {
+    process.send('ready');
+  }
 }
 bootstrap();

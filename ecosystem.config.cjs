@@ -16,26 +16,31 @@ module.exports = {
         NODE_ENV: 'production',
         PORT: 4000,
         DATABASE_PATH: '/var/www/hpc-jashore/data/hpc.db',
-        SMTP_HOST: 'smtp.gmail.com',
-        SMTP_PORT: 465,
-        SMTP_USER: 'healthandpaincarejashore@gmail.com',
-        SMTP_PASS: 'oxis adoi gmag rkqd',
-        SMTP_FROM: '"HPC Jashore" <healthandpaincarejashore@gmail.com>',
+        SMTP_HOST: process.env.SMTP_HOST || 'smtp.gmail.com',
+        SMTP_PORT: process.env.SMTP_PORT ? Number(process.env.SMTP_PORT) : 465,
+        SMTP_USER: process.env.SMTP_USER || '',
+        SMTP_PASS: process.env.SMTP_PASS || '',
+        SMTP_FROM: process.env.SMTP_FROM || '"HPC Jashore" <healthandpaincarejashore@gmail.com>',
       },
       error_file: '/var/www/hpc-jashore/logs/pm2-api-error.log',
       out_file: '/var/www/hpc-jashore/logs/pm2-api-out.log',
       time: true,
       autorestart: true,
       restart_delay: 2000,
+      wait_ready: true, // PM2 waits for process.send('ready') before considering app online
+      listen_timeout: 10000, // Timeout to wait for ready signal
+      kill_timeout: 5000, // Graceful shutdown window for SIGINT
     },
     {
       name: 'hpc-web',
       cwd: '/var/www/hpc-jashore/apps/web',
       script: 'node_modules/next/dist/bin/next',
       args: 'start --port 3000',
-      instances: 1, // 1 worker is lean and fast for 512MB RAM Lightsail
-      exec_mode: 'fork',
+      instances: 2, // 2 cluster workers enable seamless zero-downtime rolling reloads
+      exec_mode: 'cluster',
       max_memory_restart: '500M',
+      kill_timeout: 5000,
+      listen_timeout: 10000,
       env: {
         NODE_ENV: 'production',
         PORT: 3000,

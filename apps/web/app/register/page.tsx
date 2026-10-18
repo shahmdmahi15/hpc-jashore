@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { api } from '../../lib/api';
 import {
+  AlertCircle,
   Eye,
   EyeOff,
   Loader2,
@@ -18,6 +19,8 @@ import {
 import { toast } from 'sonner';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
+import { Label } from '../../components/ui/label';
+import { Alert, AlertDescription } from '../../components/ui/alert';
 import { AuthLayout } from '../../components/AuthLayout';
 import { useLanguage } from '../../lib/i18n';
 
@@ -108,21 +111,28 @@ export default function RegisterPage() {
       title={t.registerTitle}
       subtitle={t.registerSub}
       badge={t.register}
-      errorMsg={errorMsg}
       topRightLink={{
         href: '/login',
         label: t.login,
       }}
     >
+      {errorMsg && (
+        <Alert variant="destructive" className="mb-4">
+          <AlertCircle className="size-4" />
+          <AlertDescription>{errorMsg}</AlertDescription>
+        </Alert>
+      )}
+
       <form onSubmit={handleSubmit} className="space-y-3.5">
         {/* 1. Name */}
-        <div>
-          <label className="block text-xs font-semibold text-foreground mb-1">
+        <div className="space-y-1">
+          <Label htmlFor="reg-name">
             {t.nameLabel} <span className="text-emerald-500">*</span>
-          </label>
+          </Label>
           <div className="relative">
             <User className="size-4 text-muted-foreground absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             <Input
+              id="reg-name"
               type="text"
               autoComplete="name"
               value={name}
@@ -135,13 +145,14 @@ export default function RegisterPage() {
         </div>
 
         {/* 2. Email */}
-        <div>
-          <label className="block text-xs font-semibold text-foreground mb-1">
+        <div className="space-y-1">
+          <Label htmlFor="reg-email">
             {t.emailLabel} <span className="text-emerald-500">*</span>
-          </label>
+          </Label>
           <div className="relative">
             <Mail className="size-4 text-muted-foreground absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             <Input
+              id="reg-email"
               type="email"
               autoComplete="email"
               value={email}
@@ -154,13 +165,14 @@ export default function RegisterPage() {
         </div>
 
         {/* 3. WhatsApp Number */}
-        <div>
-          <label className="block text-xs font-semibold text-foreground mb-1">
+        <div className="space-y-1">
+          <Label htmlFor="reg-whatsapp">
             {t.whatsappLabel} <span className="text-emerald-500">*</span>
-          </label>
+          </Label>
           <div className="relative">
             <MessageSquare className="size-4 text-emerald-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             <Input
+              id="reg-whatsapp"
               type="tel"
               autoComplete="tel"
               value={whatsappNumber}
@@ -173,13 +185,14 @@ export default function RegisterPage() {
         </div>
 
         {/* 4. Password */}
-        <div>
-          <label className="block text-xs font-semibold text-foreground mb-1">
+        <div className="space-y-1">
+          <Label htmlFor="reg-password">
             {t.passwordLabel} <span className="text-emerald-500">*</span>
-          </label>
+          </Label>
           <div className="relative">
             <Lock className="size-4 text-muted-foreground absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             <Input
+              id="reg-password"
               type={showPassword ? 'text' : 'password'}
               autoComplete="new-password"
               value={password}
@@ -188,25 +201,28 @@ export default function RegisterPage() {
               required
               className="pl-10 pr-10 h-11 text-base sm:text-sm bg-background border-input text-foreground placeholder:text-muted-foreground focus-visible:ring-emerald-500 focus-visible:border-emerald-500 transition-colors"
             />
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="icon"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 rounded"
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 h-8 w-8 text-muted-foreground hover:text-foreground"
               title={showPassword ? 'Hide password' : 'Show password'}
             >
               {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-            </button>
+            </Button>
           </div>
         </div>
 
         {/* 5. Confirm Password */}
-        <div>
-          <label className="block text-xs font-semibold text-foreground mb-1">
+        <div className="space-y-1">
+          <Label htmlFor="reg-confirm-password">
             {t.confirmPasswordLabel} <span className="text-emerald-500">*</span>
-          </label>
+          </Label>
           <div className="relative">
             <Lock className="size-4 text-muted-foreground absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             <Input
+              id="reg-confirm-password"
               type={showConfirmPassword ? 'text' : 'password'}
               autoComplete="new-password"
               value={confirmPassword}
@@ -215,14 +231,16 @@ export default function RegisterPage() {
               required
               className="pl-10 pr-10 h-11 text-base sm:text-sm bg-background border-input text-foreground placeholder:text-muted-foreground focus-visible:ring-emerald-500 focus-visible:border-emerald-500 transition-colors"
             />
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="icon"
               onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 rounded"
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 h-8 w-8 text-muted-foreground hover:text-foreground"
               title={showConfirmPassword ? 'Hide password' : 'Show password'}
             >
               {showConfirmPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -230,7 +248,7 @@ export default function RegisterPage() {
         <Button
           type="submit"
           disabled={loading}
-          className="w-full mt-3 py-3 h-12 rounded-xl font-bold text-sm bg-emerald-500 hover:bg-emerald-400 text-black shadow-lg shadow-emerald-500/20 active:scale-[0.99] transition-all focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2"
+          className="w-full mt-3 py-3 h-12 rounded-xl font-bold text-sm bg-emerald-500 hover:bg-emerald-400 text-black shadow-lg shadow-emerald-500/20 active:scale-[0.99] transition-all focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 cursor-pointer"
         >
           {loading ? (
             <>

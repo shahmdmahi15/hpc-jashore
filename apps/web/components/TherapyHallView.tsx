@@ -94,18 +94,18 @@ export default function TherapyHallView({ session }: TherapyHallProps) {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+    <div className="flex flex-col gap-5 sm:gap-6 w-full">
       {/* Top Action Bar */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h2 style={{ margin: 0, fontSize: '1.4rem' }}>⚡ Therapy Hall &amp; Electrotherapy Matrix</h2>
-          <small style={{ color: 'var(--hpc-muted)' }}>Hall A · Live Bed Allocation &amp; Session Timers</small>
+          <h2 className="text-xl sm:text-2xl font-bold tracking-tight">⚡ Therapy Hall &amp; Electrotherapy Matrix</h2>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">Hall A · Live Bed Allocation &amp; Session Timers</p>
         </div>
-        <div style={{ display: 'flex', gap: '0.75rem' }}>
-          <button className="btn" onClick={() => setShowStartModal(true)}>
-            + Start New Session
+        <div className="flex items-center gap-2.5 w-full sm:w-auto">
+          <button className="btn flex-1 sm:flex-initial" onClick={() => setShowStartModal(true)}>
+            + Start Session
           </button>
-          <button className="btn btn-secondary" onClick={loadData}>
+          <button className="btn btn-secondary flex-1 sm:flex-initial" onClick={loadData}>
             🔄 Refresh
           </button>
         </div>

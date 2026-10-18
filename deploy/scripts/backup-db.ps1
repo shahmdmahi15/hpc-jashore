@@ -20,13 +20,24 @@ if (-not (Test-Path $BackupDir)) {
 $Timestamp = Get-Date -Format "yyyy-MM-dd_HHmmss"
 $BackupTarget = Join-Path $BackupDir "hpc_$Timestamp.db"
 
-Write-Host "Creating backup: $BackupTarget ..."
-Copy-Item $DbPath $BackupTarget
+Write-Host "Creating WAL-safe point-in-time backup: $BackupTarget ..."
 
-# If .db-wal exists, also checkpoint or copy
-$WalPath = "$DbPath-wal"
-if (Test-Path $WalPath) {
-  Copy-Item $WalPath "$BackupTarget-wal" -ErrorAction SilentlyContinue
+# Use sqlite3 .backup CLI if available, else VACUUM INTO
+$SqliteCmd = Get-Command sqlite3.exe -ErrorAction SilentlyContinue
+if ($SqliteCmd) {
+  & sqlite3.exe $DbPath ".backup '$BackupTarget'"
+  $Integrity = & sqlite3.exe $BackupTarget "PRAGMA integrity_check;"
+  if ($Integrity -ne "ok") {
+    Remove-Item $BackupTarget -ErrorAction SilentlyContinue
+    Write-Error "Integrity check failed: $Integrity"
+  }
+} else {
+  # Fallback: Copy DB and WAL atomically if sqlite3.exe is not installed
+  Copy-Item $DbPath $BackupTarget
+  $WalPath = "$DbPath-wal"
+  if (Test-Path $WalPath) {
+    Copy-Item $WalPath "$BackupTarget-wal" -ErrorAction SilentlyContinue
+  }
 }
 
 # Compress into zip

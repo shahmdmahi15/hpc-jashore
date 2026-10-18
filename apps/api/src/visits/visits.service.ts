@@ -36,20 +36,23 @@ export class VisitsService {
   ) {}
 
   private async nextTokenNumber(year: number): Promise<number> {
-    const existing = await this.db
-      .select()
-      .from(sequences)
-      .where(and(eq(sequences.scope, 'token'), eq(sequences.year, year)));
-    if (existing.length === 0) {
-      await this.db.insert(sequences).values({ scope: 'token', year, lastValue: 1 });
-      return 1;
-    }
-    const nextVal = existing[0].lastValue + 1;
-    await this.db
-      .update(sequences)
-      .set({ lastValue: nextVal })
-      .where(and(eq(sequences.scope, 'token'), eq(sequences.year, year)));
-    return nextVal;
+    return this.db.transaction((tx) => {
+      const existing = tx
+        .select()
+        .from(sequences)
+        .where(and(eq(sequences.scope, 'token'), eq(sequences.year, year)))
+        .all();
+      if (existing.length === 0) {
+        tx.insert(sequences).values({ scope: 'token', year, lastValue: 1 }).run();
+        return 1;
+      }
+      const nextVal = existing[0].lastValue + 1;
+      tx.update(sequences)
+        .set({ lastValue: nextVal })
+        .where(and(eq(sequences.scope, 'token'), eq(sequences.year, year)))
+        .run();
+      return nextVal;
+    });
   }
 
   async checkIn(
@@ -260,16 +263,18 @@ export class VisitsService {
       .where(eq(patients.id, targetSerial.patientId));
     const patient = patientRows[0];
 
+    const effectiveDoctorId = doctorId || targetSerial.doctorId;
+
     const doctorRows = await this.db
       .select()
       .from(staff)
-      .where(eq(staff.id, doctorId));
+      .where(eq(staff.id, effectiveDoctorId));
     const doctor = doctorRows[0];
 
     const payload = {
       serialId: targetSerial.id,
       serialNumber: targetSerial.serialNumber,
-      doctorId,
+      doctorId: effectiveDoctorId,
       doctorName: doctor?.fullName ?? 'Doctor',
       patientId: targetSerial.patientId,
       patientMrn: patient?.mrn,
@@ -279,10 +284,10 @@ export class VisitsService {
     };
 
     this.gateway.emit('clinic:global', 'serial.called', payload);
-    this.gateway.emit(`doctor:${doctorId}`, 'serial.called', payload);
-    this.gateway.emit('clinic:global', 'queue.updated', { doctorId });
+    this.gateway.emit(`doctor:${effectiveDoctorId}`, 'serial.called', payload);
+    this.gateway.emit('clinic:global', 'queue.updated', { doctorId: effectiveDoctorId });
     this.realtime.publish('serial.called', payload);
-    this.realtime.publish('queue.updated', { doctorId });
+    this.realtime.publish('queue.updated', { doctorId: effectiveDoctorId });
 
     return { ok: true, serial: targetSerial, payload };
   }

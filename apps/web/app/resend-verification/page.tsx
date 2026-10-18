@@ -5,10 +5,12 @@ import React, { Suspense, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { api } from '../../lib/api';
-import { Loader2, Mail, Send } from 'lucide-react';
+import { AlertCircle, Loader2, Mail, Send } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
+import { Label } from '../../components/ui/label';
+import { Alert, AlertDescription } from '../../components/ui/alert';
 import { AuthLayout } from '../../components/AuthLayout';
 import { useLanguage } from '../../lib/i18n';
 
@@ -57,15 +59,23 @@ function ResendVerificationForm() {
 
   return (
     <>
+      {errorMsg && (
+        <Alert variant="destructive" className="mb-4">
+          <AlertCircle className="size-4" />
+          <AlertDescription>{errorMsg}</AlertDescription>
+        </Alert>
+      )}
+
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* ONLY Email input */}
-        <div>
-          <label className="block text-xs font-semibold text-foreground mb-1.5">
+        <div className="space-y-1.5">
+          <Label htmlFor="resend-email">
             {t.emailLabel} <span className="text-emerald-500">*</span>
-          </label>
+          </Label>
           <div className="relative">
             <Mail className="size-4 text-muted-foreground absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             <Input
+              id="resend-email"
               type="email"
               autoComplete="email"
               value={email}
@@ -81,7 +91,7 @@ function ResendVerificationForm() {
         <Button
           type="submit"
           disabled={loading}
-          className="w-full mt-2 py-3 h-12 rounded-xl font-bold text-sm bg-emerald-500 hover:bg-emerald-400 text-black shadow-lg shadow-emerald-500/20 active:scale-[0.99] transition-all focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2"
+          className="w-full mt-2 py-3 h-12 rounded-xl font-bold text-sm bg-emerald-500 hover:bg-emerald-400 text-black shadow-lg shadow-emerald-500/20 active:scale-[0.99] transition-all focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 cursor-pointer"
         >
           {loading ? (
             <>

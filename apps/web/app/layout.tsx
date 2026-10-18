@@ -56,11 +56,31 @@ export const metadata: Metadata = {
   },
 };
 
+import { Hind_Siliguri, Noto_Sans_Bengali } from 'next/font/google';
+
+const hindSiliguri = Hind_Siliguri({
+  weight: ['400', '500', '600', '700'],
+  subsets: ['bengali'],
+  variable: '--font-bengali',
+  display: 'swap',
+});
+
+const notoSansBengali = Noto_Sans_Bengali({
+  weight: ['400', '500', '600', '700'],
+  subsets: ['bengali'],
+  variable: '--font-noto-bengali',
+  display: 'swap',
+});
+
 export const viewport: Viewport = {
-  themeColor: '#059669',
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#059669' },
+    { media: '(prefers-color-scheme: dark)', color: '#022c22' },
+  ],
   width: 'device-width',
   initialScale: 1,
   maximumScale: 5,
+  viewportFit: 'cover',
 };
 
 import { LanguageProvider } from '../lib/i18n';
@@ -74,12 +94,17 @@ export default function RootLayout({
     <html
       lang="bn"
       suppressHydrationWarning
-      className={`${poppins.variable} font-sans min-h-screen antialiased`}
+      className={`${poppins.variable} ${hindSiliguri.variable} ${notoSansBengali.variable} font-sans min-h-screen antialiased`}
     >
       <head>
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-title" content="HPC Jashore" />
+        <meta name="apple-touch-fullscreen" content="yes" />
+        <meta name="application-name" content="HPC Jashore" />
+        <meta name="msapplication-TileColor" content="#059669" />
+        <meta name="msapplication-tap-highlight" content="no" />
         <meta name="format-detection" content="telephone=no" />
         <script
           // Apply saved theme before first paint (no flash).
@@ -95,7 +120,7 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-screen flex flex-col font-sans bg-background text-foreground selection:bg-emerald-500/20 antialiased">
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem storageKey="hpc-theme">
           <LanguageProvider>
             {children}
             <Toaster position="top-right" richColors />

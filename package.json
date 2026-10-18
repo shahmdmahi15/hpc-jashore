@@ -11,7 +11,19 @@
   "scripts": {
     "dev:api": "pnpm --filter @hpc/api dev",
     "dev:web": "pnpm --filter @hpc/web dev",
-    "build": "pnpm -r build",
+    "dev:tauri": "pnpm --filter @hpc/tauri dev",
+    "build": "pnpm --filter @hpc/api build && pnpm --filter @hpc/web build",
+    "build:all": "pnpm -r build",
+    "build:tauri": "pnpm --filter @hpc/tauri build",
+    "android:init": "pnpm --filter @hpc/tauri android:init",
+    "android:dev": "pnpm --filter @hpc/tauri android:dev",
+    "android:build": "pnpm --filter @hpc/tauri android:build",
     "lint": "pnpm -r lint"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "better-sqlite3",
+      "esbuild"
+    ]
   }
 }

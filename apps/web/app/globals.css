@@ -346,6 +346,7 @@ select:-webkit-autofill:active {
 /* Tables */
 .table-wrapper {
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   border-radius: 0.75rem;
   border: 1px solid var(--hpc-border);
 }
@@ -428,6 +429,21 @@ select:-webkit-autofill:active {
   size: 5.5in 8.27in;
   margin: 8mm;
 }
+
+/* Safe Area Utilities for PWA & Mobile notch / home indicator */
+.pb-safe {
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0.75rem));
+}
+.pt-safe {
+  padding-top: max(0.75rem, env(safe-area-inset-top, 0.75rem));
+}
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.safe-area-top {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
 
 @page thermal {
   size: 80mm auto;

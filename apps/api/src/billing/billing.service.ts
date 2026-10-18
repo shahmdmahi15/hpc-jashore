@@ -40,23 +40,26 @@ export class BillingService {
   ) {}
 
   private async nextBillNumber(year: number): Promise<string> {
-    const existing = await this.db
-      .select()
-      .from(sequences)
-      .where(and(eq(sequences.scope, 'bill'), eq(sequences.year, year)));
-    let nextVal = 1;
-    if (existing.length === 0) {
-      await this.db.insert(sequences).values({ scope: 'bill', year, lastValue: 1 });
-    } else {
-      nextVal = existing[0].lastValue + 1;
-      await this.db
-        .update(sequences)
-        .set({ lastValue: nextVal })
-        .where(and(eq(sequences.scope, 'bill'), eq(sequences.year, year)));
-    }
-    const yy = String(year).slice(-2);
-    const seqStr = String(nextVal).padStart(5, '0');
-    return `BILL-${yy}-${seqStr}`;
+    return this.db.transaction((tx) => {
+      const existing = tx
+        .select()
+        .from(sequences)
+        .where(and(eq(sequences.scope, 'bill'), eq(sequences.year, year)))
+        .all();
+      let nextVal = 1;
+      if (existing.length === 0) {
+        tx.insert(sequences).values({ scope: 'bill', year, lastValue: 1 }).run();
+      } else {
+        nextVal = existing[0].lastValue + 1;
+        tx.update(sequences)
+          .set({ lastValue: nextVal })
+          .where(and(eq(sequences.scope, 'bill'), eq(sequences.year, year)))
+          .run();
+      }
+      const yy = String(year).slice(-2);
+      const seqStr = String(nextVal).padStart(5, '0');
+      return `BILL-${yy}-${seqStr}`;
+    });
   }
 
   private async resolveStaffId(staffIdOrUserId: string): Promise<string> {
@@ -126,7 +129,7 @@ export class BillingService {
       };
     });
 
-    const overallDiscount = dto.overallDiscountPaisa ?? 0;
+    const overallDiscount = dto.overallDiscountPaisa ?? dto.discountPaisa ?? 0;
     const totalDiscountPaisa = lineDiscountsPaisa + overallDiscount;
     const totalPaisa = Math.max(0, subtotalPaisa - totalDiscountPaisa);
 
@@ -145,7 +148,7 @@ export class BillingService {
       paidPaisa: 0,
       duePaisa: totalPaisa,
       status: 'draft' as const,
-      paymentMethod: 'cash',
+      paymentMethod: dto.paymentMethod ?? 'cash',
       notes: dto.notes ?? null,
       createdAt: now,
       updatedAt: now,
@@ -154,6 +157,24 @@ export class BillingService {
 
     for (const item of itemsToInsert) {
       await this.db.insert(billItems).values({ ...item, billId });
+    }
+
+    if (dto.paidPaisa && dto.paidPaisa > 0) {
+      await this.recordPayment(
+        actor,
+        effectiveCashierId,
+        billId,
+        {
+          amountPaisa: Math.min(dto.paidPaisa, totalPaisa),
+          method: dto.paymentMethod ?? 'cash',
+          txnId: dto.txnId,
+        },
+        meta,
+      );
+      const updated = await this.db.select().from(bills).where(eq(bills.id, billId));
+      if (updated[0]) {
+        Object.assign(billRow, updated[0]);
+      }
     }
 
     const payload = {
@@ -388,6 +409,57 @@ export class BillingService {
     };
   }
 
+  async getAllBills(limit = 100) {
+    const rows = await this.db
+      .select({
+        bill: bills,
+        patient: patients,
+        cashier: staff,
+      })
+      .from(bills)
+      .innerJoin(patients, eq(bills.patientId, patients.id))
+      .leftJoin(staff, eq(bills.cashierStaffId, staff.id))
+      .orderBy(desc(bills.createdAt))
+      .limit(limit);
+
+    return rows.map((r) => ({
+      ...r.bill,
+      patient: {
+        id: r.patient.id,
+        mrn: r.patient.mrn,
+        nameEn: r.patient.nameEn,
+        nameBn: r.patient.nameBn,
+        phone: r.patient.phone,
+      },
+      cashier: r.cashier ? { id: r.cashier.id, fullName: r.cashier.fullName } : null,
+    }));
+  }
+
+  async getAllDues() {
+    const rows = await this.db
+      .select({
+        due: dues,
+        patient: patients,
+        bill: bills,
+      })
+      .from(dues)
+      .innerJoin(patients, eq(dues.patientId, patients.id))
+      .leftJoin(bills, eq(dues.billId, bills.id))
+      .orderBy(desc(dues.createdAt));
+
+    return rows.map((r) => ({
+      ...r.due,
+      patient: {
+        id: r.patient.id,
+        mrn: r.patient.mrn,
+        nameEn: r.patient.nameEn,
+        nameBn: r.patient.nameBn,
+        phone: r.patient.phone,
+      },
+      billNumber: r.bill?.billNumber,
+    }));
+  }
+
   // --- Cash Drawers -----------------------------------------------------------
 
   async openDrawer(
@@ -467,18 +539,34 @@ export class BillingService {
       .where(eq(drawerEvents.drawerId, drawer.id));
 
     let cashSalesTotal = 0;
+    let cashDropsTotal = 0;
+    let payoutsTotal = 0;
+
     for (const e of events) {
       if (e.eventType === 'sale_cash') cashSalesTotal += e.amountPaisa;
+      else if (e.eventType === 'drop') cashDropsTotal += e.amountPaisa;
+      else if (e.eventType === 'payout') payoutsTotal += e.amountPaisa;
     }
 
-    const expectedCashPaisa = drawer.openingCashPaisa + cashSalesTotal;
+    const expectedCashPaisa = drawer.openingCashPaisa + cashSalesTotal - cashDropsTotal - payoutsTotal;
 
     return {
       hasActiveDrawer: true,
-      drawer,
+      isOpen: true,
+      drawer: {
+        ...drawer,
+        cashSalesTotal,
+        cashDropsTotal,
+        payoutsTotal,
+        expectedCashPaisa,
+        events,
+      },
       cashSalesTotalPaisa: cashSalesTotal,
+      cashDropsTotalPaisa: cashDropsTotal,
+      payoutsTotalPaisa: payoutsTotal,
       expectedCashInDrawerPaisa: expectedCashPaisa,
       eventsCount: events.length,
+      events,
     };
   }
 

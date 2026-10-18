@@ -223,3 +223,46 @@ export class CreateAssessmentDto {
   @IsString()
   outcomeNotes?: string;
 }
+
+export class CreateStandalonePrescriptionDto {
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  visitId!: string;
+
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  patientId!: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  doctorId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  consultationId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  advice?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsArray()
+  medicines?: any[];
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsArray()
+  prescriptionItems?: any[];
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsArray()
+  modalities?: any[];
+}
+

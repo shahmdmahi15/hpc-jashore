@@ -2,7 +2,9 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { toast } from 'sonner';
 import { api, UserSession } from '../lib/api';
+import { cn } from '../lib/utils';
 import PrescriptionPrintModal from './PrescriptionPrintModal';
 
 interface DoctorChamberProps {
@@ -56,6 +58,8 @@ export default function DoctorChamberView({ session }: DoctorChamberProps) {
 
   // Print modal state
   const [printData, setPrintData] = useState<any>(null);
+  // Adaptive Mobile Tab: switch between Queue and Consultation
+  const [mobileTab, setMobileTab] = useState<'queue' | 'consultation'>('queue');
 
   const doctorId = session?.staffId || '';
 
@@ -99,15 +103,19 @@ export default function DoctorChamberView({ session }: DoctorChamberProps) {
       const targetDocId = doc?.id || doctorId;
 
       const called = await api.visits.callNext(targetDocId);
-      setActiveSerial(called);
+      const active = called.serial || called;
+      setActiveSerial(active);
+      setMobileTab('consultation');
+      toast.success(`Called Serial #${active.serialNumber || 'Next'}`);
       loadQueue();
     } catch (err: any) {
-      alert(`Call next error: ${err.message}`);
+      toast.error(`Call next error: ${err.message}`);
     }
   };
 
   const handleSelectSerial = (s: any) => {
     setActiveSerial(s);
+    setMobileTab('consultation');
   };
 
   const handleAddMedicine = () => {
@@ -146,7 +154,7 @@ export default function DoctorChamberView({ session }: DoctorChamberProps) {
 
   const handleSaveAndPrint = async () => {
     if (!activeSerial) {
-      alert('No active patient selected');
+      toast.error('No active patient selected');
       return;
     }
 
@@ -178,12 +186,14 @@ export default function DoctorChamberView({ session }: DoctorChamberProps) {
         await api.visits.completeSerial(activeSerial.id);
       }
 
+      toast.success('Prescription & Consultation saved successfully!');
+
       // 4. Open 5.5in x 8.27in Print Modal
       setPrintData({
-        id: rx.id || 'RX-001',
+        id: rx?.id || 'RX-001',
         patient: {
           mrn: activeSerial.patient?.mrn || 'HPC-26-00001',
-          nameEn: activeSerial.patient?.nameEn || 'Abdul Karim',
+          nameEn: activeSerial.patient?.nameEn || 'Patient',
           nameBn: activeSerial.patient?.nameBn,
           ageYears: activeSerial.patient?.ageYears || 52,
           gender: activeSerial.patient?.gender || 'male',
@@ -206,22 +216,51 @@ export default function DoctorChamberView({ session }: DoctorChamberProps) {
 
       loadQueue();
     } catch (err: any) {
-      alert(`Error saving prescription: ${err.message}`);
+      toast.error(`Error saving prescription: ${err.message}`);
     }
   };
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: '1.5rem' }}>
-      {/* Left Column: Chamber Patient Queue */}
-      <div className="panel" style={{ height: 'fit-content' }}>
-        <div className="panel-header">
-          <h3 className="panel-title">
-            <span>🚪</span> Chamber Queue ({queue.length})
-          </h3>
-          <button className="btn btn-sm" onClick={handleCallNext}>
-            📢 Call Next
-          </button>
-        </div>
+    <div className="w-full">
+      {/* Mobile & Small Tablet Adaptive Segmented Control */}
+      <div className="flex lg:hidden items-center gap-2 mb-4 p-1 rounded-xl bg-card border border-border shadow-2xs">
+        <button
+          type="button"
+          onClick={() => setMobileTab('queue')}
+          className={cn(
+            'flex-1 py-2 text-xs font-bold rounded-lg transition-all',
+            mobileTab === 'queue'
+              ? 'bg-emerald-600 text-white shadow-xs'
+              : 'text-muted-foreground hover:text-foreground',
+          )}
+        >
+          🚪 Queue ({queue.length})
+        </button>
+        <button
+          type="button"
+          onClick={() => setMobileTab('consultation')}
+          className={cn(
+            'flex-1 py-2 text-xs font-bold rounded-lg transition-all',
+            mobileTab === 'consultation'
+              ? 'bg-emerald-600 text-white shadow-xs'
+              : 'text-muted-foreground hover:text-foreground',
+          )}
+        >
+          📝 Consultation &amp; Rx {activeSerial ? `(#${activeSerial.serialNumber})` : ''}
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-4 sm:gap-6 w-full items-start">
+        {/* Left Column: Chamber Patient Queue */}
+        <div className={cn('panel h-fit transition-all', mobileTab !== 'queue' && 'hidden lg:block')}>
+          <div className="panel-header">
+            <h3 className="panel-title">
+              <span>🚪</span> Chamber Queue ({queue.length})
+            </h3>
+            <button className="btn btn-sm" onClick={handleCallNext}>
+              📢 Call Next
+            </button>
+          </div>
 
         {queue.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '2rem 1rem', color: 'var(--hpc-muted)' }}>
@@ -264,7 +303,7 @@ export default function DoctorChamberView({ session }: DoctorChamberProps) {
       </div>
 
       {/* Right Column: SOAP Consultation & 5.5in x 8.27in Prescription Writer */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+      <div className={cn('flex flex-col gap-4 sm:gap-5 transition-all w-full', mobileTab !== 'consultation' && 'hidden lg:flex')}>
         {/* Active Patient Demographics Bar */}
         <div className="panel" style={{ background: 'var(--hpc-surface-elevated)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
@@ -563,6 +602,7 @@ export default function DoctorChamberView({ session }: DoctorChamberProps) {
             </button>
           </div>
         </div>
+      </div>
       </div>
 
       {/* 5.5in x 8.27in Prescription Modal */}

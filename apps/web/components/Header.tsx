@@ -125,9 +125,9 @@ export default function Header({
         </div>
       </div>
 
-      {/* 2. Center: Workstation Navigation Tabs */}
+      {/* 2. Center: Workstation Navigation Tabs (Desktop & Tablet) */}
       <nav
-        className="flex items-center gap-1 overflow-x-auto py-0.5 no-scrollbar max-w-full"
+        className="hidden md:flex items-center gap-1 overflow-x-auto py-0.5 no-scrollbar max-w-full"
         aria-label="Workstations"
       >
         {TABS.map((tab) => {

@@ -7,7 +7,7 @@
     "dev": "nest start --watch",
     "build": "nest build",
     "start": "node dist/main.js",
-    "lint": "tsc --noEmit",
+    "lint": "node --max-old-space-size=4096 ./node_modules/typescript/bin/tsc --noEmit",
     "seed": "ts-node -T src/db/seed.ts",
     "test:mrn": "ts-node -T src/common/mrn.util.spec.ts"
   },

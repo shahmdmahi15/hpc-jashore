@@ -558,19 +558,33 @@ export class AuthService {
 
     const userId = randomUUID();
     const passwordHash = await bcrypt.hash(dto.password, 10);
-    const role: Role = (dto.role as Role) || 'patient' as any;
+    // Privilege escalation prevention: self-registration cannot grant admin or doctor roles.
+    const role: Role = 'reception';
 
     await this.db.insert(users).values({
       id: userId,
       email: normalized,
       passwordHash,
-      role: (['admin', 'head_doctor', 'doctor', 'reception', 'therapist', 'cashier'].includes(role) ? role : 'reception') as Role,
+      role,
       displayName: dto.displayName.trim(),
-      isActive: 1,
+      isActive: 0, // Unverified until verified via email
       mustChangePassword: 0,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });
+
+    if (dto.phone) {
+      await this.db.insert(staff).values({
+        id: randomUUID(),
+        userId,
+        fullName: dto.displayName.trim(),
+        role: (['admin', 'head_doctor', 'doctor', 'reception', 'therapist', 'cashier'].includes(role) ? role : 'reception') as Role,
+        phone: dto.phone.trim(),
+        isActive: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+    }
 
     // Generate 6-digit verification code
     const code = Math.floor(100000 + Math.random() * 900000).toString();
@@ -690,6 +704,14 @@ export class AuthService {
           updatedAt: new Date().toISOString(),
         })
         .where(eq(users.id, user.id));
+
+      await this.db
+        .update(staff)
+        .set({
+          isActive: 1,
+          updatedAt: new Date().toISOString(),
+        })
+        .where(eq(staff.userId, user.id));
 
       await this.audit.log({
         actorUserId: user.id,

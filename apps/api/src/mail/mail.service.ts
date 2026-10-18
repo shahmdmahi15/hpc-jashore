@@ -8,19 +8,20 @@ export class MailService {
   private transporter: nodemailer.Transporter;
 
   constructor(private readonly config: ConfigService) {
-    const user = this.config.get<string>('SMTP_USER') || 'healthandpaincarejashore@gmail.com';
-    const pass = this.config.get<string>('SMTP_PASS') || 'oxis adoi gmag rkqd';
+    const user = this.config.get<string>('SMTP_USER') || '';
+    const pass = this.config.get<string>('SMTP_PASS') || '';
     const host = this.config.get<string>('SMTP_HOST') || 'smtp.gmail.com';
     const port = Number(this.config.get<string>('SMTP_PORT') || 465);
+
+    if (!user || !pass) {
+      this.logger.warn('SMTP credentials not configured. Outgoing mail will be disabled or logged.');
+    }
 
     this.transporter = nodemailer.createTransport({
       host,
       port,
       secure: port === 465,
-      auth: {
-        user,
-        pass,
-      },
+      auth: user && pass ? { user, pass } : undefined,
     });
   }
 

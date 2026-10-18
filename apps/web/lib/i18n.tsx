@@ -3,6 +3,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Globe } from 'lucide-react';
+import { Button } from '../components/ui/button';
 import { cn } from './utils';
 
 export type Language = 'bn' | 'en';
@@ -333,7 +334,9 @@ export function LanguageToggle({ className }: { className?: string }) {
   const isBn = language === 'bn';
 
   return (
-    <button
+    <Button
+      variant="outline"
+      size="sm"
       type="button"
       onClick={toggleLanguage}
       className={cn(
@@ -347,6 +350,6 @@ export function LanguageToggle({ className }: { className?: string }) {
       <span className="font-sans font-bold">
         {isBn ? 'EN' : 'বাং'}
       </span>
-    </button>
+    </Button>
   );
 }

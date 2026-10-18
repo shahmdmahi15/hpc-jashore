@@ -14,7 +14,10 @@ export interface RealtimeEvent {
 export function useRealtime(onEvent?: (event: RealtimeEvent) => void) {
   const [isConnected, setIsConnected] = useState(false);
   const [lastEvent, setLastEvent] = useState<RealtimeEvent | null>(null);
-  const lastEventIdRef = useRef<string | null>(null);
+  const onEventRef = useRef(onEvent);
+  useEffect(() => {
+    onEventRef.current = onEvent;
+  }, [onEvent]);
 
   useEffect(() => {
     let eventSource: EventSource | null = null;
@@ -50,7 +53,7 @@ export function useRealtime(onEvent?: (event: RealtimeEvent) => void) {
               lastEventIdRef.current = data.id;
             }
             setLastEvent(data);
-            onEvent?.(data);
+            onEventRef.current?.(data);
           } catch {
             // non-json keepalive
           }
@@ -78,7 +81,7 @@ export function useRealtime(onEvent?: (event: RealtimeEvent) => void) {
       isCancelled = true;
       eventSource?.close();
     };
-  }, [onEvent]);
+  }, []);
 
   return { isConnected, lastEvent };
 }

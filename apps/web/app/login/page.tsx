@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { api, getRoleHomeRoute } from '../../lib/api';
 import {
+  AlertCircle,
   Eye,
   EyeOff,
   KeyRound,
@@ -16,6 +17,8 @@ import {
 import { toast } from 'sonner';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
+import { Label } from '../../components/ui/label';
+import { Alert, AlertDescription } from '../../components/ui/alert';
 import { AuthLayout } from '../../components/AuthLayout';
 import { useLanguage } from '../../lib/i18n';
 
@@ -75,15 +78,23 @@ function LoginForm() {
 
   return (
     <>
+      {errorMsg && (
+        <Alert variant="destructive" className="mb-4">
+          <AlertCircle className="size-4" />
+          <AlertDescription>{errorMsg}</AlertDescription>
+        </Alert>
+      )}
+
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* 1. Email */}
-        <div>
-          <label className="block text-xs font-semibold text-foreground mb-1.5">
+        <div className="space-y-1.5">
+          <Label htmlFor="login-email">
             {t.emailLabel} <span className="text-emerald-500">*</span>
-          </label>
+          </Label>
           <div className="relative">
             <Mail className="size-4 text-muted-foreground absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             <Input
+              id="login-email"
               type="email"
               autoComplete="email"
               value={email}
@@ -96,11 +107,11 @@ function LoginForm() {
         </div>
 
         {/* 2. Password */}
-        <div>
-          <div className="flex justify-between items-center mb-1.5">
-            <label className="block text-xs font-semibold text-foreground">
+        <div className="space-y-1.5">
+          <div className="flex justify-between items-center">
+            <Label htmlFor="login-password">
               {t.passwordLabel} <span className="text-emerald-500">*</span>
-            </label>
+            </Label>
             <Link
               href="/forgot-password"
               className="text-[11px] text-emerald-600 dark:text-emerald-400 hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-500 rounded"
@@ -111,6 +122,7 @@ function LoginForm() {
           <div className="relative">
             <Lock className="size-4 text-muted-foreground absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             <Input
+              id="login-password"
               type={showPassword ? 'text' : 'password'}
               autoComplete="current-password"
               value={password}
@@ -119,14 +131,16 @@ function LoginForm() {
               required
               className="pl-10 pr-10 h-11 text-base sm:text-sm bg-background border-input text-foreground placeholder:text-muted-foreground focus-visible:ring-emerald-500 focus-visible:border-emerald-500 transition-colors"
             />
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="icon"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 rounded"
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 h-8 w-8 text-muted-foreground hover:text-foreground"
               title={showPassword ? 'Hide password' : 'Show password'}
             >
               {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -134,7 +148,7 @@ function LoginForm() {
         <Button
           type="submit"
           disabled={loading}
-          className="w-full mt-2 py-3 h-12 rounded-xl font-bold text-sm bg-emerald-500 hover:bg-emerald-400 text-black shadow-lg shadow-emerald-500/20 active:scale-[0.99] transition-all focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2"
+          className="w-full mt-2 py-3 h-12 rounded-xl font-bold text-sm bg-emerald-500 hover:bg-emerald-400 text-black shadow-lg shadow-emerald-500/20 active:scale-[0.99] transition-all focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 cursor-pointer"
         >
           {loading ? (
             <>

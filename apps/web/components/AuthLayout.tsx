@@ -4,8 +4,11 @@
 import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { ArrowLeft, ShieldCheck, Tv, User } from 'lucide-react';
+import { AlertCircle, ArrowLeft, ShieldCheck, Tv, User } from 'lucide-react';
 import { NavbarSwitchers } from './NavbarSwitchers';
+import { Badge } from './ui/badge';
+import { Card, CardContent } from './ui/card';
+import { Alert, AlertDescription } from './ui/alert';
 import { useLanguage } from '../lib/i18n';
 
 interface AuthLayoutProps {
@@ -29,7 +32,7 @@ export function AuthLayout({
   errorMsg,
   topRightLink,
 }: AuthLayoutProps) {
-  const { t, language } = useLanguage();
+  const { t } = useLanguage();
 
   return (
     <main
@@ -90,56 +93,55 @@ export function AuthLayout({
         </div>
       </header>
 
-      {/* Main Responsive Form Card Container */}
+      {/* Main Responsive Form Card Container using Shadcn Card */}
       <section className="relative z-10 w-full max-w-sm sm:max-w-md md:max-w-lg lg:max-w-xl xl:max-w-xl my-auto py-3 px-2 sm:px-0">
-        <div className="w-full p-5 sm:p-7 md:p-8 rounded-3xl border border-border/80 bg-card/90 shadow-2xl backdrop-blur-2xl transition-all duration-300">
-          {/* Header & Logo */}
-          <div className="flex flex-col items-center text-center mb-5 sm:mb-6">
-            <Link
-              href="/"
-              className="group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 rounded-2xl"
-            >
-              <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-white p-1.5 shadow-xl shadow-black/10 dark:shadow-black/60 mb-2.5 sm:mb-3 flex items-center justify-center border border-zinc-200 dark:border-zinc-800 group-hover:scale-105 group-hover:border-emerald-500 transition-transform">
-                <Image
-                  src="/hpclogo-transparent.png"
-                  alt="HPC Logo"
-                  width={64}
-                  height={64}
-                  className="object-contain w-full h-full"
-                  priority
-                />
-              </div>
-            </Link>
+        <Card className="w-full rounded-3xl border border-border/80 bg-card/90 shadow-2xl backdrop-blur-2xl transition-all duration-300 overflow-hidden">
+          <CardContent className="p-5 sm:p-7 md:p-8">
+            {/* Header & Logo */}
+            <div className="flex flex-col items-center text-center mb-5 sm:mb-6">
+              <Link
+                href="/"
+                className="group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 rounded-2xl"
+              >
+                <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-white p-1.5 shadow-xl shadow-black/10 dark:shadow-black/60 mb-2.5 sm:mb-3 flex items-center justify-center border border-zinc-200 dark:border-zinc-800 group-hover:scale-105 group-hover:border-emerald-500 transition-transform">
+                  <Image
+                    src="/hpclogo-transparent.png"
+                    alt="HPC Logo"
+                    width={64}
+                    height={64}
+                    className="object-contain w-full h-full"
+                    priority
+                  />
+                </div>
+              </Link>
 
-            {badge && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[11px] font-semibold mb-1.5">
-                <ShieldCheck className="size-3" />
-                {badge}
-              </span>
+              {badge && (
+                <Badge variant="emerald" className="gap-1 mb-1.5 text-[11px] font-semibold">
+                  <ShieldCheck className="size-3" />
+                  {badge}
+                </Badge>
+              )}
+
+              <h1 className="text-xl sm:text-2xl md:text-2xl font-black text-foreground tracking-tight">
+                {title}
+              </h1>
+              <p className="text-xs text-muted-foreground mt-1 max-w-sm leading-relaxed">
+                {subtitle || t.brandSub}
+              </p>
+            </div>
+
+            {/* Global Error Alert */}
+            {errorMsg && (
+              <Alert variant="destructive" className="mb-4">
+                <AlertCircle className="size-4" />
+                <AlertDescription>{errorMsg}</AlertDescription>
+              </Alert>
             )}
 
-            <h1 className="text-xl sm:text-2xl md:text-2xl font-black text-foreground tracking-tight">
-              {title}
-            </h1>
-            <p className="text-xs text-muted-foreground mt-1 max-w-sm leading-relaxed">
-              {subtitle || t.brandSub}
-            </p>
-          </div>
-
-          {/* Global Error Banner */}
-          {errorMsg && (
-            <div
-              role="alert"
-              className="mb-4 p-3 rounded-xl bg-destructive/10 border border-destructive/30 flex items-start gap-2.5 text-destructive text-xs animate-in fade-in slide-in-from-top-1"
-            >
-              <div className="size-2 rounded-full bg-destructive mt-1.5 shrink-0" />
-              <span className="leading-snug">{errorMsg}</span>
-            </div>
-          )}
-
-          {/* Form Content */}
-          {children}
-        </div>
+            {/* Form Content */}
+            {children}
+          </CardContent>
+        </Card>
       </section>
 
       {/* Universal PWA / Cross-Device Footer */}

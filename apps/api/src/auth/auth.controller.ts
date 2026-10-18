@@ -15,11 +15,16 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
 import { AuthService } from './auth.service';
 import {
+  ForgotPasswordDto,
   LoginDto,
   LogoutDto,
   PinResetDto,
   PinVerifyDto,
   RefreshDto,
+  RegisterDto,
+  ResendVerificationDto,
+  ResetPasswordDto,
+  VerifyEmailDto,
 } from './dto';
 import { JwtAccessAuthGuard, JwtRefreshAuthGuard } from './jwt.guard';
 import { CurrentUser, type RequestUser } from '../rbac/current-user.decorator';
@@ -63,31 +68,31 @@ export class AuthController {
 
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
-  async register(@Body() dto: any, @Req() req: Request) {
+  async register(@Body() dto: RegisterDto, @Req() req: Request) {
     return this.auth.register(dto, reqMeta(req));
   }
 
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
-  async forgotPassword(@Body() dto: any, @Req() req: Request) {
+  async forgotPassword(@Body() dto: ForgotPasswordDto, @Req() req: Request) {
     return this.auth.forgotPassword(dto.email, reqMeta(req));
   }
 
   @Post('reset-password')
   @HttpCode(HttpStatus.OK)
-  async resetPassword(@Body() dto: any, @Req() req: Request) {
+  async resetPassword(@Body() dto: ResetPasswordDto, @Req() req: Request) {
     return this.auth.resetPassword(dto, reqMeta(req));
   }
 
   @Post('verify-email')
   @HttpCode(HttpStatus.OK)
-  async verifyEmail(@Body() dto: any, @Req() req: Request) {
+  async verifyEmail(@Body() dto: VerifyEmailDto, @Req() req: Request) {
     return this.auth.verifyEmail(dto, reqMeta(req));
   }
 
   @Post('resend-verification')
   @HttpCode(HttpStatus.OK)
-  async resendVerification(@Body() dto: any, @Req() req: Request) {
+  async resendVerification(@Body() dto: ResendVerificationDto, @Req() req: Request) {
     return this.auth.resendVerification(dto.email, reqMeta(req));
   }
 

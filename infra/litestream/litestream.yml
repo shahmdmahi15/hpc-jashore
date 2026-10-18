@@ -1,0 +1,16 @@
+# Litestream Configuration for HPC Jashore
+# Automated continuous WAL replication for SQLite database to S3 or Cloudflare R2
+# Docs: https://litestream.io/reference/config/
+
+dbs:
+  - path: /app/data/hpc.db
+    replicas:
+      - type: s3
+        bucket: "${LITESTREAM_BUCKET:-hpc-jashore-db-backups}"
+        path: "litestream/hpc.db"
+        endpoint: "${LITESTREAM_ENDPOINT:-https://s3.ap-south-1.amazonaws.com}"
+        access-key-id: "${AWS_ACCESS_KEY_ID:-}"
+        secret-access-key: "${AWS_SECRET_ACCESS_KEY:-}"
+        region: "${AWS_REGION:-ap-south-1}"
+        sync-interval: 10s
+        retention: 720h # 30 days point-in-time recovery
