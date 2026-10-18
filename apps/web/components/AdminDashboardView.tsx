@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { api } from '../lib/api';
+import { api, UserSession, getSession } from '../lib/api';
 import { useLanguage } from '../lib/i18n';
 import { toast } from 'sonner';
 import {
@@ -50,9 +50,21 @@ import TherapyHallView from './TherapyHallView';
 import CashierView from './CashierView';
 import PharmacyView from './PharmacyView';
 
-export default function AdminDashboardView() {
+export interface AdminDashboardViewProps {
+  session?: UserSession | null;
+}
+
+export default function AdminDashboardView({ session: propSession }: AdminDashboardViewProps = {}) {
   const { t, language } = useLanguage();
   const isBn = language === 'bn';
+
+  const [session, setSession] = useState<UserSession | null>(propSession || null);
+
+  useEffect(() => {
+    if (!session) {
+      setSession(getSession());
+    }
+  }, [session]);
 
   const [activeTab, setActiveTab] = useState<string>('analytics');
   const [summary, setSummary] = useState<any>(null);
@@ -493,17 +505,17 @@ export default function AdminDashboardView() {
 
         {/* Tab 3: Integrated Doctor Chamber View */}
         <TabsContent value="doctor" className="mt-4">
-          <DoctorChamberView />
+          <DoctorChamberView session={session} />
         </TabsContent>
 
         {/* Tab 4: Integrated Therapy Hall Bed Matrix View */}
         <TabsContent value="therapy" className="mt-4">
-          <TherapyHallView />
+          <TherapyHallView session={session} />
         </TabsContent>
 
         {/* Tab 5: Integrated Cashier & Billing View */}
         <TabsContent value="cashier" className="mt-4">
-          <CashierView />
+          <CashierView session={session} />
         </TabsContent>
 
         {/* Tab 6: Integrated Pharmacy View */}

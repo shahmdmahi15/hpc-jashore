@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { api, UserSession } from '../lib/api';
+import { api, UserSession, getSession } from '../lib/api';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Select } from './ui/select';
@@ -11,11 +11,12 @@ import { Badge } from './ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { cn } from '../lib/utils';
 
-interface CashierProps {
-  session: UserSession | null;
+export interface CashierProps {
+  session?: UserSession | null;
 }
 
-export default function CashierView({ session }: CashierProps) {
+export default function CashierView({ session: propSession }: CashierProps = {}) {
+  const session = propSession || getSession();
   const [mobileTab, setMobileTab] = useState<'billing' | 'ledger'>('billing');
   const [bills, setBills] = useState<any[]>([]);
   const [dues, setDues] = useState<any[]>([]);

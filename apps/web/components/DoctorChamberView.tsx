@@ -3,15 +3,16 @@
 
 import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { api, UserSession } from '../lib/api';
+import { api, UserSession, getSession } from '../lib/api';
 import { cn } from '../lib/utils';
 import PrescriptionPrintModal from './PrescriptionPrintModal';
 
-interface DoctorChamberProps {
-  session: UserSession | null;
+export interface DoctorChamberProps {
+  session?: UserSession | null;
 }
 
-export default function DoctorChamberView({ session }: DoctorChamberProps) {
+export default function DoctorChamberView({ session: propSession }: DoctorChamberProps = {}) {
+  const session = propSession || getSession();
   const [queue, setQueue] = useState<any[]>([]);
   const [activeSerial, setActiveSerial] = useState<any>(null);
   const [medicinesList, setMedicinesList] = useState<any[]>([]);

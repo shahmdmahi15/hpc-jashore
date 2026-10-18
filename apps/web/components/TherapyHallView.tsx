@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { api, UserSession } from '../lib/api';
+import { api, UserSession, getSession } from '../lib/api';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Select } from './ui/select';
@@ -12,11 +12,12 @@ import { Badge } from './ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { cn } from '../lib/utils';
 
-interface TherapyHallProps {
-  session: UserSession | null;
+export interface TherapyHallProps {
+  session?: UserSession | null;
 }
 
-export default function TherapyHallView({ session }: TherapyHallProps) {
+export default function TherapyHallView({ session: propSession }: TherapyHallProps = {}) {
+  const session = propSession || getSession();
   const [mobileTab, setMobileTab] = useState<'beds' | 'sessions' | 'packages'>('beds');
   const [beds, setBeds] = useState<any[]>([]);
   const [machines, setMachines] = useState<any[]>([]);
