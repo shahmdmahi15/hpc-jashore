@@ -444,7 +444,7 @@ export default function AdminDashboardView({ session: propSession }: AdminDashbo
                   <Select
                     id="staff-select"
                     value={punchStaffId}
-                    onChange={(e) => setPunchStaffId(e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setPunchStaffId(e.target.value)}
                     required
                     className="w-full h-11 px-3 rounded-xl border border-input bg-background text-foreground text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   >
@@ -462,7 +462,7 @@ export default function AdminDashboardView({ session: propSession }: AdminDashbo
                   <Select
                     id="punch-type"
                     value={punchType}
-                    onChange={(e) => setPunchType(e.target.value as any)}
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setPunchType(e.target.value as any)}
                     className="w-full h-11 px-3 rounded-xl border border-input bg-background text-foreground text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 font-bold"
                   >
                     <option value="in">{isBn ? '🟢 প্রবেশ (Punch IN)' : '🟢 Punch IN'}</option>

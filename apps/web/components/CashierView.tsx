@@ -312,7 +312,7 @@ export default function CashierView({ session: propSession }: CashierProps = {})
                 <Select
                   label="Select Patient *"
                   value={selectedPatientId}
-                  onChange={(e) => setSelectedPatientId(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedPatientId(e.target.value)}
                   required
                 >
                   {patients.map((p) => (
@@ -423,7 +423,7 @@ export default function CashierView({ session: propSession }: CashierProps = {})
                   <Select
                     label="Payment Method"
                     value={paymentMethod}
-                    onChange={(e) => setPaymentMethod(e.target.value as any)}
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setPaymentMethod(e.target.value as any)}
                   >
                     <option value="cash">Cash (নগদ)</option>
                     <option value="bkash">bKash (বিকাশ)</option>

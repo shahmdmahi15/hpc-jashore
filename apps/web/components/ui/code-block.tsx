@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { cva, type VariantProps } from "class-variance-authority"
-import { cn } from "cn"
+import { cn } from "../../lib/utils"
 
 import { Button } from "@/components/ui/button"
 import { CheckIcon, CopyIcon } from "lucide-react"
@@ -87,7 +87,7 @@ function CodeBlockActions({
 function CodeBlockCopyButton({
   value,
   variant = "ghost",
-  size = "icon-xs",
+  size = "icon-sm",
   className,
   onClick,
   ...props
@@ -112,7 +112,7 @@ function CodeBlockCopyButton({
         size={size}
         aria-label={copied ? "Copied" : "Copy"}
         className={cn(className)}
-        onClick={(event) => {
+        onClick={(event: React.MouseEvent<HTMLButtonElement>) => {
           onClick?.(event)
           navigator.clipboard
             .writeText(value)

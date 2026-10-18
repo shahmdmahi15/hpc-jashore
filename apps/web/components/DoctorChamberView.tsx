@@ -26,13 +26,7 @@ import {
   TableHeader,
   TableRow,
 } from './ui/table';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from './ui/select';
+import { Select } from './ui/select';
 
 export interface DoctorChamberProps {
   session?: UserSession | null;
@@ -482,7 +476,7 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
                       <TableCell>
                         <Select
                           value={m.frequency}
-                          onChange={(e) => {
+                          onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
                             setPrescribedMods(
                               prescribedMods.map((it) =>
                                 it.modalityCode === m.modalityCode ? { ...it, frequency: e.target.value } : it,

@@ -212,7 +212,7 @@ export default function ReceptionView() {
 
                   <Select
                     value={selectedPatientId}
-                    onChange={(e) => setSelectedPatientId(e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedPatientId(e.target.value)}
                     required
                   >
                     <option value="">-- Choose Patient ({filteredPatients.length} found) --</option>
@@ -228,7 +228,7 @@ export default function ReceptionView() {
                   <Select
                     label="Assigning Doctor / Chamber:"
                     value={selectedDoctorId}
-                    onChange={(e) => setSelectedDoctorId(e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedDoctorId(e.target.value)}
                     required
                   >
                     <option value="">-- Select Doctor --</option>
@@ -242,7 +242,7 @@ export default function ReceptionView() {
                   <Select
                     label="Queue Priority:"
                     value={priority}
-                    onChange={(e) => setPriority(e.target.value as any)}
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setPriority(e.target.value as any)}
                   >
                     <option value="normal">Normal (সাধারণ)</option>
                     <option value="emergency">Emergency (জরুরি)</option>
@@ -466,7 +466,7 @@ export default function ReceptionView() {
               <Select
                 label="Gender"
                 value={regData.gender}
-                onChange={(e) => setRegData({ ...regData, gender: e.target.value })}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setRegData({ ...regData, gender: e.target.value })}
               >
                 <option value="male">Male (পুরুষ)</option>
                 <option value="female">Female (মহিলা)</option>
@@ -476,7 +476,7 @@ export default function ReceptionView() {
               <Select
                 label="Blood Group"
                 value={regData.bloodGroup}
-                onChange={(e) => setRegData({ ...regData, bloodGroup: e.target.value })}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setRegData({ ...regData, bloodGroup: e.target.value })}
               >
                 <option value="A+">A+</option>
                 <option value="A-">A-</option>

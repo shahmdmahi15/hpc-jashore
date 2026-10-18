@@ -174,7 +174,7 @@ export default function Header({
           <Select
             className="bg-transparent border-none text-xs font-semibold text-foreground focus:outline-none cursor-pointer pr-1 h-auto py-0 shadow-none"
             value={session?.role || 'head_doctor'}
-            onChange={(e) => handleQuickSwitch(e.target.value as any)}
+            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleQuickSwitch(e.target.value as any)}
             disabled={switching}
           >
             <option value="head_doctor" className="bg-card text-foreground">Dr. Toufiq (Head)</option>

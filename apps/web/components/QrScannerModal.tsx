@@ -96,7 +96,7 @@ export default function QrScannerModal({ onScan, onClose }: QrScannerModalProps)
   };
 
   return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
+    <Dialog open onOpenChange={(open: boolean) => !open && onClose()}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-lg font-bold">

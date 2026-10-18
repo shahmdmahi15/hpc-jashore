@@ -1,49 +1,77 @@
-"use client"
+'use client';
 
-import { cn } from "cn"
-import * as ResizablePrimitive from "react-resizable-panels"
+import * as React from 'react';
+import { cn } from '../../lib/utils';
+import { GripVertical } from 'lucide-react';
+
+interface ResizablePanelGroupProps extends React.HTMLAttributes<HTMLDivElement> {
+  direction?: 'horizontal' | 'vertical';
+}
 
 function ResizablePanelGroup({
   className,
+  direction = 'horizontal',
   ...props
-}: ResizablePrimitive.GroupProps) {
+}: ResizablePanelGroupProps) {
   return (
-    <ResizablePrimitive.Group
+    <div
       data-slot="resizable-panel-group"
       className={cn(
-        "flex h-full w-full aria-[orientation=vertical]:flex-col",
+        'flex h-full w-full',
+        direction === 'vertical' ? 'flex-col' : 'flex-row',
         className
       )}
       {...props}
     />
-  )
+  );
 }
 
-function ResizablePanel({ ...props }: ResizablePrimitive.PanelProps) {
-  return <ResizablePrimitive.Panel data-slot="resizable-panel" {...props} />
+interface ResizablePanelProps extends React.HTMLAttributes<HTMLDivElement> {
+  defaultSize?: number;
+}
+
+function ResizablePanel({
+  className,
+  defaultSize,
+  style,
+  ...props
+}: ResizablePanelProps) {
+  return (
+    <div
+      data-slot="resizable-panel"
+      className={cn('flex-1 overflow-auto min-w-0 min-h-0', className)}
+      style={{
+        flexGrow: defaultSize ? defaultSize / 100 : 1,
+        ...style,
+      }}
+      {...props}
+    />
+  );
 }
 
 function ResizableHandle({
   withHandle,
   className,
   ...props
-}: ResizablePrimitive.SeparatorProps & {
-  withHandle?: boolean
+}: React.HTMLAttributes<HTMLDivElement> & {
+  withHandle?: boolean;
 }) {
   return (
-    <ResizablePrimitive.Separator
+    <div
       data-slot="resizable-handle"
       className={cn(
-        "relative flex w-px items-center justify-center bg-border ring-offset-background after:absolute after:inset-y-0 after:left-1/2 after:w-1 after:-translate-x-1/2 focus-visible:ring-1 focus-visible:ring-ring focus-visible:outline-hidden aria-[orientation=horizontal]:h-px aria-[orientation=horizontal]:w-full aria-[orientation=horizontal]:after:left-0 aria-[orientation=horizontal]:after:h-1 aria-[orientation=horizontal]:after:w-full aria-[orientation=horizontal]:after:translate-x-0 aria-[orientation=horizontal]:after:-translate-y-1/2 [&[aria-orientation=horizontal]>div]:rotate-90",
+        'relative flex w-px items-center justify-center bg-border transition-colors hover:bg-emerald-500',
         className
       )}
       {...props}
     >
       {withHandle && (
-        <div className="z-10 flex h-6 w-1 shrink-0 rounded-lg bg-border" />
+        <div className="z-10 flex h-4 w-3 items-center justify-center rounded-xs border border-border bg-card">
+          <GripVertical className="size-2.5 text-muted-foreground" />
+        </div>
       )}
-    </ResizablePrimitive.Separator>
-  )
+    </div>
+  );
 }
 
-export { ResizableHandle, ResizablePanel, ResizablePanelGroup }
+export { ResizablePanelGroup, ResizablePanel, ResizableHandle };

@@ -313,7 +313,7 @@ export default function PharmacyView() {
             <Select
               label="Expense Category"
               value={expCategory}
-              onChange={(e) => setExpCategory(e.target.value as any)}
+              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setExpCategory(e.target.value as any)}
             >
               <option value="supplies">Medical Supplies &amp; Linens (চিকিৎসা সামগ্রী)</option>
               <option value="maintenance">Machine Maintenance (মেশিন মেরামত)</option>

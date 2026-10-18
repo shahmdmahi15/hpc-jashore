@@ -234,6 +234,12 @@ export const api = {
     createPrescription: (data: any) =>
       apiFetch<any>('/clinical/prescriptions', { method: 'POST', body: JSON.stringify(data) }),
   },
+  prescriptions: {
+    create: (data: any) =>
+      apiFetch<any>('/clinical/prescriptions', { method: 'POST', body: JSON.stringify(data) }),
+    getByVisitId: (visitId: string) =>
+      apiFetch<any>(`/clinical/prescriptions/${visitId}`),
+  },
   therapy: {
     getBeds: () => apiFetch<any[]>('/therapy/beds'),
     getMachines: () => apiFetch<any[]>('/therapy/machines'),

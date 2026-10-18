@@ -382,7 +382,7 @@ export default function TherapyHallView({ session: propSession }: TherapyHallPro
             <Select
               label="Select Patient *"
               value={selectedPatientId}
-              onChange={(e) => setSelectedPatientId(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedPatientId(e.target.value)}
               required
             >
               {patients.map((p) => (
@@ -396,7 +396,7 @@ export default function TherapyHallView({ session: propSession }: TherapyHallPro
               <Select
                 label="Assign Bed *"
                 value={selectedBedId}
-                onChange={(e) => setSelectedBedId(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedBedId(e.target.value)}
                 required
               >
                 {beds.map((b) => (
@@ -409,7 +409,7 @@ export default function TherapyHallView({ session: propSession }: TherapyHallPro
               <Select
                 label="Therapy Machine"
                 value={selectedMachineId}
-                onChange={(e) => setSelectedMachineId(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedMachineId(e.target.value)}
               >
                 <option value="">None / Manual Exercise</option>
                 {machines.map((m) => (
@@ -424,7 +424,7 @@ export default function TherapyHallView({ session: propSession }: TherapyHallPro
               <Select
                 label="Modality Code"
                 value={selectedModalityCode}
-                onChange={(e) => setSelectedModalityCode(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedModalityCode(e.target.value)}
               >
                 <option value="IFT">IFT (Interferential Therapy)</option>
                 <option value="UST">UST (Ultrasound Therapy)</option>
@@ -435,7 +435,7 @@ export default function TherapyHallView({ session: propSession }: TherapyHallPro
               <Select
                 label="Duration (Minutes)"
                 value={durationMinutes}
-                onChange={(e) => setDurationMinutes(parseInt(e.target.value))}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setDurationMinutes(parseInt(e.target.value))}
               >
                 <option value={10}>10 minutes</option>
                 <option value={15}>15 minutes</option>
