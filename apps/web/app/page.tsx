@@ -18,6 +18,7 @@ import {
   MapPin,
   MessageCircle,
   Phone,
+  Pill,
   Radio,
   ShieldCheck,
   Smartphone,
@@ -29,6 +30,16 @@ import {
 } from 'lucide-react';
 import { NavbarSwitchers } from '../components/NavbarSwitchers';
 import { useLanguage } from '../lib/i18n';
+import { Button } from '../components/ui/button';
+import { Badge } from '../components/ui/badge';
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+} from '../components/ui/card';
+import { Separator } from '../components/ui/separator';
 
 export default function LandingPage() {
   const { t, language } = useLanguage();
@@ -41,8 +52,8 @@ export default function LandingPage() {
       {/* ============================================================== */}
       <header className="sticky top-0 z-50 backdrop-blur-xl bg-card/85 border-b border-border/80 px-4 sm:px-8 py-3 flex items-center justify-between transition-colors duration-300 shadow-xs">
         {/* Brand */}
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-white p-1 shadow-md flex items-center justify-center overflow-hidden border border-zinc-200 dark:border-zinc-800">
+        <Link href="/" className="flex items-center gap-3 group">
+          <div className="w-10 h-10 rounded-xl bg-white p-1 shadow-md flex items-center justify-center overflow-hidden border border-zinc-200 dark:border-zinc-800 transition-transform group-hover:scale-105">
             <Image
               src="/hpclogo-transparent.png"
               alt="HPC Jashore Logo"
@@ -63,25 +74,42 @@ export default function LandingPage() {
               {t.brandSub}
             </p>
           </div>
-        </div>
+        </Link>
 
-        {/* Navbar Items: ONLY TV, Login, and Switchers (Language + Theme) */}
-        <nav className="flex items-center gap-2 sm:gap-3">
+        {/* Navbar Items: TV, Admin Hub, Login, and Switchers (Language + Theme) */}
+        <nav className="flex items-center gap-1.5 sm:gap-2.5">
           {/* Smart TV Queue */}
-          <Link
-            href="/tv"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold bg-card/80 hover:bg-muted/80 text-foreground border border-border/80 hover:border-emerald-500/40 transition-all shadow-xs"
-          >
-            <Tv className="size-3.5 text-emerald-500" />
-            <span>{t.tvQueue}</span>
+          <Link href="/tv">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 sm:h-9 px-2.5 sm:px-3 text-xs sm:text-sm font-bold gap-1.5 rounded-xl border-border/80 hover:border-emerald-500/40"
+            >
+              <Tv className="size-3.5 text-emerald-500" />
+              <span>{t.tvQueue}</span>
+            </Button>
+          </Link>
+
+          {/* Admin Hub */}
+          <Link href="/admin">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 sm:h-9 px-2.5 sm:px-3 text-xs sm:text-sm font-bold gap-1.5 rounded-xl border-border/80 hover:border-emerald-500/40 hidden xs:inline-flex"
+            >
+              <ShieldCheck className="size-3.5 text-emerald-500" />
+              <span>{isBn ? 'অ্যাডমিন হাব' : 'Admin Hub'}</span>
+            </Button>
           </Link>
 
           {/* Login */}
-          <Link
-            href="/auth/login"
-            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-bold bg-emerald-500 hover:bg-emerald-400 text-black shadow-md shadow-emerald-500/20 transition-all active:scale-95"
-          >
-            <span>{t.login}</span>
+          <Link href="/auth/login">
+            <Button
+              size="sm"
+              className="h-8 sm:h-9 px-3 sm:px-4 text-xs sm:text-sm font-bold gap-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black shadow-md shadow-emerald-500/20 active:scale-95"
+            >
+              <span>{t.login}</span>
+            </Button>
           </Link>
 
           {/* Switchers (Language + Dual Theme) */}
@@ -98,14 +126,17 @@ export default function LandingPage() {
 
         <div className="max-w-5xl mx-auto text-center flex flex-col items-center">
           {/* Eyebrow Pill */}
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-card border border-border/80 text-emerald-600 dark:text-emerald-400 text-xs sm:text-sm font-semibold mb-6 shadow-xs">
+          <Badge
+            variant="emerald"
+            className="mb-6 px-3.5 py-1.5 text-xs sm:text-sm font-semibold gap-2 shadow-xs rounded-full border border-emerald-500/30"
+          >
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
             <span>
               {isBn
                 ? 'প্রতিষ্ঠাতা · সিইও · চিফ কনসালট্যান্ট · ডাঃ মোঃ তৌফিক উজ জামান'
                 : 'Founder · CEO · Head Doctor · Dr. Toufiq Uz Zaman'}
             </span>
-          </div>
+          </Badge>
 
           {/* Headline */}
           <h1 className="text-3xl sm:text-5xl md:text-6xl font-black tracking-tight text-foreground leading-[1.15] mb-6">
@@ -138,39 +169,49 @@ export default function LandingPage() {
               href="https://wa.me/8801515615188?text=Hello%2C%20I%20would%20like%20to%20know%20more%20about%20booking%20an%20appointment%20with%20Dr.%20Toufiq."
               target="_blank"
               rel="noreferrer"
-              className="flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl text-sm sm:text-base font-bold bg-emerald-500 hover:bg-emerald-400 text-black shadow-lg shadow-emerald-500/20 transition-all transform hover:-translate-y-0.5"
             >
-              <MessageCircle className="size-5" />
-              <span>
-                {isBn
-                  ? 'ডাঃ তৌফিকের সাথে কথা বলুন (WhatsApp)'
-                  : 'Talk to Dr. Toufiq (WhatsApp)'}
-              </span>
-              <ArrowUpRight className="size-4" />
+              <Button
+                size="lg"
+                className="h-12 px-6 rounded-xl text-sm sm:text-base font-bold bg-emerald-500 hover:bg-emerald-400 text-black shadow-lg shadow-emerald-500/20 transition-all transform hover:-translate-y-0.5 gap-2"
+              >
+                <MessageCircle className="size-5" />
+                <span>
+                  {isBn
+                    ? 'ডাঃ তৌফিকের সাথে কথা বলুন (WhatsApp)'
+                    : 'Talk to Dr. Toufiq (WhatsApp)'}
+                </span>
+                <ArrowUpRight className="size-4" />
+              </Button>
             </a>
 
-            <Link
-              href="/tv"
-              className="flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl text-sm sm:text-base font-bold bg-card hover:bg-muted text-foreground border border-border transition-all"
-            >
-              <Tv className="size-5 text-emerald-500" />
-              <span>
-                {isBn
-                  ? 'স্মার্ট টিভি কিউ লাইভ দেখুন'
-                  : 'Live Smart TV Queue'}
-              </span>
+            <Link href="/tv">
+              <Button
+                variant="outline"
+                size="lg"
+                className="h-12 px-6 rounded-xl text-sm sm:text-base font-bold gap-2 border-border hover:border-emerald-500/50"
+              >
+                <Tv className="size-5 text-emerald-500" />
+                <span>
+                  {isBn
+                    ? 'স্মার্ট টিভি কিউ লাইভ দেখুন'
+                    : 'Live Smart TV Queue'}
+                </span>
+              </Button>
             </Link>
 
-            <Link
-              href="/auth/login"
-              className="flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl text-sm sm:text-base font-bold bg-card hover:bg-muted text-foreground border border-border transition-all"
-            >
-              <Activity className="size-5 text-emerald-500" />
-              <span>
-                {isBn
-                  ? 'ক্লিনিক্যাল ওয়ার্কস্টেশন লগইন'
-                  : 'Clinical Workstation Login'}
-              </span>
+            <Link href="/admin">
+              <Button
+                variant="outline"
+                size="lg"
+                className="h-12 px-6 rounded-xl text-sm sm:text-base font-bold gap-2 border-border hover:border-emerald-500/50"
+              >
+                <ShieldCheck className="size-5 text-emerald-500" />
+                <span>
+                  {isBn
+                    ? 'ক্লিনিক্যাল অ্যাডমিন হাব'
+                    : 'Clinical Admin Hub'}
+                </span>
+              </Button>
             </Link>
           </div>
 
@@ -235,68 +276,76 @@ export default function LandingPage() {
                   ? 'এইচপিসি সেন্টারে আরোগ্য কোনো দ্রুত বা সাধারণ প্রক্রিয়া নয়। মনোযোগ দিয়ে শোনা, বিস্তারিত রোগ নির্ণয় এবং শরীরের সাথে সামঞ্জস্যপূর্ণ প্রমাণভিত্তিক চিকিৎসা নিয়ে শুরু হয় প্রতিটি ধাপ।'
                   : 'At HPC Health & Pain Care Center, recovery is not rushed or generic. Each plan begins with listening, thorough clinical assessment, and an evidence-based roadmap tailored to your body.'}
               </p>
-              <div className="p-4 rounded-2xl bg-card border border-border mt-6">
-                <div className="text-xs uppercase font-extrabold tracking-wider text-emerald-500">
-                  {isBn ? 'হেড ডক্টর ও পরিচালক' : 'Head Doctor & Director'}
-                </div>
-                <div className="text-lg font-bold text-foreground mt-0.5">
-                  {isBn ? 'ডাঃ মোঃ তৌফিক উজ জামান' : 'Dr. Md. Toufiq Uz Zaman'}
-                </div>
-                <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                  BPT (DU), PGD (Acupuncture, China), MDMR (Pain Management,
-                  DU), MPH · Founder, CEO &amp; Head Doctor
-                </p>
-              </div>
+              <Card className="rounded-2xl border-border bg-card shadow-sm mt-6">
+                <CardHeader className="p-4 sm:p-5">
+                  <Badge variant="emerald" className="w-fit text-[11px] font-extrabold uppercase tracking-wider">
+                    {isBn ? 'হেড ডক্টর ও পরিচালক' : 'Head Doctor & Director'}
+                  </Badge>
+                  <CardTitle className="text-lg font-bold text-foreground mt-1">
+                    {isBn ? 'ডাঃ মোঃ তৌফিক উজ জামান' : 'Dr. Md. Toufiq Uz Zaman'}
+                  </CardTitle>
+                  <CardDescription className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                    BPT (DU), PGD (Acupuncture, China), MDMR (Pain Management,
+                    DU), MPH · Founder, CEO &amp; Head Doctor
+                  </CardDescription>
+                </CardHeader>
+              </Card>
             </div>
 
             <div className="space-y-4">
-              <div className="p-4 sm:p-5 rounded-2xl bg-card border border-border flex items-start gap-3.5">
-                <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-500 flex items-center justify-center shrink-0 border border-emerald-500/20 font-bold text-xs">
-                  01
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-foreground">
-                    {isBn ? 'মনোযোগ দিয়ে শোনা' : 'Listen first'}
-                  </h3>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {isBn
-                      ? 'আপনার কষ্টের বিবরণ, ব্যথার ইতিহাস এবং দৈনন্দিন সমস্যা অনুধাবন করে চিকিৎসার ভিত্তি তৈরি করা হয়।'
-                      : 'Your personal story, pain timeline, daily routines, and functional goals shape the baseline of all clinical actions.'}
-                  </p>
-                </div>
-              </div>
+              <Card className="rounded-2xl border-border bg-card shadow-sm">
+                <CardContent className="p-4 sm:p-5 flex items-start gap-3.5">
+                  <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-500 flex items-center justify-center shrink-0 border border-emerald-500/20 font-bold text-xs">
+                    01
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-foreground">
+                      {isBn ? 'মনোযোগ দিয়ে শোনা' : 'Listen first'}
+                    </h3>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {isBn
+                        ? 'আপনার কষ্টের বিবরণ, ব্যথার ইতিহাস এবং দৈনন্দিন সমস্যা অনুধাবন করে চিকিৎসার ভিত্তি তৈরি করা হয়।'
+                        : 'Your personal story, pain timeline, daily routines, and functional goals shape the baseline of all clinical actions.'}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
 
-              <div className="p-4 sm:p-5 rounded-2xl bg-card border border-border flex items-start gap-3.5">
-                <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-500 flex items-center justify-center shrink-0 border border-emerald-500/20 font-bold text-xs">
-                  02
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-foreground">
-                    {isBn ? 'সঠিক ডায়াগনোসিস' : 'Understand clearly'}
-                  </h3>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {isBn
-                      ? 'নির্দিষ্ট স্নায়বিক ও পেশির পরীক্ষার মাধ্যমে নিশ্চিত হয়ে সুস্পষ্ট প্রেসক্রিপশন প্রণয়ন করা হয়।'
-                      : 'Targeted neurological and musculoskeletal assessments turn uncertainty into a practical, step-by-step prescription.'}
-                  </p>
-                </div>
-              </div>
+              <Card className="rounded-2xl border-border bg-card shadow-sm">
+                <CardContent className="p-4 sm:p-5 flex items-start gap-3.5">
+                  <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-500 flex items-center justify-center shrink-0 border border-emerald-500/20 font-bold text-xs">
+                    02
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-foreground">
+                      {isBn ? 'সঠিক ডায়াগনোসিস' : 'Understand clearly'}
+                    </h3>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {isBn
+                        ? 'নির্দিষ্ট স্নায়বিক ও পেশির পরীক্ষার মাধ্যমে নিশ্চিত হয়ে সুস্পষ্ট প্রেসক্রিপশন প্রণয়ন করা হয়।'
+                        : 'Targeted neurological and musculoskeletal assessments turn uncertainty into a practical, step-by-step prescription.'}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
 
-              <div className="p-4 sm:p-5 rounded-2xl bg-card border border-border flex items-start gap-3.5">
-                <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-500 flex items-center justify-center shrink-0 border border-emerald-500/20 font-bold text-xs">
-                  03
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-foreground">
-                    {isBn ? 'দীর্ঘমেয়াদী আরোগ্য' : 'Build forward'}
-                  </h3>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {isBn
-                      ? 'ইলেক্ট্রোথেরাপি, স্পাইনাল ডিকম্প্রেশন, থেরাপিউটিক এক্সারসাইজের মাধ্যমে দীর্ঘস্থায়ী সুস্থতা নিশ্চিত করা হয়।'
-                      : 'Progressive electrotherapy, spinal decompression, manual mobilization, and therapeutic exercise help you regain long-term independence.'}
-                  </p>
-                </div>
-              </div>
+              <Card className="rounded-2xl border-border bg-card shadow-sm">
+                <CardContent className="p-4 sm:p-5 flex items-start gap-3.5">
+                  <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-500 flex items-center justify-center shrink-0 border border-emerald-500/20 font-bold text-xs">
+                    03
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-foreground">
+                      {isBn ? 'দীর্ঘমেয়াদী আরোগ্য' : 'Build forward'}
+                    </h3>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {isBn
+                        ? 'ইলেক্ট্রোথেরাপি, স্পাইনাল ডিকম্প্রেশন, থেরাপিউটিক এক্সারসাইজের মাধ্যমে দীর্ঘস্থায়ী সুস্থতা নিশ্চিত করা হয়।'
+                        : 'Progressive electrotherapy, spinal decompression, manual mobilization, and therapeutic exercise help you regain long-term independence.'}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           </div>
         </div>
@@ -328,55 +377,55 @@ export default function LandingPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* 1 */}
-            <div className="p-6 rounded-2xl bg-card border border-border hover:border-emerald-500/40 transition-all flex flex-col justify-between">
-              <div>
-                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 flex items-center justify-center mb-4">
+            <Card className="rounded-2xl border-border bg-card hover:border-emerald-500/40 transition-all flex flex-col justify-between shadow-sm">
+              <CardHeader className="p-6 pb-2">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 flex items-center justify-center mb-3">
                   <HeartPulse className="size-5" />
                 </div>
-                <h3 className="text-lg font-bold text-foreground mb-2">
+                <CardTitle className="text-lg font-bold text-foreground">
                   {isBn ? 'কোমর ও মেরুদণ্ডের ব্যথা' : 'Spine & Back Care'}
-                </h3>
-                <p className="text-xs text-muted-foreground leading-relaxed">
+                </CardTitle>
+                <CardDescription className="text-xs text-muted-foreground leading-relaxed pt-1">
                   {isBn
                     ? 'PLID, সায়াটিকা, লাম্বার স্পন্ডাইলোসিস এবং ডিস্ক প্রোল্যাপ্স চিকিৎসায় উন্নত স্পাইনাল ট্র্যাকশন ও রিহ্যাব।'
                     : 'Targeted protocols for lumbar disc herniation, sciatica, postural strain, and acute disc pain.'}
-                </p>
-              </div>
-            </div>
+                </CardDescription>
+              </CardHeader>
+            </Card>
 
             {/* 2 */}
-            <div className="p-6 rounded-2xl bg-card border border-border hover:border-emerald-500/40 transition-all flex flex-col justify-between">
-              <div>
-                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 flex items-center justify-center mb-4">
+            <Card className="rounded-2xl border-border bg-card hover:border-emerald-500/40 transition-all flex flex-col justify-between shadow-sm">
+              <CardHeader className="p-6 pb-2">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 flex items-center justify-center mb-3">
                   <Brain className="size-5" />
                 </div>
-                <h3 className="text-lg font-bold text-foreground mb-2">
+                <CardTitle className="text-lg font-bold text-foreground">
                   {isBn ? 'নিউরো রিহ্যাবিলিটেশন' : 'Neuro Rehabilitation'}
-                </h3>
-                <p className="text-xs text-muted-foreground leading-relaxed">
+                </CardTitle>
+                <CardDescription className="text-xs text-muted-foreground leading-relaxed pt-1">
                   {isBn
                     ? 'স্ট্রোক প্যারালাইসিস, ফেসিয়াল পলসি, নার্ভ ইনজুরি এবং চলাচলের ভারসাম্যহীনতা দূরীকরণে আধুনিক থেরাপি।'
                     : 'Post-stroke motor recovery, facial palsy, neuropathy, and movement retraining.'}
-                </p>
-              </div>
-            </div>
+                </CardDescription>
+              </CardHeader>
+            </Card>
 
             {/* 3 */}
-            <div className="p-6 rounded-2xl bg-card border border-border hover:border-emerald-500/40 transition-all flex flex-col justify-between">
-              <div>
-                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 flex items-center justify-center mb-4">
+            <Card className="rounded-2xl border-border bg-card hover:border-emerald-500/40 transition-all flex flex-col justify-between shadow-sm">
+              <CardHeader className="p-6 pb-2">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 flex items-center justify-center mb-3">
                   <Activity className="size-5" />
                 </div>
-                <h3 className="text-lg font-bold text-foreground mb-2">
+                <CardTitle className="text-lg font-bold text-foreground">
                   {isBn ? 'ঘাড়, কাঁধ ও হাঁটুর ব্যথা' : 'Joint & Arthritis Care'}
-                </h3>
-                <p className="text-xs text-muted-foreground leading-relaxed">
+                </CardTitle>
+                <CardDescription className="text-xs text-muted-foreground leading-relaxed pt-1">
                   {isBn
                     ? 'ফ্রোজেন শোল্ডার, হাঁটুর অস্টিওআর্থ্রাইটিস, সার্ভাইকাল স্পন্ডাইলোসিস ও স্পোর্টস ইনজুরির স্থায়ী সমাধান।'
                     : 'Knee osteoarthritis, frozen shoulder, cervical radiculopathy, and sports injury recovery.'}
-                </p>
-              </div>
-            </div>
+                </CardDescription>
+              </CardHeader>
+            </Card>
           </div>
         </div>
       </section>
@@ -400,102 +449,188 @@ export default function LandingPage() {
             </h2>
             <p className="text-sm sm:text-base text-muted-foreground mt-2 max-w-2xl">
               {isBn
-                ? 'রিসেপশন, ডাক্তার চেম্বার, থেরাপি হল, ক্যাশিয়ার এবং ওয়েটিং টিভি সম্পূর্ণ অফলাইন ও রিয়েলটাইমে সিঙ্ক থাকে।'
-                : 'Engineered specifically for Health & Pain Care Center Jashore with zero external SaaS dependencies, local offline resilience, and live WebSockets.'}
+                ? 'রিসেপশন, ডাক্তার চেম্বার, থেরাপি হল, ক্যাশিয়ার এবং ফার্মেসি সবই ইউনিফাইড অ্যাডমিন হাবের অন্তর্ভুক্ত এবং ওয়েটিং টিভি সম্পূর্ণ অফলাইন ও রিয়েলটাইমে সিঙ্ক থাকে।'
+                : 'All clinical workstations (Reception, Doctor Chamber, Therapy Hall, Cashier, and Pharmacy) are unified within the secure Admin Hub, while the Waiting Room Smart TV operates in continuous live sync.'}
             </p>
           </div>
 
           {/* Workstations Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            <div className="p-5 rounded-2xl bg-card border border-border">
-              <div className="flex items-center gap-2 text-xs font-mono text-emerald-500 mb-2 font-bold">
-                <Users className="size-4" />
-                <span>/receptionist</span>
-              </div>
-              <h3 className="text-base font-bold text-foreground">
-                {isBn ? 'রিসেপশন ও টোকেন কাউন্টার' : 'Reception & Patient Desk'}
-              </h3>
-              <p className="text-xs text-muted-foreground mt-1.5">
-                {isBn
-                  ? 'রোগী নিবন্ধন, ডিজিটাল প্রেসক্রিপশন ইতিহাস এবং তাৎক্ষণিক কনসালটেশন টোকেন ইস্যু।'
-                  : 'Fast patient registration, thermal token slip printing, and real-time consultation dispatch.'}
-              </p>
-            </div>
+            {/* 1. Reception */}
+            <Card className="rounded-2xl border-border bg-card hover:border-emerald-500/40 transition-all flex flex-col justify-between shadow-sm">
+              <CardHeader className="p-5 pb-3">
+                <div className="flex items-center justify-between mb-2">
+                  <Badge variant="emerald" className="gap-1.5 font-mono text-[11px]">
+                    <Users className="size-3.5" />
+                    <span>Admin Hub · Reception</span>
+                  </Badge>
+                  <Link href="/admin">
+                    <Button variant="ghost" size="icon-sm" className="rounded-full">
+                      <ArrowUpRight className="size-3.5 text-muted-foreground" />
+                    </Button>
+                  </Link>
+                </div>
+                <CardTitle className="text-base font-bold text-foreground">
+                  {isBn ? 'রিসেপশন ও টোকেন কাউন্টার' : 'Reception & Patient Desk'}
+                </CardTitle>
+                <CardDescription className="text-xs text-muted-foreground mt-1.5">
+                  {isBn
+                    ? 'রোগী নিবন্ধন, ডিজিটাল প্রেসক্রিপশন ইতিহাস এবং তাৎক্ষণিক কনসালটেশন টোকেন ইস্যু।'
+                    : 'Fast patient registration, thermal token slip printing, and real-time consultation dispatch.'}
+                </CardDescription>
+              </CardHeader>
+            </Card>
 
-            <div className="p-5 rounded-2xl bg-card border border-border">
-              <div className="flex items-center gap-2 text-xs font-mono text-emerald-500 mb-2 font-bold">
-                <Stethoscope className="size-4" />
-                <span>/doctor</span>
-              </div>
-              <h3 className="text-base font-bold text-foreground">
-                {isBn ? 'ডাক্তার চেম্বার কনসোল' : 'Doctor Chamber & SOAP'}
-              </h3>
-              <p className="text-xs text-muted-foreground mt-1.5">
-                {isBn
-                  ? 'ডাঃ তৌফিকের জন্য ওয়ান-ট্যাপ টোকেন কল, ডিজিটাল প্রেসক্রিপশন ও থেরাপিউটিক প্ল্যান।'
-                  : 'One-click patient call, integrated SOAP clinical records, and direct modality prescribing.'}
-              </p>
-            </div>
+            {/* 2. Doctor Chamber */}
+            <Card className="rounded-2xl border-border bg-card hover:border-emerald-500/40 transition-all flex flex-col justify-between shadow-sm">
+              <CardHeader className="p-5 pb-3">
+                <div className="flex items-center justify-between mb-2">
+                  <Badge variant="emerald" className="gap-1.5 font-mono text-[11px]">
+                    <Stethoscope className="size-3.5" />
+                    <span>Admin Hub · Doctor</span>
+                  </Badge>
+                  <Link href="/admin">
+                    <Button variant="ghost" size="icon-sm" className="rounded-full">
+                      <ArrowUpRight className="size-3.5 text-muted-foreground" />
+                    </Button>
+                  </Link>
+                </div>
+                <CardTitle className="text-base font-bold text-foreground">
+                  {isBn ? 'ডাক্তার চেম্বার কনসোল' : 'Doctor Chamber & SOAP'}
+                </CardTitle>
+                <CardDescription className="text-xs text-muted-foreground mt-1.5">
+                  {isBn
+                    ? 'ডাঃ তৌফিকের জন্য ওয়ান-ট্যাপ টোকেন কল, ডিজিটাল প্রেসক্রিপশন ও থেরাপিউটিক প্ল্যান।'
+                    : 'One-click patient call, integrated SOAP clinical records, and direct modality prescribing.'}
+                </CardDescription>
+              </CardHeader>
+            </Card>
 
-            <div className="p-5 rounded-2xl bg-card border border-border">
-              <div className="flex items-center gap-2 text-xs font-mono text-emerald-500 mb-2 font-bold">
-                <Zap className="size-4" />
-                <span>/therapy</span>
-              </div>
-              <h3 className="text-base font-bold text-foreground">
-                {isBn ? 'থেরাপি হল ও বেড মেট্রিক্স' : 'Therapy Hall Bed Matrix'}
-              </h3>
-              <p className="text-xs text-muted-foreground mt-1.5">
-                {isBn
-                  ? '১৬টি বেডের লাইভ অকুপেন্সি, মোডালিটি কাউন্টডাউন টাইমার ও সম্পূর্ণ সেশন ট্র্যাকিং।'
-                  : 'Live 16-bed matrix, audio-visual timers for UST/SWD/IRR, and completion logging.'}
-              </p>
-            </div>
+            {/* 3. Therapy Hall */}
+            <Card className="rounded-2xl border-border bg-card hover:border-emerald-500/40 transition-all flex flex-col justify-between shadow-sm">
+              <CardHeader className="p-5 pb-3">
+                <div className="flex items-center justify-between mb-2">
+                  <Badge variant="emerald" className="gap-1.5 font-mono text-[11px]">
+                    <Zap className="size-3.5" />
+                    <span>Admin Hub · Therapy</span>
+                  </Badge>
+                  <Link href="/admin">
+                    <Button variant="ghost" size="icon-sm" className="rounded-full">
+                      <ArrowUpRight className="size-3.5 text-muted-foreground" />
+                    </Button>
+                  </Link>
+                </div>
+                <CardTitle className="text-base font-bold text-foreground">
+                  {isBn ? 'থেরাপি হল ও বেড মেট্রিক্স' : 'Therapy Hall Bed Matrix'}
+                </CardTitle>
+                <CardDescription className="text-xs text-muted-foreground mt-1.5">
+                  {isBn
+                    ? '১৬টি বেডের লাইভ অকুপেন্সি, মোডালিটি কাউন্টডাউন টাইমার ও সম্পূর্ণ সেশন ট্র্যাকিং।'
+                    : 'Live 16-bed matrix, audio-visual timers for UST/SWD/IRR, and completion logging.'}
+                </CardDescription>
+              </CardHeader>
+            </Card>
 
-            <div className="p-5 rounded-2xl bg-card border border-border">
-              <div className="flex items-center gap-2 text-xs font-mono text-emerald-500 mb-2 font-bold">
-                <CreditCard className="size-4" />
-                <span>/cashier</span>
-              </div>
-              <h3 className="text-base font-bold text-foreground">
-                {isBn ? 'ক্যাশিয়ার ও ডিজিটাল বিলিং' : 'Cashier & Billing Desk'}
-              </h3>
-              <p className="text-xs text-muted-foreground mt-1.5">
-                {isBn
-                  ? 'কনসালটেশন ও থেরাপি ফি আদায়, থার্মাল রসিদ ও রিয়েলটাইম ডেইলি অডিট।'
-                  : 'Cash and mobile banking payments, 80mm thermal receipt printing, and daily closing.'}
-              </p>
-            </div>
+            {/* 4. Cashier & Billing */}
+            <Card className="rounded-2xl border-border bg-card hover:border-emerald-500/40 transition-all flex flex-col justify-between shadow-sm">
+              <CardHeader className="p-5 pb-3">
+                <div className="flex items-center justify-between mb-2">
+                  <Badge variant="emerald" className="gap-1.5 font-mono text-[11px]">
+                    <CreditCard className="size-3.5" />
+                    <span>Admin Hub · Cashier</span>
+                  </Badge>
+                  <Link href="/admin">
+                    <Button variant="ghost" size="icon-sm" className="rounded-full">
+                      <ArrowUpRight className="size-3.5 text-muted-foreground" />
+                    </Button>
+                  </Link>
+                </div>
+                <CardTitle className="text-base font-bold text-foreground">
+                  {isBn ? 'ক্যাশিয়ার ও ডিজিটাল বিলিং' : 'Cashier & Billing Desk'}
+                </CardTitle>
+                <CardDescription className="text-xs text-muted-foreground mt-1.5">
+                  {isBn
+                    ? 'কনসালটেশন ও থেরাপি ফি আদায়, থার্মাল রসিদ ও রিয়েলটাইম ডেইলি অডিট।'
+                    : 'Cash and mobile banking payments, 80mm thermal receipt printing, and daily closing.'}
+                </CardDescription>
+              </CardHeader>
+            </Card>
 
-            <div className="p-5 rounded-2xl bg-card border border-border">
-              <div className="flex items-center gap-2 text-xs font-mono text-emerald-500 mb-2 font-bold">
-                <Tv className="size-4" />
-                <span>/tv</span>
-              </div>
-              <h3 className="text-base font-bold text-foreground">
-                {isBn ? 'ওয়েটিং রুম স্মার্ট টিভি কিউ' : 'Waiting Room TV Queue'}
-              </h3>
-              <p className="text-xs text-muted-foreground mt-1.5">
-                {isBn
-                  ? 'যশোর ক্লিনিকের ওয়েটিং রুমে ৫২" টিভিতে ডুয়েল কলাম টোকেন কল ও বাংলা-ইংরেজি অ্যানাউন্সমেন্ট।'
-                  : 'Dual-column token queue for consultation & therapy, text-to-speech audio, and zero-scroll fit.'}
-              </p>
-            </div>
+            {/* 5. Pharmacy */}
+            <Card className="rounded-2xl border-border bg-card hover:border-emerald-500/40 transition-all flex flex-col justify-between shadow-sm">
+              <CardHeader className="p-5 pb-3">
+                <div className="flex items-center justify-between mb-2">
+                  <Badge variant="emerald" className="gap-1.5 font-mono text-[11px]">
+                    <Pill className="size-3.5" />
+                    <span>Admin Hub · Pharmacy</span>
+                  </Badge>
+                  <Link href="/admin">
+                    <Button variant="ghost" size="icon-sm" className="rounded-full">
+                      <ArrowUpRight className="size-3.5 text-muted-foreground" />
+                    </Button>
+                  </Link>
+                </div>
+                <CardTitle className="text-base font-bold text-foreground">
+                  {isBn ? 'ফার্মেসি ও ঔষধ ব্যবস্থাপনা' : 'Pharmacy & Dispensary'}
+                </CardTitle>
+                <CardDescription className="text-xs text-muted-foreground mt-1.5">
+                  {isBn
+                    ? 'প্রেসক্রিপশন অনুযায়ী ডিসপেন্সিং, ড্রাগ ইনভেন্টরি ট্র্যাকিং ও স্টক অ্যালার্ট।'
+                    : 'Prescription dispensing, batch/expiry inventory tracking, and reorder alerts.'}
+                </CardDescription>
+              </CardHeader>
+            </Card>
 
-            <div className="p-5 rounded-2xl bg-card border border-border">
-              <div className="flex items-center gap-2 text-xs font-mono text-emerald-500 mb-2 font-bold">
-                <ShieldCheck className="size-4" />
-                <span>/admin</span>
-              </div>
-              <h3 className="text-base font-bold text-foreground">
-                {isBn ? 'সিস্টেম অ্যাডমিন ড্যাশবোর্ড' : 'System Administration'}
-              </h3>
-              <p className="text-xs text-muted-foreground mt-1.5">
-                {isBn
-                  ? 'ক্লিনিক্যাল স্টাফ ম্যানেজমেন্ট, ডাটাবেজ ব্যাকআপ, সিকিউরিটি অডিট ও অ্যানালিটিক্স।'
-                  : 'Role-based access control, cryptographic audit trail, and database maintenance.'}
-              </p>
-            </div>
+            {/* 6. Smart TV Queue */}
+            <Card className="rounded-2xl border-border bg-card hover:border-emerald-500/40 transition-all flex flex-col justify-between shadow-sm">
+              <CardHeader className="p-5 pb-3">
+                <div className="flex items-center justify-between mb-2">
+                  <Badge variant="emerald" className="gap-1.5 font-mono text-[11px]">
+                    <Tv className="size-3.5" />
+                    <span>/tv · Public Display</span>
+                  </Badge>
+                  <Link href="/tv">
+                    <Button variant="ghost" size="icon-sm" className="rounded-full">
+                      <ArrowUpRight className="size-3.5 text-muted-foreground" />
+                    </Button>
+                  </Link>
+                </div>
+                <CardTitle className="text-base font-bold text-foreground">
+                  {isBn ? 'ওয়েটিং রুম স্মার্ট টিভি কিউ' : 'Waiting Room TV Queue'}
+                </CardTitle>
+                <CardDescription className="text-xs text-muted-foreground mt-1.5">
+                  {isBn
+                    ? 'যশোর ক্লিনিকের ওয়েটিং রুমে ৫২" টিভিতে ডুয়েল কলাম টোকেন কল ও বাংলা-ইংরেজি অ্যানাউন্সমেন্ট।'
+                    : 'Dual-column token queue for consultation & therapy, text-to-speech audio, and zero-scroll fit.'}
+                </CardDescription>
+              </CardHeader>
+            </Card>
+
+            {/* 7. System Administration Hub */}
+            <Card className="rounded-2xl border-emerald-500/30 bg-card hover:border-emerald-500/60 transition-all flex flex-col justify-between shadow-sm sm:col-span-2 lg:col-span-3">
+              <CardHeader className="p-5 sm:p-6 pb-3">
+                <div className="flex items-center justify-between mb-2">
+                  <Badge variant="emerald" className="gap-1.5 font-mono text-[11px]">
+                    <ShieldCheck className="size-3.5" />
+                    <span>/admin · Executive Operations</span>
+                  </Badge>
+                  <Link href="/admin">
+                    <Button size="sm" className="h-8 px-3 rounded-lg text-xs font-bold gap-1 bg-emerald-500 hover:bg-emerald-400 text-black">
+                      <span>{isBn ? 'অ্যাডমিন হাব খুলুন' : 'Open Admin Hub'}</span>
+                      <ArrowUpRight className="size-3.5" />
+                    </Button>
+                  </Link>
+                </div>
+                <CardTitle className="text-base sm:text-lg font-bold text-foreground">
+                  {isBn ? 'সিস্টেম অ্যাডমিন ও সমন্বিত ক্লিনিক্যাল হাব' : 'System Administration & Unified Clinical Hub'}
+                </CardTitle>
+                <CardDescription className="text-xs sm:text-sm text-muted-foreground mt-1.5 max-w-3xl">
+                  {isBn
+                    ? 'ক্লিনিক্যাল স্টাফ ম্যানেজমেন্ট, ডাটাবেজ ব্যাকআপ, সিকিউরিটি অডিট, এক্সিকিউটিভ অ্যানালিটিক্স এবং রিসেপশন, ডক্টর চেম্বার, থেরাপি হল ও ক্যাশিয়ারের পূর্ণ একীভূত নিয়ন্ত্রণ কেন্দ্র।'
+                    : 'Role-based access control, cryptographic audit trails, daily SQLite WAL-safe backups, executive KPIs, and unified tabbed workstations for the entire clinical team.'}
+                </CardDescription>
+              </CardHeader>
+            </Card>
           </div>
         </div>
       </section>
@@ -578,12 +713,12 @@ export default function LandingPage() {
               </div>
             </div>
 
-            <div className="p-6 rounded-3xl bg-card border border-border flex flex-col justify-between">
+            <Card className="rounded-3xl border-border bg-card p-6 flex flex-col justify-between shadow-sm">
               <div>
-                <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                <Badge variant="emerald" className="font-mono text-[10px] uppercase tracking-wider mb-2">
                   MAP &amp; DIRECTIONS
-                </span>
-                <h3 className="text-lg font-bold text-foreground mt-3">
+                </Badge>
+                <h3 className="text-lg font-bold text-foreground mt-2">
                   Chachra, Jashore
                 </h3>
                 <p className="text-xs text-muted-foreground mt-1">
@@ -597,24 +732,28 @@ export default function LandingPage() {
                   href="https://www.google.com/maps/search/?api=1&query=HPC+Health+and+Pain+Care+Center+Chachra+Jashore"
                   target="_blank"
                   rel="noreferrer"
-                  className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl text-xs font-bold bg-muted hover:bg-muted/80 text-foreground transition-colors"
+                  className="flex-1"
                 >
-                  <MapPin className="size-3.5" />
-                  <span>{isBn ? 'গুগল ম্যাপে দেখুন' : 'Open in Google Maps'}</span>
-                  <ArrowUpRight className="size-3.5" />
+                  <Button variant="outline" className="w-full h-11 rounded-xl text-xs font-bold gap-1.5">
+                    <MapPin className="size-3.5" />
+                    <span>{isBn ? 'গুগল ম্যাপে দেখুন' : 'Open in Google Maps'}</span>
+                    <ArrowUpRight className="size-3.5" />
+                  </Button>
                 </a>
 
                 <a
                   href="https://wa.me/8801515615188"
                   target="_blank"
                   rel="noreferrer"
-                  className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-black transition-colors"
+                  className="flex-1"
                 >
-                  <MessageCircle className="size-3.5" />
-                  <span>{isBn ? 'সিরিয়াল বুক করুন' : 'Book Appointment'}</span>
+                  <Button className="w-full h-11 rounded-xl text-xs font-bold gap-1.5 bg-emerald-500 hover:bg-emerald-400 text-black">
+                    <MessageCircle className="size-3.5" />
+                    <span>{isBn ? 'সিরিয়াল বুক করুন' : 'Book Appointment'}</span>
+                  </Button>
                 </a>
               </div>
-            </div>
+            </Card>
           </div>
         </div>
       </section>
@@ -624,7 +763,7 @@ export default function LandingPage() {
       {/* ============================================================== */}
       <footer className="py-8 bg-card border-t border-border px-4 sm:px-8 text-xs text-muted-foreground">
         <div className="max-w-5xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-6">
-          <div className="flex items-center gap-2.5">
+          <Link href="/" className="flex items-center gap-2.5 group">
             <div className="w-8 h-8 rounded-lg bg-white p-0.5 flex items-center justify-center overflow-hidden border border-zinc-200">
               <Image
                 src="/hpclogo-transparent.png"
@@ -635,14 +774,14 @@ export default function LandingPage() {
               />
             </div>
             <div>
-              <div className="font-bold text-foreground text-sm">
+              <div className="font-bold text-foreground text-sm group-hover:text-emerald-500 transition-colors">
                 HPC Health &amp; Pain Care Center
               </div>
               <div className="text-[10px] text-muted-foreground">
                 Chachra Dalmil, Jashore 7400, Bangladesh
               </div>
             </div>
-          </div>
+          </Link>
 
           <div className="flex flex-wrap items-center justify-center gap-4 text-xs font-semibold">
             <Link
@@ -650,6 +789,12 @@ export default function LandingPage() {
               className="hover:text-emerald-500 transition-colors"
             >
               {t.tvQueue} (/tv)
+            </Link>
+            <Link
+              href="/admin"
+              className="hover:text-emerald-500 transition-colors"
+            >
+              {isBn ? 'অ্যাডমিন হাব' : 'Admin Hub'} (/admin)
             </Link>
             <Link
               href="/auth/login"

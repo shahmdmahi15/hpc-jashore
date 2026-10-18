@@ -1,11 +1,12 @@
 // apps/web/public/sw.js
 // HPC Jashore — Service Worker for PWA Offline Resilience
 
-const CACHE_NAME = 'hpc-cache-v4';
+const CACHE_NAME = 'hpc-cache-v5';
 const STATIC_ASSETS = [
   '/',
   '/manifest.webmanifest',
   '/tv',
+  '/admin',
   '/auth/login',
 ];
 

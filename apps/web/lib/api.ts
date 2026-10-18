@@ -26,24 +26,7 @@ export interface UserSession {
 let activeSession: UserSession | null = null;
 
 export function getRoleHomeRoute(role?: string): string {
-  switch (role) {
-    case 'admin':
-      return '/admin';
-    case 'head_doctor':
-    case 'doctor':
-      return '/doctor';
-    case 'reception':
-    case 'receptionist':
-      return '/receptionist';
-    case 'cashier':
-      return '/cashier';
-    case 'therapist':
-      return '/therapy';
-    case 'pharmacy':
-      return '/pharmacy';
-    default:
-      return '/receptionist';
-  }
+  return '/admin';
 }
 
 export function setSession(session: UserSession | null) {

@@ -1,42 +1,21 @@
 // apps/web/proxy.ts
-// Next.js 16+ Edge Proxy & Middleware Authentication Gate
+// Next.js 16+ Node.js Proxy Routing & Stateful Session Gate
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
+export const runtime = 'nodejs';
+
 function getRoleHomeRoute(role?: string): string {
-  switch (role) {
-    case 'admin':
-      return '/admin';
-    case 'head_doctor':
-    case 'doctor':
-      return '/doctor';
-    case 'reception':
-    case 'receptionist':
-      return '/receptionist';
-    case 'cashier':
-      return '/cashier';
-    case 'therapist':
-      return '/therapy';
-    case 'pharmacy':
-      return '/pharmacy';
-    default:
-      return '/receptionist';
-  }
+  return '/admin';
 }
 
 function parseJwtPayload(token: string): { exp?: number; role?: string; userId?: string } | null {
   try {
     const parts = token.split('.');
     if (parts.length !== 3) return null;
-    const base64Url = parts[1];
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-    const jsonPayload = decodeURIComponent(
-      atob(base64)
-        .split('')
-        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
-        .join(''),
-    );
-    return JSON.parse(jsonPayload);
+    const base64Payload = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const decoded = Buffer.from(base64Payload, 'base64').toString('utf8');
+    return JSON.parse(decoded);
   } catch {
     return null;
   }
@@ -125,7 +104,7 @@ export function proxy(request: NextRequest) {
   }
 
   // 6. ALL OTHER PAGES ARE PRIVATE AND REQUIRE AUTHENTICATION
-  // (/tv, /admin, /cashier, /doctor, /reception, /receptionist, /billing, /therapy, /pharmacy, etc.)
+  // (/tv, /admin)
   if (!hasValidSession) {
     const loginUrl = new URL('/auth/login', request.url);
     loginUrl.searchParams.set('redirect', pathname);
@@ -135,8 +114,6 @@ export function proxy(request: NextRequest) {
   return NextResponse.next();
 }
 
-// Export both proxy and middleware for universal Next.js 16+ compatibility
-export const middleware = proxy;
 export default proxy;
 
 export const config = {

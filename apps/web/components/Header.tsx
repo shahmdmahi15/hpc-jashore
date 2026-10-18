@@ -35,12 +35,7 @@ interface HeaderProps {
 }
 
 const TABS = [
-  { id: 'reception', labelBn: 'রিসেপশন', labelEn: 'Reception', icon: ClipboardList, href: '/receptionist' },
-  { id: 'doctor', labelBn: 'ডাক্তার চেম্বার', labelEn: 'Doctor Chamber', icon: Stethoscope, href: '/doctor' },
-  { id: 'therapy', labelBn: 'থেরাপি হল', labelEn: 'Therapy Hall', icon: Activity, href: '/therapy' },
-  { id: 'cashier', labelBn: 'বিলিং ও ক্যাশ', labelEn: 'Billing & Cashier', icon: CreditCard, href: '/cashier' },
-  { id: 'pharmacy', labelBn: 'ফার্মেসি', labelEn: 'Pharmacy', icon: Pill, href: '/pharmacy' },
-  { id: 'admin', labelBn: 'অ্যাডমিন', labelEn: 'Admin', icon: ShieldCheck, href: '/admin' },
+  { id: 'admin', labelBn: 'অ্যাডমিন ওয়ার্কস্টেশন', labelEn: 'Admin Hub', icon: ShieldCheck, href: '/admin' },
   { id: 'tv', labelBn: 'টিভি কিউ', labelEn: 'Waiting TV', icon: Tv, href: '/tv' },
 ];
 
@@ -78,11 +73,7 @@ export default function Header({
       const newSession = await quickLogin(role);
       onSessionChange(newSession);
       toast.success(`Logged in as ${newSession.displayName || newSession.email} (${newSession.role})`);
-      if (role === 'reception') router.push('/receptionist');
-      else if (role === 'head_doctor' || role === 'doctor') router.push('/doctor');
-      else if (role === 'therapist') router.push('/therapy');
-      else if (role === 'cashier') router.push('/cashier');
-      else if (role === 'admin') router.push('/admin');
+      router.push('/admin');
     } catch (e: any) {
       toast.error(`Login failed: ${e.message}`);
     } finally {

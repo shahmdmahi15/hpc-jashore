@@ -25,28 +25,10 @@
   ],
   "shortcuts": [
     {
-      "name": "Doctor Chamber",
-      "short_name": "Doctor",
-      "description": "Doctor Chamber & SOAP Prescriptions",
-      "url": "/doctor"
-    },
-    {
-      "name": "Reception Desk",
-      "short_name": "Reception",
-      "description": "Patient Registration & Token Issue",
-      "url": "/receptionist"
-    },
-    {
-      "name": "Therapy Hall",
-      "short_name": "Therapy",
-      "description": "Bed Matrix & Modality Timers",
-      "url": "/therapy"
-    },
-    {
-      "name": "Cashier & Billing",
-      "short_name": "Billing",
-      "description": "Cash Drawer & Payment Invoicing",
-      "url": "/cashier"
+      "name": "Admin Workstation Hub",
+      "short_name": "Admin",
+      "description": "Unified Clinical Management, Billing & Analytics",
+      "url": "/admin"
     },
     {
       "name": "Waiting Room TV",

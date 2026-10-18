@@ -6,7 +6,7 @@ import Header from './Header';
 import { AuthGuard } from './AuthGuard';
 import { getSession, UserSession } from '../lib/api';
 import { useRealtime } from '../lib/use-realtime';
-import { ClipboardList, Stethoscope, Activity, CreditCard, Tv, ShieldCheck } from 'lucide-react';
+import { ClipboardList, Stethoscope, Activity, CreditCard, Tv, ShieldCheck, Home } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { cn } from '../lib/utils';
 import { useLanguage } from '../lib/i18n';
@@ -18,11 +18,9 @@ interface WorkstationShellProps {
 }
 
 const MOBILE_NAV_ITEMS = [
-  { id: 'reception', labelBn: 'রিসেপশন', labelEn: 'Reception', icon: ClipboardList, href: '/receptionist' },
-  { id: 'doctor', labelBn: 'ডাক্তার', labelEn: 'Doctor', icon: Stethoscope, href: '/doctor' },
-  { id: 'therapy', labelBn: 'থেরাপি', labelEn: 'Therapy', icon: Activity, href: '/therapy' },
-  { id: 'cashier', labelBn: 'ক্যাশিয়ার', labelEn: 'Cashier', icon: CreditCard, href: '/cashier' },
-  { id: 'tv', labelBn: 'টিভি', labelEn: 'TV Display', icon: Tv, href: '/tv' },
+  { id: 'home', labelBn: 'হোম', labelEn: 'Home', icon: Home, href: '/' },
+  { id: 'admin', labelBn: 'অ্যাডমিন', labelEn: 'Admin Hub', icon: ShieldCheck, href: '/admin' },
+  { id: 'tv', labelBn: 'টিভি কিউ', labelEn: 'Waiting TV', icon: Tv, href: '/tv' },
 ];
 
 export function WorkstationShell({
@@ -68,7 +66,7 @@ export function WorkstationShell({
         {/* Mobile & Small Screen Persistent Bottom Navigation Bar */}
         <nav
           aria-label="Mobile Navigation"
-          className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-card/95 backdrop-blur-xl border-t border-border/80 shadow-lg px-1 pt-1.5 pb-safe flex items-center justify-around"
+          className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-card/95 backdrop-blur-xl border-t border-border/80 shadow-lg px-2 pt-1.5 pb-safe flex items-center justify-around"
         >
           {MOBILE_NAV_ITEMS.map((item) => {
             const Icon = item.icon;
@@ -99,30 +97,6 @@ export function WorkstationShell({
               </button>
             );
           })}
-          {session?.role === 'admin' && (
-            <button
-              type="button"
-              onClick={() => router.push('/admin')}
-              className={cn(
-                'flex-1 flex flex-col items-center justify-center gap-0.5 py-1 px-1 rounded-xl text-[10px] font-semibold transition-all duration-150 active:scale-95 touch-manipulation',
-                activeTab === 'admin'
-                  ? 'text-emerald-600 dark:text-emerald-400 font-bold'
-                  : 'text-muted-foreground hover:text-foreground',
-              )}
-            >
-              <div
-                className={cn(
-                  'p-1.5 rounded-xl transition-all',
-                  activeTab === 'admin' && 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 shadow-2xs',
-                )}
-              >
-                <ShieldCheck className="size-4 sm:size-5" />
-              </div>
-              <span className="truncate max-w-[64px]">
-                {language === 'bn' ? 'অ্যাডমিন' : 'Admin'}
-              </span>
-            </button>
-          )}
         </nav>
       </div>
     </AuthGuard>

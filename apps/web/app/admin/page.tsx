@@ -7,7 +7,7 @@ import { WorkstationShell } from '../../components/WorkstationShell';
 
 export default function AdminPage() {
   return (
-    <WorkstationShell activeTab="admin" allowedRoles={['admin', 'head_doctor']}>
+    <WorkstationShell activeTab="admin" allowedRoles={['admin', 'head_doctor', 'doctor', 'reception', 'cashier', 'therapist']}>
       {() => <AdminDashboardView />}
     </WorkstationShell>
   );
