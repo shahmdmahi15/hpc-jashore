@@ -3,12 +3,21 @@
 
 import React, { useEffect, useState } from 'react';
 import { api, UserSession } from '../lib/api';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
+import { Select } from './ui/select';
+import { Textarea } from './ui/textarea';
+import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
+import { Badge } from './ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
+import { cn } from '../lib/utils';
 
 interface TherapyHallProps {
   session: UserSession | null;
 }
 
 export default function TherapyHallView({ session }: TherapyHallProps) {
+  const [mobileTab, setMobileTab] = useState<'beds' | 'sessions' | 'packages'>('beds');
   const [beds, setBeds] = useState<any[]>([]);
   const [machines, setMachines] = useState<any[]>([]);
   const [activeSessions, setActiveSessions] = useState<any[]>([]);
@@ -94,370 +103,412 @@ export default function TherapyHallView({ session }: TherapyHallProps) {
   };
 
   return (
-    <div className="flex flex-col gap-5 sm:gap-6 w-full">
+    <div className="flex flex-col gap-6 w-full">
       {/* Top Action Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h2 className="text-xl sm:text-2xl font-bold tracking-tight">⚡ Therapy Hall &amp; Electrotherapy Matrix</h2>
-          <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">Hall A · Live Bed Allocation &amp; Session Timers</p>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">Hall A · Live Bed Allocation &amp; Modality Timers</p>
         </div>
         <div className="flex items-center gap-2.5 w-full sm:w-auto">
-          <button className="btn flex-1 sm:flex-initial" onClick={() => setShowStartModal(true)}>
+          <Button
+            onClick={() => setShowStartModal(true)}
+            className="flex-1 sm:flex-initial bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
+          >
             + Start Session
-          </button>
-          <button className="btn btn-secondary flex-1 sm:flex-initial" onClick={loadData}>
+          </Button>
+          <Button
+            variant="outline"
+            onClick={loadData}
+            className="flex-1 sm:flex-initial flex items-center gap-1.5"
+          >
             🔄 Refresh
-          </button>
+          </Button>
         </div>
+      </div>
+
+      {/* Mobile Tab Switcher (<lg screens: smartphones, small tablets) */}
+      <div className="flex lg:hidden rounded-xl border border-border bg-card p-1 shadow-xs">
+        <button
+          type="button"
+          onClick={() => setMobileTab('beds')}
+          className={cn(
+            'flex-1 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all',
+            mobileTab === 'beds'
+              ? 'bg-emerald-600 text-white shadow-xs'
+              : 'text-muted-foreground hover:text-foreground'
+          )}
+        >
+          🛏️ Beds ({beds.length})
+        </button>
+        <button
+          type="button"
+          onClick={() => setMobileTab('sessions')}
+          className={cn(
+            'flex-1 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all',
+            mobileTab === 'sessions'
+              ? 'bg-emerald-600 text-white shadow-xs'
+              : 'text-muted-foreground hover:text-foreground'
+          )}
+        >
+          ⏱️ Sessions ({activeSessions.length})
+        </button>
+        <button
+          type="button"
+          onClick={() => setMobileTab('packages')}
+          className={cn(
+            'flex-1 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all',
+            mobileTab === 'packages'
+              ? 'bg-emerald-600 text-white shadow-xs'
+              : 'text-muted-foreground hover:text-foreground'
+          )}
+        >
+          📦 Packages ({packages.length})
+        </button>
       </div>
 
       {/* Bed Matrix Grid */}
-      <div className="panel">
-        <div className="panel-header">
-          <h3 className="panel-title">🛏️ Hall A Bed Status ({beds.length} Beds)</h3>
-        </div>
-        <div className="grid-4">
-          {beds.map((b) => {
-            const activeSess = activeSessions.find((s) => s.bedId === b.id);
-            const isOccupied = !!activeSess;
+      <div className={cn(mobileTab !== 'beds' && 'hidden lg:block')}>
+        <Card className="border border-border bg-card shadow-sm">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base sm:text-lg font-bold flex items-center gap-2">
+              🛏️ Hall A Bed Status ({beds.length} Beds)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {beds.map((b) => {
+                const activeSess = activeSessions.find((s) => s.bedId === b.id);
+                const isOccupied = !!activeSess;
 
-            return (
-              <div
-                key={b.id}
-                style={{
-                  border: `2px solid ${isOccupied ? 'var(--hpc-warning)' : 'var(--hpc-emerald-500)'}`,
-                  background: isOccupied ? 'rgba(245, 158, 11, 0.08)' : 'var(--hpc-surface-elevated)',
-                  borderRadius: '0.75rem',
-                  padding: '1rem',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '0.5rem',
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <strong style={{ fontSize: '1.1rem' }}>{b.name}</strong>
-                  <span className={`badge ${isOccupied ? 'badge-amber' : 'badge-emerald'}`}>
-                    {isOccupied ? 'In Session' : 'Available'}
-                  </span>
-                </div>
-
-                <div style={{ fontSize: '0.8rem', color: 'var(--hpc-muted)' }}>
-                  Code: {b.code}
-                </div>
-
-                {isOccupied ? (
-                  <div style={{ marginTop: '0.5rem', fontSize: '0.825rem' }}>
-                    <div>Patient: <strong>{activeSess.patient?.nameEn || 'Patient'}</strong></div>
-                    <div>Modality: <span className="badge badge-blue">{activeSess.modalityCode}</span></div>
-                    <div style={{ marginTop: '0.4rem' }}>
-                      <button
-                        className="btn btn-sm btn-secondary"
-                        style={{ width: '100%' }}
-                        onClick={() => setCompletingSession(activeSess)}
-                      >
-                        ✓ Complete with PIN
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <button
-                    className="btn btn-sm btn-secondary"
-                    style={{ marginTop: 'auto' }}
-                    onClick={() => {
-                      setSelectedBedId(b.id);
-                      setShowStartModal(true);
-                    }}
+                return (
+                  <div
+                    key={b.id}
+                    className={cn(
+                      'rounded-xl p-4 flex flex-col gap-3 transition-colors border',
+                      isOccupied
+                        ? 'border-amber-500/40 bg-amber-500/5 dark:bg-amber-950/20'
+                        : 'border-emerald-500/40 bg-emerald-500/5 dark:bg-emerald-950/20'
+                    )}
                   >
-                    Assign Bed
-                  </button>
-                )}
-              </div>
-            );
-          })}
-        </div>
+                    <div className="flex justify-between items-center">
+                      <strong className="text-base font-bold text-foreground">{b.name}</strong>
+                      <Badge variant={isOccupied ? 'warning' : 'success'}>
+                        {isOccupied ? 'In Session' : 'Available'}
+                      </Badge>
+                    </div>
+
+                    <div className="text-xs text-muted-foreground">
+                      Code: {b.code}
+                    </div>
+
+                    {isOccupied ? (
+                      <div className="mt-1 flex flex-col gap-2 text-xs">
+                        <div>
+                          Patient: <strong className="text-foreground">{activeSess.patient?.nameEn || 'Patient'}</strong>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <span>Modality:</span>
+                          <Badge variant="outline" className="text-xs uppercase">
+                            {activeSess.modalityCode}
+                          </Badge>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          className="w-full mt-1 text-xs"
+                          onClick={() => setCompletingSession(activeSess)}
+                        >
+                          ✓ Complete with PIN
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="w-full mt-auto text-xs"
+                        onClick={() => {
+                          setSelectedBedId(b.id);
+                          setShowStartModal(true);
+                        }}
+                      >
+                        Assign Bed
+                      </Button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Active Sessions Live Countdown */}
-      <div className="panel">
-        <div className="panel-header">
-          <h3 className="panel-title">⏱️ Active Therapy Sessions ({activeSessions.length})</h3>
-        </div>
-
-        {activeSessions.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--hpc-muted)' }}>
-            No therapy sessions actively running right now.
-          </div>
-        ) : (
-          <div className="table-wrapper">
-            <table className="hpc-table">
-              <thead>
-                <tr>
-                  <th>Patient</th>
-                  <th>MRN</th>
-                  <th>Bed</th>
-                  <th>Machine</th>
-                  <th>Modality</th>
-                  <th>Duration</th>
-                  <th>Status</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {activeSessions.map((s) => (
-                  <tr key={s.id}>
-                    <td><strong>{s.patient?.nameEn || 'Patient'}</strong></td>
-                    <td>{s.patient?.mrn || 'N/A'}</td>
-                    <td>{s.bed?.name || s.bedId}</td>
-                    <td>{s.machine?.name || 'N/A'}</td>
-                    <td><span className="badge badge-emerald">{s.modalityCode}</span></td>
-                    <td>{s.durationMinutes} mins</td>
-                    <td>
-                      <span className="badge badge-amber">
-                        <span className="dot dot-amber" style={{ marginRight: '4px' }} />
-                        {s.status}
-                      </span>
-                    </td>
-                    <td>
-                      <button
-                        className="btn btn-sm"
-                        onClick={() => setCompletingSession(s)}
-                      >
-                        PIN Complete
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+      {/* Active Sessions Live Table */}
+      <div className={cn(mobileTab !== 'sessions' && 'hidden lg:block')}>
+        <Card className="border border-border bg-card shadow-sm">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base sm:text-lg font-bold flex items-center gap-2">
+              ⏱️ Active Therapy Sessions ({activeSessions.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {activeSessions.length === 0 ? (
+              <div className="text-center py-8 text-sm text-muted-foreground">
+                No therapy sessions actively running right now.
+              </div>
+            ) : (
+              <div className="overflow-x-auto rounded-lg border border-border">
+                <table className="w-full text-left text-xs sm:text-sm">
+                  <thead className="bg-muted/50 border-b border-border text-muted-foreground font-semibold">
+                    <tr>
+                      <th className="p-2.5">Patient</th>
+                      <th className="p-2.5 hidden sm:table-cell">MRN</th>
+                      <th className="p-2.5">Bed</th>
+                      <th className="p-2.5 hidden md:table-cell">Machine</th>
+                      <th className="p-2.5">Modality</th>
+                      <th className="p-2.5">Duration</th>
+                      <th className="p-2.5">Status</th>
+                      <th className="p-2.5 text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {activeSessions.map((s) => (
+                      <tr key={s.id} className="hover:bg-muted/30 transition-colors">
+                        <td className="p-2.5 font-bold text-foreground">
+                          {s.patient?.nameEn || 'Patient'}
+                        </td>
+                        <td className="p-2.5 hidden sm:table-cell text-muted-foreground">
+                          {s.patient?.mrn || 'N/A'}
+                        </td>
+                        <td className="p-2.5 text-foreground">{s.bed?.name || s.bedId}</td>
+                        <td className="p-2.5 hidden md:table-cell text-muted-foreground">
+                          {s.machine?.name || 'N/A'}
+                        </td>
+                        <td className="p-2.5">
+                          <Badge variant="outline" className="text-emerald-600 border-emerald-500/30">
+                            {s.modalityCode}
+                          </Badge>
+                        </td>
+                        <td className="p-2.5 text-muted-foreground">{s.durationMinutes} mins</td>
+                        <td className="p-2.5">
+                          <Badge variant="warning">{s.status}</Badge>
+                        </td>
+                        <td className="p-2.5 text-right">
+                          <Button
+                            size="sm"
+                            className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+                            onClick={() => setCompletingSession(s)}
+                          >
+                            PIN Complete
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
       {/* Therapy Packages Catalog */}
-      <div className="panel">
-        <div className="panel-header">
-          <h3 className="panel-title">📦 Curated Rehab Packages</h3>
-        </div>
-        <div className="grid-3">
-          {packages.map((pkg) => (
-            <div
-              key={pkg.id}
-              style={{
-                border: '1px solid var(--hpc-border)',
-                background: 'var(--hpc-surface-elevated)',
-                padding: '1.25rem',
-                borderRadius: '0.75rem',
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'space-between',
-              }}
-            >
-              <div>
-                <h4 style={{ margin: '0 0 0.25rem', color: 'var(--hpc-accent)' }}>
-                  {pkg.nameEn}
-                </h4>
-                <div style={{ fontSize: '0.85rem', color: 'var(--hpc-muted)', marginBottom: '0.75rem' }}>
-                  {pkg.nameBn}
-                </div>
-                <div style={{ fontSize: '0.875rem', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-                  <div>🩺 <strong>{pkg.totalConsultations}</strong> Doctor Consultations</div>
-                  <div>⚡ <strong>{pkg.totalTherapySessions}</strong> Physical Therapy Sessions</div>
-                  <div>📅 Validity: <strong>{pkg.validityDays}</strong> Days</div>
-                </div>
-              </div>
-              <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <strong style={{ fontSize: '1.2rem', color: 'var(--hpc-emerald-600)' }}>
-                  ৳{(pkg.pricePaisa / 100).toFixed(0)} BDT
-                </strong>
-                <button
-                  className="btn btn-sm"
-                  onClick={async () => {
-                    if (!selectedPatientId) {
-                      alert('Select a patient in reception first');
-                      return;
-                    }
-                    try {
-                      await api.therapy.purchasePackage({
-                        patientId: selectedPatientId,
-                        packageId: pkg.id,
-                        billId: undefined,
-                      });
-                      alert(`Package ${pkg.nameEn} assigned to patient!`);
-                    } catch (err: any) {
-                      alert(`Purchase error: ${err.message}`);
-                    }
-                  }}
+      <div className={cn(mobileTab !== 'packages' && 'hidden lg:block')}>
+        <Card className="border border-border bg-card shadow-sm">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base sm:text-lg font-bold flex items-center gap-2">
+              📦 Curated Rehab Packages
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {packages.map((pkg) => (
+                <div
+                  key={pkg.id}
+                  className="rounded-xl border border-border bg-card p-4 flex flex-col justify-between shadow-2xs hover:shadow-xs transition-shadow"
                 >
-                  Assign to Patient
-                </button>
-              </div>
+                  <div>
+                    <h4 className="text-base font-bold text-foreground">{pkg.nameEn}</h4>
+                    <div className="text-xs text-muted-foreground mb-3">{pkg.nameBn}</div>
+                    <div className="text-xs flex flex-col gap-1.5 text-muted-foreground">
+                      <div>🩺 <strong className="text-foreground">{pkg.totalConsultations}</strong> Doctor Consultations</div>
+                      <div>⚡ <strong className="text-foreground">{pkg.totalTherapySessions}</strong> Physical Therapy Sessions</div>
+                      <div>📅 Validity: <strong className="text-foreground">{pkg.validityDays}</strong> Days</div>
+                    </div>
+                  </div>
+                  <div className="mt-4 pt-3 border-t border-border flex justify-between items-center">
+                    <strong className="text-base font-bold text-emerald-600">
+                      ৳{(pkg.pricePaisa / 100).toFixed(0)} BDT
+                    </strong>
+                    <Button
+                      size="sm"
+                      onClick={async () => {
+                        if (!selectedPatientId) {
+                          alert('Select a patient in reception first');
+                          return;
+                        }
+                        try {
+                          await api.therapy.purchasePackage({
+                            patientId: selectedPatientId,
+                            packageId: pkg.id,
+                            billId: undefined,
+                          });
+                          alert(`Package ${pkg.nameEn} assigned to patient!`);
+                        } catch (err: any) {
+                          alert(`Purchase error: ${err.message}`);
+                        }
+                      }}
+                      className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
+                    >
+                      Assign to Patient
+                    </Button>
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Start Session Modal */}
-      {showStartModal && (
-        <div className="modal-backdrop">
-          <div className="modal-content">
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
-              <h3 style={{ margin: 0 }}>Start Physical Therapy Session</h3>
-              <button className="btn btn-secondary btn-sm" onClick={() => setShowStartModal(false)}>✕</button>
+      {/* Start Session Dialog */}
+      <Dialog open={showStartModal} onOpenChange={setShowStartModal}>
+        <DialogContent className="max-w-lg" onClose={() => setShowStartModal(false)}>
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold">Start Physical Therapy Session</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleStartSession} className="flex flex-col gap-4 mt-2">
+            <Select
+              label="Select Patient *"
+              value={selectedPatientId}
+              onChange={(e) => setSelectedPatientId(e.target.value)}
+              required
+            >
+              {patients.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.mrn} · {p.nameEn} ({p.phone})
+                </option>
+              ))}
+            </Select>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Select
+                label="Assign Bed *"
+                value={selectedBedId}
+                onChange={(e) => setSelectedBedId(e.target.value)}
+                required
+              >
+                {beds.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name} ({b.code})
+                  </option>
+                ))}
+              </Select>
+
+              <Select
+                label="Therapy Machine"
+                value={selectedMachineId}
+                onChange={(e) => setSelectedMachineId(e.target.value)}
+              >
+                <option value="">None / Manual Exercise</option>
+                {machines.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name} ({m.code})
+                  </option>
+                ))}
+              </Select>
             </div>
-            <form onSubmit={handleStartSession}>
-              <div className="form-group">
-                <label className="form-label">Select Patient *</label>
-                <select
-                  className="form-control"
-                  value={selectedPatientId}
-                  onChange={(e) => setSelectedPatientId(e.target.value)}
-                  required
-                >
-                  {patients.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.mrn} · {p.nameEn} ({p.phone})
-                    </option>
-                  ))}
-                </select>
-              </div>
 
-              <div className="grid-2">
-                <div className="form-group">
-                  <label className="form-label">Assign Bed *</label>
-                  <select
-                    className="form-control"
-                    value={selectedBedId}
-                    onChange={(e) => setSelectedBedId(e.target.value)}
-                    required
-                  >
-                    {beds.map((b) => (
-                      <option key={b.id} value={b.id}>
-                        {b.name} ({b.code})
-                      </option>
-                    ))}
-                  </select>
-                </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Select
+                label="Modality Code"
+                value={selectedModalityCode}
+                onChange={(e) => setSelectedModalityCode(e.target.value)}
+              >
+                <option value="IFT">IFT (Interferential Therapy)</option>
+                <option value="UST">UST (Ultrasound Therapy)</option>
+                <option value="SWD">SWD (Shortwave Diathermy)</option>
+                <option value="EXE">EXE (Therapeutic Exercise)</option>
+              </Select>
 
-                <div className="form-group">
-                  <label className="form-label">Therapy Machine</label>
-                  <select
-                    className="form-control"
-                    value={selectedMachineId}
-                    onChange={(e) => setSelectedMachineId(e.target.value)}
-                  >
-                    <option value="">None / Manual Exercise</option>
-                    {machines.map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {m.name} ({m.code})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
+              <Select
+                label="Duration (Minutes)"
+                value={durationMinutes}
+                onChange={(e) => setDurationMinutes(parseInt(e.target.value))}
+              >
+                <option value={10}>10 minutes</option>
+                <option value={15}>15 minutes</option>
+                <option value={20}>20 minutes</option>
+                <option value={30}>30 minutes</option>
+              </Select>
+            </div>
 
-              <div className="grid-2">
-                <div className="form-group">
-                  <label className="form-label">Modality Code</label>
-                  <select
-                    className="form-control"
-                    value={selectedModalityCode}
-                    onChange={(e) => setSelectedModalityCode(e.target.value)}
-                  >
-                    <option value="IFT">IFT (Interferential Therapy)</option>
-                    <option value="UST">UST (Ultrasound Therapy)</option>
-                    <option value="SWD">SWD (Shortwave Diathermy)</option>
-                    <option value="EXE">EXE (Therapeutic Exercise)</option>
-                  </select>
-                </div>
+            <div className="flex gap-3 mt-4 pt-2 border-t border-border">
+              <Button type="submit" className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold">
+                Start Session &amp; Run Timer
+              </Button>
+              <Button type="button" variant="outline" onClick={() => setShowStartModal(false)}>
+                Cancel
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
 
-                <div className="form-group">
-                  <label className="form-label">Duration (Minutes)</label>
-                  <select
-                    className="form-control"
-                    value={durationMinutes}
-                    onChange={(e) => setDurationMinutes(parseInt(e.target.value))}
-                  >
-                    <option value={10}>10 minutes</option>
-                    <option value={15}>15 minutes</option>
-                    <option value={20}>20 minutes</option>
-                    <option value={30}>30 minutes</option>
-                  </select>
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.25rem' }}>
-                <button type="submit" className="btn" style={{ flex: 1 }}>
-                  Start Session &amp; Run Timer
-                </button>
-                <button type="button" className="btn btn-secondary" onClick={() => setShowStartModal(false)}>
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Complete Session with PIN Modal */}
+      {/* Complete Session with PIN Dialog */}
       {completingSession && (
-        <div className="modal-backdrop">
-          <div className="modal-content">
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
-              <h3 style={{ margin: 0 }}>Complete Session with Therapist PIN</h3>
-              <button className="btn btn-secondary btn-sm" onClick={() => setCompletingSession(null)}>✕</button>
-            </div>
-            <form onSubmit={handleCompleteSession}>
-              <div style={{ background: 'var(--hpc-bg)', padding: '0.75rem', borderRadius: '0.5rem', marginBottom: '1rem' }}>
-                <div>Patient: <strong>{completingSession.patient?.nameEn || 'Patient'}</strong></div>
-                <div>Modality: <strong>{completingSession.modalityCode}</strong></div>
+        <Dialog open={!!completingSession} onOpenChange={() => setCompletingSession(null)}>
+          <DialogContent className="max-w-md" onClose={() => setCompletingSession(null)}>
+            <DialogHeader>
+              <DialogTitle className="text-lg font-bold">Complete Session with PIN</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleCompleteSession} className="flex flex-col gap-4 mt-2">
+              <div className="rounded-lg bg-muted/40 p-3 text-xs flex flex-col gap-1 border border-border">
+                <div>Patient: <strong className="text-foreground">{completingSession.patient?.nameEn || 'Patient'}</strong></div>
+                <div>Modality: <strong className="text-foreground">{completingSession.modalityCode}</strong></div>
               </div>
 
-              <div className="form-group">
-                <label className="form-label">Therapist 4-Digit Security PIN *</label>
-                <input
-                  type="password"
-                  className="form-control"
-                  maxLength={4}
-                  required
-                  placeholder="Enter your PIN (Demo: 3579)"
-                  value={therapistPin}
-                  onChange={(e) => setTherapistPin(e.target.value)}
-                />
-              </div>
+              <Input
+                label="Therapist 4-Digit Security PIN *"
+                type="password"
+                maxLength={4}
+                required
+                placeholder="Enter PIN (Demo: 3579)"
+                value={therapistPin}
+                onChange={(e) => setTherapistPin(e.target.value)}
+              />
 
-              <div className="form-group">
-                <label className="form-label">Pain Score After Session (0-10): {painScoreAfter}/10</label>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold text-muted-foreground">
+                  Pain Score After Session (0-10): <span className="text-foreground font-bold">{painScoreAfter}/10</span>
+                </label>
                 <input
                   type="range"
                   min="0"
                   max="10"
                   value={painScoreAfter}
                   onChange={(e) => setPainScoreAfter(parseInt(e.target.value))}
-                  style={{ width: '100%', accentColor: 'var(--hpc-accent)' }}
+                  className="w-full accent-emerald-600 cursor-pointer"
                 />
               </div>
 
-              <div className="form-group">
-                <label className="form-label">Therapist Notes / Patient Tolerance</label>
-                <textarea
-                  className="form-control"
-                  rows={2}
-                  value={outcomeNote}
-                  onChange={(e) => setOutcomeNote(e.target.value)}
-                />
-              </div>
+              <Textarea
+                label="Therapist Notes / Patient Tolerance"
+                rows={2}
+                value={outcomeNote}
+                onChange={(e) => setOutcomeNote(e.target.value)}
+              />
 
-              <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.25rem' }}>
-                <button type="submit" className="btn" style={{ flex: 1 }}>
-                  Verify PIN &amp; Complete Session
-                </button>
-                <button type="button" className="btn btn-secondary" onClick={() => setCompletingSession(null)}>
+              <div className="flex gap-3 mt-4 pt-2 border-t border-border">
+                <Button type="submit" className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold">
+                  Verify PIN &amp; Complete
+                </Button>
+                <Button type="button" variant="outline" onClick={() => setCompletingSession(null)}>
                   Cancel
-                </button>
+                </Button>
               </div>
             </form>
-          </div>
-        </div>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );

@@ -3,12 +3,20 @@
 
 import React, { useEffect, useState } from 'react';
 import { api, UserSession } from '../lib/api';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
+import { Select } from './ui/select';
+import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
+import { Badge } from './ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
+import { cn } from '../lib/utils';
 
 interface CashierProps {
   session: UserSession | null;
 }
 
 export default function CashierView({ session }: CashierProps) {
+  const [mobileTab, setMobileTab] = useState<'billing' | 'ledger'>('billing');
   const [bills, setBills] = useState<any[]>([]);
   const [dues, setDues] = useState<any[]>([]);
   const [patients, setPatients] = useState<any[]>([]);
@@ -164,471 +172,543 @@ export default function CashierView({ session }: CashierProps) {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-      {/* Cash Drawer Status Bar */}
-      <div
-        className="panel"
-        style={{
-          background: activeDrawer?.isOpen ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)',
-          border: `1.5px solid ${activeDrawer?.isOpen ? 'var(--hpc-emerald-500)' : 'var(--hpc-danger)'}`,
-        }}
+    <div className="flex flex-col gap-6">
+      {/* Cash Drawer Status Card */}
+      <Card
+        className={cn(
+          'border shadow-xs transition-colors',
+          activeDrawer?.isOpen
+            ? 'border-emerald-500/40 bg-emerald-500/5 dark:bg-emerald-950/20'
+            : 'border-red-500/40 bg-red-500/5 dark:bg-red-950/20'
+        )}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <span className={`dot ${!activeDrawer?.isOpen ? 'dot-red' : ''}`} />
-              <strong style={{ fontSize: '1.1rem' }}>
+        <CardContent className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-2">
+              <span
+                className={cn(
+                  'size-3 rounded-full animate-pulse',
+                  activeDrawer?.isOpen ? 'bg-emerald-500' : 'bg-red-500'
+                )}
+              />
+              <span className="text-base sm:text-lg font-bold text-foreground">
                 Cash Drawer: {activeDrawer?.isOpen ? 'OPEN & ACTIVE' : 'CLOSED'}
-              </strong>
+              </span>
+              <Badge variant={activeDrawer?.isOpen ? 'success' : 'destructive'} className="ml-1">
+                {activeDrawer?.isOpen ? 'Shift Active' : 'Offline'}
+              </Badge>
             </div>
-            <div style={{ fontSize: '0.85rem', color: 'var(--hpc-muted)', marginTop: '0.25rem' }}>
+            <p className="text-xs sm:text-sm text-muted-foreground">
               {activeDrawer?.isOpen ? (
                 <span>
-                  Opening Float: <strong>৳{((activeDrawer.drawer.openingCashPaisa || 0) / 100).toFixed(0)}</strong> · Cash Collected: <strong>৳{((activeDrawer.cashCollectedPaisa || 0) / 100).toFixed(0)}</strong>
+                  Opening Float: <strong className="text-foreground">৳{((activeDrawer.drawer.openingCashPaisa || 0) / 100).toFixed(0)}</strong> · Cash Collected: <strong className="text-foreground">৳{((activeDrawer.cashCollectedPaisa || 0) / 100).toFixed(0)}</strong>
                 </span>
               ) : (
                 'Please open cash drawer to start accepting payments.'
               )}
-            </div>
+            </p>
           </div>
 
-          <div>
+          <div className="flex items-center gap-2">
             {activeDrawer?.isOpen ? (
-              <button className="btn btn-secondary" onClick={() => setShowCloseDrawerModal(true)}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowCloseDrawerModal(true)}
+                className="whitespace-nowrap border-red-500/30 text-red-600 hover:bg-red-500/10"
+              >
                 🔒 Close Drawer &amp; Reconcile Shift
-              </button>
+              </Button>
             ) : (
-              <button className="btn" onClick={() => setShowOpenDrawerModal(true)}>
+              <Button
+                variant="default"
+                size="sm"
+                onClick={() => setShowOpenDrawerModal(true)}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold whitespace-nowrap"
+              >
                 🔓 Open Cash Drawer Float
-              </button>
+              </Button>
             )}
           </div>
-        </div>
+        </CardContent>
+      </Card>
+
+      {/* Mobile Tab Switcher (<lg screens: smartphones, small tablets) */}
+      <div className="flex lg:hidden rounded-xl border border-border bg-card p-1 shadow-xs">
+        <button
+          type="button"
+          onClick={() => setMobileTab('billing')}
+          className={cn(
+            'flex-1 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all',
+            mobileTab === 'billing'
+              ? 'bg-emerald-600 text-white shadow-xs'
+              : 'text-muted-foreground hover:text-foreground'
+          )}
+        >
+          💳 New Bill Generator
+        </button>
+        <button
+          type="button"
+          onClick={() => setMobileTab('ledger')}
+          className={cn(
+            'flex-1 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all',
+            mobileTab === 'ledger'
+              ? 'bg-emerald-600 text-white shadow-xs'
+              : 'text-muted-foreground hover:text-foreground'
+          )}
+        >
+          🧾 Invoices &amp; Dues ({bills.length})
+        </button>
       </div>
 
       {/* Bill Generator & Payment Ledger Grid */}
-      <div className="grid-2">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left Column: Bill Generator */}
-        <div className="panel">
-          <div className="panel-header">
-            <h3 className="panel-title">💳 Generate Inpatient / Outpatient Bill</h3>
-            <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
-              <button
-                type="button"
-                className="btn btn-secondary btn-sm"
-                onClick={() => handleAddItem('consultation', 'Doctor Consultation', 500)}
-              >
-                + Consult
-              </button>
-              <button
-                type="button"
-                className="btn btn-secondary btn-sm"
-                onClick={() => handleAddItem('therapy', 'Therapy Session (IFT/UST)', 300)}
-              >
-                + Therapy
-              </button>
-              <button
-                type="button"
-                className="btn btn-secondary btn-sm"
-                onClick={() => handleAddItem('package', '10-Session Rehab Package', 3000)}
-              >
-                + Package
-              </button>
-            </div>
-          </div>
-
-          <form onSubmit={handleCreateBill}>
-            <div className="form-group">
-              <label className="form-label">Select Patient *</label>
-              <select
-                className="form-control"
-                value={selectedPatientId}
-                onChange={(e) => setSelectedPatientId(e.target.value)}
-                required
-              >
-                {patients.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.mrn} · {p.nameEn} ({p.phone})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Bill Line Items Table */}
-            <div className="table-wrapper" style={{ margin: '1rem 0' }}>
-              <table className="hpc-table">
-                <thead>
-                  <tr>
-                    <th>Item Description</th>
-                    <th>Rate (৳)</th>
-                    <th>Qty</th>
-                    <th>Total</th>
-                    <th>✕</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {billItems.map((item, idx) => (
-                    <tr key={idx}>
-                      <td>
-                        <input
-                          type="text"
-                          className="form-control"
-                          style={{ padding: '0.3rem' }}
-                          value={item.description}
-                          onChange={(e) => {
-                            const updated = [...billItems];
-                            updated[idx].description = e.target.value;
-                            setBillItems(updated);
-                          }}
-                        />
-                      </td>
-                      <td style={{ width: '85px' }}>
-                        <input
-                          type="number"
-                          className="form-control"
-                          style={{ padding: '0.3rem' }}
-                          value={item.unitPriceTaka}
-                          onChange={(e) => {
-                            const updated = [...billItems];
-                            updated[idx].unitPriceTaka = parseInt(e.target.value) || 0;
-                            setBillItems(updated);
-                          }}
-                        />
-                      </td>
-                      <td style={{ width: '60px' }}>
-                        <input
-                          type="number"
-                          className="form-control"
-                          style={{ padding: '0.3rem' }}
-                          value={item.quantity}
-                          onChange={(e) => {
-                            const updated = [...billItems];
-                            updated[idx].quantity = parseInt(e.target.value) || 1;
-                            setBillItems(updated);
-                          }}
-                        />
-                      </td>
-                      <td>
-                        <strong>৳{item.unitPriceTaka * item.quantity}</strong>
-                      </td>
-                      <td>
-                        <button
-                          type="button"
-                          className="btn btn-danger btn-sm"
-                          onClick={() => handleRemoveItem(idx)}
-                        >
-                          ✕
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Financial Summary */}
-            <div style={{ background: 'var(--hpc-bg)', padding: '1rem', borderRadius: '0.5rem', marginBottom: '1rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                <span>Subtotal:</span>
-                <strong>৳{subtotalTaka}</strong>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                <span>Discount (৳):</span>
-                <input
-                  type="number"
-                  className="form-control"
-                  style={{ width: '100px', padding: '0.3rem', textAlign: 'right' }}
-                  value={discountTaka}
-                  onChange={(e) => {
-                    const d = parseInt(e.target.value) || 0;
-                    setDiscountTaka(d);
-                    setPaidTaka(Math.max(0, subtotalTaka - d));
-                  }}
-                />
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--hpc-border)', paddingTop: '0.5rem', fontSize: '1.15rem' }}>
-                <strong>Net Payable:</strong>
-                <strong style={{ color: 'var(--hpc-accent)' }}>৳{totalTaka}</strong>
-              </div>
-            </div>
-
-            {/* Payment Recording */}
-            <div className="grid-2">
-              <div className="form-group">
-                <label className="form-label">Payment Method</label>
-                <select
-                  className="form-control"
-                  value={paymentMethod}
-                  onChange={(e) => setPaymentMethod(e.target.value as any)}
+        <div
+          className={cn(
+            'flex flex-col gap-6 lg:col-span-7 xl:col-span-7',
+            mobileTab === 'ledger' && 'hidden lg:flex'
+          )}
+        >
+          <Card className="border border-border bg-card shadow-sm">
+            <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 gap-3">
+              <CardTitle className="text-base sm:text-lg font-bold flex items-center gap-2">
+                💳 Generate Patient Bill
+              </CardTitle>
+              <div className="flex gap-1.5 flex-wrap">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 text-xs"
+                  onClick={() => handleAddItem('consultation', 'Doctor Consultation', 500)}
                 >
-                  <option value="cash">Cash (নগদ)</option>
-                  <option value="bkash">bKash (বিকাশ)</option>
-                  <option value="nagad">Nagad (নগদ অ্যাপ)</option>
-                  <option value="rocket">Rocket</option>
-                  <option value="card">POS Card</option>
-                </select>
+                  + Consult
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 text-xs"
+                  onClick={() => handleAddItem('therapy', 'Therapy Session (IFT/UST)', 300)}
+                >
+                  + Therapy
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 text-xs"
+                  onClick={() => handleAddItem('package', '10-Session Rehab Package', 3000)}
+                >
+                  + Package
+                </Button>
               </div>
+            </CardHeader>
 
-              <div className="form-group">
-                <label className="form-label">Amount Paid (৳)</label>
-                <input
-                  type="number"
-                  className="form-control"
-                  value={paidTaka}
-                  onChange={(e) => setPaidTaka(parseInt(e.target.value) || 0)}
-                />
-              </div>
-            </div>
+            <CardContent>
+              <form onSubmit={handleCreateBill} className="flex flex-col gap-4">
+                <Select
+                  label="Select Patient *"
+                  value={selectedPatientId}
+                  onChange={(e) => setSelectedPatientId(e.target.value)}
+                  required
+                >
+                  {patients.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.mrn} · {p.nameEn} ({p.phone})
+                    </option>
+                  ))}
+                </Select>
 
-            {paymentMethod !== 'cash' && (
-              <div className="form-group">
-                <label className="form-label">MFS / Bank Transaction ID</label>
-                <input
-                  type="text"
-                  className="form-control"
-                  placeholder="e.g. TRX992812"
-                  value={txnId}
-                  onChange={(e) => setTxnId(e.target.value)}
-                />
-              </div>
-            )}
+                {/* Bill Line Items Table */}
+                <div className="overflow-x-auto rounded-lg border border-border">
+                  <table className="w-full text-left text-xs sm:text-sm">
+                    <thead className="bg-muted/50 border-b border-border text-muted-foreground font-semibold">
+                      <tr>
+                        <th className="p-2.5">Item Description</th>
+                        <th className="p-2.5 w-24">Rate (৳)</th>
+                        <th className="p-2.5 w-16">Qty</th>
+                        <th className="p-2.5">Total</th>
+                        <th className="p-2.5 w-10 text-center">✕</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {billItems.map((item, idx) => (
+                        <tr key={idx} className="hover:bg-muted/20">
+                          <td className="p-2">
+                            <Input
+                              type="text"
+                              value={item.description}
+                              onChange={(e) => {
+                                const updated = [...billItems];
+                                updated[idx].description = e.target.value;
+                                setBillItems(updated);
+                              }}
+                              className="h-8 text-xs"
+                            />
+                          </td>
+                          <td className="p-2">
+                            <Input
+                              type="number"
+                              value={item.unitPriceTaka}
+                              onChange={(e) => {
+                                const updated = [...billItems];
+                                updated[idx].unitPriceTaka = parseInt(e.target.value) || 0;
+                                setBillItems(updated);
+                              }}
+                              className="h-8 text-xs"
+                            />
+                          </td>
+                          <td className="p-2">
+                            <Input
+                              type="number"
+                              value={item.quantity}
+                              onChange={(e) => {
+                                const updated = [...billItems];
+                                updated[idx].quantity = parseInt(e.target.value) || 1;
+                                setBillItems(updated);
+                              }}
+                              className="h-8 text-xs text-center"
+                            />
+                          </td>
+                          <td className="p-2 font-bold text-foreground">
+                            ৳{item.unitPriceTaka * item.quantity}
+                          </td>
+                          <td className="p-2 text-center">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="size-7 p-0 text-red-500 hover:text-red-700 hover:bg-red-500/10"
+                              onClick={() => handleRemoveItem(idx)}
+                            >
+                              ✕
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
 
-            {dueTaka > 0 && (
-              <div style={{ color: 'var(--hpc-danger)', fontWeight: 'bold', marginBottom: '1rem', fontSize: '0.9rem' }}>
-                ⚠️ Remaining Due to be recorded: ৳{dueTaka}
-              </div>
-            )}
+                {/* Financial Summary */}
+                <div className="rounded-xl border border-border bg-muted/30 p-4 flex flex-col gap-2.5">
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-muted-foreground">Subtotal:</span>
+                    <strong className="text-foreground">৳{subtotalTaka}</strong>
+                  </div>
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-muted-foreground">Discount (৳):</span>
+                    <Input
+                      type="number"
+                      value={discountTaka}
+                      onChange={(e) => {
+                        const d = parseInt(e.target.value) || 0;
+                        setDiscountTaka(d);
+                        setPaidTaka(Math.max(0, subtotalTaka - d));
+                      }}
+                      className="w-28 h-8 text-right text-xs"
+                    />
+                  </div>
+                  <div className="flex justify-between items-center border-t border-border pt-2 text-base font-bold">
+                    <span>Net Payable:</span>
+                    <span className="text-emerald-600 text-lg">৳{totalTaka}</span>
+                  </div>
+                </div>
 
-            <button type="submit" className="btn btn-lg" style={{ width: '100%' }}>
-              🖨️ Settle Bill &amp; Print Thermal Receipt
-            </button>
-          </form>
+                {/* Payment Recording */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <Select
+                    label="Payment Method"
+                    value={paymentMethod}
+                    onChange={(e) => setPaymentMethod(e.target.value as any)}
+                  >
+                    <option value="cash">Cash (নগদ)</option>
+                    <option value="bkash">bKash (বিকাশ)</option>
+                    <option value="nagad">Nagad (নগদ অ্যাপ)</option>
+                    <option value="rocket">Rocket</option>
+                    <option value="card">POS Card</option>
+                  </Select>
+
+                  <Input
+                    label="Amount Paid (৳)"
+                    type="number"
+                    value={paidTaka}
+                    onChange={(e) => setPaidTaka(parseInt(e.target.value) || 0)}
+                  />
+                </div>
+
+                {paymentMethod !== 'cash' && (
+                  <Input
+                    label="MFS / Bank Transaction ID"
+                    type="text"
+                    placeholder="e.g. TRX992812"
+                    value={txnId}
+                    onChange={(e) => setTxnId(e.target.value)}
+                  />
+                )}
+
+                {dueTaka > 0 && (
+                  <div className="text-red-600 text-xs sm:text-sm font-semibold bg-red-500/10 p-2.5 rounded-lg border border-red-500/20">
+                    ⚠️ Remaining Due to be recorded: ৳{dueTaka}
+                  </div>
+                )}
+
+                <Button
+                  type="submit"
+                  size="lg"
+                  className="w-full mt-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 text-sm sm:text-base shadow-sm"
+                >
+                  🖨️ Settle Bill &amp; Print Thermal Receipt
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Right Column: Bills Ledger & Dues */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-          {/* Bills List */}
-          <div className="panel">
-            <div className="panel-header">
-              <h3 className="panel-title">🧾 Settled Invoices ({bills.length})</h3>
-              <button className="btn btn-secondary btn-sm" onClick={loadData}>
+        <div
+          className={cn(
+            'flex flex-col gap-6 lg:col-span-5 xl:col-span-5',
+            mobileTab === 'billing' && 'hidden lg:flex'
+          )}
+        >
+          {/* Bills List Card */}
+          <Card className="border border-border bg-card shadow-sm">
+            <CardHeader className="flex flex-row items-center justify-between pb-3">
+              <CardTitle className="text-sm sm:text-base font-bold flex items-center gap-2">
+                🧾 Settled Invoices ({bills.length})
+              </CardTitle>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={loadData}
+                disabled={loading}
+                className="h-8 text-xs flex items-center gap-1"
+              >
                 🔄 Refresh
-              </button>
-            </div>
-            <div className="table-wrapper" style={{ maxHeight: '280px', overflowY: 'auto' }}>
-              <table className="hpc-table">
-                <thead>
-                  <tr>
-                    <th>Bill #</th>
-                    <th>Patient</th>
-                    <th>Total (৳)</th>
-                    <th>Paid (৳)</th>
-                    <th>Method</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {bills.map((b) => (
-                    <tr key={b.id}>
-                      <td><strong>{b.billNumber}</strong></td>
-                      <td>{b.patient?.nameEn || b.patientId}</td>
-                      <td>৳{(b.totalPaisa / 100).toFixed(0)}</td>
-                      <td>৳{(b.paidPaisa / 100).toFixed(0)}</td>
-                      <td><span className="badge badge-emerald">{b.paymentMethod}</span></td>
-                      <td><span className="badge badge-blue">{b.status}</span></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* Dues Tracking */}
-          <div className="panel">
-            <div className="panel-header">
-              <h3 className="panel-title">⚠️ Outstanding Patient Dues ({dues.length})</h3>
-            </div>
-            {dues.length === 0 ? (
-              <div style={{ color: 'var(--hpc-muted)', textAlign: 'center', padding: '1rem' }}>
-                No pending patient dues.
-              </div>
-            ) : (
-              <div className="table-wrapper">
-                <table className="hpc-table">
-                  <thead>
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <div className="max-h-[300px] overflow-y-auto rounded-lg border border-border">
+                <table className="w-full text-left text-xs sm:text-sm">
+                  <thead className="bg-muted/50 sticky top-0 border-b border-border text-muted-foreground font-semibold">
                     <tr>
-                      <th>Patient</th>
-                      <th>Due Amount</th>
-                      <th>Status</th>
+                      <th className="p-2.5">Bill #</th>
+                      <th className="p-2.5">Patient</th>
+                      <th className="p-2.5">Total</th>
+                      <th className="p-2.5">Paid</th>
+                      <th className="p-2.5 text-right">Method</th>
                     </tr>
                   </thead>
-                  <tbody>
-                    {dues.map((d) => (
-                      <tr key={d.id}>
-                        <td><strong>{d.patient?.nameEn || d.patientId}</strong></td>
-                        <td style={{ color: 'var(--hpc-danger)', fontWeight: 'bold' }}>
-                          ৳{(d.amountPaisa / 100).toFixed(0)}
+                  <tbody className="divide-y divide-border">
+                    {bills.slice(0, 20).map((b) => (
+                      <tr key={b.id} className="hover:bg-muted/30 transition-colors">
+                        <td className="p-2.5 font-bold text-foreground">{b.billNumber}</td>
+                        <td className="p-2.5 text-muted-foreground truncate max-w-[100px]">
+                          {b.patient?.nameEn || b.patientId}
                         </td>
-                        <td><span className="badge badge-red">{d.status}</span></td>
+                        <td className="p-2.5 font-semibold">৳{(b.totalPaisa / 100).toFixed(0)}</td>
+                        <td className="p-2.5 text-emerald-600 font-semibold">৳{(b.paidPaisa / 100).toFixed(0)}</td>
+                        <td className="p-2.5 text-right">
+                          <Badge variant="outline" className="text-xs uppercase">
+                            {b.paymentMethod}
+                          </Badge>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-            )}
-          </div>
+            </CardContent>
+          </Card>
+
+          {/* Dues Tracking Card */}
+          <Card className="border border-border bg-card shadow-sm">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm sm:text-base font-bold flex items-center gap-2 text-red-600">
+                ⚠️ Outstanding Dues ({dues.length})
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {dues.length === 0 ? (
+                <div className="text-muted-foreground text-center py-6 text-xs sm:text-sm">
+                  No pending patient dues.
+                </div>
+              ) : (
+                <div className="max-h-[220px] overflow-y-auto rounded-lg border border-border">
+                  <table className="w-full text-left text-xs sm:text-sm">
+                    <thead className="bg-muted/50 sticky top-0 border-b border-border text-muted-foreground font-semibold">
+                      <tr>
+                        <th className="p-2.5">Patient</th>
+                        <th className="p-2.5">Due Amount</th>
+                        <th className="p-2.5 text-right">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {dues.map((d) => (
+                        <tr key={d.id} className="hover:bg-muted/30 transition-colors">
+                          <td className="p-2.5 font-medium text-foreground">
+                            {d.patient?.nameEn || d.patientId}
+                          </td>
+                          <td className="p-2.5 text-red-600 font-bold">
+                            ৳{(d.amountPaisa / 100).toFixed(0)}
+                          </td>
+                          <td className="p-2.5 text-right">
+                            <Badge variant="destructive">{d.status}</Badge>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
       </div>
 
-      {/* Open Drawer Modal */}
-      {showOpenDrawerModal && (
-        <div className="modal-backdrop">
-          <div className="modal-content">
-            <h3>Open Cash Drawer Float</h3>
-            <form onSubmit={handleOpenDrawer}>
-              <div className="form-group">
-                <label className="form-label">Opening Cash Float (৳)</label>
-                <input
-                  type="number"
-                  className="form-control"
-                  value={openingCashTaka}
-                  onChange={(e) => setOpeningCashTaka(parseInt(e.target.value) || 0)}
-                />
-              </div>
-              <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.25rem' }}>
-                <button type="submit" className="btn" style={{ flex: 1 }}>Confirm Open Float</button>
-                <button type="button" className="btn btn-secondary" onClick={() => setShowOpenDrawerModal(false)}>Cancel</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Close Drawer Modal */}
-      {showCloseDrawerModal && (
-        <div className="modal-backdrop">
-          <div className="modal-content">
-            <h3>Close Shift &amp; Reconcile Drawer</h3>
-            <form onSubmit={handleCloseDrawer}>
-              <div className="form-group">
-                <label className="form-label">Physical Cash Count in Drawer (৳)</label>
-                <input
-                  type="number"
-                  className="form-control"
-                  value={closingCashActualTaka}
-                  onChange={(e) => setClosingCashActualTaka(parseInt(e.target.value) || 0)}
-                />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Variance Explanation (If any difference)</label>
-                <input
-                  type="text"
-                  className="form-control"
-                  placeholder="e.g. Small change shortage"
-                  value={closingReason}
-                  onChange={(e) => setClosingReason(e.target.value)}
-                />
-              </div>
-              <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.25rem' }}>
-                <button type="submit" className="btn" style={{ flex: 1 }}>Confirm &amp; Close Shift</button>
-                <button type="button" className="btn btn-secondary" onClick={() => setShowCloseDrawerModal(false)}>Cancel</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* 80mm Cashier Thermal Receipt Modal */}
-      {receiptData && (
-        <div className="modal-backdrop">
-          <div className="modal-content" style={{ maxWidth: '380px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
-              <h3 style={{ margin: 0 }}>Cashier Receipt</h3>
-              <button className="btn btn-secondary btn-sm" onClick={() => setReceiptData(null)}>✕</button>
+      {/* Open Drawer Dialog */}
+      <Dialog open={showOpenDrawerModal} onOpenChange={setShowOpenDrawerModal}>
+        <DialogContent className="max-w-md" onClose={() => setShowOpenDrawerModal(false)}>
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold">Open Cash Drawer Float</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleOpenDrawer} className="flex flex-col gap-4 mt-2">
+            <Input
+              label="Opening Cash Float (৳)"
+              type="number"
+              value={openingCashTaka}
+              onChange={(e) => setOpeningCashTaka(parseInt(e.target.value) || 0)}
+              required
+            />
+            <div className="flex gap-3 mt-4 pt-2 border-t border-border">
+              <Button type="submit" className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold">
+                Confirm Open Float
+              </Button>
+              <Button type="button" variant="outline" onClick={() => setShowOpenDrawerModal(false)}>
+                Cancel
+              </Button>
             </div>
+          </form>
+        </DialogContent>
+      </Dialog>
 
-            <div
-              className="sheet-thermal"
-              style={{
-                background: '#fff',
-                color: '#000',
-                border: '1px dashed #999',
-                padding: '12px',
-                borderRadius: '4px',
-                textAlign: 'center',
-                margin: '0 auto',
-                width: '100%',
-                maxWidth: '300px',
-              }}
-            >
-              <div style={{ fontWeight: 'bold', fontSize: '13px' }}>
+      {/* Close Drawer Dialog */}
+      <Dialog open={showCloseDrawerModal} onOpenChange={setShowCloseDrawerModal}>
+        <DialogContent className="max-w-md" onClose={() => setShowCloseDrawerModal(false)}>
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold">Close Shift &amp; Reconcile Drawer</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleCloseDrawer} className="flex flex-col gap-4 mt-2">
+            <Input
+              label="Physical Cash Count in Drawer (৳)"
+              type="number"
+              value={closingCashActualTaka}
+              onChange={(e) => setClosingCashActualTaka(parseInt(e.target.value) || 0)}
+              required
+            />
+            <Input
+              label="Variance Explanation (If any difference)"
+              type="text"
+              placeholder="e.g. Small change shortage"
+              value={closingReason}
+              onChange={(e) => setClosingReason(e.target.value)}
+            />
+            <div className="flex gap-3 mt-4 pt-2 border-t border-border">
+              <Button type="submit" className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold">
+                Confirm &amp; Close Shift
+              </Button>
+              <Button type="button" variant="outline" onClick={() => setShowCloseDrawerModal(false)}>
+                Cancel
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* 80mm Cashier Thermal Receipt Dialog */}
+      {receiptData && (
+        <Dialog open={!!receiptData} onOpenChange={() => setReceiptData(null)}>
+          <DialogContent className="max-w-sm" onClose={() => setReceiptData(null)}>
+            <DialogHeader>
+              <DialogTitle className="text-base font-bold">Cashier Receipt</DialogTitle>
+            </DialogHeader>
+
+            <div className="bg-white text-zinc-950 p-4 rounded border border-dashed border-zinc-400 font-mono text-xs text-left mx-auto w-full">
+              <div className="font-bold text-center text-sm">
                 এইচপিসি হেলথ অ্যান্ড পেইন কেয়ার সেন্টার
               </div>
-              <div style={{ fontSize: '11px', color: '#444' }}>
+              <div className="text-[11px] text-center text-zinc-600">
                 HPC Health &amp; Pain Care Center, Jashore
               </div>
-              <div style={{ borderBottom: '1px dashed #000', margin: '8px 0' }} />
-              <div style={{ fontSize: '12px', fontWeight: 'bold' }}>
+              <div className="border-b border-dashed border-zinc-950 my-2" />
+              <div className="font-bold text-center">
                 MONEY RECEIPT · {receiptData.billNumber}
               </div>
-              <div style={{ fontSize: '10px', textAlign: 'left', marginTop: '6px' }}>
+              <div className="text-[10px] mt-1">
                 Patient: <strong>{receiptData.patientName}</strong> (MRN: {receiptData.mrn})
               </div>
-              <div style={{ fontSize: '10px', textAlign: 'left' }}>
+              <div className="text-[10px]">
                 Date: {new Date(receiptData.createdAt).toLocaleString()}
               </div>
 
-              <div style={{ borderBottom: '1px dashed #000', margin: '8px 0' }} />
+              <div className="border-b border-dashed border-zinc-950 my-2" />
 
-              <table style={{ width: '100%', fontSize: '10px', textAlign: 'left' }}>
+              <table className="w-full text-[10px]">
                 <tbody>
                   {receiptData.items.map((it: any, i: number) => (
                     <tr key={i}>
                       <td>{it.description} x{it.quantity}</td>
-                      <td style={{ textAlign: 'right' }}>৳{it.unitPriceTaka * it.quantity}</td>
+                      <td className="text-right">৳{it.unitPriceTaka * it.quantity}</td>
                     </tr>
                   ))}
                   <tr>
-                    <td style={{ borderTop: '1px dashed #ccc', paddingTop: '4px' }}>Subtotal:</td>
-                    <td style={{ borderTop: '1px dashed #ccc', paddingTop: '4px', textAlign: 'right' }}>৳{receiptData.subtotalTaka}</td>
+                    <td className="border-t border-dashed border-zinc-300 pt-1">Subtotal:</td>
+                    <td className="border-t border-dashed border-zinc-300 pt-1 text-right">৳{receiptData.subtotalTaka}</td>
                   </tr>
                   {receiptData.discountTaka > 0 && (
                     <tr>
                       <td>Discount:</td>
-                      <td style={{ textAlign: 'right' }}>-৳{receiptData.discountTaka}</td>
+                      <td className="text-right">-৳{receiptData.discountTaka}</td>
                     </tr>
                   )}
-                  <tr style={{ fontWeight: 'bold' }}>
+                  <tr className="font-bold">
                     <td>Total:</td>
-                    <td style={{ textAlign: 'right' }}>৳{receiptData.totalTaka}</td>
+                    <td className="text-right">৳{receiptData.totalTaka}</td>
                   </tr>
                   <tr>
                     <td>Paid ({receiptData.paymentMethod}):</td>
-                    <td style={{ textAlign: 'right' }}>৳{receiptData.paidTaka}</td>
+                    <td className="text-right">৳{receiptData.paidTaka}</td>
                   </tr>
                   {receiptData.dueTaka > 0 && (
-                    <tr style={{ color: 'red', fontWeight: 'bold' }}>
+                    <tr className="text-red-600 font-bold">
                       <td>Due:</td>
-                      <td style={{ textAlign: 'right' }}>৳{receiptData.dueTaka}</td>
+                      <td className="text-right">৳{receiptData.dueTaka}</td>
                     </tr>
                   )}
                 </tbody>
               </table>
 
-              <div style={{ borderBottom: '1px dashed #000', margin: '8px 0' }} />
-              <div style={{ fontSize: '10px', color: '#555' }}>Thank you for visiting HPC Jashore!</div>
+              <div className="border-b border-dashed border-zinc-950 my-2" />
+              <div className="text-[10px] text-center text-zinc-600">Thank you for visiting HPC Jashore!</div>
             </div>
 
-            <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.25rem' }}>
-              <button className="btn" style={{ flex: 1 }} onClick={() => window.print()}>
+            <div className="flex gap-3 mt-4 pt-2 border-t border-border">
+              <Button
+                type="button"
+                className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
+                onClick={() => window.print()}
+              >
                 🖨️ Print Receipt
-              </button>
-              <button className="btn btn-secondary" onClick={() => setReceiptData(null)}>
+              </Button>
+              <Button type="button" variant="outline" onClick={() => setReceiptData(null)}>
                 Close
-              </button>
+              </Button>
             </div>
-          </div>
-        </div>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );
