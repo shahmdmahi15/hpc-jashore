@@ -3,29 +3,22 @@
 
 import * as React from 'react';
 import {
-  ClipboardList,
-  Stethoscope,
-  Activity,
-  CreditCard,
-  Pill,
   ShieldCheck,
   Tv,
   Clock,
   CalendarDays,
   Maximize2,
   Minimize2,
-  User,
   Radio,
   LogOut,
 } from 'lucide-react';
-import { DEMO_ACCOUNTS, quickLogin, UserSession, clearSession } from '../lib/api';
+import { UserSession, clearSession } from '../lib/api';
 import { BrandLogo } from './brand/logo';
 import { NavbarSwitchers } from './NavbarSwitchers';
 import { useLanguage } from '../lib/i18n';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { cn } from '../lib/utils';
-import { Select } from './ui/select';
 import { Button } from './ui/button';
 
 interface HeaderProps {
@@ -50,7 +43,6 @@ export default function Header({
 }: HeaderProps) {
   const router = useRouter();
   const { language } = useLanguage();
-  const [switching, setSwitching] = React.useState(false);
   const [isFullscreen, setIsFullscreen] = React.useState(false);
   const [currentTime, setCurrentTime] = React.useState<Date | null>(null);
 
@@ -66,20 +58,6 @@ export default function Header({
       document.documentElement.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => {});
     } else {
       document.exitFullscreen().then(() => setIsFullscreen(false)).catch(() => {});
-    }
-  };
-
-  const handleQuickSwitch = async (role: keyof typeof DEMO_ACCOUNTS) => {
-    try {
-      setSwitching(true);
-      const newSession = await quickLogin(role);
-      onSessionChange(newSession);
-      toast.success(`Logged in as ${newSession.displayName || newSession.email} (${newSession.role})`);
-      router.push('/admin');
-    } catch (e: any) {
-      toast.error(`Login failed: ${e.message}`);
-    } finally {
-      setSwitching(false);
     }
   };
 
@@ -168,23 +146,6 @@ export default function Header({
           </span>
         </div>
 
-        {/* Role Quick Switcher */}
-        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-card border border-border/80 shadow-2xs">
-          <User className="size-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-          <Select
-            className="bg-transparent border-none text-xs font-semibold text-foreground focus:outline-none cursor-pointer pr-1 h-auto py-0 shadow-none"
-            value={session?.role || 'head_doctor'}
-            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleQuickSwitch(e.target.value as any)}
-            disabled={switching}
-          >
-            <option value="head_doctor" className="bg-card text-foreground">Dr. Toufiq (Head)</option>
-            <option value="doctor" className="bg-card text-foreground">Dr. Physio (Doctor)</option>
-            <option value="reception" className="bg-card text-foreground">Reception Desk</option>
-            <option value="therapist" className="bg-card text-foreground">Therapy Staff</option>
-            <option value="cashier" className="bg-card text-foreground">Cashier Desk</option>
-            <option value="admin" className="bg-card text-foreground">Clinic Admin</option>
-          </Select>
-        </div>
 
         {/* Fullscreen Toggle */}
         <Button

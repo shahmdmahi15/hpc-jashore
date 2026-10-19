@@ -1,7 +1,7 @@
 // apps/web/components/AdminDashboardView.tsx
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { api, UserSession, getSession } from '../lib/api';
 import { useLanguage } from '../lib/i18n';
 import { toast } from 'sonner';
@@ -12,14 +12,11 @@ import {
   Calendar,
   CheckCircle2,
   Clock,
-  Coins,
   CreditCard,
   DollarSign,
   Download,
   FileSpreadsheet,
   Layers,
-  LogOut,
-  Pill,
   Printer,
   RefreshCw,
   Search,
@@ -29,6 +26,12 @@ import {
   UserCheck,
   Users,
   Zap,
+  Phone,
+  Mail,
+  UserPlus,
+  Tv,
+  ArrowUpRight,
+  Filter,
 } from 'lucide-react';
 
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './ui/card';
@@ -40,16 +43,9 @@ import { Label } from './ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { Separator } from './ui/separator';
-import { Alert, AlertDescription } from './ui/alert';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from './ui/dropdown-menu';
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from './ui/breadcrumb';
-
-// Integrated Specialized Workstation Views
-import ReceptionView from './ReceptionView';
-import DoctorChamberView from './DoctorChamberView';
-import TherapyHallView from './TherapyHallView';
-import CashierView from './CashierView';
-import PharmacyView from './PharmacyView';
+import Link from 'next/link';
 
 export interface AdminDashboardViewProps {
   session?: UserSession | null;
@@ -67,12 +63,16 @@ export default function AdminDashboardView({ session: propSession }: AdminDashbo
     }
   }, [session]);
 
-  const [activeTab, setActiveTab] = useState<string>('analytics');
+  const [activeTab, setActiveTab] = useState<'overview' | 'staffs'>('overview');
   const [summary, setSummary] = useState<any>(null);
   const [modalities, setModalities] = useState<any[]>([]);
   const [doctors, setDoctors] = useState<any[]>([]);
   const [staffList, setStaffList] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+
+  // Staff Search & Filter State
+  const [staffSearch, setStaffSearch] = useState('');
+  const [roleFilter, setRoleFilter] = useState('ALL');
 
   // Attendance Punch State
   const [punchStaffId, setPunchStaffId] = useState('');
@@ -99,7 +99,7 @@ export default function AdminDashboardView({ session: propSession }: AdminDashbo
       }
     } catch (err: any) {
       console.error(err);
-      toast.error(isBn ? 'তথ্য লোড করতে ত্রুটি হয়েছে' : 'Failed to load executive metrics');
+      toast.error(isBn ? 'মেট্রিক্স লোড করতে ত্রুটি হয়েছে' : 'Failed to load executive metrics');
     } finally {
       setLoading(false);
     }
@@ -107,6 +107,18 @@ export default function AdminDashboardView({ session: propSession }: AdminDashbo
 
   useEffect(() => {
     loadData();
+  }, []);
+
+  // Keyboard navigation for TV / Power-Users (1: Overview, 2: Staffs, R: Refresh)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement)?.tagName)) return;
+      if (e.key === '1') setActiveTab('overview');
+      if (e.key === '2') setActiveTab('staffs');
+      if (e.key === 'r' || e.key === 'R') loadData();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
   const handlePunchAttendance = async (e: React.FormEvent) => {
@@ -135,10 +147,63 @@ export default function AdminDashboardView({ session: propSession }: AdminDashbo
     }
   };
 
+  // Filtered staff list
+  const filteredStaff = useMemo(() => {
+    return staffList.filter((s) => {
+      const matchesSearch =
+        !staffSearch.trim() ||
+        s.fullName?.toLowerCase().includes(staffSearch.toLowerCase()) ||
+        s.email?.toLowerCase().includes(staffSearch.toLowerCase()) ||
+        s.phone?.includes(staffSearch) ||
+        s.role?.toLowerCase().includes(staffSearch.toLowerCase());
+
+      const matchesRole = roleFilter === 'ALL' || s.role === roleFilter;
+
+      return matchesSearch && matchesRole;
+    });
+  }, [staffList, staffSearch, roleFilter]);
+
+  // Role distribution counts
+  const roleCounts = useMemo(() => {
+    const counts = {
+      head_doctor: 0,
+      doctor: 0,
+      therapist: 0,
+      reception: 0,
+      cashier: 0,
+      admin: 0,
+    };
+    staffList.forEach((s) => {
+      if (s.role in counts) {
+        counts[s.role as keyof typeof counts]++;
+      }
+    });
+    return counts;
+  }, [staffList]);
+
+  const getRoleBadge = (role: string) => {
+    switch (role) {
+      case 'head_doctor':
+        return <Badge variant="emerald" className="font-semibold">{isBn ? 'প্রধান চিকিৎসক' : 'Head Doctor'}</Badge>;
+      case 'doctor':
+        return <Badge variant="default" className="bg-blue-600 text-white font-semibold">{isBn ? 'ফিজিওথেরাপি চিকিৎসক' : 'Physio Doctor'}</Badge>;
+      case 'therapist':
+        return <Badge variant="secondary" className="bg-amber-500/15 text-amber-700 dark:text-amber-400 font-semibold">{isBn ? 'থেরাপিস্ট' : 'Therapist'}</Badge>;
+      case 'reception':
+        return <Badge variant="outline" className="border-purple-500/30 text-purple-600 dark:text-purple-400 font-semibold">{isBn ? 'রিসেপশনিস্ট' : 'Receptionist'}</Badge>;
+      case 'cashier':
+        return <Badge variant="secondary" className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 font-semibold">{isBn ? 'ক্যাশিয়ার' : 'Cashier'}</Badge>;
+      case 'admin':
+        return <Badge variant="secondary" className="bg-rose-500/15 text-rose-700 dark:text-rose-400 font-semibold">{isBn ? 'অ্যাডমিন' : 'Admin'}</Badge>;
+      default:
+        return <Badge variant="outline">{role}</Badge>;
+    }
+  };
+
   return (
-    <div className="flex flex-col gap-5 sm:gap-6 w-full max-w-full overflow-x-hidden">
+    <div className="flex flex-col gap-5 sm:gap-6 w-full max-w-full overflow-x-hidden pb-10">
       {/* Top Header & Breadcrumb */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-border/60">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border/60">
         <div>
           <Breadcrumb className="mb-1.5">
             <BreadcrumbList>
@@ -147,13 +212,13 @@ export default function AdminDashboardView({ session: propSession }: AdminDashbo
               </BreadcrumbItem>
               <BreadcrumbSeparator />
               <BreadcrumbItem>
-                <BreadcrumbPage>{isBn ? 'অ্যাডমিন ওয়ার্কস্টেশন' : 'Admin Workstation'}</BreadcrumbPage>
+                <BreadcrumbPage>{isBn ? 'অ্যাডমিন ওয়ার্কস্টেশন' : 'Admin Hub'}</BreadcrumbPage>
               </BreadcrumbItem>
             </BreadcrumbList>
           </Breadcrumb>
           <div className="flex items-center gap-2.5">
             <h1 className="text-xl sm:text-2xl md:text-3xl font-black text-foreground tracking-tight">
-              {isBn ? 'এইচপিসি যশোর — প্রশাসনিক ও ক্লিনিক্যাল হাব' : 'HPC Jashore — Unified Admin & Clinical Hub'}
+              {isBn ? 'এইচপিসি যশোর — প্রশাসনিক ড্যাশবোর্ড' : 'HPC Jashore — Admin Dashboard'}
             </h1>
             <Badge variant="emerald" className="hidden sm:inline-flex gap-1 text-[11px] font-bold">
               <ShieldCheck className="size-3" />
@@ -162,12 +227,12 @@ export default function AdminDashboardView({ session: propSession }: AdminDashbo
           </div>
           <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
             {isBn
-              ? 'দৈনিক ক্লিনিক্যাল ব্যবস্থাপনা, রোগী টোকেন, থেরাপি বেড মেট্রিক্স ও আর্থিক অডিট।'
-              : 'Complete clinical operations, patient intake, bed management & executive P&L.'}
+              ? 'ক্লিনিক্যাল সামগ্রিক তথ্য, রাজস্ব আয়, থেরাপি বেড মেট্রিক্স ও কর্মী ব্যবস্থাপনা।'
+              : 'Executive clinical KPIs, collections, bed management & staff operations.'}
           </p>
         </div>
 
-        {/* Global Actions */}
+        {/* Global Header Actions */}
         <div className="flex items-center gap-2 self-start sm:self-center">
           <Button
             variant="outline"
@@ -180,6 +245,13 @@ export default function AdminDashboardView({ session: propSession }: AdminDashbo
             <span>{isBn ? 'রিফ্রেশ' : 'Refresh'}</span>
           </Button>
 
+          <Link href="/tv" target="_blank">
+            <Button variant="outline" size="sm" className="rounded-xl gap-1.5 text-xs font-bold hidden md:inline-flex">
+              <Tv className="size-3.5 text-emerald-500" />
+              <span>{isBn ? 'টিভি কিউ ডিসপ্লে' : 'TV Queue'}</span>
+            </Button>
+          </Link>
+
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="secondary" size="sm" className="rounded-xl gap-1.5 text-xs font-bold">
@@ -190,11 +262,11 @@ export default function AdminDashboardView({ session: propSession }: AdminDashbo
             <DropdownMenuContent align="end" className="w-48">
               <DropdownMenuLabel>{isBn ? 'এক্সপোর্ট রিপোর্ট' : 'Export Reports'}</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => window.print()} className="gap-2">
+              <DropdownMenuItem onClick={() => window.print()} className="gap-2 cursor-pointer">
                 <Printer className="size-3.5 text-emerald-500" />
                 <span>{isBn ? 'প্রিন্ট সামারি' : 'Print Summary'}</span>
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => toast.info('Exporting CSV...')} className="gap-2">
+              <DropdownMenuItem onClick={() => toast.info('Exporting report...')} className="gap-2 cursor-pointer">
                 <Download className="size-3.5 text-teal-500" />
                 <span>{isBn ? 'CSV ডাউনলোড' : 'Download CSV'}</span>
               </DropdownMenuItem>
@@ -203,43 +275,38 @@ export default function AdminDashboardView({ session: propSession }: AdminDashbo
         </div>
       </div>
 
-      {/* Main Unified Navigation Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <div className="overflow-x-auto pb-1 scrollbar-thin">
-          <TabsList className="h-11 sm:h-12 p-1 bg-muted/80 backdrop-blur-md rounded-2xl border border-border inline-flex w-full sm:w-auto min-w-max justify-start gap-1">
-            <TabsTrigger value="analytics" className="rounded-xl gap-1.5 text-xs sm:text-sm font-bold data-[state=active]:bg-card data-[state=active]:text-emerald-500 data-[state=active]:shadow-xs">
+      {/* Main Tabs: Overview and Staffs */}
+      <Tabs value={activeTab} onValueChange={(val) => setActiveTab(val as 'overview' | 'staffs')} className="w-full">
+        <div className="overflow-x-auto pb-1 scrollbar-none">
+          <TabsList className="h-11 sm:h-12 p-1 bg-muted/80 backdrop-blur-md rounded-2xl border border-border inline-flex w-full sm:w-auto min-w-[280px] justify-start gap-1">
+            <TabsTrigger
+              value="overview"
+              className="flex-1 sm:flex-initial rounded-xl px-4 py-2 gap-2 text-xs sm:text-sm font-bold data-[state=active]:bg-card data-[state=active]:text-emerald-600 dark:data-[state=active]:text-emerald-400 data-[state=active]:shadow-xs transition-all cursor-pointer"
+            >
               <BarChart3 className="size-4" />
-              <span>{isBn ? 'এক্সিকিউটিভ ড্যাশবোর্ড' : 'Executive Overview'}</span>
+              <span>{isBn ? 'সারসংক্ষেপ (Overview)' : 'Overview'}</span>
             </TabsTrigger>
-            <TabsTrigger value="reception" className="rounded-xl gap-1.5 text-xs sm:text-sm font-bold data-[state=active]:bg-card data-[state=active]:text-emerald-500 data-[state=active]:shadow-xs">
+            <TabsTrigger
+              value="staffs"
+              className="flex-1 sm:flex-initial rounded-xl px-4 py-2 gap-2 text-xs sm:text-sm font-bold data-[state=active]:bg-card data-[state=active]:text-emerald-600 dark:data-[state=active]:text-emerald-400 data-[state=active]:shadow-xs transition-all cursor-pointer"
+            >
               <Users className="size-4" />
-              <span>{isBn ? 'রিসেপশন ও রোগী' : 'Reception Desk'}</span>
-            </TabsTrigger>
-            <TabsTrigger value="doctor" className="rounded-xl gap-1.5 text-xs sm:text-sm font-bold data-[state=active]:bg-card data-[state=active]:text-emerald-500 data-[state=active]:shadow-xs">
-              <Stethoscope className="size-4" />
-              <span>{isBn ? 'ডাক্তার চেম্বার' : 'Doctor Chamber'}</span>
-            </TabsTrigger>
-            <TabsTrigger value="therapy" className="rounded-xl gap-1.5 text-xs sm:text-sm font-bold data-[state=active]:bg-card data-[state=active]:text-emerald-500 data-[state=active]:shadow-xs">
-              <Zap className="size-4" />
-              <span>{isBn ? 'থেরাপি হল' : 'Therapy Hall'}</span>
-            </TabsTrigger>
-            <TabsTrigger value="cashier" className="rounded-xl gap-1.5 text-xs sm:text-sm font-bold data-[state=active]:bg-card data-[state=active]:text-emerald-500 data-[state=active]:shadow-xs">
-              <Coins className="size-4" />
-              <span>{isBn ? 'ক্যাশিয়ার ও বিলিং' : 'Cashier & Billing'}</span>
-            </TabsTrigger>
-            <TabsTrigger value="pharmacy" className="rounded-xl gap-1.5 text-xs sm:text-sm font-bold data-[state=active]:bg-card data-[state=active]:text-emerald-500 data-[state=active]:shadow-xs">
-              <Pill className="size-4" />
-              <span>{isBn ? 'ফার্মেসি' : 'Pharmacy'}</span>
+              <span>{isBn ? 'কর্মী ও হাজিরা (Staffs)' : 'Staffs'}</span>
+              <span className="ml-1 text-2xs px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-mono">
+                {staffList.length}
+              </span>
             </TabsTrigger>
           </TabsList>
         </div>
 
-        {/* Tab 1: Executive Analytics & P&L */}
-        <TabsContent value="analytics" className="space-y-6 mt-4">
+        {/* ========================================================================= */}
+        {/* TAB 1: OVERVIEW                                                           */}
+        {/* ========================================================================= */}
+        <TabsContent value="overview" className="space-y-6 mt-4">
           {/* Executive Stat Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* 1. Footfall */}
-            <Card className="rounded-2xl border-border bg-card/90 shadow-sm hover:shadow-md transition-shadow">
+            <Card className="rounded-2xl border-border bg-card/90 shadow-2xs hover:shadow-md transition-all">
               <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
                 <CardTitle className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
                   {isBn ? 'আজকের মোট রোগী' : "Today's Footfall"}
@@ -254,13 +321,13 @@ export default function AdminDashboardView({ session: propSession }: AdminDashbo
                 </div>
                 <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
                   <TrendingUp className="size-3 text-emerald-500" />
-                  <span>{isBn ? 'রেজিস্টার্ড চেক-ইন' : 'Registered patient check-ins'}</span>
+                  <span>{isBn ? 'রেজিস্টার্ড রোগী চেক-ইন' : 'Registered patient check-ins'}</span>
                 </p>
               </CardContent>
             </Card>
 
             {/* 2. Gross Collections */}
-            <Card className="rounded-2xl border-border bg-card/90 shadow-sm hover:shadow-md transition-shadow">
+            <Card className="rounded-2xl border-border bg-card/90 shadow-2xs hover:shadow-md transition-all">
               <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
                 <CardTitle className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
                   {isBn ? 'মোট আদায়' : 'Gross Collections'}
@@ -280,7 +347,7 @@ export default function AdminDashboardView({ session: propSession }: AdminDashbo
             </Card>
 
             {/* 3. Bed Occupancy */}
-            <Card className="rounded-2xl border-border bg-card/90 shadow-sm hover:shadow-md transition-shadow">
+            <Card className="rounded-2xl border-border bg-card/90 shadow-2xs hover:shadow-md transition-all">
               <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
                 <CardTitle className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
                   {isBn ? 'বেড ব্যবহারের হার' : 'Bed Occupancy'}
@@ -300,7 +367,7 @@ export default function AdminDashboardView({ session: propSession }: AdminDashbo
             </Card>
 
             {/* 4. Pending Dues */}
-            <Card className="rounded-2xl border-border bg-card/90 shadow-sm hover:shadow-md transition-shadow">
+            <Card className="rounded-2xl border-border bg-card/90 shadow-2xs hover:shadow-md transition-all">
               <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
                 <CardTitle className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
                   {isBn ? 'বকেয়া পাওনা' : 'Pending Patient Dues'}
@@ -323,7 +390,7 @@ export default function AdminDashboardView({ session: propSession }: AdminDashbo
           {/* Breakdown Tables in Responsive 2-Column Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
             {/* Modality Utilization */}
-            <Card className="rounded-2xl border-border shadow-sm">
+            <Card className="rounded-2xl border-border shadow-2xs">
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-base sm:text-lg font-bold flex items-center gap-2">
@@ -373,7 +440,7 @@ export default function AdminDashboardView({ session: propSession }: AdminDashbo
             </Card>
 
             {/* Doctor Chamber Consultations */}
-            <Card className="rounded-2xl border-border shadow-sm">
+            <Card className="rounded-2xl border-border shadow-2xs">
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-base sm:text-lg font-bold flex items-center gap-2">
@@ -423,17 +490,94 @@ export default function AdminDashboardView({ session: propSession }: AdminDashbo
             </Card>
           </div>
 
-          {/* Staff Time & Attendance Kiosk using Shadcn Card & Inputs */}
-          <Card className="rounded-2xl border-border shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-base sm:text-lg font-bold flex items-center gap-2">
-                <Clock className="size-4 text-emerald-500" />
-                <span>{isBn ? 'কর্মীদের হাজিরা ও সময় পর্যবেক্ষণ কিয়স্ক' : 'Staff Time & Attendance Kiosk'}</span>
-              </CardTitle>
+          {/* Quick Clinic Highlights / System Status */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <Card className="rounded-2xl border-border bg-muted/40 p-4 flex items-center gap-3">
+              <div className="size-10 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center shrink-0">
+                <Clock className="size-5" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground font-medium">{isBn ? 'ক্লিনিক সময়সূচী' : 'Clinic Hours'}</p>
+                <p className="text-sm font-bold text-foreground">08:00 AM – 10:00 PM</p>
+              </div>
+            </Card>
+
+            <Card className="rounded-2xl border-border bg-muted/40 p-4 flex items-center gap-3">
+              <div className="size-10 rounded-xl bg-blue-500/10 text-blue-500 flex items-center justify-center shrink-0">
+                <Activity className="size-5" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground font-medium">{isBn ? 'রিয়েলটাইম কিউ সংযোগ' : 'Realtime Queue Stream'}</p>
+                <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                  <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span>{isBn ? 'সক্রিয় (SSE / Socket.IO)' : 'Active (SSE / Socket.IO)'}</span>
+                </p>
+              </div>
+            </Card>
+
+            <Card className="rounded-2xl border-border bg-muted/40 p-4 flex items-center gap-3">
+              <div className="size-10 rounded-xl bg-purple-500/10 text-purple-500 flex items-center justify-center shrink-0">
+                <Tv className="size-5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs text-muted-foreground font-medium">{isBn ? 'ওয়েটিং রুম টিভি' : 'Waiting Room TV'}</p>
+                <Link href="/tv" target="_blank" className="text-sm font-bold text-foreground hover:text-emerald-500 flex items-center gap-1">
+                  <span>/tv</span>
+                  <ArrowUpRight className="size-3.5" />
+                </Link>
+              </div>
+            </Card>
+          </div>
+        </TabsContent>
+
+        {/* ========================================================================= */}
+        {/* TAB 2: STAFFS & ATTENDANCE                                                */}
+        {/* ========================================================================= */}
+        <TabsContent value="staffs" className="space-y-6 mt-4">
+          {/* Staff Roles Distribution Cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            <Card className="rounded-2xl border-border bg-card p-3 shadow-2xs text-center">
+              <p className="text-2xs font-semibold text-muted-foreground uppercase">{isBn ? 'মোট কর্মী' : 'Total Staff'}</p>
+              <p className="text-xl sm:text-2xl font-black text-foreground mt-0.5">{staffList.length}</p>
+            </Card>
+            <Card className="rounded-2xl border-border bg-card p-3 shadow-2xs text-center">
+              <p className="text-2xs font-semibold text-muted-foreground uppercase">{isBn ? 'চিকিৎসক' : 'Doctors'}</p>
+              <p className="text-xl sm:text-2xl font-black text-blue-600 dark:text-blue-400 mt-0.5">
+                {roleCounts.head_doctor + roleCounts.doctor}
+              </p>
+            </Card>
+            <Card className="rounded-2xl border-border bg-card p-3 shadow-2xs text-center">
+              <p className="text-2xs font-semibold text-muted-foreground uppercase">{isBn ? 'থেরাপিস্ট' : 'Therapists'}</p>
+              <p className="text-xl sm:text-2xl font-black text-amber-500 mt-0.5">{roleCounts.therapist}</p>
+            </Card>
+            <Card className="rounded-2xl border-border bg-card p-3 shadow-2xs text-center">
+              <p className="text-2xs font-semibold text-muted-foreground uppercase">{isBn ? 'রিসেপশনিস্ট' : 'Reception'}</p>
+              <p className="text-xl sm:text-2xl font-black text-purple-500 mt-0.5">{roleCounts.reception}</p>
+            </Card>
+            <Card className="rounded-2xl border-border bg-card p-3 shadow-2xs text-center">
+              <p className="text-2xs font-semibold text-muted-foreground uppercase">{isBn ? 'ক্যাশিয়ার' : 'Cashiers'}</p>
+              <p className="text-xl sm:text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-0.5">{roleCounts.cashier}</p>
+            </Card>
+            <Card className="rounded-2xl border-border bg-card p-3 shadow-2xs text-center">
+              <p className="text-2xs font-semibold text-muted-foreground uppercase">{isBn ? 'অ্যাডমিন' : 'Admins'}</p>
+              <p className="text-xl sm:text-2xl font-black text-rose-500 mt-0.5">{roleCounts.admin}</p>
+            </Card>
+          </div>
+
+          {/* Time & Attendance Kiosk */}
+          <Card className="rounded-2xl border-border shadow-2xs bg-card/95">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base sm:text-lg font-bold flex items-center gap-2">
+                  <Clock className="size-4 text-emerald-500" />
+                  <span>{isBn ? 'কর্মীদের হাজিরা ও সময় পর্যবেক্ষণ কিয়স্ক' : 'Staff Time & Attendance Kiosk'}</span>
+                </CardTitle>
+                <Badge variant="outline" className="text-xs font-mono">PIN-Verified</Badge>
+              </div>
               <CardDescription>
                 {isBn
                   ? 'রিসেপশন, ফিজিওথেরাপিস্ট ও সহকারী কর্মীদের ইন/আউট পাঞ্চ যাচাইকরণ।'
-                  : 'Fast PIN-verified attendance logging for receptionists, therapists, and staff.'}
+                  : 'Fast PIN-verified attendance logging for receptionists, therapists, and clinic staff.'}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -492,36 +636,139 @@ export default function AdminDashboardView({ session: propSession }: AdminDashbo
                   className="w-full h-11 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-xs sm:text-sm gap-2"
                 >
                   <UserCheck className="size-4" />
-                  <span>{punching ? (isBn ? 'রেকর্ড হচ্ছে...' : 'Recording...') : (isBn ? 'পাঞ্চ সম্পন্ন করুন' : 'Submit Punch')}</span>
+                  <span>
+                    {punching
+                      ? (isBn ? 'রেকর্ড হচ্ছে...' : 'Recording...')
+                      : (isBn ? 'পাঞ্চ সম্পন্ন করুন' : 'Submit Punch')}
+                  </span>
                 </Button>
               </form>
             </CardContent>
           </Card>
-        </TabsContent>
 
-        {/* Tab 2: Integrated Reception View */}
-        <TabsContent value="reception" className="mt-4">
-          <ReceptionView />
-        </TabsContent>
+          {/* Staff Roster / Directory */}
+          <Card className="rounded-2xl border-border shadow-2xs">
+            <CardHeader className="pb-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <CardTitle className="text-base sm:text-lg font-bold flex items-center gap-2">
+                    <Users className="size-4 text-emerald-500" />
+                    <span>{isBn ? 'ক্লিনিক কর্মী তালিকা ও রোস্টার' : 'Staff Directory & Duty Roster'}</span>
+                  </CardTitle>
+                  <CardDescription>
+                    {isBn ? 'সকল কর্মকর্তা, চিকিৎসক ও সহকারীদের দায়িত্ব ও তথ্য' : 'Active clinic team members, assigned chambers & roles'}
+                  </CardDescription>
+                </div>
 
-        {/* Tab 3: Integrated Doctor Chamber View */}
-        <TabsContent value="doctor" className="mt-4">
-          <DoctorChamberView session={session} />
-        </TabsContent>
+                {/* Search & Filters */}
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                  <div className="relative w-full sm:w-60">
+                    <Search className="size-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      type="text"
+                      placeholder={isBn ? 'কর্মী খুঁজুন...' : 'Search staff...'}
+                      value={staffSearch}
+                      onChange={(e) => setStaffSearch(e.target.value)}
+                      className="pl-8 h-9 text-xs rounded-xl"
+                    />
+                  </div>
 
-        {/* Tab 4: Integrated Therapy Hall Bed Matrix View */}
-        <TabsContent value="therapy" className="mt-4">
-          <TherapyHallView session={session} />
-        </TabsContent>
-
-        {/* Tab 5: Integrated Cashier & Billing View */}
-        <TabsContent value="cashier" className="mt-4">
-          <CashierView session={session} />
-        </TabsContent>
-
-        {/* Tab 6: Integrated Pharmacy View */}
-        <TabsContent value="pharmacy" className="mt-4">
-          <PharmacyView />
+                  <Select
+                    value={roleFilter}
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setRoleFilter(e.target.value)}
+                    className="h-9 text-xs rounded-xl w-full sm:w-36"
+                  >
+                    <option value="ALL">{isBn ? 'সকল পদবি' : 'All Roles'}</option>
+                    <option value="head_doctor">{isBn ? 'প্রধান চিকিৎসক' : 'Head Doctor'}</option>
+                    <option value="doctor">{isBn ? 'চিকিৎসক' : 'Doctor'}</option>
+                    <option value="therapist">{isBn ? 'থেরাপিস্ট' : 'Therapist'}</option>
+                    <option value="reception">{isBn ? 'রিসেপশন' : 'Reception'}</option>
+                    <option value="cashier">{isBn ? 'ক্যাশিয়ার' : 'Cashier'}</option>
+                    <option value="admin">{isBn ? 'অ্যাডমিন' : 'Admin'}</option>
+                  </Select>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{isBn ? 'নাম ও পরিচিতি' : 'Staff Member'}</TableHead>
+                      <TableHead>{isBn ? 'পদবি ও ভূমিকা' : 'Role & Specialization'}</TableHead>
+                      <TableHead className="hidden md:table-cell">{isBn ? 'যোগাযোগ' : 'Contact'}</TableHead>
+                      <TableHead className="text-center">{isBn ? 'ডেস্ক / চেম্বার' : 'Assigned Desk'}</TableHead>
+                      <TableHead className="text-right">{isBn ? 'স্ট্যাটাস' : 'Duty Status'}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredStaff.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center py-8 text-muted-foreground text-xs">
+                          {isBn ? 'কোনো কর্মী পাওয়া যায়নি' : 'No staff members found matching criteria'}
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      filteredStaff.map((staff) => (
+                        <TableRow key={staff.id} className="hover:bg-muted/40 transition-colors">
+                          <TableCell>
+                            <div className="flex items-center gap-3">
+                              <div className="size-9 rounded-xl bg-muted font-bold text-foreground flex items-center justify-center text-xs shrink-0 border border-border">
+                                {staff.fullName?.slice(0, 2).toUpperCase() || 'ST'}
+                              </div>
+                              <div className="min-w-0">
+                                <p className="font-semibold text-xs sm:text-sm text-foreground truncate">
+                                  {staff.fullName}
+                                </p>
+                                <p className="text-2xs text-muted-foreground font-mono truncate">
+                                  ID: {staff.id}
+                                </p>
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex flex-col gap-1 items-start">
+                              {getRoleBadge(staff.role)}
+                              {staff.specialization && (
+                                <span className="text-2xs text-muted-foreground">{staff.specialization}</span>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell className="hidden md:table-cell">
+                            <div className="text-xs space-y-0.5 text-muted-foreground">
+                              {staff.email && (
+                                <p className="flex items-center gap-1.5 truncate">
+                                  <Mail className="size-3 text-muted-foreground shrink-0" />
+                                  <span>{staff.email}</span>
+                                </p>
+                              )}
+                              {staff.phone && (
+                                <p className="flex items-center gap-1.5 font-mono truncate">
+                                  <Phone className="size-3 text-muted-foreground shrink-0" />
+                                  <span>{staff.phone}</span>
+                                </p>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-center font-mono text-xs">
+                            <Badge variant="outline" className="text-2xs">
+                              {staff.defaultDeskId || staff.deskId || (isBn ? 'সাধারণ' : 'General')}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <span className="inline-flex items-center gap-1.5 text-2xs font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                              <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                              <span>{isBn ? 'সক্রিয়' : 'On Duty'}</span>
+                            </span>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>
