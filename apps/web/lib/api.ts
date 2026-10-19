@@ -1,14 +1,23 @@
 // apps/web/lib/api.ts
-// Typed API Client for HPC Jashore
+// Typed API Client for HPC Jashore (supports Web, PWA, and native Tauri Windows/Desktop)
 
-import {
-  executeServerAction,
-  loginAction,
-  logoutAction,
-} from '../app/actions/api';
+export function isTauri(): boolean {
+  if (typeof window === 'undefined') return false;
+  return Boolean(
+    (window as any).__TAURI_INTERNALS__ ||
+    (window as any).__TAURI__ ||
+    process.env.NEXT_PUBLIC_IS_TAURI === 'true'
+  );
+}
 
 export function getApiBase(): string {
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    return process.env.NEXT_PUBLIC_API_URL.replace(/\/+$/, '');
+  }
   if (typeof window !== 'undefined') {
+    if (isTauri()) {
+      return localStorage.getItem('hpc_tauri_api_url') || 'https://hpc.toufiquzzaman.com/api';
+    }
     return `${window.location.origin}/api`;
   }
   return 'http://127.0.0.1:4000/api';
@@ -43,7 +52,6 @@ export function setSession(session: UserSession | null) {
 }
 
 export function clearSession() {
-  logoutAction().catch(() => {});
   setSession(null);
 }
 
@@ -64,39 +72,52 @@ export function getSession(): UserSession | null {
 }
 
 /**
- * Route every request through Next.js Server Actions.
- * The backend API is strictly server-only and never exposed to the client.
+ * Universal API fetch client:
+ * Directly invokes the REST API with JWT Bearer authentication.
+ * Seamlessly functions in Web, PWA, and native Tauri runtime.
  */
 export async function apiFetch<T>(
   path: string,
   options: RequestInit = {},
 ): Promise<T> {
   const session = getSession();
-  const method = ((options.method || 'GET').toUpperCase() as
-    | 'GET'
-    | 'POST'
-    | 'PUT'
-    | 'DELETE');
+  const apiBase = getApiBase();
+  const cleanPath = path.startsWith('/') ? path : `/${path}`;
+  const url = `${apiBase}${cleanPath}`;
 
-  let body: any = undefined;
-  if (options.body) {
-    if (typeof options.body === 'string') {
-      try {
-        body = JSON.parse(options.body);
-      } catch {
-        body = options.body;
-      }
-    } else {
-      body = options.body;
-    }
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...((options.headers as Record<string, string>) || {}),
+  };
+
+  if (session?.accessToken) {
+    headers['Authorization'] = `Bearer ${session.accessToken}`;
   }
 
-  return executeServerAction<T>(
-    path,
-    method,
-    body,
-    session?.accessToken,
-  );
+  const res = await fetch(url, {
+    ...options,
+    headers,
+  });
+
+  if (!res.ok) {
+    let errorMsg = `API request failed: ${res.status} ${res.statusText}`;
+    try {
+      const errJson = await res.json();
+      errorMsg = errJson.message || errJson.error || errorMsg;
+      if (Array.isArray(errorMsg)) {
+        errorMsg = errorMsg.join(', ');
+      }
+    } catch {
+      // non-JSON error
+    }
+    throw new Error(errorMsg);
+  }
+
+  const contentType = res.headers.get('content-type');
+  if (contentType && contentType.includes('application/json')) {
+    return (await res.json()) as T;
+  }
+  return {} as T;
 }
 
 // Demo Quick-Login accounts seeded in Phase 0-1
@@ -146,15 +167,39 @@ export const DEMO_ACCOUNTS = {
 } as const;
 
 export async function loginWithEmail(email: string, password: string) {
-  const sessionData = await loginAction({ email, password });
+  const data = await apiFetch<{
+    accessToken: string;
+    user: { id: string; email: string; role: string; displayName: string };
+  }>('/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ email, password }),
+  });
+
   const session: UserSession = {
-    accessToken: sessionData.accessToken,
-    userId: sessionData.userId,
-    email: sessionData.email,
-    role: sessionData.role as any,
-    displayName: sessionData.displayName,
-    staffId: sessionData.staffId,
+    accessToken: data.accessToken,
+    userId: data.user.id,
+    email: data.user.email,
+    role: data.user.role as any,
+    displayName: data.user.displayName,
+    staffId: undefined,
   };
+
+  // Find associated staff profile if available
+  try {
+    const staffList = await apiFetch<any[]>('/staff', {
+      headers: {
+        Authorization: `Bearer ${session.accessToken}`,
+      },
+    });
+    const matched = staffList.find(
+      (s) => s.userId === session.userId || s.role === session.role,
+    );
+    if (matched) {
+      session.staffId = matched.id;
+    }
+  } catch {
+    // fallback gracefully
+  }
 
   setSession(session);
   return session;

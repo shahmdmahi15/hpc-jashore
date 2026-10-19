@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "next dev --port 3000",
     "build": "next build",
+    "build:export": "OUTPUT_MODE=export next build",
     "start": "next start --port 3000",
     "lint": "node --max-old-space-size=4096 ./node_modules/typescript/bin/tsc --noEmit"
   },
