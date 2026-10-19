@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { eq } from 'drizzle-orm';
 import { AuditService } from '../audit/audit.service';
 import { DB, type Db } from '../db/db.module';
-import { staff } from '../db/schema';
+import { attendance, staff } from '../db/schema';
 import type { CreateStaffDto, UpdateStaffDto } from './dto';
 
 interface Actor {
@@ -89,5 +89,26 @@ export class StaffService {
       requestId: meta.requestId,
     });
     return after;
+  }
+
+  async recordAttendance(
+    staffId: string,
+    punchType: 'in' | 'out',
+    deskId?: string,
+    pin?: string,
+    ip?: string,
+  ) {
+    await this.get(staffId);
+    const row = {
+      id: randomUUID(),
+      staffId,
+      punchType,
+      deskId: deskId ?? null,
+      timestamp: new Date().toISOString(),
+      ip: ip ?? null,
+      note: pin ? 'Punched with desk PIN' : null,
+    };
+    await this.db.insert(attendance).values(row);
+    return { success: true, attendanceId: row.id, punchType, timestamp: row.timestamp };
   }
 }

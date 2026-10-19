@@ -8,7 +8,9 @@ import {
   dues,
   expenses,
   feedback,
+  modalities,
   payments,
+  prescriptions,
   staff,
   therapySessions,
   visits,
@@ -66,10 +68,17 @@ export class ReportsService {
         .from(therapySessions)
         .where(eq(therapySessions.status, 'in_progress'))
     ).length;
+    const bedOccupancyPercent = totalBeds > 0 ? Math.round((occupiedBeds / totalBeds) * 100) : 0;
 
     return {
       date: targetDate,
-      footfall: {
+      // Flat properties for direct widget consumption
+      footfall: totalFootfall,
+      grossCollectionsPaisa: totalCollectionPaisa,
+      bedOccupancyPercent,
+      totalDuesPaisa: totalPendingDuesPaisa,
+      // Nested detailed properties for comprehensive reports
+      footfallDetails: {
         total: totalFootfall,
         completed: completedVisits,
         activeInClinic: totalFootfall - completedVisits,
@@ -94,9 +103,90 @@ export class ReportsService {
       occupancy: {
         totalBeds,
         occupiedBeds,
-        ratePercent: totalBeds > 0 ? Math.round((occupiedBeds / totalBeds) * 100) : 0,
+        ratePercent: bedOccupancyPercent,
       },
     };
+  }
+
+  async getModalityStats(dateString?: string) {
+    const targetDate = dateString ?? new Date().toISOString().slice(0, 10);
+    const allMods = await this.db.select().from(modalities).where(eq(modalities.isActive, 1));
+    const allSessions = await this.db.select().from(therapySessions);
+    const daySessions = allSessions.filter(
+      (s) =>
+        s.createdAt.startsWith(targetDate) ||
+        (s.startedAt && s.startedAt.startsWith(targetDate)),
+    );
+
+    // Standard clinical modalities at HPC Jashore
+    const standardModalities = [
+      { code: 'traction', nameEn: 'Traction Therapy (Cervical / Lumbar)', nameBn: 'ট্র্যাকশন থেরাপি', pricePaisa: 40000 },
+      { code: 'swd', nameEn: 'Shortwave Diathermy (SWD)', nameBn: 'শর্টওয়েভ ডায়াথার্মি', pricePaisa: 35000 },
+      { code: 'ust', nameEn: 'Therapeutic Ultrasound (UST)', nameBn: 'আল্ট্রাসাউন্ড থেরাপি', pricePaisa: 30000 },
+      { code: 'laser', nameEn: 'Class-IV Deep Tissue Laser', nameBn: 'লেজার থেরাপি', pricePaisa: 60000 },
+      { code: 'exercise', nameEn: 'Manual & Exercise Therapy', nameBn: 'এক্সারসাইজ থেরাপি', pricePaisa: 50000 },
+    ];
+
+    if (allMods.length === 0) {
+      return standardModalities.map((sm) => {
+        const modSessions = daySessions.filter((s) => s.modalityCode === sm.code);
+        return {
+          id: sm.code,
+          code: sm.code,
+          nameEn: sm.nameEn,
+          nameBn: sm.nameBn,
+          sessionCount: modSessions.length,
+          revenuePaisa: modSessions.length * sm.pricePaisa,
+        };
+      });
+    }
+
+    return allMods.map((m) => {
+      const modSessions = daySessions.filter((s) => s.modalityCode === m.code);
+      return {
+        id: m.id,
+        code: m.code,
+        nameEn: m.nameEn,
+        nameBn: m.nameBn,
+        sessionCount: modSessions.length,
+        revenuePaisa: modSessions.length * m.defaultPricePaisa,
+      };
+    });
+  }
+
+  async getDoctorStats(dateString?: string) {
+    const targetDate = dateString ?? new Date().toISOString().slice(0, 10);
+    const doctors = await this.db
+      .select()
+      .from(staff)
+      .where(and(eq(staff.role, 'doctor'), eq(staff.isActive, 1)));
+
+    const headDoctors = await this.db
+      .select()
+      .from(staff)
+      .where(and(eq(staff.role, 'head_doctor'), eq(staff.isActive, 1)));
+
+    const allDocs = [...headDoctors, ...doctors];
+    const allConsults = await this.db.select().from(consultations);
+    const allPrescriptions = await this.db.select().from(prescriptions);
+
+    return allDocs.map((doc) => {
+      const docConsults = allConsults.filter(
+        (c) => c.doctorId === doc.id && c.createdAt.startsWith(targetDate),
+      );
+      const docPrescripts = allPrescriptions.filter(
+        (p) => p.doctorId === doc.id && p.createdAt.startsWith(targetDate),
+      );
+
+      return {
+        id: doc.id,
+        name: doc.fullName,
+        specialization: doc.specialization || 'Physiotherapy & Rehabilitation',
+        patientsSeen: docConsults.length,
+        prescriptionsCount: docPrescripts.length,
+        feePaisa: doc.feeOverridePaisa ?? 50000,
+      };
+    });
   }
 
   async getDoctorIncomeReport() {

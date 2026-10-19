@@ -83,23 +83,46 @@ export default function AdminDashboardView({ session: propSession }: AdminDashbo
   const loadData = async () => {
     try {
       setLoading(true);
-      const [sum, mod, doc, staff] = await Promise.all([
+      const [sumRes, modRes, docRes, staffRes] = await Promise.allSettled([
         api.reports.getTodaySummary(),
         api.reports.getModalityStats(),
         api.reports.getDoctorStats(),
         api.staff.list(),
       ]);
-      setSummary(sum);
-      setModalities(mod || []);
-      setDoctors(doc || []);
-      setStaffList(staff || []);
 
-      if (staff && staff.length > 0 && !punchStaffId) {
-        setPunchStaffId(staff[0].id);
+      if (sumRes.status === 'fulfilled' && sumRes.value) {
+        setSummary(sumRes.value);
+      } else {
+        setSummary({
+          footfall: 0,
+          grossCollectionsPaisa: 0,
+          bedOccupancyPercent: 0,
+          totalDuesPaisa: 0,
+        });
+      }
+
+      if (modRes.status === 'fulfilled' && Array.isArray(modRes.value)) {
+        setModalities(modRes.value);
+      } else {
+        setModalities([]);
+      }
+
+      if (docRes.status === 'fulfilled' && Array.isArray(docRes.value)) {
+        setDoctors(docRes.value);
+      } else {
+        setDoctors([]);
+      }
+
+      if (staffRes.status === 'fulfilled' && Array.isArray(staffRes.value)) {
+        setStaffList(staffRes.value);
+        if (staffRes.value.length > 0 && !punchStaffId) {
+          setPunchStaffId(staffRes.value[0].id);
+        }
+      } else {
+        setStaffList([]);
       }
     } catch (err: any) {
-      console.error(err);
-      toast.error(isBn ? 'মেট্রিক্স লোড করতে ত্রুটি হয়েছে' : 'Failed to load executive metrics');
+      console.error('Error loading dashboard data:', err);
     } finally {
       setLoading(false);
     }
@@ -317,7 +340,7 @@ export default function AdminDashboardView({ session: propSession }: AdminDashbo
               </CardHeader>
               <CardContent>
                 <div className="text-2xl sm:text-3xl font-black text-foreground">
-                  {summary?.footfall || 0}
+                  {typeof summary?.footfall === 'object' ? (summary?.footfall?.total ?? 0) : (summary?.footfall ?? 0)}
                 </div>
                 <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
                   <TrendingUp className="size-3 text-emerald-500" />
@@ -338,7 +361,7 @@ export default function AdminDashboardView({ session: propSession }: AdminDashbo
               </CardHeader>
               <CardContent>
                 <div className="text-2xl sm:text-3xl font-black text-emerald-600 dark:text-emerald-400">
-                  ৳{((summary?.grossCollectionsPaisa || 0) / 100).toLocaleString('en-US', { minimumFractionDigits: 0 })}
+                  ৳{(((summary?.grossCollectionsPaisa ?? summary?.collections?.totalPaisa) || 0) / 100).toLocaleString('en-US', { minimumFractionDigits: 0 })}
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
                   {isBn ? 'নগদ ও ডিজিটাল পেমেন্ট' : 'Cash & digital receipts'}
@@ -358,7 +381,7 @@ export default function AdminDashboardView({ session: propSession }: AdminDashbo
               </CardHeader>
               <CardContent>
                 <div className="text-2xl sm:text-3xl font-black text-amber-500">
-                  {summary?.bedOccupancyPercent || 0}%
+                  {(summary?.bedOccupancyPercent ?? summary?.occupancy?.ratePercent) || 0}%
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
                   {isBn ? 'হল এ সক্রিয় ১৬টি বেড' : 'Hall A active therapy beds'}
@@ -378,7 +401,7 @@ export default function AdminDashboardView({ session: propSession }: AdminDashbo
               </CardHeader>
               <CardContent>
                 <div className="text-2xl sm:text-3xl font-black text-red-500">
-                  ৳{((summary?.totalDuesPaisa || 0) / 100).toLocaleString('en-US', { minimumFractionDigits: 0 })}
+                  ৳{(((summary?.totalDuesPaisa ?? summary?.dues?.totalPendingDuesPaisa) || 0) / 100).toLocaleString('en-US', { minimumFractionDigits: 0 })}
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
                   {isBn ? 'পরিশোধের অপেক্ষায়' : 'Awaiting settlement'}

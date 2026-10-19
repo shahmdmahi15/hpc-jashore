@@ -9,32 +9,57 @@ import { ReportsService } from './reports.service';
 @ApiBearerAuth()
 @Controller('reports')
 @UseGuards(JwtAccessAuthGuard, RolesGuard)
-@Roles('admin', 'head_doctor')
 export class ReportsController {
   constructor(private readonly reports: ReportsService) {}
 
+  @Get('today')
+  @Roles('admin', 'head_doctor', 'doctor', 'reception', 'cashier', 'therapist')
+  @ApiQuery({ name: 'date', required: false, description: 'YYYY-MM-DD' })
+  getToday(@Query('date') date?: string) {
+    return this.reports.getDailySummary(date);
+  }
+
   @Get('daily-summary')
+  @Roles('admin', 'head_doctor', 'doctor', 'reception', 'cashier', 'therapist')
   @ApiQuery({ name: 'date', required: false, description: 'YYYY-MM-DD' })
   getDailySummary(@Query('date') date?: string) {
     return this.reports.getDailySummary(date);
   }
 
+  @Get('modalities')
+  @Roles('admin', 'head_doctor', 'doctor', 'reception', 'cashier', 'therapist')
+  @ApiQuery({ name: 'date', required: false, description: 'YYYY-MM-DD' })
+  getModalities(@Query('date') date?: string) {
+    return this.reports.getModalityStats(date);
+  }
+
+  @Get('doctors')
+  @Roles('admin', 'head_doctor', 'doctor', 'reception', 'cashier', 'therapist')
+  @ApiQuery({ name: 'date', required: false, description: 'YYYY-MM-DD' })
+  getDoctors(@Query('date') date?: string) {
+    return this.reports.getDoctorStats(date);
+  }
+
   @Get('doctor-income')
+  @Roles('admin', 'head_doctor')
   getDoctorIncome() {
     return this.reports.getDoctorIncomeReport();
   }
 
   @Get('therapist-performance')
+  @Roles('admin', 'head_doctor')
   getTherapistPerformance() {
     return this.reports.getTherapistPerformance();
   }
 
   @Get('pnl')
+  @Roles('admin', 'head_doctor')
   getPnl() {
     return this.reports.getPnlSummary();
   }
 
   @Get('feedback')
+  @Roles('admin', 'head_doctor')
   getFeedback() {
     return this.reports.getFeedbackSummary();
   }

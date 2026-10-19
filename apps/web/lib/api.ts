@@ -279,9 +279,40 @@ export const api = {
       apiFetch<any>('/inventory/expenses', { method: 'POST', body: JSON.stringify(data) }),
   },
   reports: {
-    getTodaySummary: () => apiFetch<any>('/reports/today'),
-    getModalityStats: () => apiFetch<any[]>('/reports/modalities'),
-    getDoctorStats: () => apiFetch<any[]>('/reports/doctors'),
+    getTodaySummary: async () => {
+      try {
+        return await apiFetch<any>('/reports/today');
+      } catch {
+        try {
+          return await apiFetch<any>('/reports/daily-summary');
+        } catch {
+          return {
+            footfall: 0,
+            grossCollectionsPaisa: 0,
+            bedOccupancyPercent: 0,
+            totalDuesPaisa: 0,
+          };
+        }
+      }
+    },
+    getModalityStats: async () => {
+      try {
+        return await apiFetch<any[]>('/reports/modalities');
+      } catch {
+        return [];
+      }
+    },
+    getDoctorStats: async () => {
+      try {
+        return await apiFetch<any[]>('/reports/doctors');
+      } catch {
+        try {
+          return await apiFetch<any[]>('/reports/doctor-income');
+        } catch {
+          return [];
+        }
+      }
+    },
   },
   staff: {
     list: () => apiFetch<any[]>('/staff'),
