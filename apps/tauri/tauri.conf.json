@@ -44,6 +44,12 @@
   },
   "plugins": {
     "opener": {},
-    "notification": {}
+    "notification": {},
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDZGNkU4MzMwNjBGODJFRDIKUldUU0x2aGdNSU51YjR6Z0ttdFNRL1RoMXlxRUpwSVg2L2Z5TmVxa1A2dHl2NnpWZGVQWUxxNlUK",
+      "endpoints": [
+        "https://hpc.toufiquzzaman.com/api/updates/latest.json"
+      ]
+    }
   }
 }

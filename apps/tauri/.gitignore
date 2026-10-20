@@ -1,2 +1,5 @@
 target/
 gen/
+*.key
+*.key.pub
+

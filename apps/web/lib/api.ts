@@ -364,4 +364,25 @@ export const api = {
     punch: (data: any) =>
       apiFetch<any>('/staff/attendance', { method: 'POST', body: JSON.stringify(data) }),
   },
+  updates: {
+    check: (platform: string, versionCode?: number, versionName?: string) => {
+      const q = new URLSearchParams({ platform });
+      if (versionCode) q.set('versionCode', String(versionCode));
+      if (versionName) q.set('versionName', versionName);
+      return apiFetch<{
+        updateAvailable: boolean;
+        latestVersion: string;
+        versionCode: number;
+        apkUrl: string;
+        notes: string;
+        forceUpdate: boolean;
+      }>(`/updates/check?${q.toString()}`);
+    },
+    triggerTauriCheck: async () => {
+      if (typeof window !== 'undefined' && (window as any).__TAURI__?.core?.invoke) {
+        return (window as any).__TAURI__.core.invoke('trigger_update_check');
+      }
+      return { updateAvailable: false, status: 'web_mode' };
+    },
+  },
 };

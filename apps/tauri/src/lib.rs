@@ -3,6 +3,7 @@ use tauri::{
     tray::{MouseButton, TrayIconBuilder, TrayIconEvent},
     Manager,
 };
+use tauri_plugin_updater::UpdaterExt;
 
 #[tauri::command]
 fn get_workstation_info() -> Result<serde_json::Value, String> {
@@ -24,14 +25,40 @@ fn print_thermal_raw(content: String, _printer_name: Option<String>) -> Result<S
     Ok(format!("Queued {} bytes to thermal printer", content.len()))
 }
 
+#[tauri::command]
+async fn trigger_update_check(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
+    let updater = app.updater().map_err(|e| e.to_string())?;
+    match updater.check().await {
+        Ok(Some(update)) => {
+            let ver = update.version.clone();
+            let body = update.body.clone();
+            // Install in background
+            let _ = update.download_and_install(|_, _| {}, || {}).await;
+            Ok(serde_json::json!({
+                "updateAvailable": true,
+                "version": ver,
+                "notes": body,
+                "status": "ready_for_restart"
+            }))
+        }
+        Ok(None) => Ok(serde_json::json!({
+            "updateAvailable": false,
+            "status": "up_to_date"
+        })),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
             get_workstation_info,
-            print_thermal_raw
+            print_thermal_raw,
+            trigger_update_check
         ])
         .setup(|app| {
             #[cfg(desktop)]
@@ -71,6 +98,37 @@ pub fn run() {
                         })
                         .build(app)?;
                 }
+
+                // Automated background update checker thread (every 60 minutes)
+                let handle = app.handle().clone();
+                std::thread::spawn(move || {
+                    // Initial delay of 15 seconds after workstation launch
+                    std::thread::sleep(std::time::Duration::from_secs(15));
+                    loop {
+                        let h = handle.clone();
+                        tauri::async_runtime::block_on(async move {
+                            if let Ok(updater) = h.updater() {
+                                match updater.check().await {
+                                    Ok(Some(update)) => {
+                                        eprintln!("[HPC Auto-Updater] Found newer workstation release: v{}", update.version);
+                                        let _ = update.download_and_install(|_, _| {}, || {
+                                            eprintln!("[HPC Auto-Updater] Silent background download finished.");
+                                        }).await;
+                                    }
+                                    Ok(None) => {
+                                        eprintln!("[HPC Auto-Updater] Clinical workstation is up to date.");
+                                    }
+                                    Err(e) => {
+                                        eprintln!("[HPC Auto-Updater] Update check failed: {}", e);
+                                    }
+                                }
+                            }
+                        });
+
+                        // Re-poll every 60 minutes
+                        std::thread::sleep(std::time::Duration::from_secs(3600));
+                    }
+                });
             }
             Ok(())
         })

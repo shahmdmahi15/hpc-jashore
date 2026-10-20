@@ -1,0 +1,439 @@
+name: Tauri Windows & Android Release
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'apps/tauri/**'
+      - 'apps/web/**'
+      - 'packages/**'
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version override (e.g. 0.1.0; leave blank to infer from git tag or package.json)'
+        required: false
+        default: ''
+        type: string
+      release_notes:
+        description: 'Custom release notes (Markdown supported; leave blank for automatic commit summary)'
+        required: false
+        default: ''
+        type: string
+      build_android:
+        description: 'Build Android / Android TV APK release alongside Windows'
+        required: false
+        default: false
+        type: boolean
+      draft:
+        description: 'Create as a draft release'
+        required: false
+        default: false
+        type: boolean
+      prerelease:
+        description: 'Mark as a pre-release'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+  packages: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # =========================================================================
+  # 1. WINDOWS RELEASE JOB (build-windows)
+  # Compiles, cryptographically signs, releases, and publishes Windows Tauri v2
+  # =========================================================================
+  build-windows:
+    name: Build & Release Windows (Tauri v2)
+    runs-on: windows-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+    env:
+      COREPACK_ENABLE_DOWNLOAD_PROMPT: '0'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Package Management & Runtime Setup (pnpm 12, Node 22)
+      - name: Setup pnpm 12
+        uses: pnpm/action-setup@v4
+        with:
+          version: 12
+          run_install: false
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      # Rust Toolchain (MSVC) & Target Caching
+      - name: Setup Rust MSVC Toolchain (stable-x86_64-pc-windows-msvc)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          targets: x86_64-pc-windows-msvc
+
+      - name: Cache Cargo Dependencies & Target
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            apps/tauri -> target
+
+      # Monorepo Dependencies
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Static Web Export (Next.js App Router -> out/ for Tauri frontendDist)
+      - name: Build Web Static Export
+        run: pnpm --filter @hpc/web build:export
+
+      # Version Resolution & Metadata Preparation
+      - name: Resolve Release Version & Metadata
+        id: meta
+        env:
+          INPUT_VERSION: ${{ github.event.inputs.version }}
+          INPUT_NOTES: ${{ github.event.inputs.release_notes }}
+        run: |
+          set -euo pipefail
+
+          # 1. Determine SemVer Version & Tag
+          if [ -n "${INPUT_VERSION:-}" ]; then
+            CLEAN_VERSION="${INPUT_VERSION#v}"
+            TAG_NAME="v${CLEAN_VERSION}"
+          elif [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            RAW_TAG="${GITHUB_REF_NAME}"
+            CLEAN_VERSION="${RAW_TAG#v}"
+            TAG_NAME="${RAW_TAG}"
+          else
+            PKG_VERSION=$(jq -r '.version // empty' apps/tauri/package.json 2>/dev/null || true)
+            if [ -z "${PKG_VERSION}" ]; then
+              PKG_VERSION=$(jq -r '.version // empty' package.json 2>/dev/null || echo "0.1.0")
+            fi
+            CLEAN_VERSION="${PKG_VERSION}"
+            TAG_NAME="v${CLEAN_VERSION}"
+          fi
+
+          # 2. Determine Release Notes
+          if [ -n "${INPUT_NOTES:-}" ]; then
+            RELEASE_NOTES="${INPUT_NOTES}"
+          else
+            COMMIT_SUBJECT=$(git log -1 --pretty=format:"%s")
+            SHORT_SHA=$(git rev-parse --short HEAD)
+            RELEASE_NOTES="HPC Jashore v${CLEAN_VERSION} (${SHORT_SHA})&#10;&#10;${COMMIT_SUBJECT}"
+          fi
+
+          echo "version=${CLEAN_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag_name=${TAG_NAME}" >> "$GITHUB_OUTPUT"
+          echo "release_notes<<EOF" >> "$GITHUB_OUTPUT"
+          echo "${RELEASE_NOTES}" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+          echo "Target Release Version: ${CLEAN_VERSION}"
+          echo "Target Release Tag:     ${TAG_NAME}"
+
+      # Compile & Cryptographically Sign Tauri Windows App
+      - name: Build Tauri Windows App
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: pnpm --filter @hpc/tauri tauri build
+
+      # Collect Artifacts (.exe, .msi, .nsis.zip, .sig) & Parse Signature
+      - name: Collect Build Artifacts & Signature
+        id: artifacts
+        env:
+          TAG_NAME: ${{ steps.meta.outputs.tag_name }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          mkdir -p staging/windows
+
+          SEARCH_PATHS=(
+            "apps/tauri/target/release/bundle"
+            "apps/tauri/target/x86_64-pc-windows-msvc/release/bundle"
+            "target/release/bundle"
+          )
+
+          for DIR in "${SEARCH_PATHS[@]}"; do
+            if [ -d "$DIR" ]; then
+              echo "Scanning $DIR for bundles..."
+              find "$DIR" -type f \( \
+                -name "*.exe" -o \
+                -name "*.msi" -o \
+                -name "*.nsis.zip" -o \
+                -name "*.zip" -o \
+                -name "*.sig" \
+              \) -exec cp -v {} staging/windows/ \; 2>/dev/null || true
+            fi
+          done
+
+          echo "Staged Windows artifacts:"
+          ls -la staging/windows/
+
+          # Tauri v2 NSIS auto-updater expects the .nsis.zip archive
+          UPDATER_ASSET=$(find staging/windows -type f -name "*nsis.zip" | head -n 1 || true)
+          if [ -z "$UPDATER_ASSET" ]; then
+            UPDATER_ASSET=$(find staging/windows -type f -name "*.zip" | head -n 1 || true)
+          fi
+          if [ -z "$UPDATER_ASSET" ]; then
+            UPDATER_ASSET=$(find staging/windows -type f -name "*.exe" | head -n 1 || true)
+          fi
+
+          if [ -z "$UPDATER_ASSET" ]; then
+            echo "::error::No installer or updater binary found in staging/windows!"
+            exit 1
+          fi
+
+          UPDATER_FILENAME=$(basename "$UPDATER_ASSET")
+          DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${TAG_NAME}/${UPDATER_FILENAME}"
+
+          # Extract cryptographic Minisign signature (.sig file content)
+          SIG_FILE="${UPDATER_ASSET}.sig"
+          if [ ! -f "$SIG_FILE" ]; then
+            SIG_FILE=$(find staging/windows -type f -name "*.sig" | head -n 1 || true)
+          fi
+
+          SIGNATURE=""
+          if [ -n "$SIG_FILE" ] && [ -f "$SIG_FILE" ]; then
+            SIGNATURE=$(tr -d '\r\n' < "$SIG_FILE")
+            echo "Extracted signature from $(basename "$SIG_FILE") (${#SIGNATURE} chars)"
+          else
+            echo "::warning::No .sig file found. Verify TAURI_SIGNING_PRIVATE_KEY secret configuration."
+          fi
+
+          echo "download_url=${DOWNLOAD_URL}" >> "$GITHUB_OUTPUT"
+          echo "signature=${SIGNATURE}" >> "$GITHUB_OUTPUT"
+          echo "updater_filename=${UPDATER_FILENAME}" >> "$GITHUB_OUTPUT"
+
+      # Create or Update GitHub Release with Assets
+      - name: Create or Update GitHub Release
+        id: release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.meta.outputs.tag_name }}
+          name: HPC Jashore v${{ steps.meta.outputs.version }}
+          body: ${{ steps.meta.outputs.release_notes }}
+          draft: ${{ github.event.inputs.draft == 'true' }}
+          prerelease: ${{ github.event.inputs.prerelease == 'true' }}
+          files: staging/windows/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Notify HPC Update Server via Signed Webhook
+      - name: Publish Update Metadata to Update Server
+        env:
+          UPDATE_SECRET: ${{ secrets.UPDATE_WEBHOOK_SECRET }}
+          PLATFORM: 'windows-x86_64'
+          VERSION: ${{ steps.meta.outputs.version }}
+          SIGNATURE: ${{ steps.artifacts.outputs.signature }}
+          DOWNLOAD_URL: ${{ steps.artifacts.outputs.download_url }}
+          NOTES: ${{ steps.meta.outputs.release_notes }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${UPDATE_SECRET:-}" ]; then
+            echo "::warning::UPDATE_WEBHOOK_SECRET is not configured in repository secrets. Skipping webhook publication."
+            exit 0
+          fi
+
+          jq -n \
+            --arg platform "$PLATFORM" \
+            --arg version "$VERSION" \
+            --arg signature "$SIGNATURE" \
+            --arg downloadUrl "$DOWNLOAD_URL" \
+            --arg notes "$NOTES" \
+            '{
+              platform: $platform,
+              version: $version,
+              signature: $signature,
+              downloadUrl: $downloadUrl,
+              notes: $notes
+            }' > update-payload.json
+
+          echo "Prepared JSON payload (safe inspection):"
+          jq '{platform, version, downloadUrl, signature_length: (.signature | length)}' update-payload.json
+
+          echo "Posting release metadata to https://hpc.toufiquzzaman.com/api/updates/publish..."
+          HTTP_RESPONSE=$(curl -sS -w "\n%{http_code}" \
+            --retry 3 \
+            --retry-delay 5 \
+            -X POST "https://hpc.toufiquzzaman.com/api/updates/publish" \
+            -H "Content-Type: application/json" \
+            -H "X-UPDATE-SECRET: ${UPDATE_SECRET}" \
+            -d @update-payload.json)
+
+          HTTP_BODY=$(echo "$HTTP_RESPONSE" | sed '$d')
+          HTTP_STATUS=$(echo "$HTTP_RESPONSE" | tail -n 1)
+
+          echo "Server Response (HTTP ${HTTP_STATUS}):"
+          echo "${HTTP_BODY}"
+
+          if [ "${HTTP_STATUS}" -lt 200 ] || [ "${HTTP_STATUS}" -ge 300 ]; then
+            echo "::error::Update server rejected publish request with HTTP ${HTTP_STATUS}"
+            exit 1
+          fi
+
+          echo "Successfully published update metadata for v${VERSION} (${PLATFORM})!"
+
+  # =========================================================================
+  # 2. ANDROID & ANDROID TV RELEASE JOB SCAFFOLD (build-android)
+  # =========================================================================
+  build-android:
+    name: Build Android & Android TV APK (Tauri v2)
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.build_android == 'true' }}
+    timeout-minutes: 60
+    env:
+      COREPACK_ENABLE_DOWNLOAD_PROMPT: '0'
+      NDK_VERSION: '27.0.12077973'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Java Development Kit (JDK 21)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          cmdline-tools-version: '11076708'
+
+      - name: Install Android NDK & Platform Tools
+        run: |
+          yes | sdkmanager --install \
+            "ndk;${NDK_VERSION}" \
+            "build-tools;34.0.0" \
+            "platforms;android-34"
+
+      - name: Setup Rust Toolchain & Android Targets
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          targets: |
+            aarch64-linux-android
+            armv7-linux-androideabi
+            i686-linux-android
+            x86_64-linux-android
+
+      - name: Cache Cargo Dependencies & Target
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            apps/tauri -> target
+
+      - name: Setup pnpm 12
+        uses: pnpm/action-setup@v4
+        with:
+          version: 12
+          run_install: false
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build Web Static Export
+        run: pnpm --filter @hpc/web build:export
+
+      - name: Resolve Release Version
+        id: meta
+        env:
+          INPUT_VERSION: ${{ github.event.inputs.version }}
+        run: |
+          set -euo pipefail
+          if [ -n "${INPUT_VERSION:-}" ]; then
+            CLEAN_VERSION="${INPUT_VERSION#v}"
+            TAG_NAME="v${CLEAN_VERSION}"
+          elif [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            RAW_TAG="${GITHUB_REF_NAME}"
+            CLEAN_VERSION="${RAW_TAG#v}"
+            TAG_NAME="${RAW_TAG}"
+          else
+            PKG_VERSION=$(jq -r '.version // empty' apps/tauri/package.json 2>/dev/null || echo "0.1.0")
+            CLEAN_VERSION="${PKG_VERSION}"
+            TAG_NAME="v${CLEAN_VERSION}"
+          fi
+          echo "version=${CLEAN_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag_name=${TAG_NAME}" >> "$GITHUB_OUTPUT"
+
+      - name: Build Android APK
+        env:
+          ANDROID_HOME: ${{ env.ANDROID_HOME }}
+          NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/${{ env.NDK_VERSION }}
+        run: |
+          if [ ! -d "apps/tauri/gen/android" ]; then
+            echo "Initializing Tauri Android project structure..."
+            pnpm --filter @hpc/tauri tauri android init
+          fi
+
+          echo "Compiling Android release APK (aarch64 architecture)..."
+          pnpm --filter @hpc/tauri tauri android build --apk --target aarch64
+
+      - name: Stage & Sign Android APKs
+        id: stage_android
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          mkdir -p staging/android
+
+          find apps/tauri/gen/android -name "*.apk" -exec cp -v {} staging/android/ \; 2>/dev/null || true
+
+          if [ -n "${KEYSTORE_BASE64:-}" ]; then
+            echo "Decoding Android release keystore..."
+            echo "$KEYSTORE_BASE64" | base64 -d > release.keystore
+
+            for APK in staging/android/*.apk; do
+              if [ -f "$APK" ]; then
+                echo "Signing $APK with apksigner..."
+                apksigner sign \
+                  --ks release.keystore \
+                  --ks-pass "pass:${KEYSTORE_PASSWORD}" \
+                  --ks-key-alias "${KEY_ALIAS}" \
+                  --key-pass "pass:${KEY_PASSWORD}" \
+                  --out "${APK%.apk}-signed.apk" \
+                  "$APK"
+              fi
+            done
+            rm -f release.keystore
+          else
+            echo "Notice: ANDROID_KEYSTORE_BASE64 not set; outputting unsigned APK for internal testing."
+          fi
+
+          ls -la staging/android/
+
+      - name: Upload Android Release Assets to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.meta.outputs.tag_name }}
+          files: staging/android/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
