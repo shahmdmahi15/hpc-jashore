@@ -3,6 +3,37 @@
 // STRICT REQUIREMENT: Single-writer SQLite (WAL mode).
 // instances MUST BE 1 with exec_mode: 'fork' to prevent database file locks.
 
+const fs = require('node:fs');
+const path = require('node:path');
+
+function parseEnv(filePath) {
+  if (!fs.existsSync(filePath)) return {};
+  try {
+    const content = fs.readFileSync(filePath, 'utf-8');
+    const env = {};
+    for (const line of content.split('\n')) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) continue;
+      const eqIdx = trimmed.indexOf('=');
+      if (eqIdx === -1) continue;
+      const key = trimmed.slice(0, eqIdx).trim();
+      let val = trimmed.slice(eqIdx + 1).trim();
+      if (
+        (val.startsWith('"') && val.endsWith('"')) ||
+        (val.startsWith("'") && val.endsWith("'"))
+      ) {
+        val = val.slice(1, -1);
+      }
+      env[key] = val;
+    }
+    return env;
+  } catch {
+    return {};
+  }
+}
+
+const apiEnv = parseEnv(path.join(__dirname, 'apps/api/.env'));
+
 module.exports = {
   apps: [
     {
@@ -16,6 +47,7 @@ module.exports = {
         NODE_ENV: 'production',
         PORT: 4000,
         DATABASE_PATH: '/var/www/hpc-jashore/data/hpc.db',
+        ...apiEnv,
       },
       error_file: '/var/www/hpc-jashore/logs/pm2-api-error.log',
       out_file: '/var/www/hpc-jashore/logs/pm2-api-out.log',

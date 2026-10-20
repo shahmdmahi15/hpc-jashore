@@ -26,13 +26,21 @@ export class PublishUpdateDto {
   @IsNotEmpty()
   platform!: string;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     description: 'Downloadable binary URL (CDN/GitHub release asset) or local server file path',
     example: 'https://github.com/hpc-jashore/hpc-jashore/releases/download/v0.2.0/hpc-jashore_0.2.0_x64-setup.exe',
   })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  url!: string;
+  url?: string;
+
+  @ApiPropertyOptional({
+    description: 'Alias for url (CDN/GitHub release asset download URL)',
+    example: 'https://github.com/hpc-jashore/hpc-jashore/releases/download/v0.2.0/hpc-jashore_0.2.0_x64-setup.exe',
+  })
+  @IsOptional()
+  @IsString()
+  downloadUrl?: string;
 
   @ApiPropertyOptional({
     description: 'Tauri v2 minisign signature string (.sig file content)',

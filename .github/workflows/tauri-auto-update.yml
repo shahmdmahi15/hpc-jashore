@@ -260,6 +260,7 @@ jobs:
               platform: $platform,
               version: $version,
               signature: $signature,
+              url: $downloadUrl,
               downloadUrl: $downloadUrl,
               notes: $notes
             }' > update-payload.json

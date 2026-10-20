@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Injectable,
   Logger,
   NotFoundException,
@@ -338,6 +339,13 @@ export class UpdatesService implements OnModuleInit {
   publishRelease(dto: PublishUpdateDto) {
     const cleanVer = dto.version.replace(/^v/i, '').trim();
     const platformKey = dto.platform.trim().toLowerCase();
+    const targetUrl = (dto.url || dto.downloadUrl || '').trim();
+
+    if (!targetUrl) {
+      throw new BadRequestException(
+        'Either "url" or "downloadUrl" must be provided in release payload.',
+      );
+    }
 
     let release = this.registry.releases.find(
       (r) => r.version.replace(/^v/i, '').trim() === cleanVer,
@@ -351,7 +359,7 @@ export class UpdatesService implements OnModuleInit {
         release.minVersionCode = dto.minVersionCode;
 
       release.platforms[platformKey] = {
-        url: dto.url,
+        url: targetUrl,
         signature: dto.signature,
         versionCode: dto.versionCode,
       };
@@ -364,7 +372,7 @@ export class UpdatesService implements OnModuleInit {
         minVersionCode: dto.minVersionCode,
         platforms: {
           [platformKey]: {
-            url: dto.url,
+            url: targetUrl,
             signature: dto.signature,
             versionCode: dto.versionCode,
           },
