@@ -18,11 +18,11 @@ interface WorkstationShellProps {
 }
 
 const ALL_MOBILE_NAV_ITEMS = [
-  { id: 'admin', labelBn: 'অ্যাডমিন', labelEn: 'Admin', icon: ShieldCheck, href: '/admin?tab=admin', roles: ['admin'] },
-  { id: 'doctor', labelBn: 'ডাক্তার', labelEn: 'Doctor', icon: Stethoscope, href: '/admin?tab=doctor', roles: ['admin', 'doctor'] },
-  { id: 'handler', labelBn: 'হ্যান্ডলার', labelEn: 'Handler', icon: Activity, href: '/admin?tab=handler', roles: ['admin', 'handler'] },
-  { id: 'cashier', labelBn: 'ক্যাশিয়ার', labelEn: 'Cashier', icon: CreditCard, href: '/admin?tab=cashier', roles: ['admin', 'cashier'] },
-  { id: 'reception', labelBn: 'অভ্যর্থনা', labelEn: 'Reception', icon: ClipboardList, href: '/admin?tab=reception', roles: ['admin', 'receptionist'] },
+  { id: 'admin', labelBn: 'অ্যাডমিন', labelEn: 'Admin', icon: ShieldCheck, href: '/admin', roles: ['admin'] },
+  { id: 'doctor', labelBn: 'ডাক্তার', labelEn: 'Doctor', icon: Stethoscope, href: '/doctor', roles: ['admin', 'doctor'] },
+  { id: 'handler', labelBn: 'হ্যান্ডলার', labelEn: 'Handler', icon: Activity, href: '/handler', roles: ['admin', 'handler'] },
+  { id: 'cashier', labelBn: 'ক্যাশিয়ার', labelEn: 'Cashier', icon: CreditCard, href: '/cashier', roles: ['admin', 'cashier'] },
+  { id: 'reception', labelBn: 'অভ্যর্থনা', labelEn: 'Reception', icon: ClipboardList, href: '/receptionist', roles: ['admin', 'receptionist'] },
   { id: 'tv', labelBn: 'টিভি কিউ', labelEn: 'Waiting TV', icon: Tv, href: '/tv', roles: ['admin', 'doctor', 'handler', 'cashier', 'receptionist'] },
 ];
 

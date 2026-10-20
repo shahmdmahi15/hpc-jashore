@@ -44,16 +44,16 @@ let activeSession: UserSession | null = null;
 export function getRoleHomeRoute(role?: string): string {
   switch (role) {
     case 'doctor':
-      return '/admin?tab=doctor';
+      return '/doctor';
     case 'handler':
-      return '/admin?tab=handler';
+      return '/handler';
     case 'cashier':
-      return '/admin?tab=cashier';
+      return '/cashier';
     case 'receptionist':
-      return '/admin?tab=reception';
+      return '/receptionist';
     case 'admin':
     default:
-      return '/admin?tab=admin';
+      return '/admin';
   }
 }
 

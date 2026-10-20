@@ -462,9 +462,9 @@ export default function LandingPage() {
                 <div className="flex items-center justify-between mb-2">
                   <Badge variant="emerald" className="gap-1.5 font-mono text-[11px]">
                     <Users className="size-3.5" />
-                    <span>Admin Hub · Reception</span>
+                    <span>Workstation · Reception</span>
                   </Badge>
-                  <Link href="/admin">
+                  <Link href="/receptionist">
                     <Button variant="ghost" size="icon-sm" className="rounded-full">
                       <ArrowUpRight className="size-3.5 text-muted-foreground" />
                     </Button>
@@ -487,9 +487,9 @@ export default function LandingPage() {
                 <div className="flex items-center justify-between mb-2">
                   <Badge variant="emerald" className="gap-1.5 font-mono text-[11px]">
                     <Stethoscope className="size-3.5" />
-                    <span>Admin Hub · Doctor</span>
+                    <span>Workstation · Doctor</span>
                   </Badge>
-                  <Link href="/admin">
+                  <Link href="/doctor">
                     <Button variant="ghost" size="icon-sm" className="rounded-full">
                       <ArrowUpRight className="size-3.5 text-muted-foreground" />
                     </Button>
@@ -512,9 +512,9 @@ export default function LandingPage() {
                 <div className="flex items-center justify-between mb-2">
                   <Badge variant="emerald" className="gap-1.5 font-mono text-[11px]">
                     <Zap className="size-3.5" />
-                    <span>Admin Hub · Therapy</span>
+                    <span>Workstation · Handler</span>
                   </Badge>
-                  <Link href="/admin">
+                  <Link href="/handler">
                     <Button variant="ghost" size="icon-sm" className="rounded-full">
                       <ArrowUpRight className="size-3.5 text-muted-foreground" />
                     </Button>
@@ -537,9 +537,9 @@ export default function LandingPage() {
                 <div className="flex items-center justify-between mb-2">
                   <Badge variant="emerald" className="gap-1.5 font-mono text-[11px]">
                     <CreditCard className="size-3.5" />
-                    <span>Admin Hub · Cashier</span>
+                    <span>Workstation · Cashier</span>
                   </Badge>
-                  <Link href="/admin">
+                  <Link href="/cashier">
                     <Button variant="ghost" size="icon-sm" className="rounded-full">
                       <ArrowUpRight className="size-3.5 text-muted-foreground" />
                     </Button>

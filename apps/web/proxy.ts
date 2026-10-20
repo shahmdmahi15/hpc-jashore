@@ -5,7 +5,19 @@ import type { NextRequest } from 'next/server';
 
 
 function getRoleHomeRoute(role?: string): string {
-  return '/admin';
+  switch (role) {
+    case 'doctor':
+      return '/doctor';
+    case 'handler':
+      return '/handler';
+    case 'cashier':
+      return '/cashier';
+    case 'receptionist':
+      return '/receptionist';
+    case 'admin':
+    default:
+      return '/admin';
+  }
 }
 
 function parseJwtPayload(token: string): { exp?: number; role?: string; userId?: string } | null {
@@ -103,14 +115,44 @@ export function proxy(request: NextRequest) {
   }
 
   // 6. ALL OTHER PAGES ARE PRIVATE AND REQUIRE AUTHENTICATION
-  // (/tv, /admin)
+  // Unauthenticated visitors trying to access any private route are redirected to login
   if (!hasValidSession) {
     const loginUrl = new URL('/auth/login', request.url);
     loginUrl.searchParams.set('redirect', pathname);
     return NextResponse.redirect(loginUrl);
   }
 
-  return NextResponse.next();
+  // 7. /tv is accessible to ANY authenticated user (all 5 roles)
+  if (pathname === '/tv' || pathname.startsWith('/tv/')) {
+    return NextResponse.next();
+  }
+
+  // 8. Strict Role-Based Workstation Access Control
+  // Admin has universal access to all role pages and tools
+  if (userRole === 'admin') {
+    return NextResponse.next();
+  }
+
+  // Dedicated role route prefixes
+  const roleAllowedPrefix: Record<string, string> = {
+    doctor: '/doctor',
+    receptionist: '/receptionist',
+    cashier: '/cashier',
+    handler: '/handler',
+  };
+
+  const allowedPrefix = userRole ? roleAllowedPrefix[userRole] : undefined;
+
+  if (allowedPrefix) {
+    if (pathname === allowedPrefix || pathname.startsWith(`${allowedPrefix}/`)) {
+      return NextResponse.next();
+    }
+    // Attempted to access an unauthorized workstation page -> redirect to their authorized home
+    return NextResponse.redirect(new URL(allowedPrefix, request.url));
+  }
+
+  // Fallback for any other session role
+  return NextResponse.redirect(new URL(getRoleHomeRoute(userRole), request.url));
 }
 
 export default proxy;

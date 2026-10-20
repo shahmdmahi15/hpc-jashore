@@ -720,125 +720,144 @@ export default function WaitingRoomTvView() {
               </span>
             </div>
 
-            {/* NOW SERVING CARD (COMPACT, HIGH CONTRAST) */}
-            <div className="p-2 sm:p-2.5 2xl:p-4 shrink-0">
-              <div
-                className={`p-2.5 sm:p-3 2xl:p-5 rounded-xl border-2 text-center transition-all ${
-                  isDark
-                    ? 'border-emerald-500/80 bg-zinc-900/90 shadow-[0_0_20px_rgba(16,185,129,0.12)]'
-                    : 'border-emerald-500 bg-emerald-50/50 shadow-sm'
-                }`}
-              >
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500 text-black text-[9px] sm:text-[10px] 2xl:text-xs font-black uppercase tracking-wider mb-1">
-                  <span>📢</span>
-                  <span>{lang === 'bn' ? 'বর্তমান সিরিয়াল · ডাক পড়েছে' : 'NOW SERVING'}</span>
+            {/* TWO INNER COLUMNS: 1. CURRENTLY GETTING SERVED | 2. UPCOMING WAITING QUEUE */}
+            <div className="flex-1 min-h-0 p-2 sm:p-2.5 2xl:p-3 grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3 overflow-hidden">
+              {/* INNER SUB-COLUMN A: CURRENTLY GETTING SERVED */}
+              <div className="flex flex-col h-full min-h-0">
+                <div
+                  className={`text-[10px] sm:text-xs 2xl:text-sm font-bold pb-1 px-1 flex items-center justify-between shrink-0 ${
+                    isDark ? 'text-zinc-400' : 'text-zinc-600'
+                  }`}
+                >
+                  <span className="flex items-center gap-1.5">
+                    <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                    <span>{lang === 'bn' ? 'বর্তমানে সেবা নিচ্ছেন' : 'Currently Getting Served'}</span>
+                  </span>
+                  <span className="text-[10px] uppercase font-mono tracking-wider font-extrabold text-emerald-500">
+                    {lang === 'bn' ? 'সক্রিয়' : 'ACTIVE'}
+                  </span>
                 </div>
 
-                {snapshot.consultationQueue.nowServing.length > 0 ? (
-                  <div>
-                    <div className="text-3xl sm:text-5xl 2xl:text-7xl font-black font-mono text-emerald-500 leading-none my-0.5 sm:my-1">
-                      {toBnNum(
-                        snapshot.consultationQueue.nowServing[0].tokenNumber ||
-                          snapshot.consultationQueue.nowServing[0].serialNumber,
-                      )}
+                <div
+                  className={`flex-1 min-h-0 p-3 sm:p-4 2xl:p-5 rounded-xl border-2 flex flex-col justify-center items-center text-center transition-all ${
+                    isDark
+                      ? 'border-emerald-500/80 bg-zinc-900/90 shadow-[0_0_20px_rgba(16,185,129,0.12)]'
+                      : 'border-emerald-500 bg-emerald-50/50 shadow-sm'
+                  }`}
+                >
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500 text-black text-[9px] sm:text-[10px] 2xl:text-xs font-black uppercase tracking-wider mb-1.5">
+                    <span>📢</span>
+                    <span>{lang === 'bn' ? 'বর্তমান সিরিয়াল · ডাক পড়েছে' : 'NOW SERVING'}</span>
+                  </div>
+
+                  {snapshot.consultationQueue.nowServing.length > 0 ? (
+                    <div className="w-full">
+                      <div className="text-4xl sm:text-6xl 2xl:text-8xl font-black font-mono text-emerald-500 leading-none my-1 sm:my-2">
+                        {toBnNum(
+                          snapshot.consultationQueue.nowServing[0].tokenNumber ||
+                            snapshot.consultationQueue.nowServing[0].serialNumber,
+                        )}
+                      </div>
+                      <div className="text-sm sm:text-lg 2xl:text-2xl font-extrabold text-foreground truncate px-2">
+                        {lang === 'bn'
+                          ? snapshot.consultationQueue.nowServing[0].patientNameBn ||
+                            snapshot.consultationQueue.nowServing[0].patientNameEn
+                          : snapshot.consultationQueue.nowServing[0].patientNameEn}
+                      </div>
+                      <div className="flex flex-wrap items-center justify-center gap-2 mt-2">
+                        <span className="text-[10px] sm:text-xs font-bold px-2.5 py-0.5 rounded-md bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                          {lang === 'bn' ? 'চেম্বার ১ · ডাঃ তৌফিক' : 'Chamber 1 · Dr. Toufiq'}
+                        </span>
+                        <span
+                          className={`text-[9px] sm:text-xs font-medium ${
+                            isDark ? 'text-zinc-400' : 'text-zinc-600'
+                          }`}
+                        >
+                          {lang === 'bn'
+                            ? `সিরিয়াল #${toBnNum(snapshot.consultationQueue.nowServing[0].serialNumber)}`
+                            : `Serial #${snapshot.consultationQueue.nowServing[0].serialNumber}`}
+                        </span>
+                      </div>
                     </div>
-                    <div className="text-xs sm:text-base 2xl:text-xl font-extrabold text-foreground truncate">
-                      {lang === 'bn'
-                        ? snapshot.consultationQueue.nowServing[0].patientNameBn ||
-                          snapshot.consultationQueue.nowServing[0].patientNameEn
-                        : snapshot.consultationQueue.nowServing[0].patientNameEn}
-                    </div>
-                    <div className="flex items-center justify-center gap-2 mt-1">
-                      <span className="text-[10px] sm:text-xs font-bold px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                        {lang === 'bn' ? 'চেম্বার ১ · ডাঃ তৌফিক' : 'Chamber 1 · Dr. Toufiq'}
-                      </span>
-                      <span
-                        className={`text-[9px] sm:text-xs font-medium ${
+                  ) : (
+                    <div className="py-4">
+                      <div className="text-sm sm:text-base 2xl:text-lg font-bold text-emerald-500">
+                        {lang === 'bn' ? 'চেম্বার প্রস্তুত · পরবর্তী সিরিয়াল আসছে' : 'Chamber Ready · Calling Next'}
+                      </div>
+                      <p
+                        className={`text-xs mt-1 max-w-[200px] mx-auto ${
                           isDark ? 'text-zinc-400' : 'text-zinc-600'
                         }`}
                       >
-                        {lang === 'bn'
-                          ? `সিরিয়াল #${toBnNum(snapshot.consultationQueue.nowServing[0].serialNumber)}`
-                          : `Serial #${snapshot.consultationQueue.nowServing[0].serialNumber}`}
-                      </span>
+                        {lang === 'bn' ? 'অনুগ্রহ করে ওয়েটিং লাউঞ্জে অপেক্ষা করুন' : 'Please wait comfortably in waiting hall'}
+                      </p>
                     </div>
-                  </div>
-                ) : (
-                  <div className="py-2">
-                    <div className="text-xs sm:text-sm 2xl:text-base font-bold text-emerald-500">
-                      {lang === 'bn' ? 'চেম্বার প্রস্তুত · পরবর্তী সিরিয়াল আসছে' : 'Chamber Ready · Calling Next'}
-                    </div>
-                    <p
-                      className={`text-[10px] sm:text-xs mt-0.5 ${
-                        isDark ? 'text-zinc-400' : 'text-zinc-600'
-                      }`}
-                    >
-                      {lang === 'bn' ? 'অনুগ্রহ করে ওয়েটিং রুমে অপেক্ষা করুন' : 'Please wait comfortably in waiting hall'}
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* UPCOMING LIST: STAYS BOUNDED, NEVER VERTICALLY OVERFLOWS WINDOW */}
-            <div className="flex-1 min-h-0 flex flex-col px-2 sm:px-2.5 2xl:px-4 pb-2">
-              <div
-                className={`text-[10px] sm:text-xs 2xl:text-sm font-bold pb-1 px-1 flex justify-between shrink-0 ${
-                  isDark ? 'text-zinc-400' : 'text-zinc-600'
-                }`}
-              >
-                <span>{lang === 'bn' ? 'পরবর্তী অপেক্ষারত সিরিয়াল' : 'Upcoming Queue'}</span>
-                <span>{lang === 'bn' ? 'টোকেন নং' : 'Token No.'}</span>
+                  )}
+                </div>
               </div>
 
-              <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar flex flex-col gap-1 sm:gap-1.5">
-                {snapshot.consultationQueue.waiting.length === 0 ? (
-                  <div
-                    className={`text-center py-6 text-xs rounded-xl border border-dashed ${
-                      isDark
-                        ? 'border-zinc-800 text-zinc-500 bg-zinc-900/40'
-                        : 'border-zinc-200 text-zinc-500 bg-zinc-50'
-                    }`}
-                  >
-                    {lang === 'bn' ? 'বর্তমানে কোনো সিরিয়াল অপেক্ষারত নেই' : 'No patients waiting'}
-                  </div>
-                ) : (
-                  snapshot.consultationQueue.waiting.map((item, idx) => (
+              {/* INNER SUB-COLUMN B: UPCOMING WAITING QUEUE */}
+              <div className="flex flex-col h-full min-h-0">
+                <div
+                  className={`text-[10px] sm:text-xs 2xl:text-sm font-bold pb-1 px-1 flex justify-between shrink-0 ${
+                    isDark ? 'text-zinc-400' : 'text-zinc-600'
+                  }`}
+                >
+                  <span>{lang === 'bn' ? 'অপেক্ষারত সিরিয়াল তালিকা' : 'Upcoming Waiting Queue'}</span>
+                  <span>{lang === 'bn' ? 'টোকেন নং' : 'Token No.'}</span>
+                </div>
+
+                <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar flex flex-col gap-1 sm:gap-1.5 p-1 rounded-xl border border-border/40 bg-muted/20">
+                  {snapshot.consultationQueue.waiting.length === 0 ? (
                     <div
-                      key={idx}
-                      className={`px-2.5 py-1.5 sm:px-3 sm:py-2 2xl:px-4 2xl:py-2.5 rounded-xl border flex items-center justify-between shrink-0 transition-colors ${
+                      className={`text-center py-8 text-xs rounded-xl border border-dashed flex flex-col items-center justify-center h-full ${
                         isDark
-                          ? 'bg-zinc-900/70 border-zinc-800/80 hover:border-emerald-500/40'
-                          : 'bg-zinc-50 border-zinc-200 hover:border-emerald-500/40'
+                          ? 'border-zinc-800 text-zinc-500 bg-zinc-900/40'
+                          : 'border-zinc-200 text-zinc-500 bg-zinc-50'
                       }`}
                     >
-                      <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
-                        <span className="w-5 text-center text-xs font-mono font-bold text-zinc-500">
-                          #{toBnNum(idx + 1)}
-                        </span>
-                        <div className="min-w-0">
-                          <div className="text-xs sm:text-sm 2xl:text-base font-bold text-foreground truncate">
-                            {lang === 'bn' ? item.patientNameBn || item.patientNameEn : item.patientNameEn}
-                          </div>
-                          <div
-                            className={`text-[9px] sm:text-[10px] 2xl:text-xs ${
-                              isDark ? 'text-zinc-400' : 'text-zinc-600'
-                            }`}
-                          >
-                            {item.priority === 'emergency' ? '🚨 জরুরি' : 'সাধারণ'} ·{' '}
-                            {lang === 'bn' ? `সিরিয়াল #${toBnNum(item.serialNumber)}` : `Serial #${item.serialNumber}`}
+                      <CheckCircle2 className="w-6 h-6 text-emerald-500 mb-1" />
+                      <span className="font-semibold">{lang === 'bn' ? 'বর্তমানে কোনো সিরিয়াল অপেক্ষারত নেই' : 'No patients in waiting line'}</span>
+                      <span className="text-[10px] mt-0.5 text-muted-foreground">{lang === 'bn' ? 'সবাইকে নির্ধারিত সেবায় ডাকা হয়েছে' : 'All checked-in patients called'}</span>
+                    </div>
+                  ) : (
+                    snapshot.consultationQueue.waiting.map((item, idx) => (
+                      <div
+                        key={idx}
+                        className={`px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl border flex items-center justify-between shrink-0 transition-colors ${
+                          isDark
+                            ? 'bg-zinc-900/70 border-zinc-800/80 hover:border-emerald-500/40'
+                            : 'bg-zinc-50 border-zinc-200 hover:border-emerald-500/40'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+                          <span className="w-5 text-center text-xs font-mono font-bold text-zinc-500">
+                            #{toBnNum(idx + 1)}
+                          </span>
+                          <div className="min-w-0">
+                            <div className="text-xs sm:text-sm font-bold text-foreground truncate">
+                              {lang === 'bn' ? item.patientNameBn || item.patientNameEn : item.patientNameEn}
+                            </div>
+                            <div
+                              className={`text-[9px] sm:text-[10px] ${
+                                isDark ? 'text-zinc-400' : 'text-zinc-600'
+                              }`}
+                            >
+                              {item.priority === 'emergency' ? '🚨 জরুরি' : 'সাধারণ'} ·{' '}
+                              {lang === 'bn' ? `সিরিয়াল #${toBnNum(item.serialNumber)}` : `Serial #${item.serialNumber}`}
+                            </div>
                           </div>
                         </div>
-                      </div>
 
-                      <div className="text-right shrink-0">
-                        <span className="text-sm sm:text-base 2xl:text-xl font-black font-mono text-emerald-500">
-                          {toBnNum(item.tokenNumber || item.serialNumber)}
-                        </span>
+                        <div className="text-right shrink-0">
+                          <span className="text-sm sm:text-base 2xl:text-xl font-black font-mono text-emerald-500">
+                            {toBnNum(item.tokenNumber || item.serialNumber)}
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                  ))
-                )}
+                    ))
+                  )}
+                </div>
               </div>
             </div>
           </section>
@@ -876,125 +895,147 @@ export default function WaitingRoomTvView() {
               </span>
             </div>
 
-            {/* ACTIVE THERAPY SESSIONS (COMPACT MATRIX) */}
-            <div className="p-2 sm:p-2.5 2xl:p-4 shrink-0">
-              <div
-                className={`p-2 sm:p-2.5 2xl:p-4 rounded-xl border-2 text-center transition-all ${
-                  isDark
-                    ? 'border-emerald-500/50 bg-zinc-900/90 shadow-[0_0_20px_rgba(16,185,129,0.08)]'
-                    : 'border-emerald-400 bg-emerald-50/40 shadow-sm'
-                }`}
-              >
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-600 text-white text-[9px] sm:text-[10px] 2xl:text-xs font-black uppercase tracking-wider mb-1">
-                  <span>⚡</span>
-                  <span>{lang === 'bn' ? 'চলমান থেরাপি সেশন · সক্রিয় বেড' : 'ACTIVE THERAPY IN PROGRESS'}</span>
+            {/* TWO INNER COLUMNS: 1. ACTIVE SESSIONS IN PROGRESS | 2. UPCOMING THERAPY QUEUE */}
+            <div className="flex-1 min-h-0 p-2 sm:p-2.5 2xl:p-3 grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3 overflow-hidden">
+              {/* INNER SUB-COLUMN A: CURRENTLY GETTING SERVED (ACTIVE BEDS) */}
+              <div className="flex flex-col h-full min-h-0">
+                <div
+                  className={`text-[10px] sm:text-xs 2xl:text-sm font-bold pb-1 px-1 flex items-center justify-between shrink-0 ${
+                    isDark ? 'text-zinc-400' : 'text-zinc-600'
+                  }`}
+                >
+                  <span className="flex items-center gap-1.5">
+                    <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                    <span>{lang === 'bn' ? 'চলমান সেশন ও বেড' : 'Active Sessions & Beds'}</span>
+                  </span>
+                  <span className="text-[10px] uppercase font-mono tracking-wider font-extrabold text-emerald-400">
+                    {lang === 'bn' ? 'সক্রিয় বেড' : 'LIVE BEDS'}
+                  </span>
                 </div>
 
-                {snapshot.therapyQueue.nowServing.length > 0 ? (
-                  <div className="grid grid-cols-2 gap-1.5 text-left">
-                    {snapshot.therapyQueue.nowServing.slice(0, 4).map((th, idx) => (
-                      <div
-                        key={idx}
-                        className={`p-1.5 sm:p-2 rounded-lg border flex flex-col justify-between ${
-                          isDark ? 'bg-black/60 border-zinc-800' : 'bg-white border-zinc-200'
-                        }`}
-                      >
-                        <div className="flex justify-between items-center text-[9px] sm:text-[10px]">
-                          <span className="font-extrabold px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-400 font-mono">
-                            {th.bedName || (lang === 'bn' ? `বেড ${toBnNum(idx + 1)}` : `Bed ${idx + 1}`)}
-                          </span>
-                          <span
-                            className={`font-semibold ${
-                              isDark ? 'text-zinc-400' : 'text-zinc-600'
-                            }`}
-                          >
-                            {toBnNum(th.durationMinutes || 20)} {lang === 'bn' ? 'মি.' : 'min'}
-                          </span>
-                        </div>
-                        <div className="text-xs font-black text-foreground truncate mt-0.5">
-                          {lang === 'bn' ? th.patientNameBn || th.patientNameEn : th.patientNameEn}
-                        </div>
-                        <div className="text-[9px] sm:text-[10px] text-emerald-400 truncate font-semibold">
-                          {th.modalityNameBn || th.modalityNameEn || th.modalityCode || 'ফিজিওথেরাপি'}
-                        </div>
-                      </div>
-                    ))}
+                <div
+                  className={`flex-1 min-h-0 p-2.5 sm:p-3 rounded-xl border-2 flex flex-col transition-all overflow-y-auto no-scrollbar ${
+                    isDark
+                      ? 'border-emerald-500/50 bg-zinc-900/90 shadow-[0_0_20px_rgba(16,185,129,0.08)]'
+                      : 'border-emerald-400 bg-emerald-50/40 shadow-sm'
+                  }`}
+                >
+                  <div className="inline-flex items-center justify-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-600 text-white text-[9px] sm:text-[10px] 2xl:text-xs font-black uppercase tracking-wider mb-2 self-center">
+                    <span>⚡</span>
+                    <span>{lang === 'bn' ? 'চলমান থেরাপি সেশন · সক্রিয় বেড' : 'ACTIVE THERAPY IN PROGRESS'}</span>
                   </div>
-                ) : (
-                  <div className="py-2">
-                    <div className="text-xs sm:text-sm font-bold text-emerald-400">
-                      {lang === 'bn' ? 'থেরাপি বেড প্রস্তুত' : 'Therapy Beds Ready'}
-                    </div>
-                    <p
-                      className={`text-[10px] mt-0.5 ${
-                        isDark ? 'text-zinc-400' : 'text-zinc-600'
-                      }`}
-                    >
-                      {lang === 'bn' ? 'নির্ধারিত মডালিটি অনুযায়ী রোগী প্রস্তুত' : 'Scheduled sessions initializing'}
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
 
-            {/* UPCOMING THERAPY QUEUE LIST */}
-            <div className="flex-1 min-h-0 flex flex-col px-2 sm:px-2.5 2xl:px-4 pb-2">
-              <div
-                className={`text-[10px] sm:text-xs 2xl:text-sm font-bold pb-1 px-1 flex justify-between shrink-0 ${
-                  isDark ? 'text-zinc-400' : 'text-zinc-600'
-                }`}
-              >
-                <span>{lang === 'bn' ? 'অপেক্ষারত থেরাপি রোগী তালিকা' : 'Waiting for Therapy Hall Entry'}</span>
-                <span>{lang === 'bn' ? 'টোকেন নং' : 'Token No.'}</span>
-              </div>
-
-              <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar flex flex-col gap-1 sm:gap-1.5">
-                {snapshot.therapyQueue.waiting.length === 0 ? (
-                  <div
-                    className={`text-center py-6 text-xs rounded-xl border border-dashed ${
-                      isDark
-                        ? 'border-zinc-800 text-zinc-500 bg-zinc-900/40'
-                        : 'border-zinc-200 text-zinc-500 bg-zinc-50'
-                    }`}
-                  >
-                    {lang === 'bn' ? 'থেরাপির জন্য কোনো রোগী অপেক্ষারত নেই' : 'No patients waiting for therapy'}
-                  </div>
-                ) : (
-                  snapshot.therapyQueue.waiting.map((th, idx) => (
-                    <div
-                      key={idx}
-                      className={`px-2.5 py-1.5 sm:px-3 sm:py-2 2xl:px-4 2xl:py-2.5 rounded-xl border flex items-center justify-between shrink-0 transition-colors ${
-                        isDark
-                          ? 'bg-zinc-900/70 border-zinc-800/80 hover:border-emerald-500/40'
-                          : 'bg-zinc-50 border-zinc-200 hover:border-emerald-500/40'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
-                        <span className="w-5 text-center text-xs font-mono font-bold text-zinc-500">
-                          #{toBnNum(idx + 1)}
-                        </span>
-                        <div className="min-w-0">
-                          <div className="text-xs sm:text-sm 2xl:text-base font-bold text-foreground truncate">
+                  {snapshot.therapyQueue.nowServing.length > 0 ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-left flex-1">
+                      {snapshot.therapyQueue.nowServing.map((th, idx) => (
+                        <div
+                          key={idx}
+                          className={`p-2.5 rounded-xl border flex flex-col justify-between ${
+                            isDark ? 'bg-black/60 border-zinc-800' : 'bg-white border-zinc-200'
+                          }`}
+                        >
+                          <div className="flex justify-between items-center text-[10px] sm:text-xs">
+                            <span className="font-extrabold px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-400 font-mono">
+                              {th.bedName || (lang === 'bn' ? `বেড ${toBnNum(idx + 1)}` : `Bed ${idx + 1}`)}
+                            </span>
+                            <span
+                              className={`font-semibold ${
+                                isDark ? 'text-zinc-400' : 'text-zinc-600'
+                              }`}
+                            >
+                              {toBnNum(th.durationMinutes || 20)} {lang === 'bn' ? 'মি.' : 'min'}
+                            </span>
+                          </div>
+                          <div className="text-xs sm:text-sm font-black text-foreground truncate my-1">
                             {lang === 'bn' ? th.patientNameBn || th.patientNameEn : th.patientNameEn}
                           </div>
-                          <div
-                            className={`text-[9px] sm:text-[10px] 2xl:text-xs ${
-                              isDark ? 'text-zinc-400' : 'text-zinc-600'
-                            }`}
-                          >
-                            {lang === 'bn' ? 'থেরাপি হল ওয়েটিং লাউঞ্জ' : 'Therapy Hall Lounge'}
+                          <div className="text-[10px] text-emerald-400 truncate font-semibold flex items-center justify-between">
+                            <span>{th.modalityNameBn || th.modalityNameEn || th.modalityCode || 'ফিজিওথেরাপি'}</span>
+                            {th.tokenNumber && (
+                              <span className="font-mono font-bold">#{toBnNum(th.tokenNumber)}</span>
+                            )}
                           </div>
                         </div>
-                      </div>
-
-                      <div className="text-right shrink-0">
-                        <span className="text-sm sm:text-base 2xl:text-xl font-black font-mono text-emerald-400">
-                          {toBnNum(th.tokenNumber)}
-                        </span>
-                      </div>
+                      ))}
                     </div>
-                  ))
-                )}
+                  ) : (
+                    <div className="flex flex-col items-center justify-center flex-1 py-4 text-center">
+                      <div className="text-sm font-bold text-emerald-400">
+                        {lang === 'bn' ? 'সকল থেরাপি বেড প্রস্তুত' : 'All Therapy Beds Ready'}
+                      </div>
+                      <p
+                        className={`text-xs mt-1 ${
+                          isDark ? 'text-zinc-400' : 'text-zinc-600'
+                        }`}
+                      >
+                        {lang === 'bn' ? 'পরবর্তী সেশনের জন্য মেশিন ও বেড সচল' : 'Equipment & beds ready for next patients'}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* INNER SUB-COLUMN B: UPCOMING THERAPY QUEUE LIST */}
+              <div className="flex flex-col h-full min-h-0">
+                <div
+                  className={`text-[10px] sm:text-xs 2xl:text-sm font-bold pb-1 px-1 flex justify-between shrink-0 ${
+                    isDark ? 'text-zinc-400' : 'text-zinc-600'
+                  }`}
+                >
+                  <span>{lang === 'bn' ? 'অপেক্ষারত থেরাপি রোগী তালিকা' : 'Waiting for Therapy Hall Entry'}</span>
+                  <span>{lang === 'bn' ? 'টোকেন নং' : 'Token No.'}</span>
+                </div>
+
+                <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar flex flex-col gap-1 sm:gap-1.5 p-1 rounded-xl border border-border/40 bg-muted/20">
+                  {snapshot.therapyQueue.waiting.length === 0 ? (
+                    <div
+                      className={`text-center py-8 text-xs rounded-xl border border-dashed flex flex-col items-center justify-center h-full ${
+                        isDark
+                          ? 'border-zinc-800 text-zinc-500 bg-zinc-900/40'
+                          : 'border-zinc-200 text-zinc-500 bg-zinc-50'
+                      }`}
+                    >
+                      <CheckCircle2 className="w-6 h-6 text-emerald-500 mb-1" />
+                      <span className="font-semibold">{lang === 'bn' ? 'থেরাপির জন্য কোনো রোগী অপেক্ষারত নেই' : 'No patients waiting in queue'}</span>
+                      <span className="text-[10px] mt-0.5 text-muted-foreground">{lang === 'bn' ? 'সকল প্রস্তুত রোগীকে বেড বরাদ্দ দেওয়া হয়েছে' : 'All queued patients assigned to beds'}</span>
+                    </div>
+                  ) : (
+                    snapshot.therapyQueue.waiting.map((th, idx) => (
+                      <div
+                        key={idx}
+                        className={`px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl border flex items-center justify-between shrink-0 transition-colors ${
+                          isDark
+                            ? 'bg-zinc-900/70 border-zinc-800/80 hover:border-emerald-500/40'
+                            : 'bg-zinc-50 border-zinc-200 hover:border-emerald-500/40'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+                          <span className="w-5 text-center text-xs font-mono font-bold text-zinc-500">
+                            #{toBnNum(idx + 1)}
+                          </span>
+                          <div className="min-w-0">
+                            <div className="text-xs sm:text-sm font-bold text-foreground truncate">
+                              {lang === 'bn' ? th.patientNameBn || th.patientNameEn : th.patientNameEn}
+                            </div>
+                            <div
+                              className={`text-[9px] sm:text-[10px] ${
+                                isDark ? 'text-zinc-400' : 'text-zinc-600'
+                              }`}
+                            >
+                              {lang === 'bn' ? 'থেরাপি হল ওয়েটিং লাউঞ্জ' : 'Therapy Hall Lounge'}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="text-right shrink-0">
+                          <span className="text-sm sm:text-base 2xl:text-xl font-black font-mono text-emerald-400">
+                            {toBnNum(th.tokenNumber)}
+                          </span>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
               </div>
             </div>
           </section>

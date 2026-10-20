@@ -69,43 +69,46 @@
   ],
   "shortcuts": [
     {
-      "name": "Admin Workstation Hub",
+      "name": "Admin Workstation",
       "short_name": "Admin",
       "description": "Unified Clinical Management, Billing & Analytics",
       "url": "/admin",
-      "icons": [
-        {
-          "src": "/icon-192.png",
-          "sizes": "192x192",
-          "type": "image/png"
-        }
-      ]
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Doctor Chamber",
+      "short_name": "Doctor",
+      "description": "Clinical Consultation & Prescriptions",
+      "url": "/doctor",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Reception Desk",
+      "short_name": "Receptionist",
+      "description": "Check-in, Check-out & Serial Allocation",
+      "url": "/receptionist",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Cashier Counter",
+      "short_name": "Cashier",
+      "description": "Dues, Paids, Refunds & Billing Settlement",
+      "url": "/cashier",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Therapy Hall",
+      "short_name": "Handler",
+      "description": "Therapy Queue, Slots & Modality Management",
+      "url": "/handler",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" }]
     },
     {
       "name": "Waiting Room TV",
       "short_name": "Waiting TV",
-      "description": "Fullscreen Token Queue TV Display",
+      "description": "Fullscreen Live Serial Token Display",
       "url": "/tv",
-      "icons": [
-        {
-          "src": "/icon-192.png",
-          "sizes": "192x192",
-          "type": "image/png"
-        }
-      ]
-    },
-    {
-      "name": "Staff Login",
-      "short_name": "Login",
-      "description": "Clinical Staff Authentication Portal",
-      "url": "/auth/login",
-      "icons": [
-        {
-          "src": "/icon-192.png",
-          "sizes": "192x192",
-          "type": "image/png"
-        }
-      ]
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" }]
     }
   ]
 }
