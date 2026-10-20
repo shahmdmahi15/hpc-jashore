@@ -213,9 +213,6 @@ export const api = {
       return res.data;
     },
   },
-        body: JSON.stringify({ email }),
-      }),
-  },
   patients: {
     list: (search?: string) =>
       apiFetch<any[]>(`/patients${search ? `?search=${encodeURIComponent(search)}` : ''}`),
