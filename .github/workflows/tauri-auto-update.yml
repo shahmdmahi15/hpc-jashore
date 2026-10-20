@@ -97,9 +97,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # Static Web Export (Next.js App Router -> out/ for Tauri frontendDist)
-      - name: Build Web Static Export
-        run: pnpm --filter @hpc/web build:export
+      # Build Web Application
+      - name: Build Web Application
+        run: pnpm --filter @hpc/web build
 
       # Version Resolution & Metadata Preparation
       - name: Resolve Release Version & Metadata
@@ -357,8 +357,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build Web Static Export
-        run: pnpm --filter @hpc/web build:export
+      - name: Build Web Application
+        run: pnpm --filter @hpc/web build
 
       - name: Resolve Release Version
         id: meta

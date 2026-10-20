@@ -6,8 +6,8 @@
   "build": {
     "beforeDevCommand": "pnpm --filter @hpc/web dev",
     "devUrl": "http://localhost:3000",
-    "beforeBuildCommand": "pnpm --filter @hpc/web build:export",
-    "frontendDist": "../web/out"
+    "beforeBuildCommand": "pnpm --filter @hpc/web build",
+    "frontendDist": "https://hpc.toufiquzzaman.com"
   },
   "app": {
     "withGlobalTauri": true,

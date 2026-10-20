@@ -1,5 +1,5 @@
 // apps/web/app/actions/api.ts
-// Direct server actions disabled for universal static export & Tauri compatibility
+'use server';
 
 import { cookies } from 'next/headers';
 import { serverFetch } from '../../lib/server-api';
