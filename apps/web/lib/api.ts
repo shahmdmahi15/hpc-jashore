@@ -7,6 +7,11 @@ import {
   executeServerAction,
   loginAction,
   logoutAction,
+  registerAction,
+  forgotPasswordAction,
+  resetPasswordAction,
+  verifyEmailAction,
+  resendVerificationAction,
 } from '../app/actions/api';
 
 export function isTauri(): boolean {
@@ -27,7 +32,15 @@ export function getApiBase(): string {
 
 export interface UserSession {
   accessToken: string;
-  role: 'admin' | 'head_doctor' | 'doctor' | 'reception' | 'therapist' | 'cashier';
+  role:
+    | 'admin'
+    | 'doctor'
+    | 'head_doctor'
+    | 'handler'
+    | 'therapist'
+    | 'cashier'
+    | 'receptionist'
+    | 'reception';
   userId: string;
   email: string;
   displayName: string;
@@ -37,7 +50,22 @@ export interface UserSession {
 let activeSession: UserSession | null = null;
 
 export function getRoleHomeRoute(role?: string): string {
-  return '/admin';
+  switch (role) {
+    case 'doctor':
+    case 'head_doctor':
+      return '/admin?tab=doctor';
+    case 'handler':
+    case 'therapist':
+      return '/admin?tab=handler';
+    case 'cashier':
+      return '/admin?tab=cashier';
+    case 'receptionist':
+    case 'reception':
+      return '/admin?tab=reception';
+    case 'admin':
+    default:
+      return '/admin?tab=admin';
+  }
 }
 
 export function setSession(session: UserSession | null) {
@@ -102,62 +130,26 @@ export async function apiFetch<T>(
     }
   }
 
-  return executeServerAction<T>(
+  const res = await executeServerAction<T>(
     path,
     method,
     body,
     session?.accessToken,
   );
+
+  if (!res.success) {
+    throw new Error(res.error);
+  }
+
+  return res.data;
 }
 
-// Demo Quick-Login accounts seeded in Phase 0-1
-export const DEMO_ACCOUNTS = {
-  head_doctor: {
-    email: 'toufiq@hpc.local',
-    password: 'Toufiq123!',
-    role: 'head_doctor',
-    label: 'Dr. Toufiq (Head Doctor)',
-    nameBn: 'ডাঃ মোঃ তৌফিক উজ জামান',
-  },
-  doctor: {
-    email: 'doctor@hpc.local',
-    password: 'Doctor123!',
-    role: 'doctor',
-    label: 'Dr. Demo (Physiotherapist)',
-    nameBn: 'ডাঃ ডেমো (ফিজিওথেরাপিস্ট)',
-  },
-  reception: {
-    email: 'reception@hpc.local',
-    password: 'Desk1234!',
-    role: 'reception',
-    label: 'Reception Desk',
-    nameBn: 'রিসেপশন কাউন্টার',
-  },
-  therapist: {
-    email: 'therapist@hpc.local',
-    password: 'Desk1234!',
-    role: 'therapist',
-    label: 'Therapy Hall Staff',
-    nameBn: 'ফিজিওথেরাপি হল',
-  },
-  cashier: {
-    email: 'cashier@hpc.local',
-    password: 'Desk1234!',
-    role: 'cashier',
-    label: 'Cashier & Billing Desk',
-    nameBn: 'বিলিং ও ক্যাশ কাউন্টার',
-  },
-  admin: {
-    email: 'admin@hpc.local',
-    password: 'Admin123!',
-    role: 'admin',
-    label: 'Clinic Administrator',
-    nameBn: 'সিস্টেম অ্যাডমিন',
-  },
-} as const;
-
-export async function loginWithEmail(email: string, password: string) {
-  const sessionData = await loginAction({ email, password });
+export async function loginWithEmail(email: string, password: string): Promise<UserSession> {
+  const res = await loginAction({ email, password });
+  if (!res.success) {
+    throw new Error(res.error);
+  }
+  const sessionData = res.session;
   const session: UserSession = {
     accessToken: sessionData.accessToken,
     userId: sessionData.userId,
@@ -171,40 +163,56 @@ export async function loginWithEmail(email: string, password: string) {
   return session;
 }
 
-export async function quickLogin(role: keyof typeof DEMO_ACCOUNTS) {
-  const creds = DEMO_ACCOUNTS[role];
-  return loginWithEmail(creds.email, creds.password);
-}
-
 export const api = {
   auth: {
     login: loginWithEmail,
-    quickLogin,
-    logout: () => setSession(null),
+    logout: () => {
+      logoutAction().catch(() => {});
+      setSession(null);
+    },
     getSession,
-    register: (data: { email: string; password: string; displayName: string; phone?: string; role?: string }) =>
-      apiFetch<{ success: boolean; message: string; userId: string }>('/auth/register', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      }),
-    forgotPassword: (email: string) =>
-      apiFetch<{ success: boolean; message: string }>('/auth/forgot-password', {
-        method: 'POST',
-        body: JSON.stringify({ email }),
-      }),
-    resetPassword: (data: { email: string; code: string; newPassword: string }) =>
-      apiFetch<{ success: boolean; message: string }>('/auth/reset-password', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      }),
-    verifyEmail: (data: { email: string; code: string }) =>
-      apiFetch<{ success: boolean; message: string }>('/auth/verify-email', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      }),
-    resendVerification: (email: string) =>
-      apiFetch<{ success: boolean; message: string }>('/auth/resend-verification', {
-        method: 'POST',
+    register: async (data: {
+      email: string;
+      password: string;
+      displayName: string;
+      phone?: string;
+      role?: string;
+    }) => {
+      const res = await registerAction(data);
+      if (!res.success) {
+        throw new Error(res.error);
+      }
+      return res.data;
+    },
+    forgotPassword: async (email: string) => {
+      const res = await forgotPasswordAction(email);
+      if (!res.success) {
+        throw new Error(res.error);
+      }
+      return res.data;
+    },
+    resetPassword: async (data: { email: string; code: string; newPassword: string }) => {
+      const res = await resetPasswordAction(data);
+      if (!res.success) {
+        throw new Error(res.error);
+      }
+      return res.data;
+    },
+    verifyEmail: async (data: { email: string; code: string }) => {
+      const res = await verifyEmailAction(data);
+      if (!res.success) {
+        throw new Error(res.error);
+      }
+      return res.data;
+    },
+    resendVerification: async (email: string) => {
+      const res = await resendVerificationAction(email);
+      if (!res.success) {
+        throw new Error(res.error);
+      }
+      return res.data;
+    },
+  },
         body: JSON.stringify({ email }),
       }),
   },

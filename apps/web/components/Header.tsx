@@ -4,6 +4,11 @@
 import * as React from 'react';
 import {
   ShieldCheck,
+  Stethoscope,
+  Activity,
+  CreditCard,
+  ClipboardList,
+  Package,
   Tv,
   Clock,
   CalendarDays,
@@ -29,9 +34,14 @@ interface HeaderProps {
   onTabChange: (tab: string) => void;
 }
 
-const TABS = [
-  { id: 'admin', labelBn: 'অ্যাডমিন ওয়ার্কস্টেশন', labelEn: 'Admin Hub', icon: ShieldCheck, href: '/admin' },
-  { id: 'tv', labelBn: 'টিভি কিউ', labelEn: 'Waiting TV', icon: Tv, href: '/tv' },
+const ALL_TABS = [
+  { id: 'admin', labelBn: 'অ্যাডমিন', labelEn: 'Admin', icon: ShieldCheck, href: '/admin?tab=admin', roles: ['admin'] },
+  { id: 'doctor', labelBn: 'ডাক্তার', labelEn: 'Doctor', icon: Stethoscope, href: '/admin?tab=doctor', roles: ['admin', 'head_doctor', 'doctor'] },
+  { id: 'handler', labelBn: 'হ্যান্ডলার', labelEn: 'Handler', icon: Activity, href: '/admin?tab=handler', roles: ['admin', 'handler', 'therapist'] },
+  { id: 'cashier', labelBn: 'ক্যাশিয়ার', labelEn: 'Cashier', icon: CreditCard, href: '/admin?tab=cashier', roles: ['admin', 'cashier'] },
+  { id: 'reception', labelBn: 'অভ্যর্থনা', labelEn: 'Receptionist', icon: ClipboardList, href: '/admin?tab=reception', roles: ['admin', 'reception', 'receptionist'] },
+  { id: 'pharmacy', labelBn: 'ফার্মেসি', labelEn: 'Pharmacy', icon: Package, href: '/admin?tab=pharmacy', roles: ['admin'] },
+  { id: 'tv', labelBn: 'টিভি কিউ', labelEn: 'Waiting TV', icon: Tv, href: '/tv', roles: ['admin', 'head_doctor', 'doctor', 'handler', 'therapist', 'cashier', 'reception', 'receptionist'] },
 ];
 
 export default function Header({
@@ -45,6 +55,11 @@ export default function Header({
   const { language } = useLanguage();
   const [isFullscreen, setIsFullscreen] = React.useState(false);
   const [currentTime, setCurrentTime] = React.useState<Date | null>(null);
+
+  const visibleTabs = React.useMemo(() => {
+    if (!session?.role) return ALL_TABS;
+    return ALL_TABS.filter((t) => t.roles.includes(session.role));
+  }, [session?.role]);
 
   // Live digital clock with interval
   React.useEffect(() => {
@@ -101,7 +116,7 @@ export default function Header({
         className="hidden md:flex items-center gap-1 overflow-x-auto py-0.5 no-scrollbar max-w-full"
         aria-label="Workstations"
       >
-        {TABS.map((tab) => {
+        {visibleTabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
           return (

@@ -17,10 +17,13 @@ interface WorkstationShellProps {
   children: (session: UserSession | null) => React.ReactNode;
 }
 
-const MOBILE_NAV_ITEMS = [
-  { id: 'home', labelBn: 'হোম', labelEn: 'Home', icon: Home, href: '/' },
-  { id: 'admin', labelBn: 'অ্যাডমিন', labelEn: 'Admin Hub', icon: ShieldCheck, href: '/admin' },
-  { id: 'tv', labelBn: 'টিভি কিউ', labelEn: 'Waiting TV', icon: Tv, href: '/tv' },
+const ALL_MOBILE_NAV_ITEMS = [
+  { id: 'admin', labelBn: 'অ্যাডমিন', labelEn: 'Admin', icon: ShieldCheck, href: '/admin?tab=admin', roles: ['admin'] },
+  { id: 'doctor', labelBn: 'ডাক্তার', labelEn: 'Doctor', icon: Stethoscope, href: '/admin?tab=doctor', roles: ['admin', 'head_doctor', 'doctor'] },
+  { id: 'handler', labelBn: 'হ্যান্ডলার', labelEn: 'Handler', icon: Activity, href: '/admin?tab=handler', roles: ['admin', 'handler', 'therapist'] },
+  { id: 'cashier', labelBn: 'ক্যাশিয়ার', labelEn: 'Cashier', icon: CreditCard, href: '/admin?tab=cashier', roles: ['admin', 'cashier'] },
+  { id: 'reception', labelBn: 'অভ্যর্থনা', labelEn: 'Reception', icon: ClipboardList, href: '/admin?tab=reception', roles: ['admin', 'reception', 'receptionist'] },
+  { id: 'tv', labelBn: 'টিভি কিউ', labelEn: 'Waiting TV', icon: Tv, href: '/tv', roles: ['admin', 'head_doctor', 'doctor', 'handler', 'therapist', 'cashier', 'reception', 'receptionist'] },
 ];
 
 export function WorkstationShell({
@@ -35,6 +38,11 @@ export function WorkstationShell({
   useEffect(() => {
     setSession(getSession());
   }, []);
+
+  const mobileNavItems = React.useMemo(() => {
+    if (!session?.role) return ALL_MOBILE_NAV_ITEMS;
+    return ALL_MOBILE_NAV_ITEMS.filter((item) => item.roles.includes(session.role));
+  }, [session?.role]);
 
   const { isConnected } = useRealtime((evt) => {
     // eslint-disable-next-line no-console
@@ -68,7 +76,7 @@ export function WorkstationShell({
           aria-label="Mobile Navigation"
           className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-card/95 backdrop-blur-xl border-t border-border/80 shadow-lg px-2 pt-1.5 pb-safe flex items-center justify-around"
         >
-          {MOBILE_NAV_ITEMS.map((item) => {
+          {mobileNavItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
             return (

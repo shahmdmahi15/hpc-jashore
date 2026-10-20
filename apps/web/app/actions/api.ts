@@ -9,84 +9,110 @@ import { serverFetch } from '../../lib/server-api';
  * All network calls execute strictly on the Next.js server.
  * No internal backend URLs or credentials are exposed to the client.
  */
+export type ServerActionResult<T = any> =
+  | { success: true; data: T }
+  | { success: false; error: string };
+
 export async function executeServerAction<T = any>(
   path: string,
   method: 'GET' | 'POST' | 'PUT' | 'DELETE' = 'GET',
   body?: any,
   explicitToken?: string,
-): Promise<T> {
-  const options: RequestInit = {
-    method,
-  };
-  if (body !== undefined && method !== 'GET') {
-    options.body = JSON.stringify(body);
+): Promise<ServerActionResult<T>> {
+  try {
+    const options: RequestInit = {
+      method,
+    };
+    if (body !== undefined && method !== 'GET') {
+      options.body = JSON.stringify(body);
+    }
+    const data = await serverFetch<T>(path, options, explicitToken);
+    return { success: true, data };
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err?.message || `Request failed on ${path}`,
+    };
   }
-  return serverFetch<T>(path, options, explicitToken);
 }
 
 // -----------------------------------------------------------------------------
 // Authentication Server Actions
 // -----------------------------------------------------------------------------
 
-export async function loginAction(credentials: { email: string; password: string }) {
-  const data = await serverFetch<{
-    accessToken: string;
-    user: { id: string; email: string; role: string; displayName: string };
-  }>('/auth/login', {
-    method: 'POST',
-    body: JSON.stringify(credentials),
-  });
-
-  const session = {
-    accessToken: data.accessToken,
-    userId: data.user.id,
-    email: data.user.email,
-    role: data.user.role,
-    displayName: data.user.displayName,
-    staffId: undefined as string | undefined,
-  };
-
-  // Find associated staff profile if available
+export async function loginAction(credentials: { email: string; password: string }): Promise<
+  | { success: true; session: any }
+  | { success: false; error: string }
+> {
   try {
-    const staffList = await serverFetch<any[]>('/staff', {}, data.accessToken);
-    const matched = staffList.find(
-      (s) => s.userId === session.userId || s.role === session.role,
-    );
-    if (matched) {
-      session.staffId = matched.id;
+    const data = await serverFetch<{
+      accessToken: string;
+      user: { id: string; email: string; role: string; displayName: string };
+    }>('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify(credentials),
+    });
+
+    const session = {
+      accessToken: data.accessToken,
+      userId: data.user.id,
+      email: data.user.email,
+      role: data.user.role,
+      displayName: data.user.displayName,
+      staffId: undefined as string | undefined,
+    };
+
+    // Find associated staff profile if available
+    try {
+      const staffList = await serverFetch<any[]>('/staff', {}, data.accessToken);
+      const matched = staffList.find(
+        (s) => s.userId === session.userId || s.role === session.role,
+      );
+      if (matched) {
+        session.staffId = matched.id;
+      }
+    } catch {
+      // fallback gracefully
     }
-  } catch {
-    // fallback gracefully
-  }
 
-  // Set secure HTTP-only cookies on the Next.js server for stateful sessions
-  try {
-    const cookieStore = await cookies();
-    cookieStore.set('hpc_access_token', data.accessToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/',
-      maxAge: 60 * 60 * 24 * 7, // 7 days
-    });
-    cookieStore.set('hpc_session', JSON.stringify({
-      userId: session.userId,
-      email: session.email,
-      role: session.role,
-      displayName: session.displayName,
-      staffId: session.staffId,
-    }), {
-      httpOnly: false,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      path: '/',
-      maxAge: 60 * 60 * 24 * 7,
-    });
-  } catch {
-    // cookies may fail in non-standard execution contexts
-  }
+    // Set secure HTTP-only cookies on the Next.js server for stateful sessions
+    try {
+      const cookieStore = await cookies();
+      cookieStore.set('hpc_access_token', data.accessToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/',
+        maxAge: 60 * 60 * 24 * 7, // 7 days
+      });
+      cookieStore.set(
+        'hpc_session',
+        JSON.stringify({
+          userId: session.userId,
+          email: session.email,
+          role: session.role,
+          displayName: session.displayName,
+          staffId: session.staffId,
+        }),
+        {
+          httpOnly: false,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          path: '/',
+          maxAge: 60 * 60 * 24 * 7,
+        },
+      );
+    } catch {
+      // cookies may fail in non-standard execution contexts
+    }
 
-  return session;
+    return { success: true, session };
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err?.message || 'Login failed. Please check your credentials.',
+    };
+  }
 }
 
 export async function logoutAction() {
@@ -106,43 +132,89 @@ export async function registerAction(data: {
   displayName: string;
   phone?: string;
   role?: string;
-}) {
-  return serverFetch<{ success: boolean; message: string; userId: string }>(
-    '/auth/register',
-    { method: 'POST', body: JSON.stringify(data) },
-  );
+}): Promise<ServerActionResult<{ success: boolean; message: string; userId: string }>> {
+  try {
+    const res = await serverFetch<{ success: boolean; message: string; userId: string }>(
+      '/auth/register',
+      { method: 'POST', body: JSON.stringify(data) },
+    );
+    return { success: true, data: res };
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err?.message || 'Registration failed. Please check your information.',
+    };
+  }
 }
 
-export async function forgotPasswordAction(email: string) {
-  return serverFetch<{ success: boolean; message: string }>(
-    '/auth/forgot-password',
-    { method: 'POST', body: JSON.stringify({ email }) },
-  );
+export async function forgotPasswordAction(email: string): Promise<
+  ServerActionResult<{ success: boolean; message: string }>
+> {
+  try {
+    const res = await serverFetch<{ success: boolean; message: string }>(
+      '/auth/forgot-password',
+      { method: 'POST', body: JSON.stringify({ email }) },
+    );
+    return { success: true, data: res };
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err?.message || 'Failed to dispatch password reset instructions.',
+    };
+  }
 }
 
 export async function resetPasswordAction(data: {
   email: string;
   code: string;
   newPassword: string;
-}) {
-  return serverFetch<{ success: boolean; message: string }>(
-    '/auth/reset-password',
-    { method: 'POST', body: JSON.stringify(data) },
-  );
+}): Promise<ServerActionResult<{ success: boolean; message: string }>> {
+  try {
+    const res = await serverFetch<{ success: boolean; message: string }>(
+      '/auth/reset-password',
+      { method: 'POST', body: JSON.stringify(data) },
+    );
+    return { success: true, data: res };
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err?.message || 'Failed to reset password. Verify your code.',
+    };
+  }
 }
 
-export async function verifyEmailAction(data: { email: string; code: string }) {
-  return serverFetch<{ success: boolean; message: string }>(
-    '/auth/verify-email',
-    { method: 'POST', body: JSON.stringify(data) },
-  );
+export async function verifyEmailAction(data: { email: string; code: string }): Promise<
+  ServerActionResult<{ success: boolean; message: string }>
+> {
+  try {
+    const res = await serverFetch<{ success: boolean; message: string }>(
+      '/auth/verify-email',
+      { method: 'POST', body: JSON.stringify(data) },
+    );
+    return { success: true, data: res };
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err?.message || 'Verification failed. Code may be invalid or expired.',
+    };
+  }
 }
 
-export async function resendVerificationAction(email: string) {
-  return serverFetch<{ success: boolean; message: string }>(
-    '/auth/resend-verification',
-    { method: 'POST', body: JSON.stringify({ email }) },
-  );
+export async function resendVerificationAction(email: string): Promise<
+  ServerActionResult<{ success: boolean; message: string }>
+> {
+  try {
+    const res = await serverFetch<{ success: boolean; message: string }>(
+      '/auth/resend-verification',
+      { method: 'POST', body: JSON.stringify({ email }) },
+    );
+    return { success: true, data: res };
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err?.message || 'Failed to dispatch verification code.',
+    };
+  }
 }
 
 // -----------------------------------------------------------------------------

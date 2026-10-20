@@ -77,26 +77,26 @@ async function main() {
 
   sqlite.pragma('foreign_keys = ON');
 
-  console.log('👤 Seeding ONLY the single unverified Admin user:');
+  console.log('👤 Seeding ONLY the single Admin user:');
   console.log('   Name: Shah Md. Mahi');
   console.log('   Email: shahmdmahi15@gmail.com');
   console.log('   Whatsapp: +8801757290258');
   console.log('   Password: [Set as requested]');
   console.log('   Role: Admin');
-  console.log('   Status: Unverified (isActive: 0) — User will activate by resending the verification email.');
+  console.log('   Status: Active (isActive: 1)');
 
   const userId = randomUUID();
   const staffId = randomUUID();
   const passwordHash = bcrypt.hashSync('Iliket90@#$abc', 10);
 
-  // 1. Create User: isActive = 0 (Unverified, cannot log in until email verified)
+  // 1. Create User: isActive = 1 (Active, direct login enabled)
   await db.insert(schema.users).values({
     id: userId,
     email: 'shahmdmahi15@gmail.com',
     passwordHash,
     role: 'admin',
     displayName: 'Shah Md. Mahi',
-    isActive: 0, // Unverified
+    isActive: 1,
     mustChangePassword: 0,
     createdAt: now(),
     updatedAt: now(),
@@ -111,12 +111,50 @@ async function main() {
     phone: '+8801757290258',
     specialization: 'System Administrator',
     feeOverridePaisa: null,
-    isActive: 0, // Unverified
+    isActive: 1,
     createdAt: now(),
     updatedAt: now(),
   });
 
-  console.log('✅ Seeding complete. Exactly ONE unverified user created. Zero mock data.');
+  // 3. Operational Clinic Desks
+  const desksToSeed = [
+    { id: 'reception-1', code: 'REC-01', name: 'Reception Counter 1', type: 'reception' as const },
+    { id: 'therapy-1', code: 'THP-01', name: 'Therapy Hall 1', type: 'therapy' as const },
+    { id: 'cashier-1', code: 'CSH-01', name: 'Cash Counter 1', type: 'cashier' as const },
+  ];
+
+  for (const d of desksToSeed) {
+    await db.insert(schema.desks).values({
+      id: d.id,
+      code: d.code,
+      name: d.name,
+      type: d.type,
+      isActive: 1,
+    });
+  }
+
+  // 4. Basic Clinical Modalities
+  const modalitiesToSeed = [
+    { id: 'mod-ust', code: 'UST', nameEn: 'Ultrasound Therapy (UST)', nameBn: 'আল্ট্রাসাউন্ড থেরাপি (UST)', defaultDurationMin: 15, defaultPricePaisa: 30000 },
+    { id: 'mod-swd', code: 'SWD', nameEn: 'Shortwave Diathermy (SWD)', nameBn: 'শর্টওয়েভ ডায়াথার্মি (SWD)', defaultDurationMin: 20, defaultPricePaisa: 40000 },
+    { id: 'mod-irr', code: 'IRR', nameEn: 'Infrared Radiation (IRR)', nameBn: 'ইনফ্রারেড রেডিয়েশন (IRR)', defaultDurationMin: 15, defaultPricePaisa: 25000 },
+    { id: 'mod-trac', code: 'TRAC', nameEn: 'Traction Therapy', nameBn: 'ট্র্যাকশন থেরাপি', defaultDurationMin: 20, defaultPricePaisa: 35000 },
+    { id: 'mod-ex', code: 'EX', nameEn: 'Therapeutic Exercise', nameBn: 'থেরাপিউটিক এক্সারসাইজ', defaultDurationMin: 30, defaultPricePaisa: 50000 },
+  ];
+
+  for (const m of modalitiesToSeed) {
+    await db.insert(schema.modalities).values({
+      id: m.id,
+      code: m.code,
+      nameEn: m.nameEn,
+      nameBn: m.nameBn,
+      defaultDurationMin: m.defaultDurationMin,
+      defaultPricePaisa: m.defaultPricePaisa,
+      isActive: 1,
+    });
+  }
+
+  console.log('✅ Seeding complete. Exactly ONE admin user and operational clinic desks created.');
   sqlite.close();
 }
 

@@ -8,5 +8,8 @@
     "opener:default",
     "notification:default",
     "updater:default"
-  ]
+  ],
+  "remote": {
+    "urls": ["https://hpc.toufiquzzaman.com/*"]
+  }
 }

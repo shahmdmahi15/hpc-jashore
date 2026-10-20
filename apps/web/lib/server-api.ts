@@ -48,7 +48,13 @@ export async function serverFetch<T>(
     let errorMessage = `Backend API Error ${res.status}`;
     try {
       const errJson = await res.json();
-      errorMessage = errJson.message || errJson.error || errorMessage;
+      if (Array.isArray(errJson.message)) {
+        errorMessage = errJson.message.join(', ');
+      } else if (errJson.message) {
+        errorMessage = errJson.message;
+      } else if (errJson.error) {
+        errorMessage = errJson.error;
+      }
     } catch {
       // non-JSON error
     }

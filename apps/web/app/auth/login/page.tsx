@@ -81,7 +81,19 @@ function LoginForm() {
       {errorMsg && (
         <Alert variant="destructive" className="mb-4">
           <AlertCircle className="size-4" />
-          <AlertDescription>{errorMsg}</AlertDescription>
+          <AlertDescription className="space-y-1">
+            <div>{errorMsg}</div>
+            {(errorMsg.toLowerCase().includes('verif') || errorMsg.includes('যাচাই')) && (
+              <div className="pt-1">
+                <Link
+                  href={`/auth/resend-verification?email=${encodeURIComponent(email)}`}
+                  className="font-medium underline hover:text-emerald-400 text-xs"
+                >
+                  {language === 'bn' ? 'ভেরিফিকেশন ইমেইল পুনরায় পাঠান →' : 'Resend Verification Email →'}
+                </Link>
+              </div>
+            )}
+          </AlertDescription>
         </Alert>
       )}
 

@@ -61,42 +61,53 @@ pub fn run() {
             trigger_update_check
         ])
         .setup(|app| {
+            // Explicitly ensure main window is visible, unminimized, and focused
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.show();
+                let _ = window.unminimize();
+                let _ = window.set_focus();
+                let _ = window.center();
+            }
+
             #[cfg(desktop)]
             {
-                let show_i = MenuItem::with_id(app, "show", "Open Clinical Workstation", true, None::<&str>)?;
-                let quit_i = MenuItem::with_id(app, "quit", "Quit HPC Jashore", true, None::<&str>)?;
-                let menu = Menu::with_items(app, &[&show_i, &quit_i])?;
-
-                if let Some(icon) = app.default_window_icon() {
-                    let _tray = TrayIconBuilder::new()
-                        .icon(icon.clone())
-                        .menu(&menu)
-                        .show_menu_on_left_click(true)
-                        .tooltip("HPC Health & Pain Care Center — Jashore")
-                        .on_menu_event(|app, event| match event.id.as_ref() {
-                            "quit" => {
-                                app.exit(0);
-                            }
-                            "show" => {
-                                if let Some(window) = app.get_webview_window("main") {
-                                    let _ = window.show();
-                                    let _ = window.unminimize();
-                                    let _ = window.set_focus();
-                                }
-                            }
-                            _ => {}
-                        })
-                        .on_tray_icon_event(|tray, event| {
-                            if let TrayIconEvent::Click { button: MouseButton::Left, .. } = event {
-                                let app = tray.app_handle();
-                                if let Some(window) = app.get_webview_window("main") {
-                                    let _ = window.show();
-                                    let _ = window.unminimize();
-                                    let _ = window.set_focus();
-                                }
-                            }
-                        })
-                        .build(app)?;
+                let show_i = MenuItem::with_id(app, "show", "Open Clinical Workstation", true, None::<&str>);
+                let quit_i = MenuItem::with_id(app, "quit", "Quit HPC Jashore", true, None::<&str>);
+                
+                if let (Ok(show_item), Ok(quit_item)) = (show_i, quit_i) {
+                    if let Ok(menu) = Menu::with_items(app, &[&show_item, &quit_item]) {
+                        if let Some(icon) = app.default_window_icon() {
+                            let _ = TrayIconBuilder::new()
+                                .icon(icon.clone())
+                                .menu(&menu)
+                                .show_menu_on_left_click(true)
+                                .tooltip("HPC Health & Pain Care Center — Jashore")
+                                .on_menu_event(|app, event| match event.id.as_ref() {
+                                    "quit" => {
+                                        app.exit(0);
+                                    }
+                                    "show" => {
+                                        if let Some(window) = app.get_webview_window("main") {
+                                            let _ = window.show();
+                                            let _ = window.unminimize();
+                                            let _ = window.set_focus();
+                                        }
+                                    }
+                                    _ => {}
+                                })
+                                .on_tray_icon_event(|tray, event| {
+                                    if let TrayIconEvent::Click { button: MouseButton::Left, .. } = event {
+                                        let app = tray.app_handle();
+                                        if let Some(window) = app.get_webview_window("main") {
+                                            let _ = window.show();
+                                            let _ = window.unminimize();
+                                            let _ = window.set_focus();
+                                        }
+                                    }
+                                })
+                                .build(app);
+                        }
+                    }
                 }
 
                 // Automated background update checker thread (every 60 minutes)

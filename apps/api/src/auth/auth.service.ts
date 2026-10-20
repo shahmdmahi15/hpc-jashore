@@ -64,7 +64,7 @@ export class AuthService {
       .from(users)
       .where(eq(users.email, normalized));
     const user = rows[0];
-    if (!user || user.isActive !== 1) {
+    if (!user) {
       throw new UnauthorizedException('Invalid email or password');
     }
     const ok = await bcrypt.compare(password, user.passwordHash);
@@ -79,6 +79,11 @@ export class AuthService {
         requestId: meta.requestId,
       });
       throw new UnauthorizedException('Invalid email or password');
+    }
+    if (user.isActive !== 1) {
+      throw new UnauthorizedException(
+        'Your email address is not verified. Please check your inbox or click Resend Verification to activate your account.',
+      );
     }
 
     const staffRow = (
@@ -578,7 +583,7 @@ export class AuthService {
         id: randomUUID(),
         userId,
         fullName: dto.displayName.trim(),
-        role: (['admin', 'head_doctor', 'doctor', 'reception', 'therapist', 'cashier'].includes(role) ? role : 'reception') as Role,
+        role: (['admin', 'head_doctor', 'doctor', 'handler', 'therapist', 'cashier', 'receptionist', 'reception'].includes(role) ? role : 'reception') as Role,
         phone: dto.phone.trim(),
         isActive: 0,
         createdAt: new Date().toISOString(),
