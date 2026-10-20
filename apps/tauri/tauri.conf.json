@@ -6,7 +6,7 @@
   "build": {
     "beforeDevCommand": "pnpm --filter @hpc/web dev",
     "devUrl": "http://localhost:3000",
-    "beforeBuildCommand": "pnpm --filter @hpc/web build",
+    "beforeBuildCommand": "",
     "frontendDist": "https://hpc.toufiquzzaman.com"
   },
   "app": {

@@ -67,11 +67,10 @@ jobs:
         with:
           fetch-depth: 0
 
-      # Package Management & Runtime Setup (pnpm 12, Node 22)
-      - name: Setup pnpm 12
+      # Package Management & Runtime Setup (reads packageManager from package.json)
+      - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 12
           run_install: false
 
       - name: Setup Node.js 22
@@ -342,10 +341,9 @@ jobs:
           workspaces: |
             apps/tauri -> target
 
-      - name: Setup pnpm 12
+      - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 12
           run_install: false
 
       - name: Setup Node.js 22
