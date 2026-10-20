@@ -32,6 +32,21 @@ class EnvVars {
 
   @IsOptional()
   NODE_ENV?: string;
+
+  @IsOptional()
+  SMTP_HOST?: string;
+
+  @IsOptional()
+  SMTP_PORT?: string;
+
+  @IsOptional()
+  SMTP_USER?: string;
+
+  @IsOptional()
+  SMTP_PASS?: string;
+
+  @IsOptional()
+  SMTP_FROM?: string;
 }
 
 function validated(): EnvVars {
@@ -80,6 +95,18 @@ export default () => {
       .split(',')
       .map((s) => s.trim())
       .filter(Boolean),
+    smtp: {
+      host: env.SMTP_HOST || process.env.SMTP_HOST || 'smtp.resend.com',
+      port: Number(env.SMTP_PORT || process.env.SMTP_PORT || 465),
+      user: env.SMTP_USER || process.env.SMTP_USER || '',
+      pass: env.SMTP_PASS || process.env.SMTP_PASS || '',
+      from: env.SMTP_FROM || process.env.SMTP_FROM || '"HPC Jashore" <no-reply@hpc.toufiquzzaman.com>',
+    },
+    SMTP_HOST: env.SMTP_HOST || process.env.SMTP_HOST || 'smtp.resend.com',
+    SMTP_PORT: env.SMTP_PORT || process.env.SMTP_PORT || '465',
+    SMTP_USER: env.SMTP_USER || process.env.SMTP_USER || '',
+    SMTP_PASS: env.SMTP_PASS || process.env.SMTP_PASS || '',
+    SMTP_FROM: env.SMTP_FROM || process.env.SMTP_FROM || '"HPC Jashore" <no-reply@hpc.toufiquzzaman.com>',
   };
 };
 

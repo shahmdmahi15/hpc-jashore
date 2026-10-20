@@ -1,3 +1,20 @@
+import { existsSync } from 'fs';
+import { resolve } from 'path';
+import * as dotenv from 'dotenv';
+
+// Ensure .env is loaded into process.env before NestJS bootstrap
+const candidateEnvPaths = [
+  resolve(process.cwd(), '.env'),
+  resolve(__dirname, '../.env'),
+  '/var/www/hpc-jashore/apps/api/.env',
+  '/var/www/hpc-jashore/.env',
+];
+for (const envPath of candidateEnvPaths) {
+  if (existsSync(envPath)) {
+    dotenv.config({ path: envPath });
+  }
+}
+
 import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';

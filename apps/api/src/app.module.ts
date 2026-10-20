@@ -28,7 +28,16 @@ import { VisitsModule } from './visits/visits.module';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true, load: [configuration] }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: [
+        '.env',
+        'apps/api/.env',
+        '/var/www/hpc-jashore/apps/api/.env',
+        '/var/www/hpc-jashore/.env',
+      ],
+      load: [configuration],
+    }),
     DbModule,
     AuditModule,
     AuditQueryModule,

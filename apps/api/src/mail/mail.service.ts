@@ -8,13 +8,24 @@ export class MailService {
   private transporter: nodemailer.Transporter;
 
   constructor(private readonly config: ConfigService) {
-    const user = this.config.get<string>('SMTP_USER') || '';
-    const pass = this.config.get<string>('SMTP_PASS') || '';
-    const host = this.config.get<string>('SMTP_HOST') || 'smtp.gmail.com';
-    const port = Number(this.config.get<string>('SMTP_PORT') || 465);
+    const user =
+      this.config.get<string>('SMTP_USER') || process.env.SMTP_USER || '';
+    const pass =
+      this.config.get<string>('SMTP_PASS') || process.env.SMTP_PASS || '';
+    const host =
+      this.config.get<string>('SMTP_HOST') ||
+      process.env.SMTP_HOST ||
+      'smtp.resend.com';
+    const port = Number(
+      this.config.get<string>('SMTP_PORT') || process.env.SMTP_PORT || 465,
+    );
+
+    this.logger.log(
+      `SMTP transport configured: host=${host}, port=${port}, secure=${port === 465}, user=${user ? user : '(none)'}`,
+    );
 
     if (!user || !pass) {
-      this.logger.warn('SMTP credentials not configured. Outgoing mail will be disabled or logged.');
+      this.logger.warn('SMTP credentials not configured. Outgoing mail will fail or be rejected.');
     }
 
     this.transporter = nodemailer.createTransport({
@@ -27,7 +38,10 @@ export class MailService {
 
   async sendPasswordResetPin(email: string, pin: string, name?: string): Promise<boolean> {
     const recipientName = name || 'Patient / Staff Member';
-    const from = this.config.get<string>('SMTP_FROM') || '"HPC Jashore" <healthandpaincarejashore@gmail.com>';
+    const from =
+      this.config.get<string>('SMTP_FROM') ||
+      process.env.SMTP_FROM ||
+      '"HPC Jashore" <no-reply@hpc.toufiquzzaman.com>';
 
     const html = `
       <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 16px; background-color: #ffffff; color: #1e293b;">
@@ -91,7 +105,10 @@ export class MailService {
 
   async sendVerificationCode(email: string, code: string, name?: string): Promise<boolean> {
     const recipientName = name || 'Patient / User';
-    const from = this.config.get<string>('SMTP_FROM') || '"HPC Jashore" <healthandpaincarejashore@gmail.com>';
+    const from =
+      this.config.get<string>('SMTP_FROM') ||
+      process.env.SMTP_FROM ||
+      '"HPC Jashore" <no-reply@hpc.toufiquzzaman.com>';
 
     const html = `
       <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 16px; background-color: #ffffff; color: #1e293b;">
