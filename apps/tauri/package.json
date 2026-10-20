@@ -1,6 +1,6 @@
 {
   "name": "@hpc/tauri",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "HPC Jashore — Tauri v2 Multi-Platform Native Application (Windows, macOS, Linux, Android, iOS)",
   "scripts": {

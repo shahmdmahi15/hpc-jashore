@@ -1,6 +1,6 @@
 [package]
 name = "hpc-tauri"
-version = "0.1.0"
+version = "0.1.1"
 description = "HPC Jashore Desktop & Mobile Native Client"
 authors = ["Dr. Md. Toufiq Uz Zaman", "Antigravity"]
 edition = "2021"
