@@ -36,12 +36,12 @@ interface HeaderProps {
 
 const ALL_TABS = [
   { id: 'admin', labelBn: 'অ্যাডমিন', labelEn: 'Admin', icon: ShieldCheck, href: '/admin?tab=admin', roles: ['admin'] },
-  { id: 'doctor', labelBn: 'ডাক্তার', labelEn: 'Doctor', icon: Stethoscope, href: '/admin?tab=doctor', roles: ['admin', 'head_doctor', 'doctor'] },
-  { id: 'handler', labelBn: 'হ্যান্ডলার', labelEn: 'Handler', icon: Activity, href: '/admin?tab=handler', roles: ['admin', 'handler', 'therapist'] },
+  { id: 'doctor', labelBn: 'ডাক্তার', labelEn: 'Doctor', icon: Stethoscope, href: '/admin?tab=doctor', roles: ['admin', 'doctor'] },
+  { id: 'handler', labelBn: 'হ্যান্ডলার', labelEn: 'Handler', icon: Activity, href: '/admin?tab=handler', roles: ['admin', 'handler'] },
   { id: 'cashier', labelBn: 'ক্যাশিয়ার', labelEn: 'Cashier', icon: CreditCard, href: '/admin?tab=cashier', roles: ['admin', 'cashier'] },
-  { id: 'reception', labelBn: 'অভ্যর্থনা', labelEn: 'Receptionist', icon: ClipboardList, href: '/admin?tab=reception', roles: ['admin', 'reception', 'receptionist'] },
+  { id: 'reception', labelBn: 'অভ্যর্থনা', labelEn: 'Receptionist', icon: ClipboardList, href: '/admin?tab=reception', roles: ['admin', 'receptionist'] },
   { id: 'pharmacy', labelBn: 'ফার্মেসি', labelEn: 'Pharmacy', icon: Package, href: '/admin?tab=pharmacy', roles: ['admin'] },
-  { id: 'tv', labelBn: 'টিভি কিউ', labelEn: 'Waiting TV', icon: Tv, href: '/tv', roles: ['admin', 'head_doctor', 'doctor', 'handler', 'therapist', 'cashier', 'reception', 'receptionist'] },
+  { id: 'tv', labelBn: 'টিভি কিউ', labelEn: 'Waiting TV', icon: Tv, href: '/tv', roles: ['admin', 'doctor', 'handler', 'cashier', 'receptionist'] },
 ];
 
 export default function Header({

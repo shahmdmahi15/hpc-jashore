@@ -563,8 +563,8 @@ export class AuthService {
 
     const userId = randomUUID();
     const passwordHash = await bcrypt.hash(dto.password, 10);
-    // Privilege escalation prevention: self-registration cannot grant admin or doctor roles.
-    const role: Role = 'reception';
+    // Privilege escalation prevention: self-registration defaults to receptionist.
+    const role: Role = 'receptionist';
 
     await this.db.insert(users).values({
       id: userId,
@@ -583,7 +583,7 @@ export class AuthService {
         id: randomUUID(),
         userId,
         fullName: dto.displayName.trim(),
-        role: (['admin', 'head_doctor', 'doctor', 'handler', 'therapist', 'cashier', 'receptionist', 'reception'].includes(role) ? role : 'reception') as Role,
+        role: (['admin', 'doctor', 'handler', 'cashier', 'receptionist'].includes(role) ? role : 'receptionist') as Role,
         phone: dto.phone.trim(),
         isActive: 0,
         createdAt: new Date().toISOString(),

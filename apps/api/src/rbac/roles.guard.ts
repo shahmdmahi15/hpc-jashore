@@ -8,8 +8,7 @@ import { Reflector } from '@nestjs/core';
 import { ROLES_KEY } from './roles.decorator';
 
 // Enforces @Roles(...) against req.user.role (set by JwtAuthGuard).
-// head_doctor inherits every doctor-scoped route: declare both roles explicitly
-// on doctor routes OR list ['doctor','head_doctor'] — never bypass silently.
+// Standard roles: 'admin' | 'doctor' | 'handler' | 'cashier' | 'receptionist'.
 @Injectable()
 export class RolesGuard implements CanActivate {
   constructor(private readonly reflector: Reflector) {}

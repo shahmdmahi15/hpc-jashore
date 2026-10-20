@@ -161,16 +161,10 @@ export class ReportsService {
       .from(staff)
       .where(and(eq(staff.role, 'doctor'), eq(staff.isActive, 1)));
 
-    const headDoctors = await this.db
-      .select()
-      .from(staff)
-      .where(and(eq(staff.role, 'head_doctor'), eq(staff.isActive, 1)));
-
-    const allDocs = [...headDoctors, ...doctors];
     const allConsults = await this.db.select().from(consultations);
     const allPrescriptions = await this.db.select().from(prescriptions);
 
-    return allDocs.map((doc) => {
+    return doctors.map((doc) => {
       const docConsults = allConsults.filter(
         (c) => c.doctorId === doc.id && c.createdAt.startsWith(targetDate),
       );
@@ -214,14 +208,14 @@ export class ReportsService {
   }
 
   async getTherapistPerformance() {
-    const therapists = await this.db
+    const handlers = await this.db
       .select()
       .from(staff)
-      .where(and(eq(staff.role, 'therapist'), eq(staff.isActive, 1)));
+      .where(and(eq(staff.role, 'handler'), eq(staff.isActive, 1)));
 
     const allSessions = await this.db.select().from(therapySessions);
 
-    return therapists.map((t) => {
+    return handlers.map((t) => {
       const mySessions = allSessions.filter((s) => s.therapistStaffId === t.id);
       const completed = mySessions.filter((s) => s.status === 'completed');
       const overtime = completed.filter((s) => s.isOvertime === 1);
@@ -233,6 +227,8 @@ export class ReportsService {
       return {
         therapistId: t.id,
         therapistName: t.fullName,
+        handlerId: t.id,
+        handlerName: t.fullName,
         totalAssigned: mySessions.length,
         completedSessions: completed.length,
         onTimeRatePercent: onTimeRate,

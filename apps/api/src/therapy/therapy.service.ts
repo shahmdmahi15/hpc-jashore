@@ -83,12 +83,12 @@ export class TherapyService {
       if (staffRows.length > 0) {
         effectiveTherapistId = staffRows[0].id;
       } else {
-        const anyTherapist = await this.db
+        const anyHandler = await this.db
           .select()
           .from(staff)
-          .where(and(eq(staff.role, 'therapist'), eq(staff.isActive, 1)))
+          .where(and(eq(staff.role, 'handler'), eq(staff.isActive, 1)))
           .limit(1);
-        effectiveTherapistId = anyTherapist[0]?.id ?? therapistStaffId;
+        effectiveTherapistId = anyHandler[0]?.id ?? therapistStaffId;
       }
     }
 

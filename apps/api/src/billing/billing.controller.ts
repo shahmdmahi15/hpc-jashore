@@ -71,7 +71,7 @@ export class BillingController {
   }
 
   @Post('bills/:id/void')
-  @Roles('admin', 'head_doctor')
+  @Roles('admin')
   voidBill(
     @CurrentUser() user: RequestUser,
     @Param('id') billId: string,
@@ -87,13 +87,13 @@ export class BillingController {
   }
 
   @Get('bills')
-  @Roles('admin', 'head_doctor', 'cashier')
+  @Roles('admin', 'doctor', 'cashier')
   getAllBills() {
     return this.billing.getAllBills();
   }
 
   @Get('dues')
-  @Roles('admin', 'head_doctor', 'cashier')
+  @Roles('admin', 'doctor', 'cashier')
   getAllDues() {
     return this.billing.getAllDues();
   }
@@ -173,7 +173,7 @@ export class BillingController {
   }
 
   @Get('drawers/reports/daily')
-  @Roles('admin', 'head_doctor')
+  @Roles('admin')
   getDailyDrawerReport() {
     return this.billing.getDailyDrawerReport();
   }

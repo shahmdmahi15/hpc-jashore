@@ -48,7 +48,7 @@ export class PatientsController {
   }
 
   @Post()
-  @Roles('admin', 'head_doctor', 'doctor', 'reception')
+  @Roles('admin', 'doctor', 'receptionist')
   create(
     @CurrentUser() user: RequestUser,
     @Body() dto: CreatePatientDto,
@@ -63,7 +63,7 @@ export class PatientsController {
   }
 
   @Patch(':id')
-  @Roles('admin', 'head_doctor', 'doctor', 'reception')
+  @Roles('admin', 'doctor', 'receptionist')
   update(
     @CurrentUser() user: RequestUser,
     @Param('id') id: string,

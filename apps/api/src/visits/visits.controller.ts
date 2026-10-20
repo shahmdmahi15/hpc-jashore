@@ -32,7 +32,7 @@ export class VisitsController {
   @Post('check-in')
   @ApiBearerAuth()
   @UseGuards(JwtAccessAuthGuard, RolesGuard)
-  @Roles('admin', 'head_doctor', 'doctor', 'reception')
+  @Roles('admin', 'doctor', 'receptionist')
   checkIn(
     @CurrentUser() user: RequestUser,
     @Body() dto: CheckInDto,
@@ -58,7 +58,7 @@ export class VisitsController {
   @Post('doctor/:doctorId/call-next')
   @ApiBearerAuth()
   @UseGuards(JwtAccessAuthGuard, RolesGuard)
-  @Roles('admin', 'head_doctor', 'doctor')
+  @Roles('admin', 'doctor')
   callNext(
     @Param('doctorId') doctorId: string,
     @Body() dto: CallSerialDto,
@@ -69,7 +69,7 @@ export class VisitsController {
   @Post('serials/:id/call')
   @ApiBearerAuth()
   @UseGuards(JwtAccessAuthGuard, RolesGuard)
-  @Roles('admin', 'head_doctor', 'doctor')
+  @Roles('admin', 'doctor')
   callSerial(
     @Param('id') serialId: string,
     @Body() dto: CallSerialDto,
@@ -80,7 +80,7 @@ export class VisitsController {
   @Post('serials/:id/complete')
   @ApiBearerAuth()
   @UseGuards(JwtAccessAuthGuard, RolesGuard)
-  @Roles('admin', 'head_doctor', 'doctor')
+  @Roles('admin', 'doctor')
   completeSerial(@Param('id') serialId: string) {
     return this.visits.completeSerial(serialId);
   }
@@ -88,7 +88,7 @@ export class VisitsController {
   @Post('serials/:id/skip')
   @ApiBearerAuth()
   @UseGuards(JwtAccessAuthGuard, RolesGuard)
-  @Roles('admin', 'head_doctor', 'doctor')
+  @Roles('admin', 'doctor')
   skipSerial(@Param('id') serialId: string) {
     return this.visits.skipSerial(serialId);
   }
@@ -106,7 +106,7 @@ export class VisitsController {
   @Post(':id/check-out')
   @ApiBearerAuth()
   @UseGuards(JwtAccessAuthGuard, RolesGuard)
-  @Roles('admin', 'head_doctor', 'reception', 'cashier')
+  @Roles('admin', 'receptionist', 'cashier')
   checkOut(
     @Param('id') visitId: string,
     @Body() dto: CheckOutDto,

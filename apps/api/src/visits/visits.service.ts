@@ -413,7 +413,7 @@ export class VisitsService {
       .from(staff)
       .where(
         and(
-          or(eq(staff.role, 'doctor'), eq(staff.role, 'head_doctor')),
+          eq(staff.role, 'doctor'),
           eq(staff.isActive, 1),
         ),
       );

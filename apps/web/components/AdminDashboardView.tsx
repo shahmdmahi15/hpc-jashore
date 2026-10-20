@@ -189,12 +189,11 @@ export default function AdminDashboardView({ session: propSession }: AdminDashbo
   // Role distribution counts
   const roleCounts = useMemo(() => {
     const counts = {
-      head_doctor: 0,
-      doctor: 0,
-      therapist: 0,
-      reception: 0,
-      cashier: 0,
       admin: 0,
+      doctor: 0,
+      handler: 0,
+      cashier: 0,
+      receptionist: 0,
     };
     staffList.forEach((s) => {
       if (s.role in counts) {
@@ -206,18 +205,16 @@ export default function AdminDashboardView({ session: propSession }: AdminDashbo
 
   const getRoleBadge = (role: string) => {
     switch (role) {
-      case 'head_doctor':
-        return <Badge variant="emerald" className="font-semibold">{isBn ? 'প্রধান চিকিৎসক' : 'Head Doctor'}</Badge>;
-      case 'doctor':
-        return <Badge variant="default" className="bg-blue-600 text-white font-semibold">{isBn ? 'ফিজিওথেরাপি চিকিৎসক' : 'Physio Doctor'}</Badge>;
-      case 'therapist':
-        return <Badge variant="secondary" className="bg-amber-500/15 text-amber-700 dark:text-amber-400 font-semibold">{isBn ? 'থেরাপিস্ট' : 'Therapist'}</Badge>;
-      case 'reception':
-        return <Badge variant="outline" className="border-purple-500/30 text-purple-600 dark:text-purple-400 font-semibold">{isBn ? 'রিসেপশনিস্ট' : 'Receptionist'}</Badge>;
-      case 'cashier':
-        return <Badge variant="secondary" className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 font-semibold">{isBn ? 'ক্যাশিয়ার' : 'Cashier'}</Badge>;
       case 'admin':
         return <Badge variant="secondary" className="bg-rose-500/15 text-rose-700 dark:text-rose-400 font-semibold">{isBn ? 'অ্যাডমিন' : 'Admin'}</Badge>;
+      case 'doctor':
+        return <Badge variant="default" className="bg-blue-600 text-white font-semibold">{isBn ? 'চিকিৎসক' : 'Doctor'}</Badge>;
+      case 'handler':
+        return <Badge variant="secondary" className="bg-amber-500/15 text-amber-700 dark:text-amber-400 font-semibold">{isBn ? 'হ্যান্ডলার' : 'Handler'}</Badge>;
+      case 'cashier':
+        return <Badge variant="secondary" className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 font-semibold">{isBn ? 'ক্যাশিয়ার' : 'Cashier'}</Badge>;
+      case 'receptionist':
+        return <Badge variant="outline" className="border-purple-500/30 text-purple-600 dark:text-purple-400 font-semibold">{isBn ? 'রিসেপশনিস্ট' : 'Receptionist'}</Badge>;
       default:
         return <Badge variant="outline">{role}</Badge>;
     }
@@ -564,26 +561,24 @@ export default function AdminDashboardView({ session: propSession }: AdminDashbo
               <p className="text-xl sm:text-2xl font-black text-foreground mt-0.5">{staffList.length}</p>
             </Card>
             <Card className="rounded-2xl border-border bg-card p-3 shadow-2xs text-center">
+              <p className="text-2xs font-semibold text-muted-foreground uppercase">{isBn ? 'অ্যাডমিন' : 'Admins'}</p>
+              <p className="text-xl sm:text-2xl font-black text-rose-500 mt-0.5">{roleCounts.admin}</p>
+            </Card>
+            <Card className="rounded-2xl border-border bg-card p-3 shadow-2xs text-center">
               <p className="text-2xs font-semibold text-muted-foreground uppercase">{isBn ? 'চিকিৎসক' : 'Doctors'}</p>
-              <p className="text-xl sm:text-2xl font-black text-blue-600 dark:text-blue-400 mt-0.5">
-                {roleCounts.head_doctor + roleCounts.doctor}
-              </p>
+              <p className="text-xl sm:text-2xl font-black text-blue-600 dark:text-blue-400 mt-0.5">{roleCounts.doctor}</p>
             </Card>
             <Card className="rounded-2xl border-border bg-card p-3 shadow-2xs text-center">
-              <p className="text-2xs font-semibold text-muted-foreground uppercase">{isBn ? 'থেরাপিস্ট' : 'Therapists'}</p>
-              <p className="text-xl sm:text-2xl font-black text-amber-500 mt-0.5">{roleCounts.therapist}</p>
-            </Card>
-            <Card className="rounded-2xl border-border bg-card p-3 shadow-2xs text-center">
-              <p className="text-2xs font-semibold text-muted-foreground uppercase">{isBn ? 'রিসেপশনিস্ট' : 'Reception'}</p>
-              <p className="text-xl sm:text-2xl font-black text-purple-500 mt-0.5">{roleCounts.reception}</p>
+              <p className="text-2xs font-semibold text-muted-foreground uppercase">{isBn ? 'হ্যান্ডলার' : 'Handlers'}</p>
+              <p className="text-xl sm:text-2xl font-black text-amber-500 mt-0.5">{roleCounts.handler}</p>
             </Card>
             <Card className="rounded-2xl border-border bg-card p-3 shadow-2xs text-center">
               <p className="text-2xs font-semibold text-muted-foreground uppercase">{isBn ? 'ক্যাশিয়ার' : 'Cashiers'}</p>
               <p className="text-xl sm:text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-0.5">{roleCounts.cashier}</p>
             </Card>
             <Card className="rounded-2xl border-border bg-card p-3 shadow-2xs text-center">
-              <p className="text-2xs font-semibold text-muted-foreground uppercase">{isBn ? 'অ্যাডমিন' : 'Admins'}</p>
-              <p className="text-xl sm:text-2xl font-black text-rose-500 mt-0.5">{roleCounts.admin}</p>
+              <p className="text-2xs font-semibold text-muted-foreground uppercase">{isBn ? 'রিসেপশনিস্ট' : 'Receptionists'}</p>
+              <p className="text-xl sm:text-2xl font-black text-purple-500 mt-0.5">{roleCounts.receptionist}</p>
             </Card>
           </div>
 
@@ -702,12 +697,11 @@ export default function AdminDashboardView({ session: propSession }: AdminDashbo
                     className="h-9 text-xs rounded-xl w-full sm:w-36"
                   >
                     <option value="ALL">{isBn ? 'সকল পদবি' : 'All Roles'}</option>
-                    <option value="head_doctor">{isBn ? 'প্রধান চিকিৎসক' : 'Head Doctor'}</option>
-                    <option value="doctor">{isBn ? 'চিকিৎসক' : 'Doctor'}</option>
-                    <option value="therapist">{isBn ? 'থেরাপিস্ট' : 'Therapist'}</option>
-                    <option value="reception">{isBn ? 'রিসেপশন' : 'Reception'}</option>
-                    <option value="cashier">{isBn ? 'ক্যাশিয়ার' : 'Cashier'}</option>
                     <option value="admin">{isBn ? 'অ্যাডমিন' : 'Admin'}</option>
+                    <option value="doctor">{isBn ? 'চিকিৎসক' : 'Doctor'}</option>
+                    <option value="handler">{isBn ? 'হ্যান্ডলার' : 'Handler'}</option>
+                    <option value="cashier">{isBn ? 'ক্যাশিয়ার' : 'Cashier'}</option>
+                    <option value="receptionist">{isBn ? 'রিসেপশনিস্ট' : 'Receptionist'}</option>
                   </Select>
                 </div>
               </div>

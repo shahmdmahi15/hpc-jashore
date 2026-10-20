@@ -35,7 +35,7 @@ export class ClinicalController {
   }
 
   @Post('consultations')
-  @Roles('admin', 'head_doctor', 'doctor')
+  @Roles('admin', 'doctor')
   createConsultation(
     @CurrentUser() user: RequestUser,
     @Body() dto: CreateConsultationDto,
@@ -66,7 +66,7 @@ export class ClinicalController {
   }
 
   @Post('prescriptions')
-  @Roles('admin', 'head_doctor', 'doctor')
+  @Roles('admin', 'doctor')
   createPrescription(
     @CurrentUser() user: RequestUser,
     @Body() dto: CreateStandalonePrescriptionDto,
@@ -82,7 +82,7 @@ export class ClinicalController {
   }
 
   @Post('assessments')
-  @Roles('admin', 'head_doctor', 'doctor', 'therapist')
+  @Roles('admin', 'doctor', 'handler')
   createAssessment(
     @CurrentUser() user: RequestUser,
     @Body() dto: CreateAssessmentDto,

@@ -11,13 +11,10 @@ import {
 
 export type Role =
   | 'admin'
-  | 'head_doctor'
   | 'doctor'
   | 'handler'
-  | 'therapist'
   | 'cashier'
-  | 'receptionist'
-  | 'reception';
+  | 'receptionist';
 
 const timestamps = {
   createdAt: text('created_at')

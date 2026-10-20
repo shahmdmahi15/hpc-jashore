@@ -33,13 +33,13 @@ export class StaffController {
   }
 
   @Get()
-  @Roles('admin', 'head_doctor', 'doctor', 'reception', 'cashier', 'therapist')
+  @Roles('admin', 'doctor', 'handler', 'cashier', 'receptionist')
   list() {
     return this.staff.list();
   }
 
   @Post('attendance')
-  @Roles('admin', 'head_doctor', 'doctor', 'reception', 'cashier', 'therapist')
+  @Roles('admin', 'doctor', 'handler', 'cashier', 'receptionist')
   punch(
     @CurrentUser() user: RequestUser,
     @Body() dto: { staffId: string; punchType: 'in' | 'out'; deskId?: string; pin?: string },
@@ -63,7 +63,7 @@ export class StaffController {
   @Get(':id')
   async get(@CurrentUser() user: RequestUser, @Param('id') id: string) {
     // Privileged roles see any row; everyone else only their own linked row.
-    if (user.role !== 'admin' && user.role !== 'head_doctor') {
+    if (user.role !== 'admin' && user.role !== 'doctor') {
       const ownId = user.staffId ?? (await this.staff.staffIdForUser(user.sub));
       if (ownId !== id) throw new ForbiddenException('Can only view your own staff record');
     }

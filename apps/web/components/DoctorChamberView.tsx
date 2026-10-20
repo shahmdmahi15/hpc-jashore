@@ -88,7 +88,7 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
     try {
       setLoading(true);
       const staffList = await api.staff.list();
-      let targetDoctor = staffList.find((s: any) => s.userId === session?.userId || s.role === 'head_doctor' || s.role === 'doctor');
+      let targetDoctor = staffList.find((s: any) => s.userId === session?.userId || s.role === 'doctor');
       const docId = targetDoctor ? targetDoctor.id : doctorId;
 
       if (docId) {
@@ -120,7 +120,7 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
   const handleCallNext = async () => {
     try {
       const staffList = await api.staff.list();
-      const doc = staffList.find((s: any) => s.userId === session?.userId || s.role === 'head_doctor');
+      const doc = staffList.find((s: any) => s.userId === session?.userId || s.role === 'doctor');
       const targetDocId = doc?.id || doctorId;
 
       const called = await api.visits.callNext(targetDocId);

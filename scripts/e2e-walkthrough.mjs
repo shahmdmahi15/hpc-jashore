@@ -37,10 +37,10 @@ async function runE2E() {
   const authHeaders = { Authorization: `Bearer ${token}` };
 
   const staffList = await request('/staff', { headers: authHeaders });
-  const headDoc = staffList.find((s) => s.role === 'head_doctor');
-  const therapist = staffList.find((s) => s.role === 'therapist');
+  const headDoc = staffList.find((s) => s.role === 'doctor');
+  const therapist = staffList.find((s) => s.role === 'handler');
   const cashier = staffList.find((s) => s.role === 'cashier');
-  console.log(`   Staff discovered: Doctor=${headDoc?.fullName}, Therapist=${therapist?.fullName}`);
+  console.log(`   Staff discovered: Doctor=${headDoc?.fullName}, Handler=${therapist?.fullName}`);
 
   // Step 3: Reception Desk — Register Patient & Issue Serial Slip
   const testPhone = `017${Math.floor(10000000 + Math.random() * 90000000)}`;

@@ -39,7 +39,7 @@ export class TherapyController {
   }
 
   @Post('sessions/start')
-  @Roles('admin', 'head_doctor', 'therapist')
+  @Roles('admin', 'doctor', 'handler')
   startSession(
     @CurrentUser() user: RequestUser,
     @Body() dto: StartSessionDto,
@@ -55,7 +55,7 @@ export class TherapyController {
   }
 
   @Post('sessions/:id/complete')
-  @Roles('admin', 'head_doctor', 'therapist')
+  @Roles('admin', 'doctor', 'handler')
   completeSession(
     @CurrentUser() user: RequestUser,
     @Param('id') sessionId: string,
@@ -126,7 +126,7 @@ export class TherapyController {
   }
 
   @Post('packages/purchase')
-  @Roles('admin', 'head_doctor', 'cashier', 'reception')
+  @Roles('admin', 'doctor', 'cashier', 'receptionist')
   purchasePackage(
     @CurrentUser() user: RequestUser,
     @Body() dto: PurchasePackageDto,

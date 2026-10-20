@@ -23,7 +23,6 @@ function WorkstationContent({
     case 'doctor':
       return <DoctorChamberView session={session} />;
     case 'handler':
-    case 'therapist':
       return <TherapyHallView session={session} />;
     case 'cashier':
       return <CashierView session={session} />;
@@ -45,10 +44,10 @@ function AdminPageInner() {
   const resolveTab = (session: UserSession | null): string => {
     if (rawTab) return rawTab;
     if (session?.role) {
-      if (session.role === 'doctor' || session.role === 'head_doctor') return 'doctor';
-      if (session.role === 'therapist' || session.role === 'handler') return 'handler';
+      if (session.role === 'doctor') return 'doctor';
+      if (session.role === 'handler') return 'handler';
       if (session.role === 'cashier') return 'cashier';
-      if (session.role === 'reception' || session.role === 'receptionist') return 'reception';
+      if (session.role === 'receptionist') return 'reception';
     }
     return 'admin';
   };
@@ -58,13 +57,10 @@ function AdminPageInner() {
       activeTab={rawTab || 'admin'}
       allowedRoles={[
         'admin',
-        'head_doctor',
         'doctor',
-        'reception',
-        'receptionist',
-        'cashier',
-        'therapist',
         'handler',
+        'cashier',
+        'receptionist',
       ]}
     >
       {(session) => {

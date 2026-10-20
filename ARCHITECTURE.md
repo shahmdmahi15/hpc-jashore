@@ -4,7 +4,7 @@ Companion to [ROADMAP.md](ROADMAP.md). Lock these before writing feature code.
 ## 0. Locked decisions (2026-10-15, approved)
 - **Domain:** `hpc.toufiquzzaman.com` (user holds Cloudflare + AWS root accounts).
 - **Owner:** Dr. Toufiq (Md. Toufiq Uz Zaman) — Head Doctor + owner. The center has multiple doctors; Dr. Toufiq heads them.
-- **Roles (locked 2026-10-16):** `admin`, `head_doctor` (Dr. Toufiq only: full clinical oversight across all doctors + business reports), `doctor` (own serials/patients/stats only, unless granted), plus shared desk logins (`reception`, `therapist`, `cashier`) with per-action staff PIN.
+- **Roles:** Strictly 5 roles across the system: `admin`, `doctor`, `handler`, `cashier`, `receptionist`. Shared desk logins with per-action staff PIN.
 - **Package manager:** pnpm everywhere — never npm. Server runs Node 22 LTS (pnpm via corepack).
 - **Process manager:** PM2 for Node.js (`apps/api`, `apps/web`). No Docker in v1.
 - **Paper:** custom **5.5in × 8.27in** for prescriptions + invoices; **A4** for reports and everything else; thermal 80mm for token slips + receipts.
@@ -31,13 +31,13 @@ Companion to [ROADMAP.md](ROADMAP.md). Lock these before writing feature code.
 - Numbering tables: `sequences (mrn, bill, token, voucher)` — single-row increments inside transactions to avoid duplicates under concurrency.
 
 ## 4. Auth model (the desk+PIN system)
-- Admin / Head Doctor / Doctor: personal credentials → JWT. Head Doctor (Dr. Toufiq) sees all doctors' serials, patients, and business reports. A Doctor sees only own serials/patients/stats unless granted wider scope.
+- Admin / Doctor: personal credentials → JWT. Admin has full clinical oversight across all doctors + business reports. A Doctor sees assigned patients/serials/stats unless granted wider scope.
 - Desk login: device holds a long-lived desk token (`desk:reception-1`, scopes limited, e.g. reception desk cannot void payments).
 - Per-action: UI shows staff-on-shift selector → staff enters 4-digit PIN → `POST /auth/pin-verify {staffId, pin, action, deskId}` → 60-second action grant token → action executes with `actorStaffId` in audit. PINs: argon2/bcrypt, per-staff salt, 5-fail lockout 15 min, admin reset audited.
 - TV: pairing-code → read-only token scoped `tv:feed` only. Revocable per device.
 
 ## 5. Realtime protocol
-- Socket.IO rooms: `clinic:global`, `role:{reception,doctor,therapist,cashier,admin}`, `doctor:{id}`, `room:{id}`, `patient:{mrn}`. Server emits on every mutation; clients refetch the affected query key (no fat events — event = "what changed + id", client GETs fresh state; keeps clients consistent and payloads small).
+- Socket.IO rooms: `clinic:global`, `role:{receptionist,doctor,handler,cashier,admin}`, `doctor:{id}`, `room:{id}`, `patient:{mrn}`. Server emits on every mutation; clients refetch the affected query key (no fat events — event = "what changed + id", client GETs fresh state; keeps clients consistent and payloads small).
 - SSE: `/sse/tv`, `/sse/queue/:doctorId`, `/sse/dashboard` — `text/event-stream`, `proxy_buffering off`, heartbeat 15s, `Last-Event-ID` resume.
 - Presence: desk heartbeat every 20s → admin "who is online" + TV "counter closed" states.
 - Offline: PWA/Android queue mutations in outbox table (Room/IndexedDB) with idempotency keys (`Idempotency-Key: uuid`) so retries never double-bill.

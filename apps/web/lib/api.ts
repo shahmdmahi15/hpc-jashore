@@ -32,15 +32,7 @@ export function getApiBase(): string {
 
 export interface UserSession {
   accessToken: string;
-  role:
-    | 'admin'
-    | 'doctor'
-    | 'head_doctor'
-    | 'handler'
-    | 'therapist'
-    | 'cashier'
-    | 'receptionist'
-    | 'reception';
+  role: 'admin' | 'doctor' | 'handler' | 'cashier' | 'receptionist';
   userId: string;
   email: string;
   displayName: string;
@@ -52,15 +44,12 @@ let activeSession: UserSession | null = null;
 export function getRoleHomeRoute(role?: string): string {
   switch (role) {
     case 'doctor':
-    case 'head_doctor':
       return '/admin?tab=doctor';
     case 'handler':
-    case 'therapist':
       return '/admin?tab=handler';
     case 'cashier':
       return '/admin?tab=cashier';
     case 'receptionist':
-    case 'reception':
       return '/admin?tab=reception';
     case 'admin':
     default:

@@ -11,7 +11,7 @@ export class CreateUserDto {
   @MaxLength(128)
   password!: string;
 
-  @IsIn(['admin', 'head_doctor', 'doctor', 'reception', 'therapist', 'cashier'])
+  @IsIn(['admin', 'doctor', 'handler', 'cashier', 'receptionist'])
   role!: Role;
 
   @IsString()
@@ -26,7 +26,7 @@ export class UpdateUserDto {
   displayName?: string;
 
   @IsOptional()
-  @IsIn(['admin', 'head_doctor', 'doctor', 'reception', 'therapist', 'cashier'])
+  @IsIn(['admin', 'doctor', 'handler', 'cashier', 'receptionist'])
   role?: Role;
 
   @IsOptional()

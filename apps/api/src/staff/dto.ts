@@ -11,7 +11,7 @@ export class CreateStaffDto {
   @MaxLength(160)
   fullName!: string;
 
-  @IsIn(['doctor', 'head_doctor', 'reception', 'therapist', 'cashier'])
+  @IsIn(['admin', 'doctor', 'handler', 'cashier', 'receptionist'])
   role!: Role;
 
   @IsOptional()

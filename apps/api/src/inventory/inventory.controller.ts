@@ -72,13 +72,13 @@ export class InventoryController {
   }
 
   @Get('expenses')
-  @Roles('admin', 'head_doctor')
+  @Roles('admin')
   listExpenses() {
     return this.inventory.listExpenses();
   }
 
   @Post('expenses')
-  @Roles('admin', 'head_doctor', 'cashier')
+  @Roles('admin', 'cashier')
   createExpense(
     @CurrentUser() user: RequestUser,
     @Body() dto: CreateExpenseDto,

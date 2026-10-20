@@ -54,7 +54,7 @@ export default function ReceptionView() {
       setTodayVisits(v || []);
       setPatients(p || []);
       setStaffList(s || []);
-      const doctors = (s || []).filter((st: any) => st.role === 'head_doctor' || st.role === 'doctor');
+      const doctors = (s || []).filter((st: any) => st.role === 'doctor');
       if (doctors.length > 0 && !selectedDoctorId) {
         setSelectedDoctorId(doctors[0].id);
       }
@@ -131,7 +131,7 @@ export default function ReceptionView() {
       p.mrn.toLowerCase().includes(search.toLowerCase()),
   );
 
-  const doctors = staffList.filter((s) => s.role === 'head_doctor' || s.role === 'doctor');
+  const doctors = staffList.filter((s) => s.role === 'doctor');
 
   return (
     <div className="flex flex-col gap-6">

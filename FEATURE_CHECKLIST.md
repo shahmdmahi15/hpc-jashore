@@ -8,7 +8,7 @@ Legend: `[ ]` todo · `[~]` in progress / ready for clinic hardware demo · `[x]
 - [x] Per-action auth: staff selector + 4-digit PIN verify endpoint, rate-limited, 5-try lockout, admin reset
 - [x] PIN policy: no sequential/repeated digits, forced change every 90 days (configurable), per-staff salt+hash (bcrypt/argon2)
 - [x] Role-based access control on every API route + UI route guard
-- [x] Permissions matrix documented (admin / head_doctor / doctor / desks: who can discount / void / delete / reset PIN / close day / view other doctors)
+- [x] Permissions matrix documented (admin / doctor / handler / cashier / receptionist: who can discount / void / delete / reset PIN / close day / view other doctors)
 - [x] Device/desk registry: name desks (Reception-1, Cashier-1, Tab-Therapy-A), bind tokens, remote revoke
 - [x] Audit log: actor + desk + PIN identity + action + before/after JSON + IP; immutable, admin-viewable, exportable
 - [x] Password reset (admin-assisted), session list + remote logout
