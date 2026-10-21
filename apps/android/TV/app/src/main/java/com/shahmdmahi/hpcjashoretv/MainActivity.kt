@@ -52,7 +52,8 @@ data class ConsultationPatient(
     val patientNameEn: String,
     val patientNameBn: String? = null,
     val doctorName: String = "Dr. Toufiq Uz Zaman",
-    val chamber: String = "Chamber 1"
+    val chamber: String = "Chamber 1",
+    val priority: String = "regular"
 )
 
 data class TherapyPatient(
@@ -61,7 +62,8 @@ data class TherapyPatient(
     val patientNameBn: String? = null,
     val bedName: String = "Bed 1",
     val modality: String = "Physiotherapy",
-    val durationMinutes: Int = 20
+    val durationMinutes: Int = 20,
+    val priority: String = "regular"
 )
 
 class MainActivity : ComponentActivity() {
@@ -534,7 +536,9 @@ class MainActivity : ComponentActivity() {
                                                     verticalAlignment = Alignment.CenterVertically
                                                 ) {
                                                     Text(
-                                                        text = if (currentLanguage == "bn") (item.modalityNameBn ?: item.modalityNameEn) else item.modalityNameEn,
+                                                        text = if (currentLanguage == "bn") {
+                                                            if (item.modality == "Physiotherapy") "ফিজিওথেরাপি" else item.modality
+                                                        } else item.modality,
                                                         color = Emerald400,
                                                         fontSize = 10.sp,
                                                         fontWeight = FontWeight.SemiBold,
