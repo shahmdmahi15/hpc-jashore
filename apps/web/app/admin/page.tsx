@@ -23,6 +23,8 @@ import {
   Hash,
   Clock,
   MessageSquare,
+  ClipboardList,
+  FileSpreadsheet,
 } from 'lucide-react';
 
 const ADMIN_ROW1_TABS = [
@@ -73,6 +75,22 @@ const ADMIN_ROW1_TABS = [
     icon: Pill,
     descriptionEn: 'Pharmaceutical master list, generic names, stock batches, unit prices, and expiry tracker.',
     descriptionBn: 'ওষুধের তালিকা, জেনেরিক নাম, ব্যাচ নম্বর, স্টক ব্যালেন্স ও মেয়াদোত্তীর্ণ ট্র্যাকার।',
+  },
+  {
+    id: 'audit_logs',
+    titleEn: 'Audit Log',
+    titleBn: 'অডিট লগ',
+    icon: ClipboardList,
+    descriptionEn: 'Immutable system event trail, security access logs, financial audit records, and administrative modifications.',
+    descriptionBn: 'সিস্টেম কার্যক্রমের লগ, নিরাপত্তা অডিট, আর্থিক পরিবর্তনের ইতিহাস ও সংবেদনশীল অ্যাডমিন একশনের রেকর্ড।',
+  },
+  {
+    id: 'reports',
+    titleEn: 'Reports',
+    titleBn: 'রিপোর্ট ও বিশ্লেষণ',
+    icon: FileSpreadsheet,
+    descriptionEn: 'Financial balance sheets, daily cashier collection summaries, doctor consultation statistics, and exportable analytics.',
+    descriptionBn: 'আর্থিক ব্যালেন্স শিট, দৈনিক ক্যাশিয়ার কালেকশন রিপোর্ট, ডাক্তার ভিজিট পরিসংখ্যান ও ডেটা এক্সপোর্ট।',
   },
 ];
 
