@@ -203,8 +203,10 @@ export const api = {
     },
   },
   patients: {
-    list: (search?: string) =>
-      apiFetch<any[]>(`/patients${search ? `?search=${encodeURIComponent(search)}` : ''}`),
+    list: async (search?: string) => {
+      const res = await apiFetch<any>(`/patients${search ? `?q=${encodeURIComponent(search)}` : ''}`);
+      return Array.isArray(res) ? res : res?.items || [];
+    },
     create: (data: any) =>
       apiFetch<any>('/patients', { method: 'POST', body: JSON.stringify(data) }),
     getById: (id: string) => apiFetch<any>(`/patients/${id}`),

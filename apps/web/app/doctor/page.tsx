@@ -5,6 +5,7 @@ import React, { useState } from 'react';
 import { WorkstationShell } from '../../components/WorkstationShell';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../../components/ui/tabs';
 import { WorkstationTabPlaceholder } from '../../components/WorkstationTabPlaceholder';
+import { PatientManagementView } from '../../components/patient/PatientManagementView';
 import { useLanguage } from '../../lib/i18n';
 import {
   Stethoscope,
@@ -109,7 +110,11 @@ export default function DoctorPage() {
               </TabsList>
             </div>
 
-            {DOCTOR_TABS.map((tab) => (
+            <TabsContent value="patients" className="mt-4 focus-visible:outline-none">
+              <PatientManagementView />
+            </TabsContent>
+
+            {DOCTOR_TABS.filter((t) => t.id !== 'patients').map((tab) => (
               <TabsContent key={tab.id} value={tab.id} className="mt-4 focus-visible:outline-none">
                 <WorkstationTabPlaceholder
                   titleEn={tab.titleEn}

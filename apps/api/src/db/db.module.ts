@@ -109,6 +109,15 @@ export type Db = BetterSQLite3Database<typeof schema>;
               sqlite.exec("ALTER TABLE refresh_sessions ADD COLUMN fingerprint TEXT");
             }
           } catch {}
+
+          // Ensure email column in patients
+          try {
+            const patientCols = sqlite.prepare("PRAGMA table_info(patients)").all() as Array<{ name: string }>;
+            const patientColNames = new Set(patientCols.map((c) => c.name));
+            if (!patientColNames.has('email')) {
+              sqlite.exec("ALTER TABLE patients ADD COLUMN email TEXT");
+            }
+          } catch {}
         } catch {
           // Idempotent column safety
         }

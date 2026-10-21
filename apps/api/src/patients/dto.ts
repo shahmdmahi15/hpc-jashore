@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
-  IsEnum,
+  IsEmail,
   IsIn,
   IsInt,
   IsNotEmpty,
@@ -29,6 +29,12 @@ export class CreatePatientDto {
   @Matches(/^01[3-9]\d{8}$/, { message: 'Phone must be a valid Bangladeshi mobile number (01XXXXXXXXX)' })
   phone!: string;
 
+  @ApiPropertyOptional({ description: 'Email address' })
+  @IsOptional()
+  @IsEmail({}, { message: 'Please provide a valid email address' })
+  @MaxLength(128)
+  email?: string;
+
   @ApiPropertyOptional({ description: 'Date of birth YYYY-MM-DD' })
   @IsOptional()
   @IsString()
@@ -40,48 +46,59 @@ export class CreatePatientDto {
   @Min(0)
   ageYears?: number;
 
-  @ApiProperty({ enum: ['male', 'female', 'other'] })
-  @IsIn(['male', 'female', 'other'])
-  gender!: 'male' | 'female' | 'other';
+  @ApiProperty({ enum: ['male', 'female'], description: 'Gender: strictly male or female' })
+  @IsIn(['male', 'female'], { message: 'Gender must be strictly male or female' })
+  gender!: 'male' | 'female';
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ description: 'Blood group: A+, A-, B+, B-, AB+, AB-, O+, O-' })
   @IsOptional()
   @IsString()
   @MaxLength(10)
   bloodGroup?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ description: 'Full residential address' })
   @IsOptional()
   @IsString()
   @MaxLength(256)
   address?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ description: 'Occupation / Profession' })
   @IsOptional()
   @IsString()
   @MaxLength(64)
   occupation?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ description: 'Profession alias for occupation' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  profession?: string;
+
+  @ApiPropertyOptional({ description: 'Emergency contact name and phone number' })
   @IsOptional()
   @IsString()
   @MaxLength(128)
   emergencyContact?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ description: 'Allergies list' })
   @IsOptional()
   @IsString()
   allergies?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ description: 'Chronic medical conditions' })
   @IsOptional()
   @IsString()
   chronicConditions?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ description: 'Contraindications or precautions' })
   @IsOptional()
   @IsString()
   contraindications?: string;
+
+  @ApiPropertyOptional({ description: 'Consent signed flag (0 or 1)' })
+  @IsOptional()
+  @IsInt()
+  consentSigned?: number;
 }
 
 export class UpdatePatientDto {
@@ -105,6 +122,12 @@ export class UpdatePatientDto {
 
   @ApiPropertyOptional()
   @IsOptional()
+  @IsEmail({}, { message: 'Please provide a valid email address' })
+  @MaxLength(128)
+  email?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsString()
   dateOfBirth?: string;
 
@@ -114,10 +137,10 @@ export class UpdatePatientDto {
   @Min(0)
   ageYears?: number;
 
-  @ApiPropertyOptional({ enum: ['male', 'female', 'other'] })
+  @ApiPropertyOptional({ enum: ['male', 'female'] })
   @IsOptional()
-  @IsIn(['male', 'female', 'other'])
-  gender?: 'male' | 'female' | 'other';
+  @IsIn(['male', 'female'], { message: 'Gender must be strictly male or female' })
+  gender?: 'male' | 'female';
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -136,6 +159,12 @@ export class UpdatePatientDto {
   @IsString()
   @MaxLength(64)
   occupation?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  profession?: string;
 
   @ApiPropertyOptional()
   @IsOptional()

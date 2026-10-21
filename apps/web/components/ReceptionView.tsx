@@ -11,6 +11,7 @@ import { Select } from './ui/select';
 import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
+import { CreatePatientDialog } from './patient/CreatePatientDialog';
 import { cn } from '../lib/utils';
 
 export default function ReceptionView() {
@@ -24,16 +25,6 @@ export default function ReceptionView() {
 
   // Registration Modal State
   const [showRegModal, setShowRegModal] = useState(false);
-  const [regData, setRegData] = useState({
-    nameEn: '',
-    nameBn: '',
-    phone: '',
-    ageYears: '',
-    gender: 'male',
-    bloodGroup: 'B+',
-    address: 'Jashore',
-    allergies: '',
-  });
 
   // Check-In State
   const [selectedPatientId, setSelectedPatientId] = useState('');
@@ -68,26 +59,6 @@ export default function ReceptionView() {
   useEffect(() => {
     loadData();
   }, []);
-
-  const handleRegisterPatient = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!regData.nameEn || !regData.phone) {
-      alert('Please fill Name and Phone');
-      return;
-    }
-    try {
-      const created = await api.patients.create({
-        ...regData,
-        ageYears: regData.ageYears ? parseInt(regData.ageYears) : undefined,
-      });
-      alert(`Patient Registered! MRN: ${created.mrn}`);
-      setShowRegModal(false);
-      setSelectedPatientId(created.id);
-      loadData();
-    } catch (err: any) {
-      alert(`Registration failed: ${err.message}`);
-    }
-  };
 
   const handleCheckIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -423,105 +394,14 @@ export default function ReceptionView() {
       </div>
 
       {/* New Patient Registration Dialog */}
-      <Dialog open={showRegModal} onOpenChange={setShowRegModal}>
-        <DialogContent className="max-w-xl" onClose={() => setShowRegModal(false)}>
-          <DialogHeader>
-            <DialogTitle className="text-lg font-bold">Register New Patient</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleRegisterPatient} className="flex flex-col gap-4 mt-2">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Input
-                label="Full Name (English) *"
-                type="text"
-                required
-                value={regData.nameEn}
-                onChange={(e) => setRegData({ ...regData, nameEn: e.target.value })}
-              />
-              <Input
-                label="নাম (বাংলা)"
-                type="text"
-                value={regData.nameBn}
-                onChange={(e) => setRegData({ ...regData, nameBn: e.target.value })}
-              />
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Input
-                label="Mobile Number *"
-                type="tel"
-                required
-                placeholder="01XXXXXXXXX"
-                value={regData.phone}
-                onChange={(e) => setRegData({ ...regData, phone: e.target.value })}
-              />
-              <Input
-                label="Age (Years)"
-                type="number"
-                value={regData.ageYears}
-                onChange={(e) => setRegData({ ...regData, ageYears: e.target.value })}
-              />
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Select
-                label="Gender"
-                value={regData.gender}
-                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setRegData({ ...regData, gender: e.target.value })}
-              >
-                <option value="male">Male (পুরুষ)</option>
-                <option value="female">Female (মহিলা)</option>
-                <option value="other">Other</option>
-              </Select>
-
-              <Select
-                label="Blood Group"
-                value={regData.bloodGroup}
-                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setRegData({ ...regData, bloodGroup: e.target.value })}
-              >
-                <option value="A+">A+</option>
-                <option value="A-">A-</option>
-                <option value="B+">B+</option>
-                <option value="B-">B-</option>
-                <option value="O+">O+</option>
-                <option value="O-">O-</option>
-                <option value="AB+">AB+</option>
-                <option value="AB-">AB-</option>
-              </Select>
-            </div>
-
-            <Input
-              label="Address"
-              type="text"
-              value={regData.address}
-              onChange={(e) => setRegData({ ...regData, address: e.target.value })}
-            />
-
-            <Input
-              label="Allergies / Warnings (If any)"
-              type="text"
-              placeholder="e.g. Penicillin, NSAID allergy"
-              value={regData.allergies}
-              onChange={(e) => setRegData({ ...regData, allergies: e.target.value })}
-            />
-
-            <div className="flex gap-3 mt-4 pt-2 border-t border-border">
-              <Button
-                type="submit"
-                className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
-              >
-                Save &amp; Generate MRN
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setShowRegModal(false)}
-              >
-                Cancel
-              </Button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <CreatePatientDialog
+        open={showRegModal}
+        onOpenChange={setShowRegModal}
+        onSuccess={(created) => {
+          setSelectedPatientId(created.id);
+          loadData();
+        }}
+      />
 
       {/* 80mm Token Slip Modal */}
       {printedToken && (

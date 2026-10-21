@@ -39,6 +39,9 @@ export class PatientsService {
           like(patients.phone, pattern),
           like(patients.nameEn, pattern),
           like(patients.nameBn, pattern),
+          like(patients.email, pattern),
+          like(patients.occupation, pattern),
+          like(patients.address, pattern),
         ),
       )!;
     }
@@ -82,12 +85,13 @@ export class PatientsService {
       nameEn: dto.nameEn.trim(),
       nameBn: dto.nameBn?.trim() ?? null,
       phone: dto.phone.trim(),
+      email: dto.email?.trim().toLowerCase() ?? null,
       dateOfBirth: dto.dateOfBirth ?? null,
       ageYears: dto.ageYears ?? null,
       gender: dto.gender,
       bloodGroup: dto.bloodGroup?.trim().toUpperCase() ?? null,
       address: dto.address?.trim() ?? null,
-      occupation: dto.occupation?.trim() ?? null,
+      occupation: (dto.profession ?? dto.occupation)?.trim() ?? null,
       emergencyContact: dto.emergencyContact?.trim() ?? null,
       allergies: dto.allergies?.trim() ?? null,
       chronicConditions: dto.chronicConditions?.trim() ?? null,
@@ -171,12 +175,15 @@ export class PatientsService {
       }
       patch.phone = dto.phone.trim();
     }
+    if (dto.email !== undefined) patch.email = dto.email ? dto.email.trim().toLowerCase() : null;
     if (dto.dateOfBirth !== undefined) patch.dateOfBirth = dto.dateOfBirth;
     if (dto.ageYears !== undefined) patch.ageYears = dto.ageYears;
     if (dto.gender !== undefined) patch.gender = dto.gender;
     if (dto.bloodGroup !== undefined) patch.bloodGroup = dto.bloodGroup.trim().toUpperCase();
     if (dto.address !== undefined) patch.address = dto.address.trim();
-    if (dto.occupation !== undefined) patch.occupation = dto.occupation.trim();
+    if (dto.occupation !== undefined || dto.profession !== undefined) {
+      patch.occupation = (dto.profession ?? dto.occupation)?.trim() ?? null;
+    }
     if (dto.emergencyContact !== undefined) patch.emergencyContact = dto.emergencyContact.trim();
     if (dto.allergies !== undefined) patch.allergies = dto.allergies.trim();
     if (dto.chronicConditions !== undefined) patch.chronicConditions = dto.chronicConditions.trim();

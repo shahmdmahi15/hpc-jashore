@@ -35,21 +35,24 @@ export class PatientsController {
   }
 
   @Get()
-  @ApiQuery({ name: 'q', required: false, description: 'Search MRN, name, or phone' })
+  @ApiQuery({ name: 'q', required: false, description: 'Search MRN, name, phone, email, or occupation' })
+  @ApiQuery({ name: 'search', required: false, description: 'Alias for q' })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
   search(
-    @Query('q') q?: string,
+    @Query('q') qParam?: string,
+    @Query('search') searchParam?: string,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
   ) {
+    const q = (qParam || searchParam || '').trim() || undefined;
     const pageNum = page ? Math.max(1, parseInt(page, 10)) : 1;
     const limitNum = limit ? Math.min(100, Math.max(1, parseInt(limit, 10))) : 20;
     return this.patients.search(q, pageNum, limitNum);
   }
 
   @Post()
-  @Roles('admin', 'doctor', 'receptionist')
+  @Roles('admin', 'doctor', 'receptionist', 'cashier', 'handler')
   create(
     @CurrentUser() user: RequestUser,
     @Body() dto: CreatePatientDto,
@@ -64,7 +67,7 @@ export class PatientsController {
   }
 
   @Patch(':id')
-  @Roles('admin', 'doctor', 'receptionist')
+  @Roles('admin', 'doctor', 'receptionist', 'cashier', 'handler')
   update(
     @CurrentUser() user: RequestUser,
     @Param('id') id: string,

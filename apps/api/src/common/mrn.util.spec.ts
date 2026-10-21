@@ -5,11 +5,12 @@ import { drizzle } from 'drizzle-orm/better-sqlite3';
 import * as schema from '../db/schema';
 import { formatMrn, isValidMrn, nextMrn } from './mrn.util';
 
-assert.strictEqual(formatMrn(2026, 1), 'HPC-26-00001');
-assert.strictEqual(formatMrn(2026, 12345), 'HPC-26-12345');
+assert.strictEqual(formatMrn(2026, 1), 'HPC-2026-00001');
+assert.strictEqual(formatMrn(2026, 12345), 'HPC-2026-12345');
+assert.ok(isValidMrn('HPC-2026-00001'));
 assert.ok(isValidMrn('HPC-26-00001'));
 assert.ok(!isValidMrn('HPC-2026-1'));
-assert.ok(!isValidMrn('hpc-26-00001'));
+assert.ok(!isValidMrn('hpc-2026-00001'));
 
 const sqlite = new Database(':memory:');
 sqlite.exec(
@@ -17,9 +18,9 @@ sqlite.exec(
 );
 const db = drizzle(sqlite, { schema });
 
-assert.strictEqual(nextMrn(db, 2026), 'HPC-26-00001');
-assert.strictEqual(nextMrn(db, 2026), 'HPC-26-00002');
-assert.strictEqual(nextMrn(db, 2027), 'HPC-27-00001'); // year rollover
+assert.strictEqual(nextMrn(db, 2026), 'HPC-2026-00001');
+assert.strictEqual(nextMrn(db, 2026), 'HPC-2026-00002');
+assert.strictEqual(nextMrn(db, 2027), 'HPC-2027-00001'); // year rollover
 
 // eslint-disable-next-line no-console
 console.log('mrn.util: all assertions passed');

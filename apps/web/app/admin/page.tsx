@@ -8,6 +8,7 @@ import { WorkstationTabPlaceholder } from '../../components/WorkstationTabPlaceh
 import AdminDashboardView from '../../components/AdminDashboardView';
 import UsersAndDeviceManagementView from '../../components/admin/UsersAndDeviceManagementView';
 import BulletinManagementView from '../../components/admin/BulletinManagementView';
+import { PatientManagementView } from '../../components/patient/PatientManagementView';
 import { useLanguage } from '../../lib/i18n';
 import {
   ShieldCheck,
@@ -281,7 +282,11 @@ export default function AdminPage() {
             ))}
 
             {/* Content for Row 2 Tabs */}
-            {ADMIN_ROW2_TABS.map((tab) => (
+            <TabsContent value="patients" className="mt-4 focus-visible:outline-none">
+              <PatientManagementView />
+            </TabsContent>
+
+            {ADMIN_ROW2_TABS.filter((t) => t.id !== 'patients').map((tab) => (
               <TabsContent key={tab.id} value={tab.id} className="mt-4 focus-visible:outline-none">
                 <WorkstationTabPlaceholder
                   titleEn={tab.titleEn}

@@ -1,14 +1,13 @@
-// MRN + numbering utilities. Format locked: HPC-YY-00001 (year-prefixed sequence).
+// MRN + numbering utilities. Format locked: HPC-2026-00001 (year-prefixed sequence).
 // Bills/tokens reuse the same `sequences` pattern with their own scope.
 import { and, eq, sql } from 'drizzle-orm';
 import type { Db } from '../db/db.module';
 import { patients, sequences } from '../db/schema';
 
-const MRN_RE = /^HPC-\d{2}-\d{5}$/;
+const MRN_RE = /^HPC-(?:\d{4}|\d{2})-\d{5}$/;
 
 export function formatMrn(fullYear: number, value: number): string {
-  const yy = String(fullYear).slice(-2);
-  return `HPC-${yy}-${String(value).padStart(5, '0')}`;
+  return `HPC-${fullYear}-${String(value).padStart(5, '0')}`;
 }
 
 export function isValidMrn(mrn: string): boolean {
@@ -28,17 +27,18 @@ export function nextMrn(db: Db, fullYear = new Date().getFullYear()): string {
 
     // Self-healing check: ensure next is greater than any existing MRN in the patients table
     const yy = String(fullYear).slice(-2);
-    const prefix = `HPC-${yy}-`;
+    const prefix4 = `HPC-${fullYear}-`;
+    const prefix2 = `HPC-${yy}-`;
     const highestPatient = tx
       .select({ mrn: patients.mrn })
       .from(patients)
-      .where(sql`${patients.mrn} LIKE ${prefix + '%'}`)
+      .where(sql`${patients.mrn} LIKE ${prefix4 + '%'} OR ${patients.mrn} LIKE ${prefix2 + '%'}`)
       .orderBy(sql`${patients.mrn} DESC`)
       .limit(1)
       .get();
 
     if (highestPatient?.mrn) {
-      const match = highestPatient.mrn.match(/HPC-\d{2}-(\d+)/);
+      const match = highestPatient.mrn.match(/HPC-(?:\d{4}|\d{2})-(\d+)/);
       if (match) {
         const highestNum = parseInt(match[1], 10);
         if (highestNum >= next) {
