@@ -12,8 +12,6 @@ import {
   Tv,
   Clock,
   CalendarDays,
-  Maximize2,
-  Minimize2,
   Radio,
   LogOut,
 } from 'lucide-react';
@@ -52,7 +50,6 @@ export default function Header({
 }: HeaderProps) {
   const router = useRouter();
   const { language } = useLanguage();
-  const [isFullscreen, setIsFullscreen] = React.useState(false);
   const [currentTime, setCurrentTime] = React.useState<Date | null>(null);
 
   const visibleTabs = React.useMemo(() => {
@@ -66,14 +63,6 @@ export default function Header({
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
-
-  const toggleFullscreen = () => {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => {});
-    } else {
-      document.exitFullscreen().then(() => setIsFullscreen(false)).catch(() => {});
-    }
-  };
 
   const handleLogout = () => {
     clearSession();
@@ -160,20 +149,7 @@ export default function Header({
           </span>
         </div>
 
-
-        {/* Fullscreen Toggle */}
-        <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          onClick={toggleFullscreen}
-          title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
-          className="size-9 rounded-xl border-border/80 bg-card/80 hover:bg-muted/80 hover:border-emerald-500/40 text-muted-foreground hover:text-foreground shrink-0 cursor-pointer"
-        >
-          {isFullscreen ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}
-        </Button>
-
-        {/* Dual Switchers: Language + Theme */}
+        {/* Global Switchers: Language + Theme + Fullscreen */}
         <NavbarSwitchers />
 
         {/* Logout Button */}

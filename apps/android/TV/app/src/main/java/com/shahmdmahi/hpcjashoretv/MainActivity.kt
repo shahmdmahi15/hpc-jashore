@@ -14,6 +14,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,6 +26,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
@@ -294,131 +298,111 @@ class MainActivity : ComponentActivity() {
 
                                 Spacer(modifier = Modifier.height(8.dp))
 
-                                // 2 Inner Columns for Consultation: Serving Now vs Waiting Queue
-                                Row(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    // Sub-column 1A: Serving Now
+                                // UNIFIED EXPANSIVE GRID VIEW OF DOCTOR CONSULTATION QUEUE
+                                if (waitingDoctorList.isEmpty()) {
                                     Box(
                                         modifier = Modifier
                                             .weight(1f)
-                                            .fillMaxHeight()
-                                            .clip(RoundedCornerShape(8.dp))
-                                            .background(Emerald500.copy(alpha = 0.08f))
-                                            .border(2.dp, Emerald500.copy(alpha = 0.6f), RoundedCornerShape(8.dp))
-                                            .padding(12.dp),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        if (nowServingDoctor != null) {
-                                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                                Box(
-                                                    modifier = Modifier
-                                                        .clip(RoundedCornerShape(100.dp))
-                                                        .background(Emerald500)
-                                                        .padding(horizontal = 8.dp, vertical = 2.dp)
-                                                ) {
-                                                    Text(
-                                                        text = if (currentLanguage == "bn") "ডাক পড়েছে · NOW SERVING" else "NOW SERVING",
-                                                        color = Color.Black,
-                                                        fontSize = 10.sp,
-                                                        fontWeight = FontWeight.Black
-                                                    )
-                                                }
-                                                Spacer(modifier = Modifier.height(8.dp))
-                                                Text(
-                                                    text = toBnNumber(nowServingDoctor!!.tokenNumber),
-                                                    color = Emerald400,
-                                                    fontSize = 54.sp,
-                                                    fontWeight = FontWeight.Black,
-                                                    fontFamily = FontFamily.Monospace
-                                                )
-                                                Text(
-                                                    text = if (currentLanguage == "bn") (nowServingDoctor!!.patientNameBn ?: nowServingDoctor!!.patientNameEn) else nowServingDoctor!!.patientNameEn,
-                                                    color = textColor,
-                                                    fontSize = 16.sp,
-                                                    fontWeight = FontWeight.Bold,
-                                                    textAlign = TextAlign.Center
-                                                )
-                                                Spacer(modifier = Modifier.height(6.dp))
-                                                Text(
-                                                    text = if (currentLanguage == "bn") "চেম্বার ১ · ডাঃ তৌফিক" else "Chamber 1 · Dr. Toufiq",
-                                                    color = Emerald400,
-                                                    fontSize = 12.sp,
-                                                    fontWeight = FontWeight.SemiBold
-                                                )
-                                            }
-                                        } else {
-                                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                                Text(
-                                                    text = if (currentLanguage == "bn") "চেম্বার প্রস্তুত" else "Chamber Ready",
-                                                    color = Emerald400,
-                                                    fontSize = 16.sp,
-                                                    fontWeight = FontWeight.Bold
-                                                )
-                                                Text(
-                                                    text = if (currentLanguage == "bn") "পরবর্তী সিরিয়াল আসছে..." else "Calling next patient...",
-                                                    color = textMutedColor,
-                                                    fontSize = 12.sp
-                                                )
-                                            }
-                                        }
-                                    }
-
-                                    // Sub-column 1B: Upcoming Waiting Queue
-                                    Column(
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .fillMaxHeight()
+                                            .fillMaxWidth()
                                             .clip(RoundedCornerShape(8.dp))
                                             .background(bgColor.copy(alpha = 0.5f))
-                                            .border(1.dp, borderColor, RoundedCornerShape(8.dp))
-                                            .padding(8.dp)
+                                            .border(1.dp, borderColor, RoundedCornerShape(8.dp)),
+                                        contentAlignment = Alignment.Center
                                     ) {
-                                        Text(
-                                            text = if (currentLanguage == "bn") "পরবর্তী অপেক্ষারত সিরিয়াল" else "Upcoming Waiting Queue",
-                                            color = textMutedColor,
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                        Spacer(modifier = Modifier.height(6.dp))
-                                        if (waitingDoctorList.isEmpty()) {
-                                            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                                Text(
-                                                    text = if (currentLanguage == "bn") "বর্তমানে অপেক্ষমাণ কেউ নেই" else "No queue waiting",
-                                                    color = textMutedColor,
-                                                    fontSize = 12.sp
-                                                )
-                                            }
-                                        } else {
-                                            LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                                items(waitingDoctorList) { item ->
-                                                    Row(
+                                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                            Text(
+                                                text = if (currentLanguage == "bn") "বর্তমানে অপেক্ষমাণ কোনো রোগী নেই" else "No consultation queue waiting",
+                                                color = textColor,
+                                                fontSize = 14.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                            Spacer(modifier = Modifier.height(4.dp))
+                                            Text(
+                                                text = if (currentLanguage == "bn") "সবাইকে সেবা দেওয়া হয়েছে অথবা চেম্বার অপেক্ষমাণ" else "All consultation patients have been attended",
+                                                color = textMutedColor,
+                                                fontSize = 11.sp
+                                            )
+                                        }
+                                    }
+                                } else {
+                                    LazyVerticalGrid(
+                                        columns = GridCells.Adaptive(minSize = 150.dp),
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        items(waitingDoctorList) { item ->
+                                            Column(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .clip(RoundedCornerShape(10.dp))
+                                                    .background(surfaceColor)
+                                                    .border(1.dp, borderColor, RoundedCornerShape(10.dp))
+                                                    .padding(10.dp),
+                                                verticalArrangement = Arrangement.SpaceBetween
+                                            ) {
+                                                Row(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Box(
                                                         modifier = Modifier
-                                                            .fillMaxWidth()
                                                             .clip(RoundedCornerShape(6.dp))
-                                                            .background(surfaceColor)
+                                                            .background(bgColor.copy(alpha = 0.8f))
                                                             .border(1.dp, borderColor, RoundedCornerShape(6.dp))
-                                                            .padding(horizontal = 8.dp, vertical = 6.dp),
-                                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                                        verticalAlignment = Alignment.CenterVertically
+                                                            .padding(horizontal = 6.dp, vertical = 2.dp)
                                                     ) {
                                                         Text(
-                                                            text = if (currentLanguage == "bn") (item.patientNameBn ?: item.patientNameEn) else item.patientNameEn,
-                                                            color = textColor,
-                                                            fontSize = 12.sp,
-                                                            fontWeight = FontWeight.Medium
-                                                        )
-                                                        Text(
-                                                            text = toBnNumber(item.tokenNumber),
-                                                            color = Emerald400,
-                                                            fontSize = 14.sp,
-                                                            fontWeight = FontWeight.Black,
+                                                            text = "#${toBnNumber(item.serialNumber)}",
+                                                            color = textMutedColor,
+                                                            fontSize = 11.sp,
+                                                            fontWeight = FontWeight.Bold,
                                                             fontFamily = FontFamily.Monospace
                                                         )
                                                     }
+                                                    Text(
+                                                        text = toBnNumber(item.tokenNumber),
+                                                        color = Emerald400,
+                                                        fontSize = 28.sp,
+                                                        fontWeight = FontWeight.Black,
+                                                        fontFamily = FontFamily.Monospace,
+                                                        lineHeight = 28.sp
+                                                    )
+                                                }
+                                                Spacer(modifier = Modifier.height(6.dp))
+                                                Text(
+                                                    text = if (currentLanguage == "bn") (item.patientNameBn ?: item.patientNameEn) else item.patientNameEn,
+                                                    color = textColor,
+                                                    fontSize = 13.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                                Spacer(modifier = Modifier.height(4.dp))
+                                                Row(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Text(
+                                                        text = if (currentLanguage == "bn") "চেম্বার ১" else "Chamber 1",
+                                                        color = Emerald400,
+                                                        fontSize = 10.sp,
+                                                        fontWeight = FontWeight.SemiBold
+                                                    )
+                                                    Text(
+                                                        text = if (item.priority == "emergency") {
+                                                            if (currentLanguage == "bn") "🚨 জরুরি" else "🚨 Urgent"
+                                                        } else {
+                                                            if (currentLanguage == "bn") "সাধারণ" else "Regular"
+                                                        },
+                                                        color = if (item.priority == "emergency") Color.Red else textMutedColor,
+                                                        fontSize = 10.sp,
+                                                        fontWeight = FontWeight.Bold
+                                                    )
                                                 }
                                             }
                                         }
@@ -451,7 +435,7 @@ class MainActivity : ComponentActivity() {
                                         fontWeight = FontWeight.Black
                                     )
                                     Text(
-                                        text = if (currentLanguage == "bn") "সক্রিয়: ${toBnNumber(activeTherapyList.size)}" else "Active: ${activeTherapyList.size}",
+                                        text = if (currentLanguage == "bn") "অপেক্ষারত: ${toBnNumber(waitingTherapyList.size)}" else "Waiting: ${waitingTherapyList.size}",
                                         color = Emerald400,
                                         fontSize = 12.sp,
                                         fontWeight = FontWeight.Bold
@@ -460,130 +444,113 @@ class MainActivity : ComponentActivity() {
 
                                 Spacer(modifier = Modifier.height(8.dp))
 
-                                // 2 Inner Columns for Therapy: Serving Now vs Waiting Queue
-                                Row(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    // Sub-column 2A: Active Therapy Sessions & Beds
-                                    Column(
+                                // UNIFIED EXPANSIVE GRID VIEW OF THERAPY QUEUE
+                                if (waitingTherapyList.isEmpty()) {
+                                    Box(
                                         modifier = Modifier
                                             .weight(1f)
-                                            .fillMaxHeight()
-                                            .clip(RoundedCornerShape(8.dp))
-                                            .background(Emerald500.copy(alpha = 0.05f))
-                                            .border(1.dp, Emerald500.copy(alpha = 0.4f), RoundedCornerShape(8.dp))
-                                            .padding(8.dp)
-                                    ) {
-                                        Text(
-                                            text = if (currentLanguage == "bn") "চলমান থেরাপি বেড" else "Active Therapy Beds",
-                                            color = Emerald400,
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                        Spacer(modifier = Modifier.height(6.dp))
-                                        if (activeTherapyList.isEmpty()) {
-                                            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                                Text(
-                                                    text = if (currentLanguage == "bn") "সকল বেড প্রস্তুত" else "All beds ready",
-                                                    color = textMutedColor,
-                                                    fontSize = 12.sp
-                                                )
-                                            }
-                                        } else {
-                                            LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                                items(activeTherapyList) { item ->
-                                                    Row(
-                                                        modifier = Modifier
-                                                            .fillMaxWidth()
-                                                            .clip(RoundedCornerShape(6.dp))
-                                                            .background(surfaceColor)
-                                                            .border(1.dp, borderColor, RoundedCornerShape(6.dp))
-                                                            .padding(horizontal = 8.dp, vertical = 6.dp),
-                                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                                        verticalAlignment = Alignment.CenterVertically
-                                                    ) {
-                                                        Column {
-                                                            Text(
-                                                                text = item.bedName,
-                                                                color = Emerald400,
-                                                                fontSize = 11.sp,
-                                                                fontWeight = FontWeight.Bold
-                                                            )
-                                                            Text(
-                                                                text = if (currentLanguage == "bn") (item.patientNameBn ?: item.patientNameEn) else item.patientNameEn,
-                                                                color = textColor,
-                                                                fontSize = 12.sp,
-                                                                fontWeight = FontWeight.Medium
-                                                            )
-                                                        }
-                                                        Text(
-                                                            text = toBnNumber(item.tokenNumber),
-                                                            color = Emerald400,
-                                                            fontSize = 14.sp,
-                                                            fontWeight = FontWeight.Black,
-                                                            fontFamily = FontFamily.Monospace
-                                                        )
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-
-                                    // Sub-column 2B: Upcoming Waiting Therapy Queue
-                                    Column(
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .fillMaxHeight()
+                                            .fillMaxWidth()
                                             .clip(RoundedCornerShape(8.dp))
                                             .background(bgColor.copy(alpha = 0.5f))
-                                            .border(1.dp, borderColor, RoundedCornerShape(8.dp))
-                                            .padding(8.dp)
+                                            .border(1.dp, borderColor, RoundedCornerShape(8.dp)),
+                                        contentAlignment = Alignment.Center
                                     ) {
-                                        Text(
-                                            text = if (currentLanguage == "bn") "অপেক্ষারত থেরাপি তালিকা" else "Waiting for Therapy Entry",
-                                            color = textMutedColor,
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                        Spacer(modifier = Modifier.height(6.dp))
-                                        if (waitingTherapyList.isEmpty()) {
-                                            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                                Text(
-                                                    text = if (currentLanguage == "bn") "কোনো থেরাপি রোগী অপেক্ষারত নেই" else "No waiting queue",
-                                                    color = textMutedColor,
-                                                    fontSize = 12.sp
-                                                )
-                                            }
-                                        } else {
-                                            LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                                items(waitingTherapyList) { item ->
-                                                    Row(
+                                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                            Text(
+                                                text = if (currentLanguage == "bn") "কোনো থেরাপি রোগী অপেক্ষারত নেই" else "No therapy queue waiting",
+                                                color = textColor,
+                                                fontSize = 14.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                            Spacer(modifier = Modifier.height(4.dp))
+                                            Text(
+                                                text = if (currentLanguage == "bn") "সকল থেরাপি টোকেন সম্পন্ন হয়েছে" else "All therapy tokens have been attended",
+                                                color = textMutedColor,
+                                                fontSize = 11.sp
+                                            )
+                                        }
+                                    }
+                                } else {
+                                    LazyVerticalGrid(
+                                        columns = GridCells.Adaptive(minSize = 150.dp),
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        items(waitingTherapyList) { item ->
+                                            Column(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .clip(RoundedCornerShape(10.dp))
+                                                    .background(surfaceColor)
+                                                    .border(1.dp, borderColor, RoundedCornerShape(10.dp))
+                                                    .padding(10.dp),
+                                                verticalArrangement = Arrangement.SpaceBetween
+                                            ) {
+                                                Row(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Box(
                                                         modifier = Modifier
-                                                            .fillMaxWidth()
                                                             .clip(RoundedCornerShape(6.dp))
-                                                            .background(surfaceColor)
+                                                            .background(bgColor.copy(alpha = 0.8f))
                                                             .border(1.dp, borderColor, RoundedCornerShape(6.dp))
-                                                            .padding(horizontal = 8.dp, vertical = 6.dp),
-                                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                                        verticalAlignment = Alignment.CenterVertically
+                                                            .padding(horizontal = 6.dp, vertical = 2.dp)
                                                     ) {
                                                         Text(
-                                                            text = if (currentLanguage == "bn") (item.patientNameBn ?: item.patientNameEn) else item.patientNameEn,
-                                                            color = textColor,
-                                                            fontSize = 12.sp,
-                                                            fontWeight = FontWeight.Medium
-                                                        )
-                                                        Text(
-                                                            text = toBnNumber(item.tokenNumber),
-                                                            color = Emerald400,
-                                                            fontSize = 14.sp,
-                                                            fontWeight = FontWeight.Black,
+                                                            text = "#${toBnNumber(item.tokenNumber)}",
+                                                            color = textMutedColor,
+                                                            fontSize = 11.sp,
+                                                            fontWeight = FontWeight.Bold,
                                                             fontFamily = FontFamily.Monospace
                                                         )
                                                     }
+                                                    Text(
+                                                        text = toBnNumber(item.tokenNumber),
+                                                        color = Emerald400,
+                                                        fontSize = 28.sp,
+                                                        fontWeight = FontWeight.Black,
+                                                        fontFamily = FontFamily.Monospace,
+                                                        lineHeight = 28.sp
+                                                    )
+                                                }
+                                                Spacer(modifier = Modifier.height(6.dp))
+                                                Text(
+                                                    text = if (currentLanguage == "bn") (item.patientNameBn ?: item.patientNameEn) else item.patientNameEn,
+                                                    color = textColor,
+                                                    fontSize = 13.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                                Spacer(modifier = Modifier.height(4.dp))
+                                                Row(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Text(
+                                                        text = if (currentLanguage == "bn") (item.modalityNameBn ?: item.modalityNameEn) else item.modalityNameEn,
+                                                        color = Emerald400,
+                                                        fontSize = 10.sp,
+                                                        fontWeight = FontWeight.SemiBold,
+                                                        maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis
+                                                    )
+                                                    Text(
+                                                        text = if (item.priority == "emergency") {
+                                                            if (currentLanguage == "bn") "🚨 জরুরি" else "🚨 Urgent"
+                                                        } else {
+                                                            if (currentLanguage == "bn") "থেরাপি হল" else "Therapy Hall"
+                                                        },
+                                                        color = if (item.priority == "emergency") Color.Red else textMutedColor,
+                                                        fontSize = 10.sp,
+                                                        fontWeight = FontWeight.Bold
+                                                    )
                                                 }
                                             }
                                         }

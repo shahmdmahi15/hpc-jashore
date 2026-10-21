@@ -1,16 +1,70 @@
 // apps/web/components/NavbarSwitchers.tsx
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { ThemeToggle } from './theme-toggle';
 import { LanguageToggle } from '../lib/i18n';
+import { Button } from './ui/button';
+import { Maximize2, Minimize2 } from 'lucide-react';
 import { cn } from '../lib/utils';
 
-export function NavbarSwitchers({ className }: { className?: string }) {
+export function FullscreenToggle({ className }: { className?: string }) {
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+    };
+  }, []);
+
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    } else {
+      document.exitFullscreen().catch(() => {});
+    }
+  };
+
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      size="icon"
+      onClick={toggleFullscreen}
+      title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
+      aria-label={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
+      className={cn(
+        'size-8 sm:size-9 rounded-xl border-border/80 bg-card/80 hover:bg-muted/80 hover:border-emerald-500/40 text-muted-foreground hover:text-foreground shrink-0 cursor-pointer transition-all duration-200 active:scale-95',
+        className
+      )}
+    >
+      {isFullscreen ? (
+        <Minimize2 className="size-3.5 sm:size-4 text-emerald-500" />
+      ) : (
+        <Maximize2 className="size-3.5 sm:size-4" />
+      )}
+    </Button>
+  );
+}
+
+export function NavbarSwitchers({
+  className,
+  showFullscreen = true,
+}: {
+  className?: string;
+  showFullscreen?: boolean;
+}) {
   return (
     <div className={cn('flex items-center gap-1.5 sm:gap-2 shrink-0', className)}>
       <LanguageToggle />
       <ThemeToggle />
+      {showFullscreen && <FullscreenToggle />}
     </div>
   );
 }
