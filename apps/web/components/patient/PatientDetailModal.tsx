@@ -96,7 +96,7 @@ export function PatientDetailModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-full sm:max-w-3xl md:max-w-4xl max-h-[92vh] flex flex-col p-0 gap-0 overflow-hidden bg-background">
+      <DialogContent className="w-full sm:max-w-3xl md:max-w-4xl lg:max-w-5xl max-h-[92vh] flex flex-col p-0 gap-0 overflow-hidden bg-background">
         {loading || !detail ? (
           <div className="flex flex-col items-center justify-center p-12 space-y-3">
             <Loader2 className="w-8 h-8 animate-spin text-emerald-600 dark:text-emerald-400" />

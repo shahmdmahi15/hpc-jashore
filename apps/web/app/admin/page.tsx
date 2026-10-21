@@ -49,6 +49,22 @@ const ADMIN_ROW1_TABS = [
     descriptionBn: 'স্টাফ অ্যাকাউন্ট, ৪-ডিজিট পিন, পদবী বরাদ্দ, টিভি স্ক্রিন পেয়ারিং ও সক্রিয় সেশন নিয়ন্ত্রণ।',
   },
   {
+    id: 'patients',
+    titleEn: 'Patients & EMR',
+    titleBn: 'রোগী ডাটাবেস ও EMR',
+    icon: Users,
+    descriptionEn: 'Central patient directory, electronic medical records (EMR), registration, and medical history.',
+    descriptionBn: 'কেন্দ্রীয় রোগী ডাটাবেস, চিকিৎসা ইতিহাস এবং রেজিস্ট্রেশন ব্যবস্থাপনা।',
+  },
+  {
+    id: 'bulletins',
+    titleEn: 'Bulletins & Marquee',
+    titleBn: 'বুলেটিন ও স্ক্রল নোটিশ',
+    icon: Megaphone,
+    descriptionEn: 'Create and control scrolling bulletins and urgent broadcast notices on waiting room TV screens.',
+    descriptionBn: 'ওয়েটিং রুম টিভি স্ক্রিনের জন্য স্ক্রলিং নোটিশ, স্বাস্থ্যবার্তা ও জরুরি বিজ্ঞপ্তি পরিচালনা।',
+  },
+  {
     id: 'consultation_serial_config',
     titleEn: 'Consultation Serial Config',
     titleBn: 'সিরিয়াল কনফিগারেশন',
@@ -79,14 +95,6 @@ const ADMIN_ROW1_TABS = [
     icon: Pill,
     descriptionEn: 'Pharmaceutical master list, generic names, stock batches, unit prices, and expiry tracker.',
     descriptionBn: 'ওষুধের তালিকা, জেনেরিক নাম, ব্যাচ নম্বর, স্টক ব্যালেন্স ও মেয়াদোত্তীর্ণ ট্র্যাকার।',
-  },
-  {
-    id: 'bulletins',
-    titleEn: 'Bulletins & Marquee',
-    titleBn: 'বুলেটিন ও স্ক্রল নোটিশ',
-    icon: Megaphone,
-    descriptionEn: 'Create and control scrolling bulletins and urgent broadcast notices on waiting room TV screens.',
-    descriptionBn: 'ওয়েটিং রুম টিভি স্ক্রিনের জন্য স্ক্রলিং নোটিশ, স্বাস্থ্যবার্তা ও জরুরি বিজ্ঞপ্তি পরিচালনা।',
   },
   {
     id: 'audit_logs',
@@ -267,7 +275,7 @@ export default function AdminPage() {
               <BulletinManagementView />
             </TabsContent>
 
-            {ADMIN_ROW1_TABS.filter((t) => t.id !== 'overview' && t.id !== 'users_devices' && t.id !== 'bulletins').map((tab) => (
+            {ADMIN_ROW1_TABS.filter((t) => t.id !== 'overview' && t.id !== 'users_devices' && t.id !== 'bulletins' && t.id !== 'patients').map((tab) => (
               <TabsContent key={tab.id} value={tab.id} className="mt-4 focus-visible:outline-none">
                 <WorkstationTabPlaceholder
                   titleEn={tab.titleEn}

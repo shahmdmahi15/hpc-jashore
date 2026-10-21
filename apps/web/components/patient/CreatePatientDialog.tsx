@@ -29,7 +29,6 @@ import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Badge } from '../ui/badge';
 import { Textarea } from '../ui/textarea';
-import { Switch } from '../ui/switch';
 import {
   Select,
   SelectContent,
@@ -68,8 +67,7 @@ export function CreatePatientDialog({
 
   // Form State
   const [form, setForm] = useState({
-    nameEn: '',
-    nameBn: '',
+    name: '',
     phone: '',
     email: '',
     dateOfBirth: '',
@@ -82,13 +80,11 @@ export function CreatePatientDialog({
     allergies: '',
     chronicConditions: '',
     contraindications: '',
-    consentSigned: 1,
   });
 
   const resetForm = () => {
     setForm({
-      nameEn: '',
-      nameBn: '',
+      name: '',
       phone: '',
       email: '',
       dateOfBirth: '',
@@ -101,7 +97,6 @@ export function CreatePatientDialog({
       allergies: '',
       chronicConditions: '',
       contraindications: '',
-      consentSigned: 1,
     });
     setErrorMsg(null);
   };
@@ -145,9 +140,9 @@ export function CreatePatientDialog({
     setErrorMsg(null);
 
     // Validation
-    const nameEn = form.nameEn.trim();
-    if (!nameEn) {
-      setErrorMsg(isBn ? 'রোগীর নাম (ইংরেজিতে) অবশ্যই দিন' : 'Patient English Name is required');
+    const name = form.name.trim();
+    if (!name) {
+      setErrorMsg(isBn ? 'রোগীর পূর্ণ নাম অবশ্যই লিখুন' : 'Patient full name is required');
       return;
     }
 
@@ -177,8 +172,8 @@ export function CreatePatientDialog({
 
     startTransition(async () => {
       const res = await createPatientAction({
-        nameEn,
-        nameBn: form.nameBn.trim() || undefined,
+        nameEn: name,
+        nameBn: name,
         phone: cleanPhone,
         email: form.email.trim() || undefined,
         gender: form.gender,
@@ -191,7 +186,7 @@ export function CreatePatientDialog({
         allergies: form.allergies.trim() || undefined,
         chronicConditions: form.chronicConditions.trim() || undefined,
         contraindications: form.contraindications.trim() || undefined,
-        consentSigned: form.consentSigned ? 1 : 0,
+        consentSigned: 1,
       });
 
       if (res.success && res.data) {
@@ -219,7 +214,7 @@ export function CreatePatientDialog({
         </span>
       )}
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="w-full sm:max-w-3xl md:max-w-4xl max-h-[92vh] flex flex-col p-0 gap-0 overflow-hidden bg-background">
+        <DialogContent className="w-full sm:max-w-4xl md:max-w-5xl lg:max-w-5xl max-h-[92vh] flex flex-col p-0 gap-0 overflow-hidden bg-background">
         {/* Header */}
         <DialogHeader className="p-4 sm:p-6 border-b border-border/60 bg-muted/20">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
@@ -273,17 +268,17 @@ export function CreatePatientDialog({
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5 sm:gap-4">
-              {/* Name En */}
+              {/* Universal Patient Name */}
               <div className="space-y-1.5 sm:col-span-2">
-                <Label htmlFor="create-nameEn" className="text-xs font-semibold flex items-center gap-1">
-                  <span>{isBn ? 'রোগীর পূর্ণ নাম (ইংরেজিতে)' : 'Full Name (English)'}</span>
+                <Label htmlFor="create-name" className="text-xs font-semibold flex items-center gap-1">
+                  <span>{isBn ? 'রোগীর পূর্ণ নাম' : 'Patient Full Name'}</span>
                   <span className="text-destructive font-bold">*</span>
                 </Label>
                 <Input
-                  id="create-nameEn"
-                  placeholder={isBn ? 'যেমন: Md. Rafiqul Islam' : 'e.g. Md. Rafiqul Islam'}
-                  value={form.nameEn}
-                  onChange={(e) => setForm({ ...form, nameEn: e.target.value })}
+                  id="create-name"
+                  placeholder={isBn ? 'রোগীর পূর্ণ নাম লিখুন (ইংরেজি বা বাংলা)' : 'Enter patient full name (English or Bengali)'}
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
                   required
                   className="h-10 text-sm font-medium"
                 />
@@ -324,22 +319,8 @@ export function CreatePatientDialog({
                 </div>
               </div>
 
-              {/* Name Bn */}
-              <div className="space-y-1.5">
-                <Label htmlFor="create-nameBn" className="text-xs font-semibold text-muted-foreground">
-                  {isBn ? 'রোগীর পূর্ণ নাম (বাংলায়)' : 'Full Name (Bengali)'}
-                </Label>
-                <Input
-                  id="create-nameBn"
-                  placeholder={isBn ? 'যেমন: মোঃ রফিকুল ইসলাম' : 'e.g. মোঃ রফিকুল ইসলাম'}
-                  value={form.nameBn}
-                  onChange={(e) => setForm({ ...form, nameBn: e.target.value })}
-                  className="h-10 text-sm"
-                />
-              </div>
-
               {/* Phone */}
-              <div className="space-y-1.5 sm:col-span-2">
+              <div className="space-y-1.5 sm:col-span-3">
                 <Label htmlFor="create-phone" className="text-xs font-semibold flex items-center justify-between">
                   <span className="flex items-center gap-1">
                     <span>{isBn ? 'মোবাইল নম্বর' : 'Phone Number'}</span>
@@ -540,25 +521,6 @@ export function CreatePatientDialog({
                   className="h-10 text-sm border-rose-500/30 focus-visible:border-rose-500"
                 />
               </div>
-            </div>
-
-            {/* Consent Signed */}
-            <div className="pt-2 flex items-center justify-between p-3 rounded-lg border border-border/60 bg-muted/20">
-              <div className="space-y-0.5">
-                <Label htmlFor="create-consent" className="text-xs font-semibold cursor-pointer">
-                  {isBn ? 'চিকিৎসা ও তথ্য প্রক্রিয়াকরণ সম্মতি' : 'Treatment & Clinical Consent Signed'}
-                </Label>
-                <p className="text-[11px] text-muted-foreground">
-                  {isBn
-                    ? 'রোগী কেন্দ্রে সেবা গ্রহণ ও মেডিকেল রেকর্ড সংরক্ষণে সম্মতি দিয়েছেন'
-                    : 'Patient has agreed to clinical evaluation, therapy care, and record keeping.'}
-                </p>
-              </div>
-              <Switch
-                id="create-consent"
-                checked={form.consentSigned === 1}
-                onCheckedChange={(checked) => setForm({ ...form, consentSigned: checked ? 1 : 0 })}
-              />
             </div>
           </div>
         </form>

@@ -10,6 +10,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -149,7 +150,7 @@ class MainActivity : ComponentActivity() {
             LaunchedEffect(pairingCode, isPaired) {
                 if (!isPaired) {
                     withContext(Dispatchers.IO) {
-                        registerTvWithServer(pairingCode, "0.1.9")
+                        registerTvWithServer(pairingCode, "0.1.11")
                     }
                     while (!isPaired && isActive) {
                         withContext(Dispatchers.IO) {
@@ -194,7 +195,7 @@ class MainActivity : ComponentActivity() {
                         var shouldForceUpdate = false
 
                         withContext(Dispatchers.IO) {
-                            sendTvHeartbeat(pairingCode, "0.1.9") { isOk, status, dept, name, theme, lang, forceUpdate ->
+                            sendTvHeartbeat(pairingCode, "0.1.11") { isOk, status, dept, name, theme, lang, forceUpdate ->
                                 if (!isOk || status == "revoked" || status == "unregistered") {
                                     shouldRevoke = true
                                 } else {
@@ -681,86 +682,117 @@ class MainActivity : ComponentActivity() {
 
                             Spacer(modifier = Modifier.height(10.dp))
 
-                            // 3. BOTTOM BULLETIN MARQUEE TICKER & DEVICE FOOTER
-                            val activeBulletin = if (liveBulletins.isNotEmpty()) {
-                                liveBulletins[currentBulletinIndex % liveBulletins.size]
-                            } else null
+                            // 3. BOTTOM BULLETIN MARQUEE TICKER (FULL-WIDTH TICKER, NO DEVICE INFO)
+                            val hasUrgentBulletin = liveBulletins.any { it.isUrgent }
 
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clip(RoundedCornerShape(8.dp))
                                     .background(
-                                        if (activeBulletin?.isUrgent == true) Color(0xFFEF4444).copy(alpha = 0.15f) else surfaceColor
+                                        if (hasUrgentBulletin) Color(0xFFEF4444).copy(alpha = 0.15f) else surfaceColor
                                     )
                                     .border(
                                         1.dp,
-                                        if (activeBulletin?.isUrgent == true) Color(0xFFEF4444).copy(alpha = 0.5f) else borderColor,
+                                        if (hasUrgentBulletin) Color(0xFFEF4444).copy(alpha = 0.5f) else borderColor,
                                         RoundedCornerShape(8.dp)
                                     )
-                                    .padding(horizontal = 14.dp, vertical = 8.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
+                                    .padding(horizontal = 12.dp, vertical = 7.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Row(
-                                    modifier = Modifier.weight(1f),
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(if (hasUrgentBulletin) Color(0xFFEF4444) else Emerald500)
+                                        .padding(horizontal = 8.dp, vertical = 4.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    if (activeBulletin != null) {
-                                        if (activeBulletin.isUrgent) {
-                                            Box(
-                                                modifier = Modifier
-                                                    .clip(RoundedCornerShape(4.dp))
-                                                    .background(Color(0xFFEF4444))
-                                                    .padding(horizontal = 6.dp, vertical = 2.dp)
-                                            ) {
-                                                Text(
-                                                    text = if (currentLanguage == "bn") "🚨 জরুরি বুলেটিন" else "🚨 URGENT BULLETIN",
-                                                    color = Color.White,
-                                                    fontSize = 11.sp,
-                                                    fontWeight = FontWeight.Black
-                                                )
-                                            }
-                                            Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = if (hasUrgentBulletin) "🚨" else "📢",
+                                        fontSize = 11.sp
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = if (hasUrgentBulletin) {
+                                            if (currentLanguage == "bn") "জরুরি নোটিশ" else "URGENT BULLETIN"
                                         } else {
-                                            Text(
-                                                text = "📢 ",
-                                                fontSize = 12.sp
-                                            )
-                                        }
-                                        Text(
-                                            text = if (currentLanguage == "bn")
-                                                (if (activeBulletin.contentBn.isNotBlank()) activeBulletin.contentBn else activeBulletin.title)
-                                            else
-                                                (if (activeBulletin.contentEn.isNotBlank()) activeBulletin.contentEn else activeBulletin.title),
-                                            color = if (activeBulletin.isUrgent) Color(0xFFFCA5A5) else textColor,
-                                            fontSize = 12.sp,
-                                            fontWeight = FontWeight.SemiBold,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                    } else {
-                                        Text(
-                                            text = if (currentLanguage == "bn")
-                                                "📢 নোটিশ: থেরাপির সময় মোবাইল ফোন সাইলেন্ট রাখুন | হটলাইন: +৮৮০ ১৫১৫-৬১৫১৮৮"
-                                            else
-                                                "📢 Notice: Keep mobile phones silent during therapy | Hotline: +880 1515-615188",
-                                            color = textMutedColor,
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.Medium
-                                        )
-                                    }
+                                            if (currentLanguage == "bn") "জরুরি নোটিশ" else "BULLETIN"
+                                        },
+                                        color = Color.Black,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Black
+                                    )
                                 }
 
                                 Spacer(modifier = Modifier.width(12.dp))
 
-                                Text(
-                                    text = "Device: $deviceName • Code: $pairingCode • Dept: $assignedDepartment • v0.1.9",
-                                    color = Emerald400,
-                                    fontSize = 11.sp,
-                                    fontFamily = FontFamily.Monospace,
-                                    fontWeight = FontWeight.Bold
-                                )
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f),
+                                    contentAlignment = Alignment.CenterStart
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .basicMarquee(
+                                                iterations = Int.MAX_VALUE,
+                                                initialDelayMillis = 1000,
+                                                delayMillis = 0,
+                                                velocity = 45.dp
+                                            ),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        if (liveBulletins.isNotEmpty()) {
+                                            liveBulletins.forEachIndexed { idx, b ->
+                                                if (idx > 0) {
+                                                    Text(
+                                                        text = "      ✦      ",
+                                                        color = textMutedColor,
+                                                        fontSize = 13.sp,
+                                                        fontWeight = FontWeight.Bold
+                                                    )
+                                                }
+                                                if (b.isUrgent) {
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .clip(RoundedCornerShape(4.dp))
+                                                            .background(Color(0xFFEF4444))
+                                                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                                                    ) {
+                                                        Text(
+                                                            text = if (currentLanguage == "bn") "🚨 জরুরি ঘোষণা" else "🚨 URGENT NOTICE",
+                                                            color = Color.White,
+                                                            fontSize = 10.sp,
+                                                            fontWeight = FontWeight.Black
+                                                        )
+                                                    }
+                                                    Spacer(modifier = Modifier.width(6.dp))
+                                                } else {
+                                                    Text(text = "📢 ", fontSize = 12.sp)
+                                                }
+                                                Text(
+                                                    text = if (currentLanguage == "bn")
+                                                        (if (b.contentBn.isNotBlank()) b.contentBn else b.title)
+                                                    else
+                                                        (if (b.contentEn.isNotBlank()) b.contentEn else b.title),
+                                                    color = if (b.isUrgent) Color(0xFFFCA5A5) else Emerald400,
+                                                    fontSize = 13.sp,
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                            }
+                                        } else {
+                                            Text(
+                                                text = if (currentLanguage == "bn")
+                                                    "📢 নোটিশ: থেরাপির সময় মোবাইল ফোন সাইলেন্ট রাখুন   ✦   সিরিয়াল অনুযায়ী চেম্বারে প্রবেশ করুন   ✦   যেকোনো তথ্যের জন্য ফ্রন্ট ডেস্কে যোগাযোগ করুন   ✦   হটলাইন: +৮৮০ ১৫১৫-৬১৫১৮৮"
+                                                else
+                                                    "📢 Notice: Keep mobile phones silent during therapy   ✦   Enter chamber according to serial token   ✦   Contact front desk for any inquiries   ✦   Hotline: +880 1515-615188",
+                                                color = Emerald400,
+                                                fontSize = 13.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -1233,7 +1265,7 @@ fun TvPairingScreen(
 
         // 3. Footer
         Text(
-            text = "Health & Pain Care Center · Jashore • Hardware Station ID: $pairingCode • Version 0.1.9",
+            text = "Health & Pain Care Center · Jashore • Hardware Station ID: $pairingCode • Version 0.1.11",
             color = textMutedColor,
             fontSize = 11.sp,
             fontFamily = FontFamily.Monospace
