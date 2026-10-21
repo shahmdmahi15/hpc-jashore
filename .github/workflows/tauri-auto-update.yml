@@ -315,17 +315,31 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-        with:
-          cmdline-tools-version: '11076708'
-
-      - name: Accept Android Licenses & Install Build Tools
+      - name: Configure Android SDK & Accept Licenses
         run: |
-          yes | sdkmanager --licenses || true
-          yes | sdkmanager --install \
-            "build-tools;35.0.0" \
-            "platforms;android-35"
+          set -euo pipefail
+          export ANDROID_HOME="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          export ANDROID_SDK_ROOT="${ANDROID_HOME}"
+          echo "ANDROID_HOME=${ANDROID_HOME}" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=${ANDROID_HOME}" >> "$GITHUB_ENV"
+          echo "PATH=${ANDROID_HOME}/cmdline-tools/latest/bin:${ANDROID_HOME}/platform-tools:${PATH}" >> "$GITHUB_ENV"
+
+          echo "Configuring local.properties for Gradle..."
+          echo "sdk.dir=${ANDROID_HOME}" > apps/android/TV/local.properties
+
+          if [ -d "${ANDROID_HOME}/cmdline-tools/latest/bin" ]; then
+            SDK_MGR="${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
+          elif command -v sdkmanager >/dev/null 2>&1; then
+            SDK_MGR="sdkmanager"
+          else
+            SDK_MGR=""
+          fi
+
+          if [ -n "$SDK_MGR" ]; then
+            echo "Using sdkmanager at $SDK_MGR"
+            yes | "$SDK_MGR" --licenses || true
+            yes | "$SDK_MGR" --install "build-tools;35.0.0" "platforms;android-35" || true
+          fi
 
       - name: Resolve Release Version
         id: meta
