@@ -737,7 +737,7 @@ class MainActivity : ComponentActivity() {
                                             .basicMarquee(
                                                 iterations = Int.MAX_VALUE,
                                                 initialDelayMillis = 1000,
-                                                delayMillis = 0,
+                                                repeatDelayMillis = 0,
                                                 velocity = 45.dp
                                             ),
                                         verticalAlignment = Alignment.CenterVertically
