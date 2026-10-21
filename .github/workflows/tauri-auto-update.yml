@@ -360,9 +360,11 @@ jobs:
             CLEAN_VERSION="${PKG_VERSION}"
             TAG_NAME="v${CLEAN_VERSION}"
           fi
+          VERSION_CODE=$(grep -E 'versionCode\s*=\s*[0-9]+' apps/android/TV/app/build.gradle.kts | head -n1 | sed -E 's/.*versionCode\s*=\s*([0-9]+).*/\1/' || echo "5")
           echo "version=${CLEAN_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "version_code=${VERSION_CODE}" >> "$GITHUB_OUTPUT"
           echo "tag_name=${TAG_NAME}" >> "$GITHUB_OUTPUT"
-          echo "Resolved version: ${CLEAN_VERSION} (Tag: ${TAG_NAME})"
+          echo "Resolved version: ${CLEAN_VERSION} (versionCode: ${VERSION_CODE}, Tag: ${TAG_NAME})"
 
       - name: Compile Universal Android TV Release APK
         working-directory: apps/android/TV
@@ -427,7 +429,7 @@ jobs:
             "platform": "${PLATFORM}",
             "version": "${VERSION}",
             "downloadUrl": "${DOWNLOAD_URL}",
-            "versionCode": 2,
+            "versionCode": ${{ steps.meta.outputs.version_code }},
             "signature": "",
             "notes": "HPC Jashore Android TV Universal Release v${VERSION}"
           }

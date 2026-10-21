@@ -266,7 +266,11 @@ export class UpdatesService implements OnModuleInit {
     const latestCode = matchedPlatformRelease.versionCode ?? 1;
     let isNewer = false;
 
-    if (dto.versionCode !== undefined) {
+    if (dto.versionCode !== undefined && dto.versionName) {
+      isNewer =
+        latestCode > dto.versionCode ||
+        compareSemver(matchedRelease.version, dto.versionName) > 0;
+    } else if (dto.versionCode !== undefined) {
       isNewer = latestCode > dto.versionCode;
     } else if (dto.versionName) {
       isNewer = compareSemver(matchedRelease.version, dto.versionName) > 0;
