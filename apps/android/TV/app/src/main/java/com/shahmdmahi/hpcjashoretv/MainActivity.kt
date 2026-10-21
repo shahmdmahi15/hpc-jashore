@@ -263,7 +263,7 @@ class MainActivity : ComponentActivity() {
                         // 2. Queue Snapshot
                         if (isPaired) {
                             withContext(Dispatchers.IO) {
-                                fetchQueueSnapshot { _, docWait, _, thWait ->
+                                fetchQueueSnapshot { docWait, thWait ->
                                     waitingDoctorList = docWait
                                     waitingTherapyList = thWait
                                 }
@@ -904,7 +904,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun fetchQueueSnapshot(
-        onResult: (ConsultationPatient?, List<ConsultationPatient>, List<TherapyPatient>, List<TherapyPatient>) -> Unit
+        onResult: (List<ConsultationPatient>, List<TherapyPatient>) -> Unit
     ) {
         try {
             val url = URL("https://hpc.toufiquzzaman.com/api/visits/tv/snapshot")
@@ -952,7 +952,7 @@ class MainActivity : ComponentActivity() {
                         )
                     )
                 }
-                onResult(null, docList, null, thList)
+                onResult(docList, thList)
             }
             conn.disconnect()
         } catch (_: Exception) {}
