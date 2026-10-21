@@ -9,6 +9,7 @@ on:
       - 'apps/web/**'
       - 'apps/android/**'
       - 'packages/**'
+      - '.github/workflows/tauri-auto-update.yml'
     tags:
       - 'v*'
   workflow_dispatch:
