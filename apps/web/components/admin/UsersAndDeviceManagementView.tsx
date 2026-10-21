@@ -42,7 +42,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../ui/dialog';
-import { Select } from '../ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../ui/select';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../ui/tabs';
 import {
   Table,
@@ -554,17 +560,18 @@ export default function UsersAndDeviceManagementView() {
               </div>
 
               <div className="w-full sm:w-56 shrink-0">
-                <Select
-                  value={roleFilter}
-                  onChange={(e) => setRoleFilter(e.target.value)}
-                  className="h-10 text-xs sm:text-sm"
-                >
-                  <option value="all">{isBn ? 'সকল পদবী (All Roles)' : 'All Roles'}</option>
-                  <option value="admin">Admin · এডমিন</option>
-                  <option value="doctor">Doctor · ডাক্তার</option>
-                  <option value="handler">Handler · হ্যান্ডলার</option>
-                  <option value="cashier">Cashier · ক্যাশিয়ার</option>
-                  <option value="receptionist">Receptionist · রিসেপশনিস্ট</option>
+                <Select value={roleFilter} onValueChange={(val: string) => setRoleFilter(val)}>
+                  <SelectTrigger className="h-10 text-xs sm:text-sm rounded-xl bg-background border-border/80">
+                    <SelectValue placeholder={isBn ? 'পদবী ফিল্টার' : 'Filter by role'} />
+                  </SelectTrigger>
+                  <SelectContent className="bg-popover/95 backdrop-blur-md border-border/80 shadow-xl">
+                    <SelectItem value="all">{isBn ? 'সকল পদবী (All Roles)' : 'All Roles'}</SelectItem>
+                    <SelectItem value="admin">Admin · এডমিন</SelectItem>
+                    <SelectItem value="doctor">Doctor · ডাক্তার</SelectItem>
+                    <SelectItem value="handler">Handler · হ্যান্ডলার</SelectItem>
+                    <SelectItem value="cashier">Cashier · ক্যাশিয়ার</SelectItem>
+                    <SelectItem value="receptionist">Receptionist · রিসেপশনিস্ট</SelectItem>
+                  </SelectContent>
                 </Select>
               </div>
             </div>
@@ -798,16 +805,22 @@ export default function UsersAndDeviceManagementView() {
 
                     {/* Action Buttons */}
                     <div className="flex items-center justify-between gap-2 pt-3 border-t border-border/60">
-                      <div className="w-36">
+                      <div className="w-36 sm:w-40">
                         <Select
                           value={tv.department}
-                          onChange={(e) => handleChangeTvDepartment(tv, e.target.value as any)}
+                          onValueChange={(val: 'ALL' | 'CONSULTATION' | 'THERAPY') =>
+                            handleChangeTvDepartment(tv, val)
+                          }
                           disabled={isPending}
-                          className="h-8 text-xs font-semibold"
                         >
-                          <option value="ALL">{isBn ? 'উভয় কিউ (ALL)' : 'Both Queues'}</option>
-                          <option value="CONSULTATION">{isBn ? 'ডাক্তার কিউ' : 'Consultation'}</option>
-                          <option value="THERAPY">{isBn ? 'থেরাপি কিউ' : 'Therapy'}</option>
+                          <SelectTrigger className="h-8 text-xs font-semibold rounded-lg bg-background/60 border-border/80 hover:border-emerald-500/50">
+                            <SelectValue placeholder={isBn ? 'বিভাগ নির্বাচন' : 'Select Dept'} />
+                          </SelectTrigger>
+                          <SelectContent className="bg-popover/95 backdrop-blur-md border-border/80 shadow-xl">
+                            <SelectItem value="ALL">{isBn ? 'উভয় কিউ (ALL)' : 'Both Queues'}</SelectItem>
+                            <SelectItem value="CONSULTATION">{isBn ? 'ডাক্তার কিউ' : 'Consultation'}</SelectItem>
+                            <SelectItem value="THERAPY">{isBn ? 'থেরাপি কিউ' : 'Therapy'}</SelectItem>
+                          </SelectContent>
                         </Select>
                       </div>
 
@@ -970,14 +983,18 @@ export default function UsersAndDeviceManagementView() {
                   <Label className="text-xs font-bold">{isBn ? 'অনুমোদিত পদবী (Role)' : 'Role'} *</Label>
                   <Select
                     value={createForm.role}
-                    onChange={(e) => setCreateForm({ ...createForm, role: e.target.value as PermittedRole })}
-                    className="h-10 text-xs sm:text-sm"
+                    onValueChange={(val: PermittedRole) => setCreateForm({ ...createForm, role: val })}
                   >
-                    <option value="admin">Admin · এডমিন</option>
-                    <option value="doctor">Doctor · ডাক্তার</option>
-                    <option value="handler">Handler · হ্যান্ডলার</option>
-                    <option value="cashier">Cashier · ক্যাশিয়ার</option>
-                    <option value="receptionist">Receptionist · রিসেপশনিস্ট</option>
+                    <SelectTrigger className="h-10 text-xs sm:text-sm rounded-xl">
+                      <SelectValue placeholder={isBn ? 'পদবী নির্বাচন' : 'Select role'} />
+                    </SelectTrigger>
+                    <SelectContent className="bg-popover/95 backdrop-blur-md border-border/80 shadow-xl">
+                      <SelectItem value="admin">Admin · এডমিন</SelectItem>
+                      <SelectItem value="doctor">Doctor · ডাক্তার</SelectItem>
+                      <SelectItem value="handler">Handler · হ্যান্ডলার</SelectItem>
+                      <SelectItem value="cashier">Cashier · ক্যাশিয়ার</SelectItem>
+                      <SelectItem value="receptionist">Receptionist · রিসেপশনিস্ট</SelectItem>
+                    </SelectContent>
                   </Select>
                 </div>
 
@@ -1068,14 +1085,18 @@ export default function UsersAndDeviceManagementView() {
                   <Label className="text-xs font-bold">{isBn ? 'অনুমোদিত পদবী (Role)' : 'Role'} *</Label>
                   <Select
                     value={editForm.role}
-                    onChange={(e) => setEditForm({ ...editForm, role: e.target.value as PermittedRole })}
-                    className="h-10 text-xs sm:text-sm"
+                    onValueChange={(val: PermittedRole) => setEditForm({ ...editForm, role: val })}
                   >
-                    <option value="admin">Admin · এডমিন</option>
-                    <option value="doctor">Doctor · ডাক্তার</option>
-                    <option value="handler">Handler · হ্যান্ডলার</option>
-                    <option value="cashier">Cashier · ক্যাশিয়ার</option>
-                    <option value="receptionist">Receptionist · রিসেপশনিস্ট</option>
+                    <SelectTrigger className="h-10 text-xs sm:text-sm rounded-xl">
+                      <SelectValue placeholder={isBn ? 'পদবী নির্বাচন' : 'Select role'} />
+                    </SelectTrigger>
+                    <SelectContent className="bg-popover/95 backdrop-blur-md border-border/80 shadow-xl">
+                      <SelectItem value="admin">Admin · এডমিন</SelectItem>
+                      <SelectItem value="doctor">Doctor · ডাক্তার</SelectItem>
+                      <SelectItem value="handler">Handler · হ্যান্ডলার</SelectItem>
+                      <SelectItem value="cashier">Cashier · ক্যাশিয়ার</SelectItem>
+                      <SelectItem value="receptionist">Receptionist · রিসেপশনিস্ট</SelectItem>
+                    </SelectContent>
                   </Select>
                 </div>
 
@@ -1196,12 +1217,18 @@ export default function UsersAndDeviceManagementView() {
                   <Label className="text-xs font-bold">{isBn ? 'প্রদর্শিত কিউ বিভাগ' : 'Department Queue'}</Label>
                   <Select
                     value={pairForm.department}
-                    onChange={(e) => setPairForm({ ...pairForm, department: e.target.value as any })}
-                    className="h-10 text-xs sm:text-sm"
+                    onValueChange={(val: 'ALL' | 'CONSULTATION' | 'THERAPY') =>
+                      setPairForm({ ...pairForm, department: val })
+                    }
                   >
-                    <option value="ALL">{isBn ? 'উভয় কিউ (ডাক্তার + থেরাপি)' : 'Both (Doctor + Therapy)'}</option>
-                    <option value="CONSULTATION">{isBn ? 'শুধুমাত্র ডাক্তার কিউ' : 'Doctor Consultation Only'}</option>
-                    <option value="THERAPY">{isBn ? 'শুধুমাত্র থেরাপি কিউ' : 'Physiotherapy Only'}</option>
+                    <SelectTrigger className="h-10 text-xs sm:text-sm rounded-xl">
+                      <SelectValue placeholder={isBn ? 'কিউ বিভাগ নির্বাচন করুন' : 'Select queue department'} />
+                    </SelectTrigger>
+                    <SelectContent className="bg-popover/95 backdrop-blur-md border-border/80 shadow-xl">
+                      <SelectItem value="ALL">{isBn ? 'উভয় কিউ (ডাক্তার + থেরাপি)' : 'Both (Doctor + Therapy)'}</SelectItem>
+                      <SelectItem value="CONSULTATION">{isBn ? 'শুধুমাত্র ডাক্তার কিউ' : 'Doctor Consultation Only'}</SelectItem>
+                      <SelectItem value="THERAPY">{isBn ? 'শুধুমাত্র থেরাপি কিউ' : 'Physiotherapy Only'}</SelectItem>
+                    </SelectContent>
                   </Select>
                 </div>
 
