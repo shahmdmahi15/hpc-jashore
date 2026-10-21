@@ -54,6 +54,7 @@ export function reqMeta(req: Request) {
   return {
     ip: extractClientIp(req),
     userAgent: (req.header('user-agent') ?? null) as string | null,
+    fingerprint: ((req.header('x-client-fingerprint') || req.header('x-fingerprint')) ?? null) as string | null,
     requestId: ((req as unknown as { requestId?: string }).requestId ?? null) as string | null,
   };
 }

@@ -115,6 +115,7 @@ export class AuthService {
       deviceLabel: deviceLabel ?? null,
       ip: meta.ip ?? null,
       userAgent: meta.userAgent ?? null,
+      fingerprint: (meta as any)?.fingerprint ?? null,
       expiresAt,
       revokedAt: null,
       rotatedFromId: null,

@@ -96,6 +96,7 @@ export const refreshSessions = sqliteTable('refresh_sessions', {
   deviceLabel: text('device_label'),
   ip: text('ip'),
   userAgent: text('user_agent'),
+  fingerprint: text('fingerprint'),
   expiresAt: text('expires_at').notNull(),
   revokedAt: text('revoked_at'),
   rotatedFromId: text('rotated_from_id'),
@@ -701,6 +702,19 @@ export const tvDevices = sqliteTable('tv_devices', {
   lastSeenAt: text('last_seen_at'),
   pairedAt: text('paired_at'),
   pairedBy: text('paired_by').references(() => users.id),
+  forceUpdate: integer('force_update').notNull().default(0),
+  ...timestamps,
+});
+
+export const bulletins = sqliteTable('bulletins', {
+  id: text('id').primaryKey(),
+  title: text('title').notNull(),
+  contentEn: text('content_en').notNull(),
+  contentBn: text('content_bn').notNull(),
+  isUrgent: integer('is_urgent').notNull().default(0), // 1 = urgent, 0 = normal
+  isActive: integer('is_active').notNull().default(1), // 1 = active, 0 = inactive
+  priority: integer('priority').notNull().default(0),
+  createdBy: text('created_by').references(() => users.id),
   ...timestamps,
 });
 

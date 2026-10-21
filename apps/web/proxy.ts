@@ -57,7 +57,9 @@ export function proxy(request: NextRequest) {
   }
 
   // 2. Validate server-managed stateful session from cookies
-  const accessToken = request.cookies.get('hpc_access_token')?.value;
+  const accessToken =
+    request.cookies.get('hpc_session_token')?.value ||
+    request.cookies.get('hpc_access_token')?.value;
   const sessionCookie =
     request.cookies.get('hpc_session')?.value ||
     request.cookies.get('__Host-SESSION_TOKEN')?.value ||

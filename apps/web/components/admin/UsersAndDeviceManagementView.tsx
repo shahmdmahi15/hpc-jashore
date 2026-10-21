@@ -30,6 +30,7 @@ import {
   Sun,
   Moon,
   Globe,
+  Zap,
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
@@ -80,6 +81,7 @@ import {
   updateTvDeviceAction,
   revokeTvDeviceAction,
   deleteTvDeviceAction,
+  forceUpdateTvDeviceAction,
   type TvDeviceRecord,
 } from '../../lib/actions/devices';
 import { useRealtime } from '../../lib/use-realtime';
@@ -396,6 +398,29 @@ export default function UsersAndDeviceManagementView() {
         setTvDevices((prev) => prev.map((d) => (d.id === tv.id ? res.data! : d)));
       } else {
         toast.error(res.error || (isBn ? 'ভাষা পরিবর্তন ব্যর্থ হয়েছে' : 'Failed to update language'));
+      }
+    });
+  };
+
+  // Handle Force Update TV
+  const handleForceUpdateTv = async (tv: TvDeviceRecord, force: boolean = true) => {
+    startTransition(async () => {
+      const res = await forceUpdateTvDeviceAction(tv.id, force);
+      if (res.success) {
+        toast.success(
+          force
+            ? isBn
+              ? `"${tv.deviceName}" স্ক্রিনে ফোর্স আপডেট নির্দেশ পাঠানো হয়েছে`
+              : `Force update signal dispatched to "${tv.deviceName}"`
+            : isBn
+            ? 'ফোর্স আপডেট বাতিল করা হয়েছে'
+            : 'Force update cancelled',
+        );
+        setTvDevices((prev) =>
+          prev.map((item) => (item.id === tv.id ? { ...item, forceUpdate: force ? 1 : 0 } : item)),
+        );
+      } else {
+        toast.error(res.error || (isBn ? 'ফোর্স আপডেট নির্দেশ ব্যর্থ' : 'Failed to send force update'));
       }
     });
   };
@@ -840,9 +865,20 @@ export default function UsersAndDeviceManagementView() {
                           </Badge>
                         </div>
 
-                        {tv.appVersion && (
-                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 font-mono">
-                            v{tv.appVersion}
+                        {tv.appVersion ? (
+                          <div className="flex items-center gap-1">
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 font-mono">
+                              v{tv.appVersion}
+                            </Badge>
+                            {tv.appVersion !== '0.1.9' && (
+                              <Badge className="bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 text-[9px] px-1.5 py-0 h-4 font-semibold">
+                                {isBn ? 'আপডেট আবশ্যক' : 'Outdated'}
+                              </Badge>
+                            )}
+                          </div>
+                        ) : (
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 font-mono text-muted-foreground">
+                            v0.1.0
                           </Badge>
                         )}
 
@@ -925,6 +961,36 @@ export default function UsersAndDeviceManagementView() {
 
                       {/* Action Buttons */}
                       <div className="flex items-center justify-end gap-1.5 pt-1">
+                        {isPaired && (
+                          <Button
+                            variant={tv.forceUpdate === 1 ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => handleForceUpdateTv(tv, tv.forceUpdate !== 1)}
+                            disabled={isPending}
+                            className={`h-8 px-2.5 rounded-lg text-xs font-semibold cursor-pointer ${
+                              tv.forceUpdate === 1
+                                ? 'bg-rose-600 hover:bg-rose-500 text-white animate-pulse'
+                                : 'text-amber-600 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/10'
+                            }`}
+                            title={
+                              isBn
+                                ? 'এই টিভিতে তাৎক্ষণিক আপডেট বাধ্যতামূলক করুন'
+                                : 'Force this TV to update immediately'
+                            }
+                          >
+                            <Zap className="w-3.5 h-3.5 mr-1" />
+                            <span>
+                              {tv.forceUpdate === 1
+                                ? isBn
+                                  ? 'ফোর্স আপডেট সক্রিয়'
+                                  : 'Update Enforced'
+                                : isBn
+                                ? 'ফোর্স আপডেট'
+                                : 'Force Update'}
+                            </span>
+                          </Button>
+                        )}
+
                         {isPaired && (
                           <Button
                             variant="outline"

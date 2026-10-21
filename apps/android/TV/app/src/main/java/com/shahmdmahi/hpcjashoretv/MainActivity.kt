@@ -39,6 +39,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
@@ -65,6 +66,14 @@ data class TherapyPatient(
     val modality: String = "Physiotherapy",
     val durationMinutes: Int = 20,
     val priority: String = "regular"
+)
+
+data class TvBulletin(
+    val id: String,
+    val title: String,
+    val contentEn: String,
+    val contentBn: String,
+    val isUrgent: Boolean = false
 )
 
 class MainActivity : ComponentActivity() {
@@ -94,6 +103,8 @@ class MainActivity : ComponentActivity() {
 
             var waitingDoctorList by remember { mutableStateOf<List<ConsultationPatient>>(emptyList()) }
             var waitingTherapyList by remember { mutableStateOf<List<TherapyPatient>>(emptyList()) }
+            var liveBulletins by remember { mutableStateOf<List<TvBulletin>>(emptyList()) }
+            var currentBulletinIndex by remember { mutableStateOf(0) }
 
             var currentTime by remember { mutableStateOf("") }
             var updateNotice by remember { mutableStateOf<String?>(null) }
@@ -112,8 +123,8 @@ class MainActivity : ComponentActivity() {
                 while (isActive) {
                     try {
                         withContext(Dispatchers.IO) {
-                            checkSelfUpdate { hasUpdate, latestVer, apkUrl ->
-                                if (hasUpdate && apkUrl != null) {
+                            checkSelfUpdate { hasUpdate, latestVer, apkUrl, forceUpdate ->
+                                if ((hasUpdate || forceUpdate) && apkUrl != null) {
                                     updateNotice = "Updating to v$latestVer..."
                                     downloadAndInstallApk(apkUrl)
                                 }
@@ -124,11 +135,21 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
+            // Rotate live bulletins every 7 seconds
+            LaunchedEffect(liveBulletins) {
+                if (liveBulletins.isNotEmpty()) {
+                    while (isActive) {
+                        delay(7000)
+                        currentBulletinIndex = (currentBulletinIndex + 1) % liveBulletins.size
+                    }
+                }
+            }
+
             // Unpaired flow: register with server and poll status
             LaunchedEffect(pairingCode, isPaired) {
                 if (!isPaired) {
                     withContext(Dispatchers.IO) {
-                        registerTvWithServer(pairingCode, "0.1.8")
+                        registerTvWithServer(pairingCode, "0.1.9")
                     }
                     while (!isPaired && isActive) {
                         withContext(Dispatchers.IO) {
@@ -159,22 +180,27 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            // Paired flow: Heartbeat check & queue snapshot polling
+            // Paired flow: Heartbeat check, bulletins & queue snapshot polling
             LaunchedEffect(pairingCode, isPaired) {
                 if (isPaired) {
+                    var pollCounter = 0
                     while (isPaired && isActive) {
-                        // 1. Heartbeat check with instant revocation, department, theme, and language updates
+                        // 1. Heartbeat check with instant revocation, department, theme, language, and force-update checks
                         var shouldRevoke = false
                         var newDept: String? = null
                         var newName: String? = null
                         var newTheme: String? = null
                         var newLang: String? = null
+                        var shouldForceUpdate = false
 
                         withContext(Dispatchers.IO) {
-                            sendTvHeartbeat(pairingCode, "0.1.8") { isOk, status, dept, name, theme, lang ->
+                            sendTvHeartbeat(pairingCode, "0.1.9") { isOk, status, dept, name, theme, lang, forceUpdate ->
                                 if (!isOk || status == "revoked" || status == "unregistered") {
                                     shouldRevoke = true
                                 } else {
+                                    if (forceUpdate) {
+                                        shouldForceUpdate = true
+                                    }
                                     if (!dept.isNullOrBlank() && dept != assignedDepartment) {
                                         newDept = dept
                                     }
@@ -200,6 +226,17 @@ class MainActivity : ComponentActivity() {
                                 isPaired = false
                             }
                             break
+                        }
+
+                        if (shouldForceUpdate) {
+                            withContext(Dispatchers.IO) {
+                                checkSelfUpdate { hasUpdate, latestVer, apkUrl, _ ->
+                                    if (apkUrl != null) {
+                                        updateNotice = "Force Updating to v$latestVer..."
+                                        downloadAndInstallApk(apkUrl)
+                                    }
+                                }
+                            }
                         }
 
                         if (newDept != null || newName != null || newTheme != null || newLang != null) {
@@ -233,6 +270,16 @@ class MainActivity : ComponentActivity() {
                             }
                         }
 
+                        // 3. Bulletins (every ~10 seconds)
+                        if (isPaired && (pollCounter % 5 == 0)) {
+                            withContext(Dispatchers.IO) {
+                                fetchTvBulletins { bulletins ->
+                                    liveBulletins = bulletins
+                                }
+                            }
+                        }
+                        pollCounter++
+
                         delay(1500)
                     }
                 }
@@ -251,20 +298,12 @@ class MainActivity : ComponentActivity() {
                         .background(bgColor)
                 ) {
                     if (!isPaired) {
-                        // MANDATORY PAIRING & ACTIVATION SCREEN
+                        // MANDATORY PAIRING & ACTIVATION SCREEN (Theme/Language remotely administered)
                         TvPairingScreen(
                             pairingCode = pairingCode,
                             currentLanguage = currentLanguage,
                             isDarkTheme = isDarkTheme,
-                            currentTime = currentTime,
-                            onLanguageToggle = {
-                                currentLanguage = if (currentLanguage == "bn") "en" else "bn"
-                                prefs.edit().putString("language", currentLanguage).apply()
-                            },
-                            onThemeToggle = {
-                                isDarkTheme = !isDarkTheme
-                                prefs.edit().putBoolean("is_dark_theme", isDarkTheme).apply()
-                            }
+                            currentTime = currentTime
                         )
                     } else {
                         // LIVE 2-COLUMN QUEUE GRID SCREEN
@@ -273,7 +312,7 @@ class MainActivity : ComponentActivity() {
                                 .fillMaxSize()
                                 .padding(16.dp)
                         ) {
-                            // 1. TOP HEADER (BRANDING, LIVE CLOCK, DUAL LANG / THEME TOGGLES)
+                            // 1. TOP HEADER (BRANDING, LIVE CLOCK - Remotely Controlled Theme/Language)
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -320,90 +359,13 @@ class MainActivity : ComponentActivity() {
                                         }
                                     }
 
-                                    // Active Department Badge
-                                    Box(
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(6.dp))
-                                            .background(
-                                                when (assignedDepartment) {
-                                                    "CONSULTATION" -> Color(0xFF3B82F6).copy(alpha = 0.2f)
-                                                    "THERAPY" -> Emerald500.copy(alpha = 0.2f)
-                                                    else -> Color(0xFF8B5CF6).copy(alpha = 0.2f)
-                                                }
-                                            )
-                                            .border(
-                                                1.dp,
-                                                when (assignedDepartment) {
-                                                    "CONSULTATION" -> Color(0xFF3B82F6).copy(alpha = 0.5f)
-                                                    "THERAPY" -> Emerald500.copy(alpha = 0.5f)
-                                                    else -> Color(0xFF8B5CF6).copy(alpha = 0.5f)
-                                                },
-                                                RoundedCornerShape(6.dp)
-                                            )
-                                            .padding(horizontal = 8.dp, vertical = 4.dp)
-                                    ) {
-                                        Text(
-                                            text = when (assignedDepartment) {
-                                                "CONSULTATION" -> if (currentLanguage == "bn") "🩺 ডাক্তার কিউ" else "🩺 Consultation Only"
-                                                "THERAPY" -> if (currentLanguage == "bn") "⚡ থেরাপি কিউ" else "⚡ Therapy Only"
-                                                else -> if (currentLanguage == "bn") "🏥 উভয় কিউ" else "🏥 Both Queues"
-                                            },
-                                            color = when (assignedDepartment) {
-                                                "CONSULTATION" -> Color(0xFF60A5FA)
-                                                "THERAPY" -> Emerald400
-                                                else -> Color(0xFFA78BFA)
-                                            },
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    }
-
                                     Text(
                                         text = currentTime,
                                         color = Emerald400,
-                                        fontSize = 14.sp,
+                                        fontSize = 15.sp,
                                         fontFamily = FontFamily.Monospace,
                                         fontWeight = FontWeight.Bold
                                     )
-
-                                    // Language Toggle
-                                    Box(
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(6.dp))
-                                            .background(Emerald500.copy(alpha = 0.15f))
-                                            .border(1.dp, Emerald500.copy(alpha = 0.3f), RoundedCornerShape(6.dp))
-                                            .clickable {
-                                                currentLanguage = if (currentLanguage == "bn") "en" else "bn"
-                                                prefs.edit().putString("language", currentLanguage).apply()
-                                            }
-                                            .padding(horizontal = 10.dp, vertical = 6.dp)
-                                    ) {
-                                        Text(
-                                            text = if (currentLanguage == "bn") "বাংলা" else "ENG",
-                                            color = Emerald400,
-                                            fontSize = 12.sp,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    }
-
-                                    // Theme Toggle
-                                    Box(
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(6.dp))
-                                            .background(borderColor)
-                                            .clickable {
-                                                isDarkTheme = !isDarkTheme
-                                                prefs.edit().putBoolean("is_dark_theme", isDarkTheme).apply()
-                                            }
-                                            .padding(horizontal = 10.dp, vertical = 6.dp)
-                                    ) {
-                                        Text(
-                                            text = if (isDarkTheme) "🌙 DARK" else "☀️ LIGHT",
-                                            color = textColor,
-                                            fontSize = 12.sp,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    }
                                 }
                             }
 
@@ -719,29 +681,81 @@ class MainActivity : ComponentActivity() {
 
                             Spacer(modifier = Modifier.height(10.dp))
 
-                            // 3. BOTTOM BULLETIN / PAIRING FOOTER
+                            // 3. BOTTOM BULLETIN MARQUEE TICKER & DEVICE FOOTER
+                            val activeBulletin = if (liveBulletins.isNotEmpty()) {
+                                liveBulletins[currentBulletinIndex % liveBulletins.size]
+                            } else null
+
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clip(RoundedCornerShape(8.dp))
-                                    .background(surfaceColor)
-                                    .border(1.dp, borderColor, RoundedCornerShape(8.dp))
-                                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                                    .background(
+                                        if (activeBulletin?.isUrgent == true) Color(0xFFEF4444).copy(alpha = 0.15f) else surfaceColor
+                                    )
+                                    .border(
+                                        1.dp,
+                                        if (activeBulletin?.isUrgent == true) Color(0xFFEF4444).copy(alpha = 0.5f) else borderColor,
+                                        RoundedCornerShape(8.dp)
+                                    )
+                                    .padding(horizontal = 14.dp, vertical = 8.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text(
-                                    text = if (currentLanguage == "bn")
-                                        "📢 জরুরি নোটিশ: থেরাপির সময় মোবাইল ফোন সাইলেন্ট রাখুন | হটলাইন: +৮৮০ ১৫১৫-৬১৫১৮৮"
-                                    else
-                                        "📢 Notice: Keep mobile phones silent during therapy | Hotline: +880 1515-615188",
-                                    color = textMutedColor,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
+                                Row(
+                                    modifier = Modifier.weight(1f),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    if (activeBulletin != null) {
+                                        if (activeBulletin.isUrgent) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .clip(RoundedCornerShape(4.dp))
+                                                    .background(Color(0xFFEF4444))
+                                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                                            ) {
+                                                Text(
+                                                    text = if (currentLanguage == "bn") "🚨 জরুরি বুলেটিন" else "🚨 URGENT BULLETIN",
+                                                    color = Color.White,
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.Black
+                                                )
+                                            }
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                        } else {
+                                            Text(
+                                                text = "📢 ",
+                                                fontSize = 12.sp
+                                            )
+                                        }
+                                        Text(
+                                            text = if (currentLanguage == "bn")
+                                                (if (activeBulletin.contentBn.isNotBlank()) activeBulletin.contentBn else activeBulletin.title)
+                                            else
+                                                (if (activeBulletin.contentEn.isNotBlank()) activeBulletin.contentEn else activeBulletin.title),
+                                            color = if (activeBulletin.isUrgent) Color(0xFFFCA5A5) else textColor,
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    } else {
+                                        Text(
+                                            text = if (currentLanguage == "bn")
+                                                "📢 নোটিশ: থেরাপির সময় মোবাইল ফোন সাইলেন্ট রাখুন | হটলাইন: +৮৮০ ১৫১৫-৬১৫১৮৮"
+                                            else
+                                                "📢 Notice: Keep mobile phones silent during therapy | Hotline: +880 1515-615188",
+                                            color = textMutedColor,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.width(12.dp))
 
                                 Text(
-                                    text = "Device: $deviceName • Code: $pairingCode • Dept: $assignedDepartment",
+                                    text = "Device: $deviceName • Code: $pairingCode • Dept: $assignedDepartment • v0.1.9",
                                     color = Emerald400,
                                     fontSize = 11.sp,
                                     fontFamily = FontFamily.Monospace,
@@ -820,7 +834,7 @@ class MainActivity : ComponentActivity() {
     private fun sendTvHeartbeat(
         pairingCode: String,
         appVersion: String,
-        onStatus: (Boolean, String, String?, String?, String?, String?) -> Unit
+        onStatus: (Boolean, String, String?, String?, String?, String?, Boolean) -> Unit
     ) {
         try {
             val url = URL("https://hpc.toufiquzzaman.com/api/tv/heartbeat")
@@ -846,13 +860,44 @@ class MainActivity : ComponentActivity() {
                 val name = if (json.has("deviceName") && !json.isNull("deviceName")) json.getString("deviceName") else null
                 val theme = if (json.has("theme") && !json.isNull("theme")) json.getString("theme") else null
                 val lang = if (json.has("language") && !json.isNull("language")) json.getString("language") else null
+                val forceUpdate = json.optBoolean("forceUpdate", false)
                 if (!paired || status == "revoked" || status == "unregistered") {
-                    onStatus(false, "revoked", null, null, null, null)
+                    onStatus(false, "revoked", null, null, null, null, false)
                 } else {
-                    onStatus(true, "paired", dept, name, theme, lang)
+                    onStatus(true, "paired", dept, name, theme, lang, forceUpdate)
                 }
             } else if (conn.responseCode in 400..499) {
-                onStatus(false, "revoked", null, null, null, null)
+                onStatus(false, "revoked", null, null, null, null, false)
+            }
+            conn.disconnect()
+        } catch (_: Exception) {}
+    }
+
+    private fun fetchTvBulletins(onResult: (List<TvBulletin>) -> Unit) {
+        try {
+            val url = URL("https://hpc.toufiquzzaman.com/api/tv/bulletins")
+            val conn = url.openConnection() as HttpURLConnection
+            conn.connectTimeout = 4000
+            conn.readTimeout = 4000
+            conn.requestMethod = "GET"
+
+            if (conn.responseCode == 200) {
+                val text = conn.inputStream.bufferedReader().use { it.readText() }
+                val arr = JSONArray(text)
+                val list = mutableListOf<TvBulletin>()
+                for (i in 0 until arr.length()) {
+                    val obj = arr.getJSONObject(i)
+                    list.add(
+                        TvBulletin(
+                            id = obj.optString("id", ""),
+                            title = obj.optString("title", ""),
+                            contentEn = obj.optString("contentEn", ""),
+                            contentBn = obj.optString("contentBn", ""),
+                            isUrgent = obj.optInt("isUrgent", 0) == 1
+                        )
+                    )
+                }
+                onResult(list)
             }
             conn.disconnect()
         } catch (_: Exception) {}
@@ -870,13 +915,50 @@ class MainActivity : ComponentActivity() {
 
             if (conn.responseCode == 200) {
                 val text = conn.inputStream.bufferedReader().use { it.readText() }
-                // Parse if available
+                val json = JSONObject(text)
+
+                val consultationObj = json.optJSONObject("consultationQueue")
+                val docArr = consultationObj?.optJSONArray("waiting") ?: JSONArray()
+                val docList = mutableListOf<ConsultationPatient>()
+                for (i in 0 until docArr.length()) {
+                    val obj = docArr.getJSONObject(i)
+                    docList.add(
+                        ConsultationPatient(
+                            serialNumber = obj.optInt("serialNumber", i + 1),
+                            tokenNumber = obj.optInt("tokenNumber", i + 1),
+                            patientNameEn = obj.optString("patientNameEn", "Patient"),
+                            patientNameBn = if (obj.has("patientNameBn") && !obj.isNull("patientNameBn")) obj.getString("patientNameBn") else null,
+                            doctorName = obj.optString("doctorNameEn", "Dr. Toufiq Uz Zaman"),
+                            chamber = "Chamber 1",
+                            priority = obj.optString("priority", "regular")
+                        )
+                    )
+                }
+
+                val therapyObj = json.optJSONObject("therapyQueue")
+                val thArr = therapyObj?.optJSONArray("waiting") ?: JSONArray()
+                val thList = mutableListOf<TherapyPatient>()
+                for (i in 0 until thArr.length()) {
+                    val obj = thArr.getJSONObject(i)
+                    thList.add(
+                        TherapyPatient(
+                            tokenNumber = obj.optInt("tokenNumber", i + 1),
+                            patientNameEn = obj.optString("patientNameEn", "Patient"),
+                            patientNameBn = if (obj.has("patientNameBn") && !obj.isNull("patientNameBn")) obj.getString("patientNameBn") else null,
+                            bedName = "Bed ${i + 1}",
+                            modality = "Physiotherapy",
+                            durationMinutes = 20,
+                            priority = obj.optString("priority", "regular")
+                        )
+                    )
+                }
+                onResult(null, docList, null, thList)
             }
             conn.disconnect()
         } catch (_: Exception) {}
     }
 
-    private fun checkSelfUpdate(onResult: (Boolean, String, String?) -> Unit) {
+    private fun checkSelfUpdate(onResult: (Boolean, String, String?, Boolean) -> Unit) {
         try {
             val pInfo = packageManager.getPackageInfo(packageName, 0)
             val currentVersionCode = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
@@ -896,9 +978,10 @@ class MainActivity : ComponentActivity() {
                 val text = conn.inputStream.bufferedReader().use { it.readText() }
                 val json = JSONObject(text)
                 val updateAvailable = json.optBoolean("updateAvailable", false)
+                val forceUpdate = json.optBoolean("forceUpdate", false)
                 val latestVersion = json.optString("latestVersion", "1.0.0")
                 val apkUrl = json.optString("apkUrl", null)
-                onResult(updateAvailable, latestVersion, apkUrl)
+                onResult(updateAvailable, latestVersion, apkUrl, forceUpdate)
             }
             conn.disconnect()
         } catch (_: Exception) {}
@@ -944,9 +1027,7 @@ fun TvPairingScreen(
     pairingCode: String,
     currentLanguage: String,
     isDarkTheme: Boolean,
-    currentTime: String,
-    onLanguageToggle: () -> Unit,
-    onThemeToggle: () -> Unit
+    currentTime: String
 ) {
     val bgColor = if (isDarkTheme) DarkBackground else LightBackground
     val surfaceColor = if (isDarkTheme) DarkSurface else LightSurface
@@ -962,7 +1043,7 @@ fun TvPairingScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.SpaceBetween
     ) {
-        // 1. Header (Branding + Clock + Switchers)
+        // 1. Header (Branding + Clock)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1001,43 +1082,10 @@ fun TvPairingScreen(
                 Text(
                     text = currentTime,
                     color = Emerald400,
-                    fontSize = 14.sp,
+                    fontSize = 15.sp,
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Bold
                 )
-
-                // Language Toggle
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(Emerald500.copy(alpha = 0.15f))
-                        .border(1.dp, Emerald500.copy(alpha = 0.3f), RoundedCornerShape(6.dp))
-                        .clickable { onLanguageToggle() }
-                        .padding(horizontal = 12.dp, vertical = 6.dp)
-                ) {
-                    Text(
-                        text = if (currentLanguage == "bn") "বাংলা" else "ENG",
-                        color = Emerald400,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-
-                // Theme Toggle
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(borderColor)
-                        .clickable { onThemeToggle() }
-                        .padding(horizontal = 12.dp, vertical = 6.dp)
-                ) {
-                    Text(
-                        text = if (isDarkTheme) "🌙 DARK" else "☀️ LIGHT",
-                        color = textColor,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
             }
         }
 
@@ -1185,7 +1233,7 @@ fun TvPairingScreen(
 
         // 3. Footer
         Text(
-            text = "Health & Pain Care Center · Jashore • Hardware Station ID: $pairingCode • Version 0.1.8",
+            text = "Health & Pain Care Center · Jashore • Hardware Station ID: $pairingCode • Version 0.1.9",
             color = textMutedColor,
             fontSize = 11.sp,
             fontFamily = FontFamily.Monospace

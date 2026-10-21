@@ -39,6 +39,10 @@ export async function serverFetch<T>(
     if (ua) {
       headers.set('user-agent', ua);
     }
+    const fp = reqHeaders.get('x-client-fingerprint') || reqHeaders.get('x-fingerprint');
+    if (fp) {
+      headers.set('x-client-fingerprint', fp);
+    }
   } catch {
     // nextHeaders() not available outside active request contexts
   }
@@ -48,7 +52,9 @@ export async function serverFetch<T>(
   if (!token) {
     try {
       const cookieStore = await cookies();
-      token = cookieStore.get('hpc_access_token')?.value;
+      token =
+        cookieStore.get('hpc_session_token')?.value ||
+        cookieStore.get('hpc_access_token')?.value;
     } catch {
       // cookies() may not be available in non-request contexts
     }

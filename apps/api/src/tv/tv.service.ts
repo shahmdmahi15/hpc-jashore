@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { desc, eq } from 'drizzle-orm';
 import { AuditService } from '../audit/audit.service';
 import { DB, type Db } from '../db/db.module';
-import { tvDevices } from '../db/schema';
+import { bulletins, tvDevices } from '../db/schema';
 import { RealtimeService } from '../realtime/realtime.service';
 import type { HeartbeatTvDto, PairTvDto, RegisterTvDto, UpdateTvDto } from './dto';
 
@@ -107,6 +107,7 @@ export class TvService {
       theme: row.theme || 'dark',
       language: row.language || 'bn',
       secretToken: row.status === 'paired' ? row.secretToken : null,
+      forceUpdate: row.forceUpdate === 1,
     };
   }
 
@@ -162,6 +163,7 @@ export class TvService {
       location: row.location,
       theme: row.theme || 'dark',
       language: row.language || 'bn',
+      forceUpdate: row.forceUpdate === 1,
     };
   }
 
@@ -366,5 +368,55 @@ export class TvService {
     this.realtime.publish('tv:deleted', { id, pairingCode: existing.pairingCode });
 
     return { ok: true };
+  }
+
+  async setForceUpdate(
+    actor: { sub: string; role: string },
+    id: string,
+    force: boolean,
+    meta: { ip?: string | null; requestId?: string | null },
+  ) {
+    const [existing] = await this.db.select().from(tvDevices).where(eq(tvDevices.id, id));
+    if (!existing) {
+      throw new NotFoundException('TV device not found');
+    }
+
+    const now = new Date().toISOString();
+    const [updated] = await this.db
+      .update(tvDevices)
+      .set({
+        forceUpdate: force ? 1 : 0,
+        updatedAt: now,
+      })
+      .where(eq(tvDevices.id, id))
+      .returning();
+
+    await this.audit.log({
+      actorUserId: actor.sub,
+      actorRole: actor.role,
+      action: force ? 'tv.force_update_enabled' : 'tv.force_update_disabled',
+      entity: 'tv_devices',
+      entityId: id,
+      before: existing,
+      after: updated,
+      ip: meta.ip,
+      requestId: meta.requestId,
+    });
+
+    this.realtime.publish('tv:updated', {
+      id: updated.id,
+      pairingCode: updated.pairingCode,
+      forceUpdate: updated.forceUpdate === 1,
+    });
+
+    return updated;
+  }
+
+  async getActiveBulletins() {
+    return this.db
+      .select()
+      .from(bulletins)
+      .where(eq(bulletins.isActive, 1))
+      .orderBy(desc(bulletins.priority), desc(bulletins.createdAt));
   }
 }

@@ -18,6 +18,7 @@ export interface TvDeviceRecord {
   lastSeenAt: string | null;
   pairedAt: string | null;
   pairedBy: string | null;
+  forceUpdate?: number;
   createdAt: string;
   updatedAt: string;
   isOnline?: boolean;
@@ -112,5 +113,21 @@ export async function deleteTvDeviceAction(
     return { success: true };
   } catch (err: any) {
     return { success: false, error: err?.message || 'Failed to delete TV device' };
+  }
+}
+
+export async function forceUpdateTvDeviceAction(
+  id: string,
+  force: boolean = true,
+): Promise<{ success: boolean; data?: any; error?: string }> {
+  try {
+    const data = await serverFetch<any>(`/tv/devices/${id}/force-update`, {
+      method: 'POST',
+      body: JSON.stringify({ force }),
+    });
+    revalidatePath('/admin');
+    return { success: true, data };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Failed to trigger force update' };
   }
 }

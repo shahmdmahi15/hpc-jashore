@@ -62,7 +62,7 @@ export function setSession(session: UserSession | null) {
   if (typeof window !== 'undefined') {
     if (session) {
       localStorage.setItem('hpc_session', JSON.stringify(session));
-      document.cookie = `hpc_session=${encodeURIComponent(JSON.stringify(session))}; path=/; max-age=604800; SameSite=Lax`;
+      document.cookie = `hpc_session=${encodeURIComponent(JSON.stringify(session))}; path=/; max-age=2592000; SameSite=Lax`;
     } else {
       localStorage.removeItem('hpc_session');
       document.cookie = `hpc_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax`;
@@ -344,5 +344,23 @@ export const api = {
       }
       return { updateAvailable: false, status: 'web_mode' };
     },
+  },
+  bulletins: {
+    listAll: () => apiFetch<any[]>('/bulletins'),
+    listActive: () => apiFetch<any[]>('/bulletins/active'),
+    create: (data: any) =>
+      apiFetch<any>('/bulletins', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id: string, data: any) =>
+      apiFetch<any>(`/bulletins/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+    delete: (id: string) =>
+      apiFetch<any>(`/bulletins/${id}`, { method: 'DELETE' }),
+  },
+  tv: {
+    getBulletins: () => apiFetch<any[]>('/tv/bulletins'),
+    setForceUpdate: (id: string, force: boolean = true) =>
+      apiFetch<any>(`/tv/devices/${id}/force-update`, {
+        method: 'POST',
+        body: JSON.stringify({ force }),
+      }),
   },
 };

@@ -78,12 +78,20 @@ export async function loginAction(credentials: { email: string; password: string
     // Set secure HTTP-only cookies on the Next.js server for stateful sessions
     try {
       const cookieStore = await cookies();
+      const thirtyDays = 60 * 60 * 24 * 30; // 30 days stateful session
+      cookieStore.set('hpc_session_token', data.accessToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/',
+        maxAge: thirtyDays,
+      });
       cookieStore.set('hpc_access_token', data.accessToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
         path: '/',
-        maxAge: 60 * 60 * 24 * 7, // 7 days
+        maxAge: thirtyDays,
       });
       cookieStore.set(
         'hpc_session',
@@ -99,7 +107,7 @@ export async function loginAction(credentials: { email: string; password: string
           secure: process.env.NODE_ENV === 'production',
           sameSite: 'lax',
           path: '/',
-          maxAge: 60 * 60 * 24 * 7,
+          maxAge: thirtyDays,
         },
       );
     } catch {
@@ -118,6 +126,7 @@ export async function loginAction(credentials: { email: string; password: string
 export async function logoutAction() {
   try {
     const cookieStore = await cookies();
+    cookieStore.delete('hpc_session_token');
     cookieStore.delete('hpc_access_token');
     cookieStore.delete('hpc_session');
   } catch {

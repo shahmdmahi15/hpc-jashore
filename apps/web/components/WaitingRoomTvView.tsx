@@ -89,6 +89,7 @@ export default function WaitingRoomTvView() {
   const [lastSyncTime, setLastSyncTime] = useState<string>('');
   const [activeCallAlert, setActiveCallAlert] = useState<ConsultationItem | null>(null);
   const [callCountdown, setCallCountdown] = useState<number>(12);
+  const [liveBulletins, setLiveBulletins] = useState<any[]>([]);
 
   const [snapshot, setSnapshot] = useState<TvSnapshotData>({
     date: new Date().toISOString().slice(0, 10),
@@ -225,6 +226,16 @@ export default function WaitingRoomTvView() {
           bulletinNotices: data.bulletinNotices?.length ? data.bulletinNotices : prev.bulletinNotices,
         }));
         setConnectionStatus('connected');
+
+        try {
+          const bRes = await api.bulletins.listActive();
+          if (Array.isArray(bRes) && bRes.length > 0) {
+            setLiveBulletins(bRes);
+          }
+        } catch {
+          // fallback to defaults
+        }
+
         setLastSyncTime(
           new Date().toLocaleTimeString(lang === 'bn' ? 'bn-BD' : 'en-GB', {
             hour: '2-digit',
@@ -548,33 +559,6 @@ export default function WaitingRoomTvView() {
             title="Toggle Chime Sound"
           >
             {audioEnabled ? <Volume2 className="size-3.5 2xl:size-4" /> : <VolumeX className="size-3.5 2xl:size-4" />}
-          </button>
-
-          {/* Language Switcher */}
-          <button
-            type="button"
-            onClick={() => setLang(lang === 'bn' ? 'en' : 'bn')}
-            className={`h-7 sm:h-8 2xl:h-10 px-2 sm:px-2.5 rounded-lg text-xs 2xl:text-sm font-bold border transition-colors cursor-pointer ${
-              isDark
-                ? 'bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border-zinc-800'
-                : 'bg-white hover:bg-zinc-100 text-zinc-800 border-zinc-200'
-            }`}
-          >
-            {lang === 'bn' ? 'English' : 'বাংলা'}
-          </button>
-
-          {/* Theme Toggle */}
-          <button
-            type="button"
-            onClick={() => setTheme(isDark ? 'light' : 'dark')}
-            className={`h-7 w-7 sm:h-8 sm:w-8 2xl:h-10 2xl:w-10 rounded-lg text-xs font-bold border transition-colors flex items-center justify-center cursor-pointer ${
-              isDark
-                ? 'bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border-zinc-800'
-                : 'bg-white hover:bg-zinc-100 text-zinc-800 border-zinc-200'
-            }`}
-            title="Toggle Dark/Light Theme"
-          >
-            {isDark ? <Sun className="size-3.5 2xl:size-4 text-amber-400" /> : <Moon className="size-3.5 2xl:size-4 text-zinc-700" />}
           </button>
 
           {/* Fullscreen Toggle */}
@@ -914,7 +898,26 @@ export default function WaitingRoomTvView() {
 
         <div className="flex-1 overflow-hidden relative">
           <div className="inline-block whitespace-nowrap animate-marquee text-[11px] sm:text-xs 2xl:text-sm font-semibold text-emerald-400">
-            {snapshot.bulletinNotices.join('　•　')}
+            {liveBulletins.length > 0
+              ? liveBulletins.map((b, idx) => (
+                  <span key={b.id || idx} className="inline-flex items-center gap-2 mx-4">
+                    {b.isUrgent === 1 ? (
+                      <span className="px-2 py-0.5 rounded-full bg-rose-600 text-white text-[10px] font-black uppercase tracking-wider animate-pulse flex items-center gap-1 shadow-xs">
+                        <span>🚨</span>
+                        <span>{lang === 'bn' ? 'জরুরি ঘোষণা' : 'URGENT NOTICE'}</span>
+                      </span>
+                    ) : (
+                      <span className="px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-bold">
+                        <span>📢</span>
+                      </span>
+                    )}
+                    <span className={b.isUrgent === 1 ? 'text-rose-400 font-bold' : 'text-emerald-400 font-semibold'}>
+                      {lang === 'bn' ? b.contentBn : b.contentEn}
+                    </span>
+                    <span className="text-zinc-600">✦</span>
+                  </span>
+                ))
+              : snapshot.bulletinNotices.join('　•　')}
           </div>
         </div>
 

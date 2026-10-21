@@ -5,6 +5,7 @@ import { AuditModule } from './audit/audit.module';
 import { AuditQueryModule } from './audit/audit-query.module';
 import { AuthModule } from './auth/auth.module';
 import { BillingModule } from './billing/billing.module';
+import { BulletinsModule } from './bulletins/bulletins.module';
 import { CatalogModule } from './catalog/catalog.module';
 import { ClinicalModule } from './clinical/clinical.module';
 import configuration from './config/configuration';
@@ -61,6 +62,7 @@ import { VisitsModule } from './visits/visits.module';
     ReportsModule,
     UpdatesModule,
     TvModule,
+    BulletinsModule,
   ],
   controllers: [HealthController],
 })

@@ -61,6 +61,11 @@ export class TvController {
     return this.tv.heartbeat(payload, this.meta(req));
   }
 
+  @Get('bulletins')
+  getBulletins() {
+    return this.tv.getActiveBulletins();
+  }
+
   // --- Protected Admin Endpoints (Workstation Console) -----------------------
 
   @ApiBearerAuth()
@@ -108,6 +113,25 @@ export class TvController {
     @Req() req: Request,
   ) {
     return this.tv.revokeDevice({ sub: user.sub, role: user.role }, id, this.meta(req));
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAccessAuthGuard, RolesGuard)
+  @Roles('admin')
+  @Post('devices/:id/force-update')
+  @HttpCode(HttpStatus.OK)
+  setForceUpdate(
+    @CurrentUser() user: RequestUser,
+    @Param('id') id: string,
+    @Body() body: { force?: boolean },
+    @Req() req: Request,
+  ) {
+    return this.tv.setForceUpdate(
+      { sub: user.sub, role: user.role },
+      id,
+      body.force !== false,
+      this.meta(req),
+    );
   }
 
   @ApiBearerAuth()
