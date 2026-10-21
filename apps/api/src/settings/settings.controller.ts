@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Param, Put, Req, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
+import { extractClientIp } from '../common/request-ip';
 import { JwtAccessAuthGuard } from '../auth/jwt.guard';
 import { CurrentUser, type RequestUser } from '../rbac/current-user.decorator';
 import { Roles } from '../rbac/roles.decorator';
@@ -33,7 +34,7 @@ export class SettingsController {
       key,
       dto.valueJson,
       {
-        ip: (req.ip ?? null) as string | null,
+        ip: extractClientIp(req),
         requestId: ((req as unknown as { requestId?: string }).requestId ?? null) as string | null,
       },
     );

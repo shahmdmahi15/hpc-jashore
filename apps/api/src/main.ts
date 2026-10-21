@@ -26,6 +26,12 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const config = app.get(ConfigService);
 
+  // Enable trust proxy for accurate client IP resolution behind Cloudflare and Nginx
+  const expressApp = app.getHttpAdapter().getInstance();
+  if (expressApp && typeof expressApp.set === 'function') {
+    expressApp.set('trust proxy', true);
+  }
+
   app.setGlobalPrefix('api');
   app.use(helmet());
   app.enableCors({

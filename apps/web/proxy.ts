@@ -74,17 +74,30 @@ export function proxy(request: NextRequest) {
     }
   }
 
-  if (!hasValidSession && sessionCookie) {
+  if (sessionCookie) {
     try {
-      const parsed = JSON.parse(sessionCookie);
+      const decoded = decodeURIComponent(sessionCookie);
+      const parsed = JSON.parse(decoded);
       if (parsed && typeof parsed === 'object') {
         hasValidSession = true;
-        userRole = parsed.role;
+        if (!userRole && parsed.role) {
+          userRole = parsed.role;
+        }
       }
     } catch {
-      // If sessionCookie is a simple truthy flag e.g. "1"
-      if (sessionCookie === '1' || sessionCookie.length > 5) {
-        hasValidSession = true;
+      try {
+        const parsed = JSON.parse(sessionCookie);
+        if (parsed && typeof parsed === 'object') {
+          hasValidSession = true;
+          if (!userRole && parsed.role) {
+            userRole = parsed.role;
+          }
+        }
+      } catch {
+        // If sessionCookie is a simple truthy flag e.g. "1"
+        if (sessionCookie === '1' || sessionCookie.length > 5) {
+          hasValidSession = true;
+        }
       }
     }
   }

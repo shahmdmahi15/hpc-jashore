@@ -128,7 +128,7 @@ class MainActivity : ComponentActivity() {
             LaunchedEffect(pairingCode, isPaired) {
                 if (!isPaired) {
                     withContext(Dispatchers.IO) {
-                        registerTvWithServer(pairingCode, "0.1.7")
+                        registerTvWithServer(pairingCode, "0.1.8")
                     }
                     while (!isPaired && isActive) {
                         withContext(Dispatchers.IO) {
@@ -171,7 +171,7 @@ class MainActivity : ComponentActivity() {
                         var newLang: String? = null
 
                         withContext(Dispatchers.IO) {
-                            sendTvHeartbeat(pairingCode, "0.1.7") { isOk, status, dept, name, theme, lang ->
+                            sendTvHeartbeat(pairingCode, "0.1.8") { isOk, status, dept, name, theme, lang ->
                                 if (!isOk || status == "revoked" || status == "unregistered") {
                                     shouldRevoke = true
                                 } else {
@@ -1185,7 +1185,7 @@ fun TvPairingScreen(
 
         // 3. Footer
         Text(
-            text = "Health & Pain Care Center · Jashore • Hardware Station ID: $pairingCode • Version 0.1.7",
+            text = "Health & Pain Care Center · Jashore • Hardware Station ID: $pairingCode • Version 0.1.8",
             color = textMutedColor,
             fontSize = 11.sp,
             fontFamily = FontFamily.Monospace

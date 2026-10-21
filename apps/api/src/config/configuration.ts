@@ -25,6 +25,12 @@ class EnvVars {
   JWT_REFRESH_SECRET?: string;
 
   @IsOptional()
+  JWT_ACCESS_TTL_SECONDS?: string;
+
+  @IsOptional()
+  JWT_REFRESH_TTL_SECONDS?: string;
+
+  @IsOptional()
   GRANT_SECRET?: string;
 
   @IsOptional()
@@ -87,8 +93,8 @@ export default () => {
       accessSecret: jwtAccessSecret,
       refreshSecret: jwtRefreshSecret,
       grantSecret,
-      accessTtlSeconds: 15 * 60,
-      refreshTtlSeconds: 7 * 24 * 60 * 60,
+      accessTtlSeconds: Number(env.JWT_ACCESS_TTL_SECONDS ?? 7 * 24 * 60 * 60), // 7 days (604,800 seconds)
+      refreshTtlSeconds: Number(env.JWT_REFRESH_TTL_SECONDS ?? 30 * 24 * 60 * 60), // 30 days
       grantTtlSeconds: 60,
     },
     corsOrigins: (env.CORS_ORIGINS ?? 'http://localhost:3000')

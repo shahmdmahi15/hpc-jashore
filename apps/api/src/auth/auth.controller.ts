@@ -30,14 +30,7 @@ import { JwtAccessAuthGuard, JwtRefreshAuthGuard } from './jwt.guard';
 import { CurrentUser, type RequestUser } from '../rbac/current-user.decorator';
 import { Roles } from '../rbac/roles.decorator';
 import { RolesGuard } from '../rbac/roles.guard';
-
-function reqMeta(req: Request) {
-  return {
-    ip: (req.ip ?? req.socket?.remoteAddress ?? null) as string | null,
-    userAgent: (req.header('user-agent') ?? null) as string | null,
-    requestId: ((req as unknown as { requestId?: string }).requestId ?? null) as string | null,
-  };
-}
+import { reqMeta } from '../common/request-ip';
 
 function refreshCookie(res: Response, token: string | null) {
   if (token) {

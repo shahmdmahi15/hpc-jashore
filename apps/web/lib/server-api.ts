@@ -2,7 +2,7 @@
 // SERVER ONLY: Direct backend communication with NestJS API
 // This module cannot and will not be bundled into the client runtime.
 import 'server-only';
-import { cookies } from 'next/headers';
+import { cookies, headers as nextHeaders } from 'next/headers';
 
 function getBackendApiUrl(): string {
   return (
@@ -22,6 +22,26 @@ export async function serverFetch<T>(
 
   const headers = new Headers(options.headers || {});
   headers.set('Content-Type', 'application/json');
+
+  // Forward client network identifiers (IP and User-Agent) from the incoming request
+  try {
+    const reqHeaders = await nextHeaders();
+    const cfIp = reqHeaders.get('cf-connecting-ip');
+    const xff = reqHeaders.get('x-forwarded-for');
+    const realIp = reqHeaders.get('x-real-ip');
+    const clientIp = cfIp || xff?.split(',')[0]?.trim() || realIp;
+    if (clientIp) {
+      headers.set('cf-connecting-ip', clientIp);
+      headers.set('x-forwarded-for', clientIp);
+      headers.set('x-real-ip', clientIp);
+    }
+    const ua = reqHeaders.get('user-agent');
+    if (ua) {
+      headers.set('user-agent', ua);
+    }
+  } catch {
+    // nextHeaders() not available outside active request contexts
+  }
 
   // Priority: 1. Explicit token passed from caller, 2. Cookie from request headers
   let token = explicitToken;

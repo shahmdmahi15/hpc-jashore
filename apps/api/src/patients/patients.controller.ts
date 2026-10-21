@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiQuery, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
+import { extractClientIp } from '../common/request-ip';
 import { JwtAccessAuthGuard } from '../auth/jwt.guard';
 import { CurrentUser, type RequestUser } from '../rbac/current-user.decorator';
 import { Roles } from '../rbac/roles.decorator';
@@ -28,7 +29,7 @@ export class PatientsController {
 
   private meta(req: Request) {
     return {
-      ip: (req.ip ?? null) as string | null,
+      ip: extractClientIp(req),
       requestId: ((req as unknown as { requestId?: string }).requestId ?? null) as string | null,
     };
   }

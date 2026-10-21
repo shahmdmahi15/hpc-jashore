@@ -11,6 +11,7 @@ import {
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { JwtAccessAuthGuard } from '../auth/jwt.guard';
+import { extractClientIp } from '../common/request-ip';
 import { CurrentUser, type RequestUser } from '../rbac/current-user.decorator';
 import { Roles } from '../rbac/roles.decorator';
 import { RolesGuard } from '../rbac/roles.guard';
@@ -33,7 +34,7 @@ export class TherapyController {
 
   private meta(req: Request) {
     return {
-      ip: (req.ip ?? null) as string | null,
+      ip: extractClientIp(req),
       requestId: ((req as unknown as { requestId?: string }).requestId ?? null) as string | null,
     };
   }
