@@ -11,8 +11,8 @@ android {
         applicationId = "com.shahmdmahi.hpcjashoretv"
         minSdk = 23
         targetSdk = 35
-        versionCode = 3
-        versionName = "0.1.2"
+        versionCode = 4
+        versionName = "0.1.3"
 
         ndk {
             abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64")

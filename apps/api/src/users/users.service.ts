@@ -1,10 +1,10 @@
 import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import { eq } from 'drizzle-orm';
+import { desc, eq, isNull } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
 import { AuditService } from '../audit/audit.service';
 import { DB, type Db } from '../db/db.module';
-import { staff, users } from '../db/schema';
+import { refreshSessions, staff, users } from '../db/schema';
 import type { CreateUserDto, UpdateUserDto } from './dto';
 
 function sanitize(row: typeof users.$inferSelect) {
@@ -32,6 +32,7 @@ export class UsersService {
       passwordHash: await bcrypt.hash(dto.password, 10),
       role: dto.role,
       displayName: dto.displayName,
+      phone: dto.phone ?? null,
       isActive: 1,
       mustChangePassword: 1,
       createdAt: new Date().toISOString(),
@@ -61,6 +62,7 @@ export class UsersService {
     const before = await this.get(id);
     const patch: Partial<typeof users.$inferInsert> = { updatedAt: new Date().toISOString() };
     if (dto.displayName !== undefined) patch.displayName = dto.displayName;
+    if (dto.phone !== undefined) patch.phone = dto.phone;
     if (dto.role !== undefined) patch.role = dto.role;
     if (dto.isActive !== undefined) patch.isActive = dto.isActive ? 1 : 0;
     if (dto.password !== undefined) {
@@ -103,5 +105,74 @@ export class UsersService {
       requestId: meta.requestId,
     });
     return { ok: true };
+  }
+
+  async listSessions() {
+    const rows = await this.db
+      .select({
+        id: refreshSessions.id,
+        userId: refreshSessions.userId,
+        deviceLabel: refreshSessions.deviceLabel,
+        ip: refreshSessions.ip,
+        userAgent: refreshSessions.userAgent,
+        expiresAt: refreshSessions.expiresAt,
+        createdAt: refreshSessions.createdAt,
+        userDisplayName: users.displayName,
+        userEmail: users.email,
+        userRole: users.role,
+      })
+      .from(refreshSessions)
+      .innerJoin(users, eq(refreshSessions.userId, users.id))
+      .where(isNull(refreshSessions.revokedAt))
+      .orderBy(desc(refreshSessions.createdAt));
+
+    return rows.map((r) => ({
+      id: r.id,
+      userId: r.userId,
+      deviceLabel: r.deviceLabel,
+      ip: r.ip,
+      userAgent: r.userAgent,
+      expiresAt: r.expiresAt,
+      createdAt: r.createdAt,
+      user: {
+        displayName: r.userDisplayName,
+        email: r.userEmail,
+        role: r.userRole,
+      },
+    }));
+  }
+
+  async revokeSession(
+    actor: { sub: string; role: string },
+    sessionId: string,
+    meta: { ip?: string | null; requestId?: string | null },
+  ) {
+    const [existing] = await this.db
+      .select()
+      .from(refreshSessions)
+      .where(eq(refreshSessions.id, sessionId));
+
+    if (!existing) {
+      throw new NotFoundException('Session not found');
+    }
+
+    await this.db
+      .update(refreshSessions)
+      .set({ revokedAt: new Date().toISOString() })
+      .where(eq(refreshSessions.id, sessionId));
+
+    await this.audit.log({
+      actorUserId: actor.sub,
+      actorRole: actor.role,
+      action: 'users.session_revoked',
+      entity: 'refreshSessions',
+      entityId: sessionId,
+      before: existing,
+      after: { ...existing, revokedAt: new Date().toISOString() },
+      ip: meta.ip,
+      requestId: meta.requestId,
+    });
+
+    return { ok: true, message: 'Session revoked successfully' };
   }
 }

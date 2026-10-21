@@ -33,6 +33,7 @@ export const users = sqliteTable('users', {
   passwordHash: text('password_hash').notNull(),
   role: text('role').notNull().$type<Role>(),
   displayName: text('display_name').notNull(),
+  phone: text('phone'),
   isActive: integer('is_active').notNull().default(1),
   mustChangePassword: integer('must_change_password').notNull().default(1),
   ...timestamps,
@@ -682,6 +683,22 @@ export const feedback = sqliteTable('feedback', {
   rating: integer('rating').notNull(),
   comment: text('comment'),
   channel: text('channel').notNull().default('kiosk'),
+  ...timestamps,
+});
+
+export const tvDevices = sqliteTable('tv_devices', {
+  id: text('id').primaryKey(),
+  pairingCode: text('pairing_code').notNull().unique(),
+  deviceName: text('device_name').notNull(),
+  location: text('location'),
+  department: text('department').notNull().default('ALL'), // 'ALL' | 'CONSULTATION' | 'THERAPY'
+  status: text('status').notNull().default('pending'), // 'pending' | 'paired' | 'revoked'
+  secretToken: text('secret_token'),
+  ipAddress: text('ip_address'),
+  appVersion: text('app_version'),
+  lastSeenAt: text('last_seen_at'),
+  pairedAt: text('paired_at'),
+  pairedBy: text('paired_by').references(() => users.id),
   ...timestamps,
 });
 

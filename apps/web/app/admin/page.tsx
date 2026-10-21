@@ -6,6 +6,7 @@ import { WorkstationShell } from '../../components/WorkstationShell';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../../components/ui/tabs';
 import { WorkstationTabPlaceholder } from '../../components/WorkstationTabPlaceholder';
 import AdminDashboardView from '../../components/AdminDashboardView';
+import UsersAndDeviceManagementView from '../../components/admin/UsersAndDeviceManagementView';
 import { useLanguage } from '../../lib/i18n';
 import {
   ShieldCheck,
@@ -247,7 +248,11 @@ export default function AdminPage() {
               <AdminDashboardView />
             </TabsContent>
 
-            {ADMIN_ROW1_TABS.filter((t) => t.id !== 'overview').map((tab) => (
+            <TabsContent value="users_devices" className="mt-4 focus-visible:outline-none">
+              <UsersAndDeviceManagementView />
+            </TabsContent>
+
+            {ADMIN_ROW1_TABS.filter((t) => t.id !== 'overview' && t.id !== 'users_devices').map((tab) => (
               <TabsContent key={tab.id} value={tab.id} className="mt-4 focus-visible:outline-none">
                 <WorkstationTabPlaceholder
                   titleEn={tab.titleEn}

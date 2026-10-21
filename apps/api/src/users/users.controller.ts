@@ -33,6 +33,16 @@ export class UsersController {
     return this.users.create({ sub: user.sub, role: user.role }, dto, this.meta(req));
   }
 
+  @Get('sessions/all')
+  listSessions() {
+    return this.users.listSessions();
+  }
+
+  @Delete('sessions/:id')
+  revokeSession(@CurrentUser() user: RequestUser, @Param('id') sessionId: string, @Req() req: Request) {
+    return this.users.revokeSession({ sub: user.sub, role: user.role }, sessionId, this.meta(req));
+  }
+
   @Get(':id')
   get(@Param('id') id: string) {
     return this.users.get(id);

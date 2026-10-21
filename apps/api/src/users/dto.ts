@@ -17,6 +17,10 @@ export class CreateUserDto {
   @IsString()
   @MaxLength(160)
   displayName!: string;
+
+  @IsOptional()
+  @IsString()
+  phone?: string;
 }
 
 export class UpdateUserDto {
@@ -24,6 +28,10 @@ export class UpdateUserDto {
   @IsString()
   @MaxLength(160)
   displayName?: string;
+
+  @IsOptional()
+  @IsString()
+  phone?: string;
 
   @IsOptional()
   @IsIn(['admin', 'doctor', 'handler', 'cashier', 'receptionist'])
