@@ -73,6 +73,7 @@ import {
   deleteTvDeviceAction,
   type TvDeviceRecord,
 } from '../../lib/actions/devices';
+import { useRealtime } from '../../lib/use-realtime';
 
 const ROLE_CONFIG = {
   admin: {
@@ -184,7 +185,34 @@ export default function UsersAndDeviceManagementView() {
 
   useEffect(() => {
     loadData();
+    const interval = setInterval(() => {
+      // Background poll to keep online status indicator updated
+      listTvDevicesAction().then((tvRes) => {
+        if (tvRes.success && tvRes.data) setTvDevices(tvRes.data);
+      });
+    }, 10000);
+    return () => clearInterval(interval);
   }, []);
+
+  useRealtime((event) => {
+    if (
+      event.type.startsWith('tv:')
+    ) {
+      listTvDevicesAction().then((tvRes) => {
+        if (tvRes.success && tvRes.data) setTvDevices(tvRes.data);
+      });
+    } else if (
+      event.type.startsWith('user:') ||
+      event.type.startsWith('auth:')
+    ) {
+      listUsersAction().then((uRes) => {
+        if (uRes.success && uRes.data) setUsers(uRes.data);
+      });
+      listUserSessionsAction().then((sRes) => {
+        if (sRes.success && sRes.data) setSessions(sRes.data);
+      });
+    }
+  });
 
   // Filtered users
   const filteredUsers = users.filter((u) => {

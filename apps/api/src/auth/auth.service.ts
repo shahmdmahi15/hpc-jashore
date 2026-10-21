@@ -103,6 +103,7 @@ export class AuthService {
       user.email,
       user.role as Role,
       staffRow?.id ?? null,
+      sid,
     );
     const expiresAt = new Date(
       Date.now() + this.config.get<number>('jwt.refreshTtlSeconds')! * 1000,
@@ -154,9 +155,10 @@ export class AuthService {
     email: string,
     role: Role,
     staffId: string | null,
+    sid?: string | null,
   ) {
     return this.jwt.signAsync(
-      { sub, email, role, staffId, type: 'access' },
+      { sub, email, role, staffId, sid: sid ?? null, type: 'access' },
       {
         secret: this.config.getOrThrow<string>('jwt.accessSecret'),
         expiresIn: this.config.get<number>('jwt.accessTtlSeconds'),
@@ -259,6 +261,7 @@ export class AuthService {
         user.email,
         user.role as Role,
         staffRow?.id ?? null,
+        nextSid,
       ),
       refreshToken: nextRefresh,
       user: this.publicUser(user, staffRow?.id ?? null),

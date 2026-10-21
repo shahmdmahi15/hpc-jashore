@@ -8,6 +8,7 @@ import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -21,6 +22,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -126,7 +128,7 @@ class MainActivity : ComponentActivity() {
             LaunchedEffect(pairingCode, isPaired) {
                 if (!isPaired) {
                     withContext(Dispatchers.IO) {
-                        registerTvWithServer(pairingCode, "0.1.3")
+                        registerTvWithServer(pairingCode, "0.1.4")
                     }
                     while (!isPaired && isActive) {
                         withContext(Dispatchers.IO) {
@@ -138,13 +140,15 @@ class MainActivity : ComponentActivity() {
                                         .putString("assigned_department", dept ?: "ALL")
                                         .putString("secret_token", token ?: "")
                                         .apply()
-                                    deviceName = name ?: "TV Display"
-                                    assignedDepartment = dept ?: "ALL"
-                                    isPaired = true
+                                    launch(Dispatchers.Main) {
+                                        deviceName = name ?: "TV Display"
+                                        assignedDepartment = dept ?: "ALL"
+                                        isPaired = true
+                                    }
                                 }
                             }
                         }
-                        delay(2000)
+                        delay(1500)
                     }
                 }
             }
@@ -153,14 +157,22 @@ class MainActivity : ComponentActivity() {
             LaunchedEffect(pairingCode, isPaired) {
                 if (isPaired) {
                     while (isPaired && isActive) {
-                        // 1. Heartbeat
+                        // 1. Heartbeat check with instant revocation
+                        var shouldRevoke = false
                         withContext(Dispatchers.IO) {
-                            sendTvHeartbeat(pairingCode, "0.1.3") { status ->
-                                if (status == "revoked" || status == "unregistered") {
-                                    prefs.edit().putBoolean("is_paired", false).apply()
-                                    isPaired = false
+                            sendTvHeartbeat(pairingCode, "0.1.4") { isOk, status ->
+                                if (!isOk || status == "revoked" || status == "unregistered") {
+                                    shouldRevoke = true
                                 }
                             }
+                        }
+
+                        if (shouldRevoke) {
+                            withContext(Dispatchers.Main) {
+                                prefs.edit().putBoolean("is_paired", false).apply()
+                                isPaired = false
+                            }
+                            break
                         }
 
                         // 2. Queue Snapshot
@@ -173,7 +185,7 @@ class MainActivity : ComponentActivity() {
                             }
                         }
 
-                        delay(3000)
+                        delay(1500)
                     }
                 }
             }
@@ -225,16 +237,13 @@ class MainActivity : ComponentActivity() {
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Box(
+                                    Image(
+                                        painter = painterResource(id = R.drawable.hpc_logo),
+                                        contentDescription = "HPC Logo",
                                         modifier = Modifier
-                                            .size(36.dp)
+                                            .size(42.dp)
                                             .clip(RoundedCornerShape(8.dp))
-                                            .background(Emerald500.copy(alpha = 0.2f))
-                                            .border(1.dp, Emerald500.copy(alpha = 0.4f), RoundedCornerShape(8.dp)),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text("HPC", color = Emerald500, fontWeight = FontWeight.Black, fontSize = 14.sp)
-                                    }
+                                    )
                                     Spacer(modifier = Modifier.width(12.dp))
                                     Column {
                                         Text(
@@ -719,7 +728,7 @@ class MainActivity : ComponentActivity() {
     private fun sendTvHeartbeat(
         pairingCode: String,
         appVersion: String,
-        onStatus: (String) -> Unit
+        onStatus: (Boolean, String) -> Unit
     ) {
         try {
             val url = URL("https://hpc.toufiquzzaman.com/api/tv/heartbeat")
@@ -736,13 +745,18 @@ class MainActivity : ComponentActivity() {
             conn.outputStream.use { os ->
                 os.write(body.toString().toByteArray())
             }
-            if (conn.responseCode == 200) {
+            if (conn.responseCode in 200..299) {
                 val text = conn.inputStream.bufferedReader().use { it.readText() }
                 val json = JSONObject(text)
-                val status = json.optString("status", "paired")
-                onStatus(status)
-            } else if (conn.responseCode == 404) {
-                onStatus("revoked")
+                val status = json.optString("status", "")
+                val paired = json.optBoolean("paired", status == "paired")
+                if (!paired || status == "revoked" || status == "unregistered") {
+                    onStatus(false, "revoked")
+                } else {
+                    onStatus(true, "paired")
+                }
+            } else if (conn.responseCode in 400..499) {
+                onStatus(false, "revoked")
             }
             conn.disconnect()
         } catch (_: Exception) {}
@@ -864,16 +878,13 @@ fun TvPairingScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
+                Image(
+                    painter = painterResource(id = R.drawable.hpc_logo),
+                    contentDescription = "HPC Logo",
                     modifier = Modifier
-                        .size(40.dp)
+                        .size(44.dp)
                         .clip(RoundedCornerShape(8.dp))
-                        .background(Emerald500.copy(alpha = 0.2f))
-                        .border(1.dp, Emerald500.copy(alpha = 0.4f), RoundedCornerShape(8.dp)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("HPC", color = Emerald500, fontWeight = FontWeight.Black, fontSize = 16.sp)
-                }
+                )
                 Spacer(modifier = Modifier.width(14.dp))
                 Column {
                     Text(
@@ -944,6 +955,16 @@ fun TvPairingScreen(
                 .padding(28.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            Image(
+                painter = painterResource(id = R.drawable.hpc_logo),
+                contentDescription = "HPC Logo",
+                modifier = Modifier
+                    .size(64.dp)
+                    .clip(RoundedCornerShape(12.dp))
+            )
+
+            Spacer(modifier = Modifier.height(14.dp))
+
             // Badge
             Box(
                 modifier = Modifier
@@ -1068,7 +1089,7 @@ fun TvPairingScreen(
 
         // 3. Footer
         Text(
-            text = "Health & Pain Care Center · Jashore • Hardware Station ID: $pairingCode • Version 0.1.3",
+            text = "Health & Pain Care Center · Jashore • Hardware Station ID: $pairingCode • Version 0.1.4",
             color = textMutedColor,
             fontSize = 11.sp,
             fontFamily = FontFamily.Monospace

@@ -4,6 +4,8 @@ import {
   Delete,
   Get,
   Headers,
+  HttpCode,
+  HttpStatus,
   Param,
   Patch,
   Post,
@@ -34,6 +36,7 @@ export class TvController {
   // --- Public Endpoints (TV Android App / Screen Display) ---------------------
 
   @Post('register')
+  @HttpCode(HttpStatus.OK)
   register(@Body() dto: RegisterTvDto, @Req() req: Request) {
     return this.tv.registerTv(dto, this.meta(req));
   }
@@ -44,6 +47,7 @@ export class TvController {
   }
 
   @Post('heartbeat')
+  @HttpCode(HttpStatus.OK)
   heartbeat(
     @Body() dto: HeartbeatTvDto,
     @Headers('x-tv-pairing-code') headerPairingCode: string | undefined,
@@ -70,6 +74,7 @@ export class TvController {
   @UseGuards(JwtAccessAuthGuard, RolesGuard)
   @Roles('admin')
   @Post('pair')
+  @HttpCode(HttpStatus.OK)
   pairDevice(
     @CurrentUser() user: RequestUser,
     @Body() dto: PairTvDto,
@@ -95,6 +100,7 @@ export class TvController {
   @UseGuards(JwtAccessAuthGuard, RolesGuard)
   @Roles('admin')
   @Post('devices/:id/revoke')
+  @HttpCode(HttpStatus.OK)
   revokeDevice(
     @CurrentUser() user: RequestUser,
     @Param('id') id: string,

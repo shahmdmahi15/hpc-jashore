@@ -4,6 +4,7 @@ import { desc, eq } from 'drizzle-orm';
 import { AuditService } from '../audit/audit.service';
 import { DB, type Db } from '../db/db.module';
 import { tvDevices } from '../db/schema';
+import { RealtimeService } from '../realtime/realtime.service';
 import type { HeartbeatTvDto, PairTvDto, RegisterTvDto, UpdateTvDto } from './dto';
 
 @Injectable()
@@ -11,6 +12,7 @@ export class TvService {
   constructor(
     @Inject(DB) private readonly db: Db,
     private readonly audit: AuditService,
+    private readonly realtime: RealtimeService,
   ) {}
 
   private normalizeCode(code: string): string {
@@ -108,7 +110,20 @@ export class TvService {
     if (!row) {
       return {
         status: 'unregistered',
+        paired: false,
         pairingCode: code,
+      };
+    }
+
+    if (row.status !== 'paired') {
+      return {
+        id: row.id,
+        pairingCode: row.pairingCode,
+        status: row.status,
+        paired: false,
+        deviceName: row.deviceName,
+        department: row.department,
+        location: row.location,
       };
     }
 
@@ -126,7 +141,8 @@ export class TvService {
     return {
       id: row.id,
       pairingCode: row.pairingCode,
-      status: row.status,
+      status: 'paired',
+      paired: true,
       deviceName: row.deviceName,
       department: row.department,
       location: row.location,
@@ -209,6 +225,14 @@ export class TvService {
       requestId: meta.requestId,
     });
 
+    this.realtime.publish('tv:paired', {
+      id: targetId!,
+      pairingCode: code,
+      deviceName: dto.deviceName,
+      department: dto.department || 'ALL',
+      status: 'paired',
+    });
+
     return {
       ...updated,
       isOnline: true,
@@ -249,6 +273,8 @@ export class TvService {
       requestId: meta.requestId,
     });
 
+    this.realtime.publish('tv:updated', { id, device: updated });
+
     return updated;
   }
 
@@ -284,6 +310,8 @@ export class TvService {
       requestId: meta.requestId,
     });
 
+    this.realtime.publish('tv:revoked', { id, pairingCode: existing.pairingCode });
+
     return { ok: true, status: 'revoked' };
   }
 
@@ -310,6 +338,8 @@ export class TvService {
       ip: meta.ip,
       requestId: meta.requestId,
     });
+
+    this.realtime.publish('tv:deleted', { id, pairingCode: existing.pairingCode });
 
     return { ok: true };
   }
