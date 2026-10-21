@@ -7,6 +7,7 @@ on:
     paths:
       - 'apps/tauri/**'
       - 'apps/web/**'
+      - 'apps/android/**'
       - 'packages/**'
     tags:
       - 'v*'
@@ -25,7 +26,7 @@ on:
       build_android:
         description: 'Build Android / Android TV APK release alongside Windows'
         required: false
-        default: false
+        default: true
         type: boolean
       draft:
         description: 'Create as a draft release'
@@ -291,16 +292,16 @@ jobs:
           echo "Successfully published update metadata for v${VERSION} (${PLATFORM})!"
 
   # =========================================================================
-  # 2. ANDROID & ANDROID TV RELEASE JOB SCAFFOLD (build-android)
+  # 2. ANDROID TV RELEASE JOB (build-android-tv)
+  # Compiles universal APK, uploads to GitHub Releases, and registers update
   # =========================================================================
-  build-android:
-    name: Build Android & Android TV APK (Tauri v2)
+  build-android-tv:
+    name: Build & Release Android TV (Universal APK)
     runs-on: ubuntu-latest
-    if: ${{ github.event.inputs.build_android == 'true' }}
+    if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.build_android != false }}
     timeout-minutes: 60
     env:
       COREPACK_ENABLE_DOWNLOAD_PROMPT: '0'
-      NDK_VERSION: '27.0.12077973'
 
     steps:
       - name: Checkout repository
@@ -319,45 +320,12 @@ jobs:
         with:
           cmdline-tools-version: '11076708'
 
-      - name: Install Android NDK & Platform Tools
+      - name: Accept Android Licenses & Install Build Tools
         run: |
+          yes | sdkmanager --licenses || true
           yes | sdkmanager --install \
-            "ndk;${NDK_VERSION}" \
-            "build-tools;34.0.0" \
-            "platforms;android-34"
-
-      - name: Setup Rust Toolchain & Android Targets
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: stable
-          targets: |
-            aarch64-linux-android
-            armv7-linux-androideabi
-            i686-linux-android
-            x86_64-linux-android
-
-      - name: Cache Cargo Dependencies & Target
-        uses: swatinem/rust-cache@v2
-        with:
-          workspaces: |
-            apps/tauri -> target
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          run_install: false
-
-      - name: Setup Node.js 22
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Build Web Application
-        run: pnpm --filter @hpc/web build
+            "build-tools;35.0.0" \
+            "platforms;android-35"
 
       - name: Resolve Release Version
         id: meta
@@ -373,66 +341,103 @@ jobs:
             CLEAN_VERSION="${RAW_TAG#v}"
             TAG_NAME="${RAW_TAG}"
           else
-            PKG_VERSION=$(jq -r '.version // empty' apps/tauri/package.json 2>/dev/null || echo "0.1.0")
+            PKG_VERSION=$(jq -r '.version // empty' apps/tauri/package.json 2>/dev/null || echo "0.1.1")
             CLEAN_VERSION="${PKG_VERSION}"
             TAG_NAME="v${CLEAN_VERSION}"
           fi
           echo "version=${CLEAN_VERSION}" >> "$GITHUB_OUTPUT"
           echo "tag_name=${TAG_NAME}" >> "$GITHUB_OUTPUT"
+          echo "Resolved version: ${CLEAN_VERSION} (Tag: ${TAG_NAME})"
 
-      - name: Build Android APK
-        env:
-          ANDROID_HOME: ${{ env.ANDROID_HOME }}
-          NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/${{ env.NDK_VERSION }}
+      - name: Compile Universal Android TV Release APK
+        working-directory: apps/android/TV
         run: |
-          if [ ! -d "apps/tauri/gen/android" ]; then
-            echo "Initializing Tauri Android project structure..."
-            pnpm --filter @hpc/tauri tauri android init
-          fi
+          chmod +x gradlew
+          # Clean any stale build caches
+          ./gradlew clean --no-daemon
+          ./gradlew assembleRelease --no-daemon --stacktrace
 
-          echo "Compiling Android release APK (aarch64 architecture)..."
-          pnpm --filter @hpc/tauri tauri android build --apk --target aarch64
-
-      - name: Stage & Sign Android APKs
+      - name: Stage Android TV APK
         id: stage_android
-        env:
-          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           set -euo pipefail
           mkdir -p staging/android
+          VERSION="${{ steps.meta.outputs.version }}"
 
-          find apps/tauri/gen/android -name "*.apk" -exec cp -v {} staging/android/ \; 2>/dev/null || true
-
-          if [ -n "${KEYSTORE_BASE64:-}" ]; then
-            echo "Decoding Android release keystore..."
-            echo "$KEYSTORE_BASE64" | base64 -d > release.keystore
-
-            for APK in staging/android/*.apk; do
-              if [ -f "$APK" ]; then
-                echo "Signing $APK with apksigner..."
-                apksigner sign \
-                  --ks release.keystore \
-                  --ks-pass "pass:${KEYSTORE_PASSWORD}" \
-                  --ks-key-alias "${KEY_ALIAS}" \
-                  --key-pass "pass:${KEY_PASSWORD}" \
-                  --out "${APK%.apk}-signed.apk" \
-                  "$APK"
-              fi
-            done
-            rm -f release.keystore
-          else
-            echo "Notice: ANDROID_KEYSTORE_BASE64 not set; outputting unsigned APK for internal testing."
+          APK_SRC="apps/android/TV/app/build/outputs/apk/release/app-release.apk"
+          if [ ! -f "$APK_SRC" ]; then
+            echo "Searching for generated release APKs..."
+            APK_SRC=$(find apps/android/TV/app/build/outputs/apk/release -name "*.apk" | head -n 1)
           fi
 
-          ls -la staging/android/
+          if [ -z "$APK_SRC" ] || [ ! -f "$APK_SRC" ]; then
+            echo "::error::Release APK not found in apps/android/TV/app/build/outputs/apk/release"
+            find apps/android/TV -name "*.apk" || true
+            exit 1
+          fi
 
-      - name: Upload Android Release Assets to GitHub Release
+          echo "Found release APK: $APK_SRC"
+          cp -v "$APK_SRC" "staging/android/hpc-jashore-tv.apk"
+          cp -v "$APK_SRC" "staging/android/HPC-Jashore-TV-v${VERSION}.apk"
+
+          ls -lh staging/android/
+
+      - name: Upload Android TV Release APKs to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.meta.outputs.tag_name }}
           files: staging/android/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish Android TV Release to Server Updater API
+        env:
+          UPDATE_SECRET: ${{ secrets.UPDATE_WEBHOOK_SECRET }}
+          VERSION: ${{ steps.meta.outputs.version }}
+          TAG_NAME: ${{ steps.meta.outputs.tag_name }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${UPDATE_SECRET:-}" ]; then
+            echo "Notice: UPDATE_WEBHOOK_SECRET is not configured; skipping in-app updater registry publish."
+            exit 0
+          fi
+
+          DOWNLOAD_URL="https://github.com/shahmdmahi15/hpc-jashore/releases/download/${TAG_NAME}/hpc-jashore-tv.apk"
+          UPDATE_SERVER="https://hpc.toufiquzzaman.com/api/updates/publish"
+          PLATFORM="android-tv"
+
+          cat <<EOF > update-tv-payload.json
+          {
+            "platform": "${PLATFORM}",
+            "version": "${VERSION}",
+            "downloadUrl": "${DOWNLOAD_URL}",
+            "versionCode": 2,
+            "signature": "",
+            "notes": "HPC Jashore Android TV Universal Release v${VERSION}"
+          }
+          EOF
+
+          echo "Prepared Android TV update payload:"
+          cat update-tv-payload.json
+
+          echo "Publishing Android TV release metadata to ${UPDATE_SERVER}..."
+          HTTP_RESPONSE=$(curl -sS -w "\n%{http_code}" \
+            --retry 3 \
+            --retry-delay 5 \
+            -X POST "${UPDATE_SERVER}" \
+            -H "Content-Type: application/json" \
+            -H "X-UPDATE-SECRET: ${UPDATE_SECRET}" \
+            -d @update-tv-payload.json || true)
+
+          HTTP_BODY=$(echo "$HTTP_RESPONSE" | sed '$d')
+          HTTP_STATUS=$(echo "$HTTP_RESPONSE" | tail -n 1)
+
+          echo "Server Response (HTTP ${HTTP_STATUS}):"
+          echo "${HTTP_BODY}"
+
+          if [ "${HTTP_STATUS}" -lt 200 ] || [ "${HTTP_STATUS}" -ge 300 ]; then
+            echo "::warning::Update server returned HTTP ${HTTP_STATUS} (registry might require re-sync)"
+          else
+            echo "Successfully published Android TV update metadata for v${VERSION} (${PLATFORM})!"
+          fi

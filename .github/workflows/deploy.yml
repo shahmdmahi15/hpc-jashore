@@ -5,6 +5,10 @@ on:
     branches: [main]
   workflow_dispatch:
 
+concurrency:
+  group: deploy-lightsail-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test-and-deploy:
     runs-on: ubuntu-latest
@@ -101,6 +105,10 @@ jobs:
             NODE_OPTIONS="--max-old-space-size=2048" pnpm --filter @hpc/api build
 
             echo "⚡ Building Web with Next.js Turbopack on Lightsail..."
+            # Clean up any stale Next.js build lock or lingering process to avoid collision
+            pkill -f "next build" || true
+            sleep 1
+            rm -f apps/web/.next/lock || true
             NODE_OPTIONS="--max-old-space-size=2048" pnpm --filter @hpc/web build
 
             echo "🔄 Executing Zero-Downtime PM2 Rolling Reload..."

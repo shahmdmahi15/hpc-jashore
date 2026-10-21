@@ -662,7 +662,15 @@ class MainActivity : ComponentActivity() {
 
     private fun checkSelfUpdate(onResult: (Boolean, String, String?) -> Unit) {
         try {
-            val url = URL("https://hpc.toufiquzzaman.com/api/updates/check?platform=android-tv&versionCode=1&versionName=1.0.0")
+            val pInfo = packageManager.getPackageInfo(packageName, 0)
+            val currentVersionCode = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                pInfo.longVersionCode
+            } else {
+                @Suppress("DEPRECATION")
+                pInfo.versionCode.toLong()
+            }
+            val currentVersionName = pInfo.versionName ?: "1.0.0"
+            val url = URL("https://hpc.toufiquzzaman.com/api/updates/check?platform=android-tv&versionCode=$currentVersionCode&versionName=$currentVersionName")
             val conn = url.openConnection() as HttpURLConnection
             conn.connectTimeout = 5000
             conn.readTimeout = 5000
