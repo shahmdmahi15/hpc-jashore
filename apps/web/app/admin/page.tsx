@@ -176,7 +176,7 @@ export default function AdminPage() {
   return (
     <WorkstationShell activeTab="admin" allowedRoles={['admin']}>
       {() => (
-        <div className="flex-1 w-full max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-6">
+        <div className="flex-1 w-full max-w-[1720px] mx-auto px-2 sm:px-4 md:px-6 py-3 sm:py-6">
           <div className="mb-4 sm:mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-border/40 pb-3">
             <div className="flex items-center gap-2.5">
               <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
@@ -199,17 +199,17 @@ export default function AdminPage() {
               <span className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase px-1">
                 {language === 'bn' ? '১ম সারি: সিস্টেম অ্যাডমিন ও কনফিগারেশন' : 'Row 1: System Admin & Configuration'}
               </span>
-              <div className="overflow-x-auto pb-1.5 scrollbar-none">
-                <TabsList className="h-auto p-1 bg-muted/60 border border-border/40 rounded-xl inline-flex gap-1 min-w-full sm:min-w-0">
+              <div className="w-full">
+                <TabsList className="h-auto p-1.5 bg-muted/60 border border-border/40 rounded-xl flex flex-wrap items-center gap-1 sm:gap-1.5 w-full">
                   {ADMIN_ROW1_TABS.map((tab) => {
                     const Icon = tab.icon;
                     return (
                       <TabsTrigger
                         key={tab.id}
                         value={tab.id}
-                        className="flex items-center gap-2 px-3 sm:px-3.5 py-1.5 text-xs sm:text-sm font-medium rounded-lg data-[state=active]:bg-background data-[state=active]:text-emerald-600 dark:data-[state=active]:text-emerald-400 data-[state=active]:shadow-xs transition-all whitespace-nowrap"
+                        className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3.5 py-1.5 sm:py-2 text-xs sm:text-sm font-medium rounded-lg data-[state=active]:bg-background data-[state=active]:text-emerald-600 dark:data-[state=active]:text-emerald-400 data-[state=active]:shadow-xs transition-all whitespace-nowrap cursor-pointer touch-manipulation active:scale-95"
                       >
-                        <Icon className="w-4 h-4" />
+                        <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
                         <span>{language === 'bn' ? tab.titleBn : tab.titleEn}</span>
                       </TabsTrigger>
                     );
@@ -223,17 +223,17 @@ export default function AdminPage() {
               <span className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase px-1">
                 {language === 'bn' ? '২য় সারি: অপারেশন ও সার্ভিসেস' : 'Row 2: Operations & Services'}
               </span>
-              <div className="overflow-x-auto pb-1.5 scrollbar-none">
-                <TabsList className="h-auto p-1 bg-muted/40 border border-border/40 rounded-xl inline-flex gap-1 min-w-full sm:min-w-0">
+              <div className="w-full">
+                <TabsList className="h-auto p-1.5 bg-muted/40 border border-border/40 rounded-xl flex flex-wrap items-center gap-1 sm:gap-1.5 w-full">
                   {ADMIN_ROW2_TABS.map((tab) => {
                     const Icon = tab.icon;
                     return (
                       <TabsTrigger
                         key={tab.id}
                         value={tab.id}
-                        className="flex items-center gap-2 px-3 sm:px-3.5 py-1.5 text-xs sm:text-sm font-medium rounded-lg data-[state=active]:bg-background data-[state=active]:text-emerald-600 dark:data-[state=active]:text-emerald-400 data-[state=active]:shadow-xs transition-all whitespace-nowrap"
+                        className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3.5 py-1.5 sm:py-2 text-xs sm:text-sm font-medium rounded-lg data-[state=active]:bg-background data-[state=active]:text-emerald-600 dark:data-[state=active]:text-emerald-400 data-[state=active]:shadow-xs transition-all whitespace-nowrap cursor-pointer touch-manipulation active:scale-95"
                       >
-                        <Icon className="w-4 h-4" />
+                        <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
                         <span>{language === 'bn' ? tab.titleBn : tab.titleEn}</span>
                       </TabsTrigger>
                     );

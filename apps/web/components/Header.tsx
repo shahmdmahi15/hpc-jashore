@@ -104,7 +104,7 @@ export default function Header({
             )}
           />
           <Radio className="size-3" />
-          <span className="hidden sm:inline">
+          <span className="hidden 2xl:inline">
             {isConnected ? 'Realtime Live' : 'Reconnecting'}
           </span>
         </div>
@@ -127,7 +127,7 @@ export default function Header({
                 router.push(tab.href);
               }}
               className={cn(
-                'flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 cursor-pointer whitespace-nowrap active:scale-95 shrink-0 border',
+                'flex items-center gap-1.5 xl:gap-2 px-2.5 xl:px-3 py-1.5 rounded-xl text-xs xl:text-sm font-semibold transition-all duration-200 cursor-pointer whitespace-nowrap active:scale-95 shrink border',
                 isActive
                   ? 'bg-emerald-600 text-white shadow-sm border-emerald-600 dark:bg-emerald-500 dark:text-black dark:border-emerald-500 font-bold'
                   : 'bg-card/60 text-muted-foreground border-transparent hover:text-foreground hover:bg-muted/70 hover:border-border/60',
@@ -135,7 +135,7 @@ export default function Header({
             >
               <Icon
                 className={cn(
-                  'size-3.5 sm:size-4 transition-transform duration-200',
+                  'size-3.5 sm:size-4 transition-transform duration-200 shrink-0',
                   isActive ? 'text-white dark:text-black scale-110' : 'text-emerald-500/80',
                 )}
               />
@@ -148,13 +148,13 @@ export default function Header({
       {/* 3. Right: Live Clock, Role Selector & Controls */}
       <div className="flex items-center gap-2 sm:gap-3 shrink-0 ml-auto sm:ml-0">
         {/* Live Digital Clock */}
-        <div className="hidden xl:flex items-center gap-2 px-3 py-1 rounded-xl bg-muted/40 border border-border/60 text-xs font-mono text-muted-foreground">
-          <Clock className="size-3.5 text-emerald-500 animate-pulse" />
+        <div className="hidden xl:flex items-center gap-1.5 2xl:gap-2 px-2.5 2xl:px-3 py-1 rounded-xl bg-muted/40 border border-border/60 text-xs font-mono text-muted-foreground">
+          <Clock className="size-3.5 text-emerald-500 animate-pulse shrink-0" />
           <span className="font-bold text-foreground">
             {currentTime ? currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '--:--:--'}
           </span>
-          <span>•</span>
-          <span className="flex items-center gap-1 font-sans text-[11px]">
+          <span className="hidden 2xl:inline">•</span>
+          <span className="hidden 2xl:flex items-center gap-1 font-sans text-[11px]">
             <CalendarDays className="size-3" />
             {currentTime ? currentTime.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) : '---'}
           </span>

@@ -29,7 +29,7 @@ export function WorkstationTabPlaceholder({
   const { language } = useLanguage();
 
   return (
-    <div className="w-full max-w-7xl mx-auto py-4 sm:py-6 animate-in fade-in-50 duration-300">
+    <div className="w-full max-w-full py-3 sm:py-5 animate-in fade-in-50 duration-300">
       <Card className="border-border/50 bg-card/60 backdrop-blur-xl shadow-xs overflow-hidden">
         <CardHeader className="p-4 sm:p-6 border-b border-border/40 bg-muted/20">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
