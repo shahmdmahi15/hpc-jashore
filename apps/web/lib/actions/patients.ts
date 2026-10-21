@@ -11,7 +11,6 @@ export interface PatientRecord {
   nameBn?: string | null;
   phone: string;
   email?: string | null;
-  dateOfBirth?: string | null;
   ageYears?: number | null;
   gender: 'male' | 'female';
   bloodGroup?: string | null;
@@ -21,7 +20,7 @@ export interface PatientRecord {
   allergies?: string | null;
   chronicConditions?: string | null;
   contraindications?: string | null;
-  photoUrl?: string | null;
+  notes?: string | null;
   consentSigned: number;
   deletedAt?: string | null;
   createdAt: string;
@@ -67,7 +66,6 @@ export interface CreatePatientInput {
   nameBn?: string;
   phone: string;
   email?: string;
-  dateOfBirth?: string;
   ageYears?: number;
   gender: 'male' | 'female';
   bloodGroup?: string;
@@ -78,6 +76,7 @@ export interface CreatePatientInput {
   allergies?: string;
   chronicConditions?: string;
   contraindications?: string;
+  notes?: string;
   consentSigned?: number;
 }
 
@@ -86,7 +85,6 @@ export interface UpdatePatientInput {
   nameBn?: string;
   phone?: string;
   email?: string;
-  dateOfBirth?: string;
   ageYears?: number;
   gender?: 'male' | 'female';
   bloodGroup?: string;
@@ -97,6 +95,7 @@ export interface UpdatePatientInput {
   allergies?: string;
   chronicConditions?: string;
   contraindications?: string;
+  notes?: string;
   consentSigned?: number;
 }
 

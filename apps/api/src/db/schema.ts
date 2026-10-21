@@ -191,7 +191,6 @@ export const patients = sqliteTable('patients', {
   nameBn: text('name_bn'),
   phone: text('phone').notNull().unique(),
   email: text('email'),
-  dateOfBirth: text('date_of_birth'),
   ageYears: integer('age_years'),
   gender: text('gender').notNull().$type<'male' | 'female'>(),
   bloodGroup: text('blood_group'),
@@ -201,8 +200,8 @@ export const patients = sqliteTable('patients', {
   allergies: text('allergies'),
   chronicConditions: text('chronic_conditions'),
   contraindications: text('contraindications'),
-  photoUrl: text('photo_url'),
-  consentSigned: integer('consent_signed').notNull().default(0),
+  notes: text('notes'),
+  consentSigned: integer('consent_signed').notNull().default(1),
   deletedAt: text('deleted_at'),
   ...timestamps,
 });

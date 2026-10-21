@@ -42,6 +42,7 @@ export class PatientsService {
           like(patients.email, pattern),
           like(patients.occupation, pattern),
           like(patients.address, pattern),
+          like(patients.notes, pattern),
         ),
       )!;
     }
@@ -86,7 +87,6 @@ export class PatientsService {
       nameBn: dto.nameBn?.trim() ?? null,
       phone: dto.phone.trim(),
       email: dto.email?.trim().toLowerCase() ?? null,
-      dateOfBirth: dto.dateOfBirth ?? null,
       ageYears: dto.ageYears ?? null,
       gender: dto.gender,
       bloodGroup: dto.bloodGroup?.trim().toUpperCase() ?? null,
@@ -96,8 +96,8 @@ export class PatientsService {
       allergies: dto.allergies?.trim() ?? null,
       chronicConditions: dto.chronicConditions?.trim() ?? null,
       contraindications: dto.contraindications?.trim() ?? null,
-      photoUrl: null,
-      consentSigned: 0,
+      notes: dto.notes?.trim() ?? null,
+      consentSigned: 1,
       deletedAt: null,
       createdAt: now,
       updatedAt: now,
@@ -176,7 +176,6 @@ export class PatientsService {
       patch.phone = dto.phone.trim();
     }
     if (dto.email !== undefined) patch.email = dto.email ? dto.email.trim().toLowerCase() : null;
-    if (dto.dateOfBirth !== undefined) patch.dateOfBirth = dto.dateOfBirth;
     if (dto.ageYears !== undefined) patch.ageYears = dto.ageYears;
     if (dto.gender !== undefined) patch.gender = dto.gender;
     if (dto.bloodGroup !== undefined) patch.bloodGroup = dto.bloodGroup.trim().toUpperCase();
@@ -188,6 +187,7 @@ export class PatientsService {
     if (dto.allergies !== undefined) patch.allergies = dto.allergies.trim();
     if (dto.chronicConditions !== undefined) patch.chronicConditions = dto.chronicConditions.trim();
     if (dto.contraindications !== undefined) patch.contraindications = dto.contraindications.trim();
+    if (dto.notes !== undefined) patch.notes = dto.notes ? dto.notes.trim() : null;
     if (dto.consentSigned !== undefined) patch.consentSigned = dto.consentSigned ? 1 : 0;
 
     await this.db.update(patients).set(patch).where(eq(patients.id, id));

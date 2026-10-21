@@ -25,6 +25,7 @@ import {
   SlidersHorizontal,
   X,
   FileSpreadsheet,
+  FileText,
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -430,6 +431,13 @@ export function PatientManagementView() {
                     </div>
                   )}
 
+                  {patient.notes && (
+                    <div className="flex items-center gap-1 text-[11px] text-muted-foreground truncate">
+                      <FileText className="w-3 h-3 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                      <span className="truncate italic">{patient.notes}</span>
+                    </div>
+                  )}
+
                   {/* Medical flags */}
                   {(patient.allergies || patient.chronicConditions || patient.contraindications) && (
                     <div className="flex items-center gap-1.5 pt-1 flex-wrap">
@@ -608,6 +616,11 @@ export function PatientManagementView() {
                           <span className="text-[11px] text-muted-foreground truncate block">
                             {patient.address || '—'}
                           </span>
+                          {patient.notes && (
+                            <span className="text-[10px] text-muted-foreground italic truncate block" title={patient.notes}>
+                              📝 {patient.notes}
+                            </span>
+                          )}
                         </div>
                       </td>
 

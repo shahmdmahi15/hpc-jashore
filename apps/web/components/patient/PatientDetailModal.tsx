@@ -22,6 +22,7 @@ import {
   History,
   ShieldCheck,
   Loader2,
+  FileText,
 } from 'lucide-react';
 import {
   Dialog,
@@ -271,14 +272,16 @@ export function PatientDetailModal({
                   </p>
                 </div>
 
-                {/* DOB */}
+                {/* Age */}
                 <div className="space-y-1">
                   <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
                     <Calendar className="w-3 h-3 text-amber-500" />
-                    <span>{isBn ? 'জন্ম তারিখ' : 'Date of Birth'}</span>
+                    <span>{isBn ? 'বয়স' : 'Age'}</span>
                   </span>
                   <p className="text-sm font-mono font-medium text-foreground">
-                    {detail.dateOfBirth || (isBn ? 'অজ্ঞাত' : 'Unknown')}
+                    {detail.ageYears !== null && detail.ageYears !== undefined
+                      ? `${detail.ageYears} ${isBn ? 'বছর' : 'Years'}`
+                      : (isBn ? 'দেওয়া হয়নি' : 'Not recorded')}
                   </p>
                 </div>
 
@@ -314,6 +317,19 @@ export function PatientDetailModal({
                     {detail.address || <span className="text-muted-foreground italic text-xs">{isBn ? 'দেওয়া হয়নি' : 'Not provided'}</span>}
                   </p>
                 </div>
+
+                {/* Notes & Special Remarks */}
+                {detail.notes && (
+                  <div className="space-y-1 sm:col-span-3 pt-2 border-t border-border/40">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                      <FileText className="w-3 h-3 text-emerald-600" />
+                      <span>{isBn ? 'মন্তব্য ও নির্দেশনা (Notes)' : 'Patient Notes & Remarks'}</span>
+                    </span>
+                    <p className="text-sm font-medium text-foreground whitespace-pre-wrap bg-background/50 p-2.5 rounded-lg border border-border/40">
+                      {detail.notes}
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Sub-tabs: Visits History, Therapy Packages, Outstanding Dues */}

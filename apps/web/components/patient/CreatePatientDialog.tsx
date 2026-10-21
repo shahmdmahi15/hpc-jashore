@@ -15,6 +15,7 @@ import {
   Sparkles,
   Loader2,
   Check,
+  FileText,
 } from 'lucide-react';
 import {
   Dialog,
@@ -70,7 +71,6 @@ export function CreatePatientDialog({
     name: '',
     phone: '',
     email: '',
-    dateOfBirth: '',
     ageYears: '',
     gender: 'male' as 'male' | 'female',
     bloodGroup: '',
@@ -80,6 +80,7 @@ export function CreatePatientDialog({
     allergies: '',
     chronicConditions: '',
     contraindications: '',
+    notes: '',
   });
 
   const resetForm = () => {
@@ -87,7 +88,6 @@ export function CreatePatientDialog({
       name: '',
       phone: '',
       email: '',
-      dateOfBirth: '',
       ageYears: '',
       gender: 'male',
       bloodGroup: '',
@@ -97,42 +97,13 @@ export function CreatePatientDialog({
       allergies: '',
       chronicConditions: '',
       contraindications: '',
+      notes: '',
     });
     setErrorMsg(null);
   };
 
-  // DOB <-> Age calculation sync
-  const handleDobChange = (dobStr: string) => {
-    setForm((prev) => {
-      let computedAge = prev.ageYears;
-      if (dobStr) {
-        const birthDate = new Date(dobStr);
-        if (!isNaN(birthDate.getTime())) {
-          const today = new Date();
-          let age = today.getFullYear() - birthDate.getFullYear();
-          const m = today.getMonth() - birthDate.getMonth();
-          if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
-            age--;
-          }
-          if (age >= 0 && age < 130) {
-            computedAge = String(age);
-          }
-        }
-      }
-      return { ...prev, dateOfBirth: dobStr, ageYears: computedAge };
-    });
-  };
-
   const handleAgeChange = (ageStr: string) => {
-    setForm((prev) => {
-      const ageNum = parseInt(ageStr, 10);
-      let estDob = prev.dateOfBirth;
-      if (!isNaN(ageNum) && ageNum >= 0 && ageNum < 130 && !prev.dateOfBirth) {
-        const estYear = new Date().getFullYear() - ageNum;
-        estDob = `${estYear}-01-01`;
-      }
-      return { ...prev, ageYears: ageStr, dateOfBirth: estDob };
-    });
+    setForm((prev) => ({ ...prev, ageYears: ageStr }));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -177,7 +148,6 @@ export function CreatePatientDialog({
         phone: cleanPhone,
         email: form.email.trim() || undefined,
         gender: form.gender,
-        dateOfBirth: form.dateOfBirth || undefined,
         ageYears: form.ageYears ? parseInt(form.ageYears, 10) : undefined,
         bloodGroup: form.bloodGroup || undefined,
         address: form.address.trim() || undefined,
@@ -186,6 +156,7 @@ export function CreatePatientDialog({
         allergies: form.allergies.trim() || undefined,
         chronicConditions: form.chronicConditions.trim() || undefined,
         contraindications: form.contraindications.trim() || undefined,
+        notes: form.notes.trim() || undefined,
         consentSigned: 1,
       });
 
@@ -352,7 +323,7 @@ export function CreatePatientDialog({
               <span>{isBn ? '২. বয়স, রক্ত গ্রুপ ও যোগাযোগ' : '2. Age, Blood Group & Contact'}</span>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3.5 sm:gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5 sm:gap-4">
               {/* Age (Years) */}
               <div className="space-y-1.5">
                 <Label htmlFor="create-age" className="text-xs font-semibold">
@@ -366,20 +337,6 @@ export function CreatePatientDialog({
                   placeholder="e.g. 38"
                   value={form.ageYears}
                   onChange={(e) => handleAgeChange(e.target.value)}
-                  className="h-10 text-sm font-mono"
-                />
-              </div>
-
-              {/* Date of Birth */}
-              <div className="space-y-1.5">
-                <Label htmlFor="create-dob" className="text-xs font-semibold">
-                  {isBn ? 'জন্ম তারিখ' : 'Date of Birth'}
-                </Label>
-                <Input
-                  id="create-dob"
-                  type="date"
-                  value={form.dateOfBirth}
-                  onChange={(e) => handleDobChange(e.target.value)}
                   className="h-10 text-sm font-mono"
                 />
               </div>
@@ -423,7 +380,7 @@ export function CreatePatientDialog({
               </div>
 
               {/* Email */}
-              <div className="space-y-1.5 sm:col-span-2">
+              <div className="space-y-1.5">
                 <Label htmlFor="create-email" className="text-xs font-semibold flex items-center gap-1">
                   <Mail className="w-3.5 h-3.5 text-muted-foreground" />
                   <span>{isBn ? 'ইমেইল ঠিকানা' : 'Email Address'}</span>
@@ -454,7 +411,7 @@ export function CreatePatientDialog({
               </div>
 
               {/* Residential Address */}
-              <div className="space-y-1.5 sm:col-span-4">
+              <div className="space-y-1.5 sm:col-span-3">
                 <Label htmlFor="create-address" className="text-xs font-semibold flex items-center gap-1">
                   <MapPin className="w-3.5 h-3.5 text-muted-foreground" />
                   <span>{isBn ? 'বর্তমান ঠিকানা / বাসস্থান' : 'Residential Address'}</span>
@@ -465,6 +422,22 @@ export function CreatePatientDialog({
                   placeholder={isBn ? 'গ্রাম/মহল্লা, থানা, জেলা (যেমন: চৌরাস্তা, কোতোয়ালি, যশোর)' : 'Area/Village, Thana, District (e.g. Chowrasta, Kotwali, Jashore)'}
                   value={form.address}
                   onChange={(e) => setForm({ ...form, address: e.target.value })}
+                  className="text-sm resize-none"
+                />
+              </div>
+
+              {/* Notes / Special Remarks */}
+              <div className="space-y-1.5 sm:col-span-3">
+                <Label htmlFor="create-notes" className="text-xs font-semibold flex items-center gap-1">
+                  <FileText className="w-3.5 h-3.5 text-muted-foreground" />
+                  <span>{isBn ? 'সাধারণ মন্তব্য / নির্দেশনা (Notes)' : 'Patient Notes & Remarks'}</span>
+                </Label>
+                <Textarea
+                  id="create-notes"
+                  rows={2}
+                  placeholder={isBn ? 'রোগী সম্পর্কিত কোনো বিশেষ মন্তব্য, রেফারেল বা নির্দেশনা থাকলে লিখুন...' : 'Enter any operational notes, referral details, or clinical remarks...'}
+                  value={form.notes}
+                  onChange={(e) => setForm({ ...form, notes: e.target.value })}
                   className="text-sm resize-none"
                 />
               </div>

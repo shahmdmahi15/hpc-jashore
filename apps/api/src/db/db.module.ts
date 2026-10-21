@@ -110,12 +110,15 @@ export type Db = BetterSQLite3Database<typeof schema>;
             }
           } catch {}
 
-          // Ensure email column in patients
+          // Ensure email and notes columns in patients
           try {
             const patientCols = sqlite.prepare("PRAGMA table_info(patients)").all() as Array<{ name: string }>;
             const patientColNames = new Set(patientCols.map((c) => c.name));
             if (!patientColNames.has('email')) {
               sqlite.exec("ALTER TABLE patients ADD COLUMN email TEXT");
+            }
+            if (!patientColNames.has('notes')) {
+              sqlite.exec("ALTER TABLE patients ADD COLUMN notes TEXT");
             }
           } catch {}
         } catch {

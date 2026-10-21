@@ -35,12 +35,7 @@ export class CreatePatientDto {
   @MaxLength(128)
   email?: string;
 
-  @ApiPropertyOptional({ description: 'Date of birth YYYY-MM-DD' })
-  @IsOptional()
-  @IsString()
-  dateOfBirth?: string;
-
-  @ApiPropertyOptional({ description: 'Age in years if DOB unknown' })
+  @ApiPropertyOptional({ description: 'Age in years' })
   @IsOptional()
   @IsInt()
   @Min(0)
@@ -95,6 +90,11 @@ export class CreatePatientDto {
   @IsString()
   contraindications?: string;
 
+  @ApiPropertyOptional({ description: 'General clinical or frontdesk notes' })
+  @IsOptional()
+  @IsString()
+  notes?: string;
+
   @ApiPropertyOptional({ description: 'Consent signed flag (0 or 1)' })
   @IsOptional()
   @IsInt()
@@ -125,11 +125,6 @@ export class UpdatePatientDto {
   @IsEmail({}, { message: 'Please provide a valid email address' })
   @MaxLength(128)
   email?: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  dateOfBirth?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -186,6 +181,11 @@ export class UpdatePatientDto {
   @IsOptional()
   @IsString()
   contraindications?: string;
+
+  @ApiPropertyOptional({ description: 'General clinical or frontdesk notes' })
+  @IsOptional()
+  @IsString()
+  notes?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
