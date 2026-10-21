@@ -27,6 +27,9 @@ import {
   Laptop,
   Smartphone,
   Lock,
+  Sun,
+  Moon,
+  Globe,
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
@@ -167,6 +170,8 @@ export default function UsersAndDeviceManagementView() {
     deviceName: '',
     location: '',
     department: 'ALL' as 'ALL' | 'CONSULTATION' | 'THERAPY',
+    theme: 'dark' as 'dark' | 'light',
+    language: 'bn' as 'bn' | 'en',
   });
 
   // Load all initial data
@@ -334,6 +339,8 @@ export default function UsersAndDeviceManagementView() {
         deviceName: pairForm.deviceName,
         location: pairForm.location || undefined,
         department: pairForm.department,
+        theme: pairForm.theme,
+        language: pairForm.language,
       });
 
       if (res.success && res.data) {
@@ -345,6 +352,8 @@ export default function UsersAndDeviceManagementView() {
           deviceName: '',
           location: '',
           department: 'ALL',
+          theme: 'dark',
+          language: 'bn',
         });
       } else {
         toast.error(res.error || (isBn ? 'টিভি পেয়ারিং ব্যর্থ হয়েছে' : 'Failed to pair TV device'));
@@ -361,6 +370,32 @@ export default function UsersAndDeviceManagementView() {
         setTvDevices((prev) => prev.map((d) => (d.id === tv.id ? res.data! : d)));
       } else {
         toast.error(res.error || (isBn ? 'পরিবর্তন ব্যর্থ হয়েছে' : 'Failed to update department'));
+      }
+    });
+  };
+
+  // Handle TV Theme Change
+  const handleChangeTvTheme = async (tv: TvDeviceRecord, theme: 'dark' | 'light') => {
+    startTransition(async () => {
+      const res = await updateTvDeviceAction(tv.id, { theme });
+      if (res.success && res.data) {
+        toast.success(isBn ? 'থিম পরিবর্তন করা হয়েছে' : 'Theme updated');
+        setTvDevices((prev) => prev.map((d) => (d.id === tv.id ? res.data! : d)));
+      } else {
+        toast.error(res.error || (isBn ? 'থিম পরিবর্তন ব্যর্থ হয়েছে' : 'Failed to update theme'));
+      }
+    });
+  };
+
+  // Handle TV Language Change
+  const handleChangeTvLanguage = async (tv: TvDeviceRecord, language: 'bn' | 'en') => {
+    startTransition(async () => {
+      const res = await updateTvDeviceAction(tv.id, { language });
+      if (res.success && res.data) {
+        toast.success(isBn ? 'ভাষা পরিবর্তন করা হয়েছে' : 'Language updated');
+        setTvDevices((prev) => prev.map((d) => (d.id === tv.id ? res.data! : d)));
+      } else {
+        toast.error(res.error || (isBn ? 'ভাষা পরিবর্তন ব্যর্থ হয়েছে' : 'Failed to update language'));
       }
     });
   };
@@ -791,6 +826,20 @@ export default function UsersAndDeviceManagementView() {
                           </Badge>
                         </div>
 
+                        <div className="text-[11px] text-muted-foreground flex items-center gap-1">
+                          <span className="font-semibold">{isBn ? 'থিম:' : 'Theme:'}</span>
+                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5 font-bold">
+                            {tv.theme === 'light' ? '☀️ Light' : '🌙 Dark'}
+                          </Badge>
+                        </div>
+
+                        <div className="text-[11px] text-muted-foreground flex items-center gap-1">
+                          <span className="font-semibold">{isBn ? 'ভাষা:' : 'Lang:'}</span>
+                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5 font-bold">
+                            {tv.language === 'en' ? '🇬🇧 English' : '🇧🇩 বাংলা'}
+                          </Badge>
+                        </div>
+
                         {tv.appVersion && (
                           <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 font-mono">
                             v{tv.appVersion}
@@ -803,35 +852,86 @@ export default function UsersAndDeviceManagementView() {
                       </div>
                     </div>
 
-                    {/* Action Buttons */}
-                    <div className="flex items-center justify-between gap-2 pt-3 border-t border-border/60">
-                      <div className="w-36 sm:w-40">
-                        <Select
-                          value={tv.department}
-                          onValueChange={(val: 'ALL' | 'CONSULTATION' | 'THERAPY') =>
-                            handleChangeTvDepartment(tv, val)
-                          }
-                          disabled={isPending}
-                        >
-                          <SelectTrigger className="h-8 text-xs font-semibold rounded-lg bg-background/60 border-border/80 hover:border-emerald-500/50">
-                            <SelectValue placeholder={isBn ? 'বিভাগ নির্বাচন' : 'Select Dept'} />
-                          </SelectTrigger>
-                          <SelectContent className="bg-popover/95 backdrop-blur-md border-border/80 shadow-xl">
-                            <SelectItem value="ALL">{isBn ? 'উভয় কিউ (ALL)' : 'Both Queues'}</SelectItem>
-                            <SelectItem value="CONSULTATION">{isBn ? 'ডাক্তার কিউ' : 'Consultation'}</SelectItem>
-                            <SelectItem value="THERAPY">{isBn ? 'থেরাপি কিউ' : 'Therapy'}</SelectItem>
-                          </SelectContent>
-                        </Select>
+                    {/* Remote Display Controls */}
+                    <div className="pt-3 border-t border-border/60 space-y-2.5">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        {/* Department Selector */}
+                        <div className="flex flex-col gap-1">
+                          <span className="text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-1">
+                            {isBn ? 'কিউ বিভাগ' : 'Department'}
+                          </span>
+                          <Select
+                            value={tv.department}
+                            onValueChange={(val: 'ALL' | 'CONSULTATION' | 'THERAPY') =>
+                              handleChangeTvDepartment(tv, val)
+                            }
+                            disabled={isPending}
+                          >
+                            <SelectTrigger className="h-8 text-xs font-semibold rounded-lg bg-background/60 border-border/80 hover:border-emerald-500/50">
+                              <SelectValue placeholder={isBn ? 'বিভাগ' : 'Dept'} />
+                            </SelectTrigger>
+                            <SelectContent className="bg-popover/95 backdrop-blur-md border-border/80 shadow-xl">
+                              <SelectItem value="ALL">{isBn ? 'উভয় কিউ' : 'Both Queues'}</SelectItem>
+                              <SelectItem value="CONSULTATION">{isBn ? 'ডাক্তার কিউ' : 'Consultation'}</SelectItem>
+                              <SelectItem value="THERAPY">{isBn ? 'থেরাপি কিউ' : 'Therapy'}</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {/* Theme Selector */}
+                        <div className="flex flex-col gap-1">
+                          <span className="text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-1">
+                            {isBn ? 'ডিসপ্লে থিম' : 'Display Theme'}
+                          </span>
+                          <Select
+                            value={tv.theme || 'dark'}
+                            onValueChange={(val: 'dark' | 'light') =>
+                              handleChangeTvTheme(tv, val)
+                            }
+                            disabled={isPending}
+                          >
+                            <SelectTrigger className="h-8 text-xs font-semibold rounded-lg bg-background/60 border-border/80 hover:border-emerald-500/50">
+                              <SelectValue placeholder={isBn ? 'থিম' : 'Theme'} />
+                            </SelectTrigger>
+                            <SelectContent className="bg-popover/95 backdrop-blur-md border-border/80 shadow-xl">
+                              <SelectItem value="dark">🌙 {isBn ? 'ডার্ক থিম' : 'Dark Theme'}</SelectItem>
+                              <SelectItem value="light">☀️ {isBn ? 'লাইট থিম' : 'Light Theme'}</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {/* Language Selector */}
+                        <div className="flex flex-col gap-1">
+                          <span className="text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-1">
+                            {isBn ? 'ডিসপ্লে ভাষা' : 'Display Language'}
+                          </span>
+                          <Select
+                            value={tv.language || 'bn'}
+                            onValueChange={(val: 'bn' | 'en') =>
+                              handleChangeTvLanguage(tv, val)
+                            }
+                            disabled={isPending}
+                          >
+                            <SelectTrigger className="h-8 text-xs font-semibold rounded-lg bg-background/60 border-border/80 hover:border-emerald-500/50">
+                              <SelectValue placeholder={isBn ? 'ভাষা' : 'Language'} />
+                            </SelectTrigger>
+                            <SelectContent className="bg-popover/95 backdrop-blur-md border-border/80 shadow-xl">
+                              <SelectItem value="bn">🇧🇩 {isBn ? 'বাংলা' : 'Bangla'}</SelectItem>
+                              <SelectItem value="en">🇬🇧 {isBn ? 'English' : 'English'}</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
                       </div>
 
-                      <div className="flex items-center gap-1.5">
+                      {/* Action Buttons */}
+                      <div className="flex items-center justify-end gap-1.5 pt-1">
                         {isPaired && (
                           <Button
                             variant="outline"
                             size="sm"
                             onClick={() => handleRevokeTv(tv)}
                             disabled={isPending}
-                            className="h-8 px-2 rounded-lg text-xs font-semibold text-amber-600 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/10 cursor-pointer"
+                            className="h-8 px-2.5 rounded-lg text-xs font-semibold text-amber-600 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/10 cursor-pointer"
                             title={isBn ? 'সংযোগ বিচ্ছিন্ন করুন' : 'Revoke pairing'}
                           >
                             {isBn ? 'আনপেয়ার' : 'Unpair'}
@@ -1240,6 +1340,44 @@ export default function UsersAndDeviceManagementView() {
                     onChange={(e) => setPairForm({ ...pairForm, location: e.target.value })}
                     className="rounded-xl h-10 text-xs sm:text-sm"
                   />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-bold">{isBn ? 'ডিসপ্লে থিম' : 'Display Theme'}</Label>
+                  <Select
+                    value={pairForm.theme}
+                    onValueChange={(val: 'dark' | 'light') =>
+                      setPairForm({ ...pairForm, theme: val })
+                    }
+                  >
+                    <SelectTrigger className="h-10 text-xs sm:text-sm rounded-xl">
+                      <SelectValue placeholder={isBn ? 'থিম নির্বাচন করুন' : 'Select Theme'} />
+                    </SelectTrigger>
+                    <SelectContent className="bg-popover/95 backdrop-blur-md border-border/80 shadow-xl">
+                      <SelectItem value="dark">🌙 {isBn ? 'ডার্ক থিম (Dark)' : 'Dark Theme'}</SelectItem>
+                      <SelectItem value="light">☀️ {isBn ? 'লাইট থিম (Light)' : 'Light Theme'}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-bold">{isBn ? 'ডিসপ্লে ভাষা' : 'Display Language'}</Label>
+                  <Select
+                    value={pairForm.language}
+                    onValueChange={(val: 'bn' | 'en') =>
+                      setPairForm({ ...pairForm, language: val })
+                    }
+                  >
+                    <SelectTrigger className="h-10 text-xs sm:text-sm rounded-xl">
+                      <SelectValue placeholder={isBn ? 'ভাষা নির্বাচন করুন' : 'Select Language'} />
+                    </SelectTrigger>
+                    <SelectContent className="bg-popover/95 backdrop-blur-md border-border/80 shadow-xl">
+                      <SelectItem value="bn">🇧🇩 {isBn ? 'বাংলা (Bangla)' : 'Bangla'}</SelectItem>
+                      <SelectItem value="en">🇬🇧 {isBn ? 'ইংরেজি (English)' : 'English'}</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
             </div>

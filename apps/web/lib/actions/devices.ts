@@ -9,6 +9,8 @@ export interface TvDeviceRecord {
   deviceName: string;
   location: string | null;
   department: 'ALL' | 'CONSULTATION' | 'THERAPY';
+  theme: 'dark' | 'light';
+  language: 'bn' | 'en';
   status: 'pending' | 'paired' | 'revoked';
   secretToken: string | null;
   ipAddress: string | null;
@@ -38,6 +40,8 @@ export async function pairTvDeviceAction(dto: {
   pairingCode: string;
   deviceName: string;
   department?: 'ALL' | 'CONSULTATION' | 'THERAPY';
+  theme?: 'dark' | 'light';
+  language?: 'bn' | 'en';
   location?: string;
 }): Promise<{
   success: boolean;
@@ -61,6 +65,8 @@ export async function updateTvDeviceAction(
   dto: {
     deviceName?: string;
     department?: 'ALL' | 'CONSULTATION' | 'THERAPY';
+    theme?: 'dark' | 'light';
+    language?: 'bn' | 'en';
     location?: string;
     status?: 'pending' | 'paired' | 'revoked';
   },

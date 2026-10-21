@@ -128,21 +128,27 @@ class MainActivity : ComponentActivity() {
             LaunchedEffect(pairingCode, isPaired) {
                 if (!isPaired) {
                     withContext(Dispatchers.IO) {
-                        registerTvWithServer(pairingCode, "0.1.6")
+                        registerTvWithServer(pairingCode, "0.1.7")
                     }
                     while (!isPaired && isActive) {
                         withContext(Dispatchers.IO) {
-                            checkTvPairingStatus(pairingCode) { status, name, dept, token ->
+                            checkTvPairingStatus(pairingCode) { status, name, dept, token, theme, lang ->
                                 if (status == "paired") {
+                                    val wantsDark = (theme?.lowercase() != "light")
+                                    val resolvedLang = if (lang == "en") "en" else "bn"
                                     prefs.edit()
                                         .putBoolean("is_paired", true)
                                         .putString("device_name", name ?: "TV Display")
                                         .putString("assigned_department", dept ?: "ALL")
                                         .putString("secret_token", token ?: "")
+                                        .putBoolean("is_dark_theme", wantsDark)
+                                        .putString("language", resolvedLang)
                                         .apply()
                                     launch(Dispatchers.Main) {
                                         deviceName = name ?: "TV Display"
                                         assignedDepartment = dept ?: "ALL"
+                                        isDarkTheme = wantsDark
+                                        currentLanguage = resolvedLang
                                         isPaired = true
                                     }
                                 }
@@ -157,13 +163,15 @@ class MainActivity : ComponentActivity() {
             LaunchedEffect(pairingCode, isPaired) {
                 if (isPaired) {
                     while (isPaired && isActive) {
-                        // 1. Heartbeat check with instant revocation and realtime department updates
+                        // 1. Heartbeat check with instant revocation, department, theme, and language updates
                         var shouldRevoke = false
                         var newDept: String? = null
                         var newName: String? = null
+                        var newTheme: String? = null
+                        var newLang: String? = null
 
                         withContext(Dispatchers.IO) {
-                            sendTvHeartbeat(pairingCode, "0.1.6") { isOk, status, dept, name ->
+                            sendTvHeartbeat(pairingCode, "0.1.7") { isOk, status, dept, name, theme, lang ->
                                 if (!isOk || status == "revoked" || status == "unregistered") {
                                     shouldRevoke = true
                                 } else {
@@ -172,6 +180,15 @@ class MainActivity : ComponentActivity() {
                                     }
                                     if (!name.isNullOrBlank() && name != deviceName) {
                                         newName = name
+                                    }
+                                    if (!theme.isNullOrBlank()) {
+                                        val wantsDark = (theme.lowercase() == "dark")
+                                        if (wantsDark != isDarkTheme) {
+                                            newTheme = theme.lowercase()
+                                        }
+                                    }
+                                    if (!lang.isNullOrBlank() && (lang == "bn" || lang == "en") && lang != currentLanguage) {
+                                        newLang = lang
                                     }
                                 }
                             }
@@ -185,7 +202,7 @@ class MainActivity : ComponentActivity() {
                             break
                         }
 
-                        if (newDept != null || newName != null) {
+                        if (newDept != null || newName != null || newTheme != null || newLang != null) {
                             withContext(Dispatchers.Main) {
                                 if (newDept != null) {
                                     assignedDepartment = newDept!!
@@ -194,6 +211,14 @@ class MainActivity : ComponentActivity() {
                                 if (newName != null) {
                                     deviceName = newName!!
                                     prefs.edit().putString("device_name", deviceName).apply()
+                                }
+                                if (newTheme != null) {
+                                    isDarkTheme = (newTheme == "dark")
+                                    prefs.edit().putBoolean("is_dark_theme", isDarkTheme).apply()
+                                }
+                                if (newLang != null) {
+                                    currentLanguage = newLang!!
+                                    prefs.edit().putString("language", currentLanguage).apply()
                                 }
                             }
                         }
@@ -768,7 +793,7 @@ class MainActivity : ComponentActivity() {
 
     private fun checkTvPairingStatus(
         pairingCode: String,
-        onStatus: (status: String, deviceName: String?, department: String?, secretToken: String?) -> Unit
+        onStatus: (status: String, deviceName: String?, department: String?, secretToken: String?, theme: String?, language: String?) -> Unit
     ) {
         try {
             val url = URL("https://hpc.toufiquzzaman.com/api/tv/status/$pairingCode")
@@ -784,7 +809,9 @@ class MainActivity : ComponentActivity() {
                 val deviceName = if (json.has("deviceName") && !json.isNull("deviceName")) json.getString("deviceName") else null
                 val department = if (json.has("department") && !json.isNull("department")) json.getString("department") else "ALL"
                 val secretToken = if (json.has("secretToken") && !json.isNull("secretToken")) json.getString("secretToken") else null
-                onStatus(status, deviceName, department, secretToken)
+                val theme = if (json.has("theme") && !json.isNull("theme")) json.getString("theme") else "dark"
+                val language = if (json.has("language") && !json.isNull("language")) json.getString("language") else "bn"
+                onStatus(status, deviceName, department, secretToken, theme, language)
             }
             conn.disconnect()
         } catch (_: Exception) {}
@@ -793,7 +820,7 @@ class MainActivity : ComponentActivity() {
     private fun sendTvHeartbeat(
         pairingCode: String,
         appVersion: String,
-        onStatus: (Boolean, String, String?, String?) -> Unit
+        onStatus: (Boolean, String, String?, String?, String?, String?) -> Unit
     ) {
         try {
             val url = URL("https://hpc.toufiquzzaman.com/api/tv/heartbeat")
@@ -817,13 +844,15 @@ class MainActivity : ComponentActivity() {
                 val paired = json.optBoolean("paired", status == "paired")
                 val dept = if (json.has("department") && !json.isNull("department")) json.getString("department") else null
                 val name = if (json.has("deviceName") && !json.isNull("deviceName")) json.getString("deviceName") else null
+                val theme = if (json.has("theme") && !json.isNull("theme")) json.getString("theme") else null
+                val lang = if (json.has("language") && !json.isNull("language")) json.getString("language") else null
                 if (!paired || status == "revoked" || status == "unregistered") {
-                    onStatus(false, "revoked", null, null)
+                    onStatus(false, "revoked", null, null, null, null)
                 } else {
-                    onStatus(true, "paired", dept, name)
+                    onStatus(true, "paired", dept, name, theme, lang)
                 }
             } else if (conn.responseCode in 400..499) {
-                onStatus(false, "revoked", null, null)
+                onStatus(false, "revoked", null, null, null, null)
             }
             conn.disconnect()
         } catch (_: Exception) {}
@@ -1156,7 +1185,7 @@ fun TvPairingScreen(
 
         // 3. Footer
         Text(
-            text = "Health & Pain Care Center · Jashore • Hardware Station ID: $pairingCode • Version 0.1.6",
+            text = "Health & Pain Care Center · Jashore • Hardware Station ID: $pairingCode • Version 0.1.7",
             color = textMutedColor,
             fontSize = 11.sp,
             fontFamily = FontFamily.Monospace

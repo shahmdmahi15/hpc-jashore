@@ -48,6 +48,14 @@ export class PairTvDto {
   @IsOptional()
   @IsIn(['ALL', 'CONSULTATION', 'THERAPY'])
   department?: 'ALL' | 'CONSULTATION' | 'THERAPY';
+
+  @IsOptional()
+  @IsIn(['dark', 'light'])
+  theme?: 'dark' | 'light';
+
+  @IsOptional()
+  @IsIn(['bn', 'en'])
+  language?: 'bn' | 'en';
 }
 
 export class UpdateTvDto {
@@ -59,6 +67,14 @@ export class UpdateTvDto {
   @IsOptional()
   @IsIn(['ALL', 'CONSULTATION', 'THERAPY'])
   department?: 'ALL' | 'CONSULTATION' | 'THERAPY';
+
+  @IsOptional()
+  @IsIn(['dark', 'light'])
+  theme?: 'dark' | 'light';
+
+  @IsOptional()
+  @IsIn(['bn', 'en'])
+  language?: 'bn' | 'en';
 
   @IsOptional()
   @IsString()

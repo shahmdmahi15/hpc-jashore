@@ -692,6 +692,8 @@ export const tvDevices = sqliteTable('tv_devices', {
   deviceName: text('device_name').notNull(),
   location: text('location'),
   department: text('department').notNull().default('ALL'), // 'ALL' | 'CONSULTATION' | 'THERAPY'
+  theme: text('theme').notNull().default('dark'), // 'dark' | 'light'
+  language: text('language').notNull().default('bn'), // 'bn' | 'en'
   status: text('status').notNull().default('pending'), // 'pending' | 'paired' | 'revoked'
   secretToken: text('secret_token'),
   ipAddress: text('ip_address'),

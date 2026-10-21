@@ -41,6 +41,8 @@ export class TvService {
         status: existing.status,
         deviceName: existing.deviceName,
         department: existing.department,
+        theme: existing.theme || 'dark',
+        language: existing.language || 'bn',
         secretToken: existing.status === 'paired' ? existing.secretToken : null,
       };
     }
@@ -52,6 +54,8 @@ export class TvService {
       deviceName: dto.deviceName || `TV Display ${code}`,
       location: null,
       department: 'ALL',
+      theme: 'dark',
+      language: 'bn',
       status: 'pending',
       secretToken: null,
       ipAddress: meta.ip || null,
@@ -71,6 +75,8 @@ export class TvService {
       status: 'pending',
       deviceName: newRecord.deviceName,
       department: 'ALL',
+      theme: 'dark',
+      language: 'bn',
       secretToken: null,
     };
   }
@@ -85,6 +91,8 @@ export class TvService {
         pairingCode: code,
         deviceName: null,
         department: 'ALL',
+        theme: 'dark',
+        language: 'bn',
         secretToken: null,
       };
     }
@@ -96,6 +104,8 @@ export class TvService {
       deviceName: row.deviceName,
       department: row.department,
       location: row.location,
+      theme: row.theme || 'dark',
+      language: row.language || 'bn',
       secretToken: row.status === 'paired' ? row.secretToken : null,
     };
   }
@@ -112,6 +122,8 @@ export class TvService {
         status: 'unregistered',
         paired: false,
         pairingCode: code,
+        theme: 'dark',
+        language: 'bn',
       };
     }
 
@@ -124,6 +136,8 @@ export class TvService {
         deviceName: row.deviceName,
         department: row.department,
         location: row.location,
+        theme: row.theme || 'dark',
+        language: row.language || 'bn',
       };
     }
 
@@ -146,6 +160,8 @@ export class TvService {
       deviceName: row.deviceName,
       department: row.department,
       location: row.location,
+      theme: row.theme || 'dark',
+      language: row.language || 'bn',
     };
   }
 
@@ -185,6 +201,8 @@ export class TvService {
         deviceName: dto.deviceName,
         location: dto.location || null,
         department: dto.department || 'ALL',
+        theme: dto.theme || 'dark',
+        language: dto.language || 'bn',
         status: 'paired',
         secretToken: token,
         ipAddress: meta.ip || null,
@@ -202,6 +220,8 @@ export class TvService {
           deviceName: dto.deviceName,
           location: dto.location || existing.location,
           department: dto.department || existing.department || 'ALL',
+          theme: dto.theme || existing.theme || 'dark',
+          language: dto.language || existing.language || 'bn',
           status: 'paired',
           secretToken: token,
           pairedAt: now,
@@ -230,6 +250,8 @@ export class TvService {
       pairingCode: code,
       deviceName: dto.deviceName,
       department: dto.department || 'ALL',
+      theme: updated?.theme || 'dark',
+      language: updated?.language || 'bn',
       status: 'paired',
     });
 
@@ -255,6 +277,8 @@ export class TvService {
 
     if (dto.deviceName !== undefined) patch.deviceName = dto.deviceName;
     if (dto.department !== undefined) patch.department = dto.department;
+    if (dto.theme !== undefined) patch.theme = dto.theme;
+    if (dto.language !== undefined) patch.language = dto.language;
     if (dto.location !== undefined) patch.location = dto.location;
     if (dto.status !== undefined) patch.status = dto.status;
 
