@@ -62,10 +62,10 @@ export function setSession(session: UserSession | null) {
   if (typeof window !== 'undefined') {
     if (session) {
       localStorage.setItem('hpc_session', JSON.stringify(session));
-      document.cookie = `hpc_session=${encodeURIComponent(JSON.stringify(session))}; path=/; max-age=2592000; SameSite=Lax`;
+      document.cookie = `hpc_session=${encodeURIComponent(JSON.stringify(session))}; path=/; max-age=2592000; SameSite=Lax; Secure`;
     } else {
       localStorage.removeItem('hpc_session');
-      document.cookie = `hpc_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax`;
+      document.cookie = `hpc_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax; Secure`;
     }
   }
 }

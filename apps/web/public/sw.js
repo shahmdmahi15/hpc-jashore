@@ -1,7 +1,7 @@
 // apps/web/public/sw.js
 // HPC Jashore — Service Worker for PWA Offline Resilience & TV Kiosk Reliability
 
-const CACHE_NAME = 'hpc-cache-v5';
+const CACHE_NAME = 'hpc-cache-v6';
 
 // Core shell assets that are guaranteed to exist statically
 const CORE_SHELL_ASSETS = [
@@ -18,10 +18,9 @@ const CORE_SHELL_ASSETS = [
   '/hpclogo-transparent.png',
 ];
 
-// Secondary dynamic pages to pre-cache opportunistically
+// Public routes to pre-cache opportunistically
 const SECONDARY_PAGES = [
   '/tv',
-  '/admin',
   '/auth/login',
 ];
 
@@ -33,12 +32,12 @@ self.addEventListener('install', (event) => {
         console.warn('[SW] Core shell cache error:', err);
       });
 
-      // 2. Opportunistically cache secondary routes without breaking install if offline/auth
+      // 2. Opportunistically cache public routes without breaking install if redirected
       await Promise.all(
         SECONDARY_PAGES.map((url) =>
           fetch(url, { credentials: 'same-origin' })
             .then((res) => {
-              if (res.ok) return cache.put(url, res);
+              if (res.ok && !res.redirected) return cache.put(url, res);
             })
             .catch(() => {})
         )
@@ -62,7 +61,7 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // 1. Bypass non-HTTP schemes (e.g. chrome-extension://)
+  // 1. Bypass non-HTTP schemes (e.g. chrome-extension://, file://)
   if (!url.protocol.startsWith('http')) {
     return;
   }
@@ -78,65 +77,92 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 3. Network-first strategy for HTML page navigations (Landing, TV, Admin, Auth)
-  const isNavigateRequest =
-    event.request.mode === 'navigate' ||
-    event.request.destination === 'document' ||
-    url.pathname === '/' ||
-    url.pathname.startsWith('/tv') ||
-    url.pathname.startsWith('/admin') ||
-    url.pathname.startsWith('/auth/');
+  // 3. Dynamic API requests strictly bypass Service Worker cache (Always Fresh Network)
+  if (url.pathname.startsWith('/api/')) {
+    return;
+  }
 
-  if (isNavigateRequest) {
+  // 4. Next.js App Router RSC payload requests bypass Service Worker cache
+  if (
+    url.searchParams.has('_rsc') ||
+    event.request.headers.get('RSC') === '1' ||
+    event.request.headers.get('Next-Router-State-Tree')
+  ) {
+    return;
+  }
+
+  // 5. Navigation requests (HTML page navigations and URL loads)
+  if (event.request.mode === 'navigate') {
     event.respondWith(
       fetch(event.request)
         .then((networkResponse) => {
-          if (networkResponse && networkResponse.status === 200) {
+          if (!networkResponse) {
+            return new Response('Network unavailable', { status: 503 });
+          }
+          // CRITICAL FOR SAFARI / WEBKIT (iOS & macOS):
+          // In Safari, if a response followed any HTTP redirect (e.g. 307 /admin -> /auth/login),
+          // returning it directly to event.respondWith throws:
+          // "Response served by service worker has redirections" (WebKitServiceWorker: 0).
+          // Reconstructing a brand-new Response object strips the internal 'redirected: true'
+          // flag, allowing Safari to cleanly render the page without "This page couldn't load"!
+          if (networkResponse.redirected) {
+            return new Response(networkResponse.body, {
+              status: networkResponse.status,
+              statusText: networkResponse.statusText,
+              headers: networkResponse.headers,
+            });
+          }
+          // Cache successful non-redirected navigation pages
+          if (networkResponse.status === 200 && !networkResponse.redirected) {
             const clone = networkResponse.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone)).catch(() => {});
           }
           return networkResponse;
         })
         .catch(async () => {
-          const cachedMatch = await caches.match(event.request);
-          if (cachedMatch) return cachedMatch;
-          // Fallback to cached root shell
-          return caches.match('/');
-        })
-    );
-    return;
-  }
-
-  // 4. Network-first strategy for API reads
-  if (url.pathname.startsWith('/api/')) {
-    event.respondWith(
-      fetch(event.request)
-        .then((response) => {
-          if (response.status === 200) {
-            const clone = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+          const cache = await caches.open(CACHE_NAME);
+          const cachedMatch = (await cache.match(event.request)) || (await cache.match('/'));
+          if (cachedMatch) {
+            return new Response(cachedMatch.body, {
+              status: cachedMatch.status,
+              statusText: cachedMatch.statusText,
+              headers: cachedMatch.headers,
+            });
           }
-          return response;
+          return new Response(
+            '<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Offline - HPC</title></head><body style="font-family:sans-serif;padding:2rem;text-align:center;background:#09090b;color:#f4f4f5"><h2>Network Offline</h2><p>Please check your internet connection and reload.</p><button onclick="window.location.reload()" style="padding:0.6rem 1.2rem;background:#10b981;border:none;border-radius:0.5rem;color:#000;font-weight:bold;cursor:pointer">Reload</button></body></html>',
+            { status: 503, headers: { 'Content-Type': 'text/html; charset=utf-8' } }
+          );
         })
-        .catch(() => caches.match(event.request))
     );
     return;
   }
 
-  // 5. Stale-while-revalidate for static assets, fonts, icons, and Next.js static bundles
+  // 6. Cache-first / Stale-while-revalidate for static assets, fonts, icons, and Next.js static bundles
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       const fetchPromise = fetch(event.request)
         .then((networkResponse) => {
-          if (networkResponse && (networkResponse.status === 200 || networkResponse.type === 'opaque')) {
+          if (
+            networkResponse &&
+            (networkResponse.status === 200 || networkResponse.type === 'opaque') &&
+            !networkResponse.redirected
+          ) {
             const clone = networkResponse.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone)).catch(() => {});
           }
           return networkResponse;
         })
         .catch(() => cachedResponse);
 
-      return cachedResponse || fetchPromise;
+      // CRITICAL: event.respondWith MUST receive a valid Response, NEVER undefined!
+      if (cachedResponse) {
+        return cachedResponse;
+      }
+      return fetchPromise.then((res) => {
+        if (res) return res;
+        return new Response('', { status: 404, statusText: 'Not Found' });
+      });
     })
   );
 });

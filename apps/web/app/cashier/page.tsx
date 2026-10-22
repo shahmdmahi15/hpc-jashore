@@ -5,6 +5,7 @@ import React, { useState } from 'react';
 import { WorkstationShell } from '../../components/WorkstationShell';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../../components/ui/tabs';
 import { WorkstationTabPlaceholder } from '../../components/WorkstationTabPlaceholder';
+import CashierView from '../../components/CashierView';
 import { PatientManagementView } from '../../components/patient/PatientManagementView';
 import { TherapySlotBookingView } from '../../components/therapy/TherapySlotBookingView';
 import { CheckInWorkstationView } from '../../components/checkin/CheckInWorkstationView';
@@ -146,6 +147,10 @@ export default function CashierPage() {
               <CheckInWorkstationView />
             </TabsContent>
 
+            <TabsContent value="dues" className="mt-4 focus-visible:outline-none">
+              <CashierView />
+            </TabsContent>
+
             <TabsContent value="checkout" className="mt-4 focus-visible:outline-none">
               <CheckoutWorkstationView />
             </TabsContent>
@@ -162,7 +167,7 @@ export default function CashierPage() {
               <TherapySlotBookingView />
             </TabsContent>
 
-            {CASHIER_TABS.filter((t) => t.id !== 'checkin' && t.id !== 'checkout' && t.id !== 'consultation_serial' && t.id !== 'patients' && t.id !== 'therapy_slot').map((tab) => (
+            {CASHIER_TABS.filter((t) => t.id !== 'checkin' && t.id !== 'checkout' && t.id !== 'dues' && t.id !== 'consultation_serial' && t.id !== 'patients' && t.id !== 'therapy_slot').map((tab) => (
               <TabsContent key={tab.id} value={tab.id} className="mt-4 focus-visible:outline-none">
                 <WorkstationTabPlaceholder
                   titleEn={tab.titleEn}
