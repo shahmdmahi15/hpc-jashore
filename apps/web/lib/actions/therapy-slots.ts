@@ -317,6 +317,7 @@ export async function listTherapyBookingsAction(params: {
   patientId?: string;
   status?: string;
   slotHour?: string;
+  capacityType?: 'regular' | 'extra';
   query?: string;
   page?: number;
   limit?: number;
@@ -333,6 +334,8 @@ export async function listTherapyBookingsAction(params: {
       queryParts.push(`status=${encodeURIComponent(params.status)}`);
     if (params.slotHour && params.slotHour !== 'all')
       queryParts.push(`slotHour=${encodeURIComponent(params.slotHour)}`);
+    if (params.capacityType)
+      queryParts.push(`capacityType=${encodeURIComponent(params.capacityType)}`);
     if (params.query) queryParts.push(`query=${encodeURIComponent(params.query)}`);
     if (params.page) queryParts.push(`page=${params.page}`);
     if (params.limit) queryParts.push(`limit=${params.limit}`);
@@ -354,6 +357,7 @@ export async function createTherapyBookingAction(payload: {
   slotHour: string;
   toldTime?: string;
   notes?: string;
+  capacityType?: 'regular' | 'extra';
 }): Promise<{
   success: boolean;
   data?: TherapySlotBookingRecord;

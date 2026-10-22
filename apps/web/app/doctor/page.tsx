@@ -7,6 +7,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '../../components/ui/ta
 import { WorkstationTabPlaceholder } from '../../components/WorkstationTabPlaceholder';
 import { PatientManagementView } from '../../components/patient/PatientManagementView';
 import { TherapySlotBookingView } from '../../components/therapy/TherapySlotBookingView';
+import { ExtraSlotManagementView } from '../../components/therapy/ExtraSlotManagementView';
 import { CheckInWorkstationView } from '../../components/checkin/CheckInWorkstationView';
 import { useLanguage } from '../../lib/i18n';
 import {
@@ -14,6 +15,7 @@ import {
   Activity,
   Hash,
   Clock,
+  Sparkles,
   Users,
   MessageSquare,
   UserCheck,
@@ -59,6 +61,14 @@ const DOCTOR_TABS = [
     icon: Clock,
     descriptionEn: 'Machine availability and schedule to prescribe therapy packages with optimal bed allocation.',
     descriptionBn: 'থেরাপি মেশিনের প্রাপ্যতা ও রোগীর জন্য উপযুক্ত থেরাপি স্লট নির্ধারণ।',
+  },
+  {
+    id: 'extra_slot',
+    titleEn: 'Extra Slot',
+    titleBn: 'অতিরিক্ত স্লট',
+    icon: Sparkles,
+    descriptionEn: 'Emergency extra therapy slot booking and overflow capacity allocation.',
+    descriptionBn: 'জরুরি অতিরিক্ত থেরাপি স্লট বুকিং ও অতিরিক্ত কোটা বরাদ্দকরণ।',
   },
   {
     id: 'patients',
@@ -133,7 +143,11 @@ export default function DoctorPage() {
               <TherapySlotBookingView />
             </TabsContent>
 
-            {DOCTOR_TABS.filter((t) => t.id !== 'checkin' && t.id !== 'patients' && t.id !== 'therapy_slot').map((tab) => (
+            <TabsContent value="extra_slot" className="mt-4 focus-visible:outline-none">
+              <ExtraSlotManagementView />
+            </TabsContent>
+
+            {DOCTOR_TABS.filter((t) => t.id !== 'checkin' && t.id !== 'patients' && t.id !== 'therapy_slot' && t.id !== 'extra_slot').map((tab) => (
               <TabsContent key={tab.id} value={tab.id} className="mt-4 focus-visible:outline-none">
                 <WorkstationTabPlaceholder
                   titleEn={tab.titleEn}

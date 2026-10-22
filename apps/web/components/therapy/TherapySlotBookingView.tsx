@@ -49,20 +49,11 @@ import {
   TableHeader,
   TableRow,
 } from '../ui/table';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '../ui/dropdown-menu';
 import { toast } from 'sonner';
 import { useLanguage } from '../../lib/i18n';
 import {
   getTherapySlotAvailabilityAction,
   listTherapyBookingsAction,
-  updateTherapyBookingAction,
   deleteTherapyBookingAction,
   restoreTherapyBookingAction,
   type DayOfWeek,
@@ -206,26 +197,6 @@ export function TherapySlotBookingView() {
   useEffect(() => {
     loadData();
   }, [loadData]);
-
-  // Quick status update handler
-  const handleStatusChange = async (id: string, newStatus: TherapyBookingStatus) => {
-    setActionInProgressId(id);
-    try {
-      const res = await updateTherapyBookingAction(id, { status: newStatus });
-      if (res.success) {
-        toast.success(
-          isBn
-            ? `বুকিং স্ট্যাটাস পরিবর্তন করা হয়েছে: ${STATUS_CONFIG[newStatus].labelBn}`
-            : `Booking marked as ${STATUS_CONFIG[newStatus].labelEn}`,
-        );
-        loadData();
-      } else {
-        toast.error(res.error || (isBn ? 'স্ট্যাটাস আপডেট ব্যর্থ' : 'Failed to update status'));
-      }
-    } finally {
-      setActionInProgressId(null);
-    }
-  };
 
   // Quick cancel handler
   const handleCancelBooking = async (id: string) => {
@@ -674,8 +645,8 @@ export function TherapySlotBookingView() {
                       </div>
                     </CardHeader>
 
-                    {/* Slot Body: Booked Patients */}
-                    <CardContent className="p-3 space-y-2 max-h-64 overflow-y-auto">
+                    {/* Slot Body: Booked Patients - Smooth natural expansion without trapped inner scroll */}
+                    <CardContent className="p-3 space-y-2">
                       {slotBookings.length === 0 ? (
                         <div className="py-6 text-center text-muted-foreground">
                           <p className="text-xs">{isBn ? 'এখনও কোনো বুকিং নেই' : 'No patients booked yet'}</p>
@@ -718,6 +689,14 @@ export function TherapySlotBookingView() {
                                   <span className="text-[10px] font-mono text-muted-foreground">
                                     {b.patient.mrn}
                                   </span>
+                                  {b.capacityType === 'extra' && (
+                                    <Badge
+                                      variant="outline"
+                                      className="text-[9px] px-1 py-0 h-4 border-amber-500/40 text-amber-600 dark:text-amber-400 bg-amber-500/10 font-medium"
+                                    >
+                                      {isBn ? 'অতিরিক্ত' : 'Extra'}
+                                    </Badge>
+                                  )}
                                 </div>
 
                                 <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
@@ -736,84 +715,35 @@ export function TherapySlotBookingView() {
                                 </div>
                               </div>
 
-                              {/* Quick Actions Dropdown */}
-                              <div className="flex items-center gap-1 shrink-0">
-                                {b.status === 'booked' && (
+                              {/* ONE SINGLE BUTTON: Cancel Booking (or Restore if cancelled) */}
+                              <div className="flex items-center shrink-0">
+                                {b.status !== 'cancelled' ? (
                                   <Button
                                     type="button"
                                     size="sm"
-                                    variant="ghost"
-                                    onClick={() => handleStatusChange(b.id, 'confirmed')}
+                                    variant="outline"
+                                    onClick={() => handleCancelBooking(b.id)}
                                     disabled={actionInProgressId === b.id}
-                                    className="h-7 w-7 p-0 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 rounded-lg cursor-pointer"
-                                    title={isBn ? 'নিশ্চিত করুন' : 'Confirm'}
+                                    className="h-7 px-2 text-[11px] font-medium border-rose-500/30 text-rose-600 hover:text-rose-700 hover:bg-rose-500/10 hover:border-rose-500/50 rounded-lg cursor-pointer transition-all active:scale-95"
+                                    title={isBn ? 'বুকিং বাতিল করুন' : 'Cancel Booking'}
                                   >
-                                    <Check className="w-3.5 h-3.5" />
+                                    <Trash2 className="w-3 h-3 mr-1" />
+                                    <span>{isBn ? 'বাতিল' : 'Cancel'}</span>
                                   </Button>
-                                )}
-
-                                {b.status !== 'attended' && b.status !== 'completed' && b.status !== 'cancelled' && (
+                                ) : (
                                   <Button
                                     type="button"
                                     size="sm"
-                                    variant="ghost"
-                                    onClick={() => handleStatusChange(b.id, 'attended')}
+                                    variant="outline"
+                                    onClick={() => handleRestoreBooking(b.id)}
                                     disabled={actionInProgressId === b.id}
-                                    className="h-7 w-7 p-0 text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-950/30 rounded-lg cursor-pointer"
-                                    title={isBn ? 'উপস্থিত চিহ্নিত করুন' : 'Mark Attended'}
+                                    className="h-7 px-2 text-[11px] font-medium border-emerald-500/30 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-500/10 hover:border-emerald-500/50 rounded-lg cursor-pointer transition-all active:scale-95"
+                                    title={isBn ? 'বুকিং পুনরুদ্ধার করুন' : 'Restore Booking'}
                                   >
-                                    <UserCheck className="w-3.5 h-3.5" />
+                                    <RotateCcw className="w-3 h-3 mr-1" />
+                                    <span>{isBn ? 'পুনরুদ্ধার' : 'Restore'}</span>
                                   </Button>
                                 )}
-
-                                <DropdownMenu>
-                                  <DropdownMenuTrigger asChild>
-                                    <Button
-                                      type="button"
-                                      size="sm"
-                                      variant="ghost"
-                                      className="h-7 w-7 p-0 text-muted-foreground rounded-lg cursor-pointer"
-                                    >
-                                      •••
-                                    </Button>
-                                  </DropdownMenuTrigger>
-                                  <DropdownMenuContent align="end" className="w-44">
-                                    <DropdownMenuLabel className="text-xs">
-                                      {isBn ? 'স্ট্যাটাস পরিবর্তন' : 'Change Status'}
-                                    </DropdownMenuLabel>
-                                    <DropdownMenuSeparator />
-                                    {(['booked', 'confirmed', 'attended', 'completed'] as TherapyBookingStatus[]).map(
-                                      (st) => (
-                                        <DropdownMenuItem
-                                          key={st}
-                                          onClick={() => handleStatusChange(b.id, st)}
-                                          className="text-xs cursor-pointer"
-                                        >
-                                          <span className={`w-2 h-2 rounded-full mr-2 ${STATUS_CONFIG[st].dotColor}`} />
-                                          <span>{isBn ? STATUS_CONFIG[st].labelBn : STATUS_CONFIG[st].labelEn}</span>
-                                        </DropdownMenuItem>
-                                      ),
-                                    )}
-                                    <DropdownMenuSeparator />
-                                    {b.status === 'cancelled' ? (
-                                      <DropdownMenuItem
-                                        onClick={() => handleRestoreBooking(b.id)}
-                                        className="text-xs text-emerald-600 font-semibold cursor-pointer"
-                                      >
-                                        <RotateCcw className="w-3.5 h-3.5 mr-2" />
-                                        <span>{isBn ? 'বুকিং পুনরুদ্ধার করুন' : 'Restore Booking'}</span>
-                                      </DropdownMenuItem>
-                                    ) : (
-                                      <DropdownMenuItem
-                                        onClick={() => handleCancelBooking(b.id)}
-                                        className="text-xs text-rose-600 cursor-pointer"
-                                      >
-                                        <Trash2 className="w-3.5 h-3.5 mr-2" />
-                                        <span>{isBn ? 'বুকিং বাতিল করুন' : 'Cancel Booking'}</span>
-                                      </DropdownMenuItem>
-                                    )}
-                                  </DropdownMenuContent>
-                                </DropdownMenu>
                               </div>
                             </div>
                           );
@@ -939,60 +869,34 @@ export function TherapySlotBookingView() {
                           {b.notes || '—'}
                         </TableCell>
                         <TableCell className="text-right">
-                          <div className="inline-flex items-center gap-1">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-8 px-2 text-xs rounded-lg cursor-pointer"
-                                >
-                                  •••
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" className="w-44">
-                                <DropdownMenuLabel className="text-xs">
-                                  {isBn ? 'স্ট্যাটাস পরিবর্তন' : 'Change Status'}
-                                </DropdownMenuLabel>
-                                <DropdownMenuSeparator />
-                                {(
-                                  [
-                                    'booked',
-                                    'confirmed',
-                                    'attended',
-                                    'completed',
-                                  ] as TherapyBookingStatus[]
-                                ).map((st) => (
-                                  <DropdownMenuItem
-                                    key={st}
-                                    onClick={() => handleStatusChange(b.id, st)}
-                                    className="text-xs cursor-pointer"
-                                  >
-                                    <span className={`w-2 h-2 rounded-full mr-2 ${STATUS_CONFIG[st].dotColor}`} />
-                                    <span>{isBn ? STATUS_CONFIG[st].labelBn : STATUS_CONFIG[st].labelEn}</span>
-                                  </DropdownMenuItem>
-                                ))}
-                                <DropdownMenuSeparator />
-                                {b.status === 'cancelled' ? (
-                                  <DropdownMenuItem
-                                    onClick={() => handleRestoreBooking(b.id)}
-                                    className="text-xs text-emerald-600 font-semibold cursor-pointer"
-                                  >
-                                    <RotateCcw className="w-3.5 h-3.5 mr-2" />
-                                    <span>{isBn ? 'বুকিং পুনরুদ্ধার করুন' : 'Restore Booking'}</span>
-                                  </DropdownMenuItem>
-                                ) : (
-                                  <DropdownMenuItem
-                                    onClick={() => handleCancelBooking(b.id)}
-                                    className="text-xs text-rose-600 cursor-pointer"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5 mr-2" />
-                                    <span>{isBn ? 'বাতিল করুন' : 'Cancel Booking'}</span>
-                                  </DropdownMenuItem>
-                                )}
-                              </DropdownMenuContent>
-                            </DropdownMenu>
+                          <div className="inline-flex items-center justify-end">
+                            {b.status !== 'cancelled' ? (
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleCancelBooking(b.id)}
+                                disabled={actionInProgressId === b.id}
+                                className="h-7 px-2.5 text-xs font-medium border-rose-500/30 text-rose-600 hover:text-rose-700 hover:bg-rose-500/10 hover:border-rose-500/50 rounded-lg cursor-pointer transition-all active:scale-95"
+                                title={isBn ? 'বুকিং বাতিল করুন' : 'Cancel Booking'}
+                              >
+                                <Trash2 className="w-3 h-3 mr-1.5" />
+                                <span>{isBn ? 'বাতিল' : 'Cancel'}</span>
+                              </Button>
+                            ) : (
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleRestoreBooking(b.id)}
+                                disabled={actionInProgressId === b.id}
+                                className="h-7 px-2.5 text-xs font-medium border-emerald-500/30 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-500/10 hover:border-emerald-500/50 rounded-lg cursor-pointer transition-all active:scale-95"
+                                title={isBn ? 'বুকিং পুনরুদ্ধার করুন' : 'Restore Booking'}
+                              >
+                                <RotateCcw className="w-3 h-3 mr-1.5" />
+                                <span>{isBn ? 'পুনরুদ্ধার' : 'Restore'}</span>
+                              </Button>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>

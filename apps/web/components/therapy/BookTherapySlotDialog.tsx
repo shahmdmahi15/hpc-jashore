@@ -59,6 +59,7 @@ interface BookTherapySlotDialogProps {
   trigger?: React.ReactNode;
   initialDate?: string;
   initialSlotHour?: SlotHour;
+  defaultCapacityType?: 'regular' | 'extra';
   onSuccess?: (booking: TherapySlotBookingRecord) => void;
 }
 
@@ -97,6 +98,7 @@ export function BookTherapySlotDialog({
   trigger,
   initialDate,
   initialSlotHour,
+  defaultCapacityType,
   onSuccess,
 }: BookTherapySlotDialogProps) {
   const { language } = useLanguage();
@@ -268,6 +270,7 @@ export function BookTherapySlotDialog({
         slotHour,
         toldTime: toldTime.trim() || undefined,
         notes: notes.trim() || undefined,
+        capacityType: defaultCapacityType || (isExtraBufferForPatient ? 'extra' : undefined),
       });
 
       if (res.success && res.data) {
@@ -312,6 +315,12 @@ export function BookTherapySlotDialog({
                   <Badge variant="outline" className="text-[10px] sm:text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30">
                     {isBn ? 'লাইভ ক্যাপাসিটি' : 'Live Capacity'}
                   </Badge>
+                  {defaultCapacityType === 'extra' && (
+                    <Badge variant="outline" className="text-[10px] sm:text-xs font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/40">
+                      <Sparkles className="w-3 h-3 mr-1" />
+                      {isBn ? 'অতিরিক্ত স্লট' : 'Extra Slot'}
+                    </Badge>
+                  )}
                 </DialogTitle>
                 <DialogDescription className="text-xs sm:text-sm text-muted-foreground">
                   {isBn

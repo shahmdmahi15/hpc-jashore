@@ -154,6 +154,11 @@ export class CreateTherapyBookingDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @ApiPropertyOptional({ description: 'Capacity type: regular or extra (emergency/overbooking)', enum: ['regular', 'extra'] })
+  @IsOptional()
+  @IsIn(['regular', 'extra'])
+  capacityType?: 'regular' | 'extra';
 }
 
 export class UpdateTherapyBookingDto {
@@ -203,6 +208,11 @@ export class TherapyBookingQueryDto {
   @IsOptional()
   @IsString()
   slotHour?: string;
+
+  @ApiPropertyOptional({ description: 'Filter by capacity type', enum: ['regular', 'extra'] })
+  @IsOptional()
+  @IsIn(['regular', 'extra'])
+  capacityType?: 'regular' | 'extra';
 
   @ApiPropertyOptional({ description: 'Search patient name, MRN, phone, booking number' })
   @IsOptional()

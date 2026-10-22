@@ -11,6 +11,7 @@ import BulletinManagementView from '../../components/admin/BulletinManagementVie
 import { RoomManagementView } from '../../components/admin/RoomManagementView';
 import { TherapySlotConfigView } from '../../components/admin/TherapySlotConfigView';
 import { TherapySlotBookingView } from '../../components/therapy/TherapySlotBookingView';
+import { ExtraSlotManagementView } from '../../components/therapy/ExtraSlotManagementView';
 import { PatientManagementView } from '../../components/patient/PatientManagementView';
 import { CheckInWorkstationView } from '../../components/checkin/CheckInWorkstationView';
 import { useLanguage } from '../../lib/i18n';
@@ -29,6 +30,7 @@ import {
   RotateCcw,
   Hash,
   Clock,
+  Sparkles,
   MessageSquare,
   ClipboardList,
   FileSpreadsheet,
@@ -184,6 +186,14 @@ const ADMIN_ROW2_TABS = [
     descriptionBn: 'থেরাপি হলের সময়সূচী, মেশিন বরাদ্দ ও রোগীর চলমান সেশন মনিটরিং।',
   },
   {
+    id: 'extra_slot',
+    titleEn: 'Extra Slot',
+    titleBn: 'অতিরিক্ত স্লট',
+    icon: Sparkles,
+    descriptionEn: 'Emergency overbooking and extra quota management for overflow and high-priority patients.',
+    descriptionBn: 'জরুরি ওভারবুকিং, অতিরিক্ত স্লট কোটা ও বিশেষ রোগীদের জন্য সেশন বরাদ্দ ব্যবস্থাপনা।',
+  },
+  {
     id: 'chat',
     titleEn: 'Chat',
     titleBn: 'অভ্যন্তরীণ বার্তা',
@@ -318,7 +328,11 @@ export default function AdminPage() {
               <TherapySlotBookingView />
             </TabsContent>
 
-            {ADMIN_ROW2_TABS.filter((t) => t.id !== 'checkin' && t.id !== 'therapy_slot' && t.id !== 'patients').map((tab) => (
+            <TabsContent value="extra_slot" className="mt-4 focus-visible:outline-none">
+              <ExtraSlotManagementView />
+            </TabsContent>
+
+            {ADMIN_ROW2_TABS.filter((t) => t.id !== 'checkin' && t.id !== 'therapy_slot' && t.id !== 'patients' && t.id !== 'extra_slot').map((tab) => (
               <TabsContent key={tab.id} value={tab.id} className="mt-4 focus-visible:outline-none">
                 <WorkstationTabPlaceholder
                   titleEn={tab.titleEn}

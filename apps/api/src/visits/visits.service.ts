@@ -126,9 +126,6 @@ export class VisitsService {
     const today = todayDateString();
     const now = new Date().toISOString();
 
-    // Determine destination: default 'therapy' if not specified and doctorId is not given
-    const destination = dto.destination ?? (dto.doctorId ? 'consultation' : 'therapy');
-
     // Find if there is an active therapy slot booking for this patient today
     let activeBooking = null;
     if (dto.therapyBookingId) {
@@ -151,13 +148,18 @@ export class VisitsService {
           and(
             eq(therapySlotBookings.patientId, patient.id),
             eq(therapySlotBookings.bookingDate, today),
-            eq(therapySlotBookings.status, 'booked'),
+            sql`${therapySlotBookings.status} IN ('booked', 'confirmed')`,
             isNull(therapySlotBookings.deletedAt),
           ),
         )
         .limit(1);
       activeBooking = bRows[0] ?? null;
     }
+
+    // Determine destination: prioritize therapy if active booking or therapyBookingId exists, or doctorId absent
+    const destination = (activeBooking || dto.therapyBookingId)
+      ? 'therapy'
+      : (dto.destination ?? (dto.doctorId ? 'consultation' : 'therapy'));
 
     const effectiveToldTime = dto.toldTime?.trim() || activeBooking?.toldTime?.trim() || null;
     const punctuality = effectiveToldTime ? computePunctuality(effectiveToldTime, new Date()) : null;
@@ -665,7 +667,14 @@ export class VisitsService {
         and(
           eq(visits.visitDate, today),
           or(
-            and(eq(visits.status, 'checked_in'), eq(visits.currentLocation, 'therapy_hall')),
+            and(
+              eq(visits.status, 'checked_in'),
+              or(
+                eq(visits.currentLocation, 'therapy_hall'),
+                sql`${visits.therapyBookingId} IS NOT NULL`,
+                isNull(visits.doctorId),
+              ),
+            ),
             eq(visits.status, 'in_therapy'),
           ),
         ),
@@ -756,7 +765,14 @@ export class VisitsService {
         and(
           eq(visits.visitDate, today),
           or(
-            and(eq(visits.status, 'checked_in'), eq(visits.currentLocation, 'therapy_hall')),
+            and(
+              eq(visits.status, 'checked_in'),
+              or(
+                eq(visits.currentLocation, 'therapy_hall'),
+                sql`${visits.therapyBookingId} IS NOT NULL`,
+                isNull(visits.doctorId),
+              ),
+            ),
             eq(visits.status, 'in_therapy'),
           ),
         ),

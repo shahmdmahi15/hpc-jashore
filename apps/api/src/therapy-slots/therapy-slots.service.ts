@@ -505,7 +505,15 @@ export class TherapySlotsService {
     const extraBookedCount = existingBookings.filter((b) => b.capacityType === 'extra').length;
 
     let assignedCapacityType: 'regular' | 'extra';
-    if (regularBookedCount < regCap) {
+    if (dto.capacityType === 'extra') {
+      if (extraBookedCount < extraCap) {
+        assignedCapacityType = 'extra';
+      } else {
+        throw new ConflictException(
+          `No extra capacity left for ${gender} patients in slot ${dto.slotHour} on ${dto.bookingDate} (${dayOfWeek}). Extra capacity is fully booked (${extraBookedCount}/${extraCap}).`,
+        );
+      }
+    } else if (regularBookedCount < regCap) {
       assignedCapacityType = 'regular';
     } else if (extraBookedCount < extraCap) {
       assignedCapacityType = 'extra';
@@ -533,7 +541,7 @@ export class TherapySlotsService {
       toldTime: dto.toldTime ? dto.toldTime.trim() : null,
       patientGender: gender,
       capacityType: assignedCapacityType,
-      status: 'booked' as const,
+      status: 'confirmed' as const, // Auto-confirmed immediately upon booking
       notes: dto.notes ? dto.notes.trim() : null,
       bookedBy: actor.sub,
       createdAt: now,
@@ -588,6 +596,10 @@ export class TherapySlotsService {
 
     if (dto.slotHour && dto.slotHour !== 'all') {
       conditions.push(eq(therapySlotBookings.slotHour, dto.slotHour as SlotHour));
+    }
+
+    if (dto.capacityType) {
+      conditions.push(eq(therapySlotBookings.capacityType, dto.capacityType));
     }
 
     if (dto.query && dto.query.trim()) {
@@ -826,7 +838,7 @@ export class TherapySlotsService {
       .update(therapySlotBookings)
       .set({
         deletedAt: null,
-        status: 'booked',
+        status: 'confirmed',
         updatedAt: now,
       })
       .where(eq(therapySlotBookings.id, id));
