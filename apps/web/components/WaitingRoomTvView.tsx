@@ -4,20 +4,24 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { api } from '../lib/api';
+import { api, getSession, clearSession, getRoleHomeRoute, UserSession } from '../lib/api';
 import {
   Activity,
   AlertTriangle,
   Bell,
   CheckCircle2,
+  ClipboardList,
   Clock,
+  CreditCard,
   DoorOpen,
   LogIn,
+  LogOut,
   Maximize2,
   Minimize2,
   Moon,
   Radio,
   RotateCw,
+  ShieldCheck,
   Stethoscope,
   Sun,
   Tv,
@@ -80,6 +84,22 @@ interface TvSnapshotData {
   bulletinNotices: string[];
 }
 
+function getTvRoleIcon(role?: string) {
+  switch (role) {
+    case 'doctor':
+      return Stethoscope;
+    case 'handler':
+      return Activity;
+    case 'cashier':
+      return CreditCard;
+    case 'receptionist':
+      return ClipboardList;
+    case 'admin':
+    default:
+      return ShieldCheck;
+  }
+}
+
 export default function WaitingRoomTvView() {
   const [lang, setLang] = useState<Language>('bn');
   const [theme, setTheme] = useState<Theme>('dark');
@@ -94,6 +114,16 @@ export default function WaitingRoomTvView() {
   const [activeCallAlert, setActiveCallAlert] = useState<ConsultationItem | null>(null);
   const [callCountdown, setCallCountdown] = useState<number>(12);
   const [liveBulletins, setLiveBulletins] = useState<any[]>([]);
+  const [session, setSession] = useState<UserSession | null>(null);
+
+  useEffect(() => {
+    setSession(getSession());
+  }, []);
+
+  const handleLogout = () => {
+    clearSession();
+    setSession(null);
+  };
 
   const [snapshot, setSnapshot] = useState<TvSnapshotData>({
     date: new Date().toISOString().slice(0, 10),
@@ -411,14 +441,19 @@ export default function WaitingRoomTvView() {
       }}
     >
       {/* ============================================================== */}
-      {/* 1. TOP HEADER: STRICTLY FIXED HEIGHT, NEVER OVERFLOWS         */}
+      {/* 1. TOP HEADER: ADAPTIVE HEIGHT WITH SAFE AREA INSETS          */}
       {/* ============================================================== */}
       <header
-        className={`h-12 sm:h-14 2xl:h-20 shrink-0 w-full px-3 sm:px-5 2xl:px-8 flex items-center justify-between border-b gap-2 sm:gap-4 transition-colors z-20 ${
+        className={`min-h-12 sm:min-h-14 2xl:min-h-20 h-auto py-2 shrink-0 w-full px-3 sm:px-5 2xl:px-8 flex items-center justify-between border-b gap-2 sm:gap-4 transition-colors z-20 ${
           isDark
             ? 'bg-zinc-950/95 border-zinc-800 text-white'
             : 'bg-zinc-50 border-zinc-200 text-zinc-950 shadow-xs'
         }`}
+        style={{
+          paddingTop: 'max(0.5rem, env(safe-area-inset-top))',
+          paddingLeft: 'max(0.75rem, env(safe-area-inset-left))',
+          paddingRight: 'max(0.75rem, env(safe-area-inset-right))',
+        }}
       >
         {/* Left: HPC Brand Identity */}
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
@@ -603,18 +638,60 @@ export default function WaitingRoomTvView() {
             {isFullscreen ? <Minimize2 className="size-3.5 2xl:size-4" /> : <Maximize2 className="size-3.5 2xl:size-4" />}
           </button>
 
-          {/* Staff Login Link */}
-          <Link
-            href="/auth/login"
-            className={`h-7 w-7 sm:h-8 sm:w-8 2xl:h-10 2xl:w-10 rounded-lg border transition-colors flex items-center justify-center cursor-pointer ${
-              isDark
-                ? 'bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white border-zinc-800'
-                : 'bg-white hover:bg-zinc-100 text-zinc-600 hover:text-black border-zinc-200'
-            }`}
-            title="Staff Login Portal"
-          >
-            <LogIn className="size-3.5 2xl:size-4" />
-          </Link>
+          {/* Staff Login / Role Dashboard + Logout */}
+          {session ? (
+            <>
+              <Link
+                href={getRoleHomeRoute(session.role)}
+                className={`h-7 sm:h-8 2xl:h-10 px-2 sm:px-2.5 rounded-lg border transition-colors flex items-center gap-1.5 cursor-pointer text-xs font-bold active:scale-95 ${
+                  isDark
+                    ? 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+                    : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200'
+                }`}
+                title={session.displayName || (lang === 'bn' ? 'ড্যাশবোর্ড' : 'Dashboard')}
+              >
+                {(() => {
+                  const RoleIcon = getTvRoleIcon(session.role);
+                  return <RoleIcon className="size-3.5 2xl:size-4 text-emerald-500 shrink-0" />;
+                })()}
+                <span className="hidden xl:inline">
+                  {session.role === 'admin'
+                    ? lang === 'bn' ? 'অ্যাডমিন' : 'Admin'
+                    : session.role === 'doctor'
+                    ? lang === 'bn' ? 'ডাক্তার' : 'Doctor'
+                    : session.role === 'handler'
+                    ? lang === 'bn' ? 'হ্যান্ডলার' : 'Handler'
+                    : session.role === 'cashier'
+                    ? lang === 'bn' ? 'ক্যাশিয়ার' : 'Cashier'
+                    : lang === 'bn' ? 'অভ্যর্থনা' : 'Reception'}
+                </span>
+              </Link>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className={`h-7 w-7 sm:h-8 sm:w-8 2xl:h-10 2xl:w-10 rounded-lg border transition-colors flex items-center justify-center cursor-pointer active:scale-95 ${
+                  isDark
+                    ? 'bg-zinc-900 hover:bg-red-950/40 text-zinc-400 hover:text-red-400 border-zinc-800 hover:border-red-500/40'
+                    : 'bg-white hover:bg-red-50 text-zinc-600 hover:text-red-600 border-zinc-200 hover:border-red-300'
+                }`}
+                title={lang === 'bn' ? 'লগআউট' : 'Logout'}
+              >
+                <LogOut className="size-3.5 2xl:size-4" />
+              </button>
+            </>
+          ) : (
+            <Link
+              href="/auth/login"
+              className={`h-7 w-7 sm:h-8 sm:w-8 2xl:h-10 2xl:w-10 rounded-lg border transition-colors flex items-center justify-center cursor-pointer active:scale-95 ${
+                isDark
+                  ? 'bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white border-zinc-800'
+                  : 'bg-white hover:bg-zinc-100 text-zinc-600 hover:text-black border-zinc-200'
+              }`}
+              title="Staff Login Portal"
+            >
+              <LogIn className="size-3.5 2xl:size-4" />
+            </Link>
+          )}
         </div>
 
         {/* Right: Digital Clock & Date */}

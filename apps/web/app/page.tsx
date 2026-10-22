@@ -9,12 +9,15 @@ import {
   ArrowUpRight,
   Brain,
   CheckCircle2,
+  ClipboardList,
   Clock,
   Compass,
   Cpu,
   CreditCard,
   HeartPulse,
   Laptop,
+  LogIn,
+  LogOut,
   MapPin,
   MessageCircle,
   Phone,
@@ -40,33 +43,89 @@ import {
   CardContent,
 } from '../components/ui/card';
 import { Separator } from '../components/ui/separator';
+import { getSession, clearSession, getRoleHomeRoute, UserSession } from '../lib/api';
+import { toast } from 'sonner';
+
+function getRoleIcon(role?: string) {
+  switch (role) {
+    case 'doctor':
+      return Stethoscope;
+    case 'handler':
+      return Activity;
+    case 'cashier':
+      return CreditCard;
+    case 'receptionist':
+      return ClipboardList;
+    case 'admin':
+    default:
+      return ShieldCheck;
+  }
+}
+
+function getRoleLabel(role?: string, isBn = true) {
+  switch (role) {
+    case 'doctor':
+      return isBn ? 'ডাক্তার চেম্বার' : 'Doctor Chamber';
+    case 'handler':
+      return isBn ? 'হ্যান্ডলার হাব' : 'Handler Hub';
+    case 'cashier':
+      return isBn ? 'ক্যাশিয়ার ডেস্ক' : 'Cashier Desk';
+    case 'receptionist':
+      return isBn ? 'অভ্যর্থনা ডেস্ক' : 'Reception Desk';
+    case 'admin':
+    default:
+      return isBn ? 'অ্যাডমিন হাব' : 'Admin Hub';
+  }
+}
 
 export default function LandingPage() {
   const { t, language } = useLanguage();
   const isBn = language === 'bn';
+  const [session, setSession] = React.useState<UserSession | null>(null);
+
+  React.useEffect(() => {
+    setSession(getSession());
+  }, []);
+
+  const handleLogout = () => {
+    clearSession();
+    setSession(null);
+    toast.success(isBn ? 'লগআউট সম্পন্ন হয়েছে' : 'Logged out successfully');
+  };
+
+  const RoleIcon = session ? getRoleIcon(session.role) : ShieldCheck;
+  const roleLabel = session ? getRoleLabel(session.role, isBn) : '';
+  const roleRoute = session ? getRoleHomeRoute(session.role) : '/admin';
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col font-sans selection:bg-emerald-500/20 selection:text-emerald-500 antialiased overflow-x-hidden transition-colors duration-300">
       {/* ============================================================== */}
       {/* TOP NAVIGATION BAR                                            */}
       {/* ============================================================== */}
-      <header className="sticky top-0 z-50 backdrop-blur-xl bg-card/85 border-b border-border/80 px-4 sm:px-8 py-3 flex items-center justify-between transition-colors duration-300 shadow-xs">
+      <header
+        className="sticky top-0 z-50 backdrop-blur-xl bg-card/85 border-b border-border/80 px-2.5 sm:px-8 py-2 sm:py-3 flex items-center justify-between transition-colors duration-300 shadow-xs"
+        style={{
+          paddingTop: 'max(0.75rem, env(safe-area-inset-top))',
+          paddingLeft: 'max(0.75rem, env(safe-area-inset-left))',
+          paddingRight: 'max(0.75rem, env(safe-area-inset-right))',
+        }}
+      >
         {/* Brand */}
-        <Link href="/" className="flex items-center gap-3 group">
-          <div className="w-10 h-10 rounded-xl bg-white p-1 shadow-md flex items-center justify-center overflow-hidden border border-zinc-200 dark:border-zinc-800 transition-transform group-hover:scale-105">
+        <Link href="/" className="flex items-center gap-2 sm:gap-3 group shrink-0">
+          <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-white p-1 shadow-md flex items-center justify-center overflow-hidden border border-zinc-200 dark:border-zinc-800 transition-transform group-hover:scale-105 shrink-0">
             <Image
               src="/hpclogo-transparent.png"
               alt="HPC Jashore Logo"
-              width={40}
-              height={40}
+              width={36}
+              height={36}
               className="object-contain"
               priority
             />
           </div>
           <div>
-            <span className="font-extrabold text-lg tracking-tight text-foreground flex items-center gap-1.5">
+            <span className="font-extrabold text-base sm:text-lg tracking-tight text-foreground flex items-center gap-1">
               HPC{' '}
-              <span className="text-emerald-500 font-semibold text-sm">
+              <span className="text-emerald-500 font-semibold text-xs sm:text-sm">
                 Jashore
               </span>
             </span>
@@ -76,43 +135,77 @@ export default function LandingPage() {
           </div>
         </Link>
 
-        {/* Navbar Items: TV, Admin Hub, Login, and Switchers (Language + Theme) */}
-        <nav className="flex items-center gap-1.5 sm:gap-2.5">
+        {/* Navbar Items: TV, Dashboard / Login, Logout, and Switchers */}
+        <nav className="flex items-center gap-1 sm:gap-2">
           {/* Smart TV Queue */}
           <Link href="/tv">
             <Button
               variant="outline"
               size="sm"
-              className="h-8 sm:h-9 px-2.5 sm:px-3 text-xs sm:text-sm font-bold gap-1.5 rounded-xl border-border/80 hover:border-emerald-500/40"
+              className="h-8 sm:h-9 px-2 sm:px-3 text-xs sm:text-sm font-bold gap-1 sm:gap-1.5 rounded-lg sm:rounded-xl border-border/80 hover:border-emerald-500/40"
+              title={t.tvQueue}
             >
-              <Tv className="size-3.5 text-emerald-500" />
-              <span>{t.tvQueue}</span>
+              <Tv className="size-3.5 sm:size-4 text-emerald-500 shrink-0" />
+              <span className="hidden sm:inline">{t.tvQueue}</span>
             </Button>
           </Link>
 
-          {/* Admin Hub */}
-          <Link href="/admin">
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 sm:h-9 px-2.5 sm:px-3 text-xs sm:text-sm font-bold gap-1.5 rounded-xl border-border/80 hover:border-emerald-500/40 hidden xs:inline-flex"
-            >
-              <ShieldCheck className="size-3.5 text-emerald-500" />
-              <span>{isBn ? 'অ্যাডমিন হাব' : 'Admin Hub'}</span>
-            </Button>
-          </Link>
+          {/* If Session: Role Dashboard Button + Logout Button */}
+          {session ? (
+            <>
+              {/* Role Dashboard Button */}
+              <Link href={roleRoute}>
+                <Button
+                  size="sm"
+                  className="bg-emerald-500 hover:bg-emerald-400 text-black font-bold shadow-md shadow-emerald-500/20 active:scale-95 rounded-lg sm:rounded-xl h-8 sm:h-9 px-2 sm:px-3 text-xs sm:text-sm gap-1 sm:gap-1.5"
+                  title={roleLabel}
+                >
+                  <RoleIcon className="size-3.5 sm:size-4 shrink-0" />
+                  <span className="hidden xs:inline">{roleLabel}</span>
+                </Button>
+              </Link>
 
-          {/* Login */}
-          <Link href="/auth/login">
-            <Button
-              size="sm"
-              className="h-8 sm:h-9 px-3 sm:px-4 text-xs sm:text-sm font-bold gap-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black shadow-md shadow-emerald-500/20 active:scale-95"
-            >
-              <span>{t.login}</span>
-            </Button>
-          </Link>
+              {/* Logout Button */}
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={handleLogout}
+                title={isBn ? 'লগআউট' : 'Logout'}
+                aria-label="Logout"
+                className="size-8 sm:size-9 rounded-lg sm:rounded-xl border-border/80 bg-card/80 hover:bg-red-500/10 hover:border-red-500/40 text-muted-foreground hover:text-red-500 active:scale-95 shrink-0 cursor-pointer transition-all duration-200 flex items-center justify-center"
+              >
+                <LogOut className="size-3.5 sm:size-4" />
+              </Button>
+            </>
+          ) : (
+            <>
+              {/* Guest: Admin Hub link on desktop */}
+              <Link href="/admin" className="hidden md:inline-flex">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 sm:h-9 px-2.5 sm:px-3 text-xs sm:text-sm font-bold gap-1.5 rounded-lg sm:rounded-xl border-border/80 hover:border-emerald-500/40"
+                >
+                  <ShieldCheck className="size-3.5 text-emerald-500 shrink-0" />
+                  <span>{isBn ? 'অ্যাডমিন হাব' : 'Admin Hub'}</span>
+                </Button>
+              </Link>
 
-          {/* Switchers (Language + Dual Theme) */}
+              {/* Login Button */}
+              <Link href="/auth/login">
+                <Button
+                  size="sm"
+                  className="h-8 sm:h-9 px-2.5 sm:px-4 text-xs sm:text-sm font-bold gap-1 sm:gap-1.5 rounded-lg sm:rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black shadow-md shadow-emerald-500/20 active:scale-95"
+                >
+                  <LogIn className="size-3.5 sm:size-4 shrink-0" />
+                  <span className="hidden xs:inline">{t.login}</span>
+                </Button>
+              </Link>
+            </>
+          )}
+
+          {/* Switchers (Language + Dual Theme + Reload + Fullscreen) */}
           <NavbarSwitchers />
         </nav>
       </header>
@@ -199,17 +292,17 @@ export default function LandingPage() {
               </Button>
             </Link>
 
-            <Link href="/admin">
+            <Link href={roleRoute}>
               <Button
                 variant="outline"
                 size="lg"
                 className="h-12 px-6 rounded-xl text-sm sm:text-base font-bold gap-2 border-border hover:border-emerald-500/50"
               >
-                <ShieldCheck className="size-5 text-emerald-500" />
+                <RoleIcon className="size-5 text-emerald-500" />
                 <span>
-                  {isBn
-                    ? 'ক্লিনিক্যাল অ্যাডমিন হাব'
-                    : 'Clinical Admin Hub'}
+                  {session
+                    ? (isBn ? `${roleLabel} প্রবেশ করুন` : `Enter ${roleLabel}`)
+                    : (isBn ? 'ক্লিনিক্যাল অ্যাডমিন হাব' : 'Clinical Admin Hub')}
                 </span>
               </Button>
             </Link>
@@ -761,7 +854,10 @@ export default function LandingPage() {
       {/* ============================================================== */}
       {/* FOOTER                                                        */}
       {/* ============================================================== */}
-      <footer className="py-8 bg-card border-t border-border px-4 sm:px-8 text-xs text-muted-foreground">
+      <footer
+        className="py-8 bg-card border-t border-border px-4 sm:px-8 text-xs text-muted-foreground"
+        style={{ paddingBottom: 'max(2rem, calc(env(safe-area-inset-bottom) + 1.5rem))' }}
+      >
         <div className="max-w-5xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-6">
           <Link href="/" className="flex items-center gap-2.5 group">
             <div className="w-8 h-8 rounded-lg bg-white p-0.5 flex items-center justify-center overflow-hidden border border-zinc-200">

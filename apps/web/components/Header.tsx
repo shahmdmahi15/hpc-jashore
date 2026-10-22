@@ -15,7 +15,7 @@ import {
   Radio,
   LogOut,
 } from 'lucide-react';
-import { UserSession, clearSession } from '../lib/api';
+import { UserSession, clearSession, getRoleHomeRoute } from '../lib/api';
 import { BrandLogo } from './brand/logo';
 import { NavbarSwitchers } from './NavbarSwitchers';
 import { useLanguage } from '../lib/i18n';
@@ -40,6 +40,38 @@ const ALL_TABS = [
   { id: 'reception', labelBn: 'অভ্যর্থনা', labelEn: 'Receptionist', icon: ClipboardList, href: '/receptionist', roles: ['admin', 'receptionist'] },
   { id: 'tv', labelBn: 'টিভি কিউ', labelEn: 'Waiting TV', icon: Tv, href: '/tv', roles: ['admin', 'doctor', 'handler', 'cashier', 'receptionist'] },
 ];
+
+function getRoleIcon(role?: string) {
+  switch (role) {
+    case 'doctor':
+      return Stethoscope;
+    case 'handler':
+      return Activity;
+    case 'cashier':
+      return CreditCard;
+    case 'receptionist':
+      return ClipboardList;
+    case 'admin':
+    default:
+      return ShieldCheck;
+  }
+}
+
+function getRoleLabel(role?: string, isBn = true) {
+  switch (role) {
+    case 'doctor':
+      return isBn ? 'ডাক্তার চেম্বার' : 'Doctor Chamber';
+    case 'handler':
+      return isBn ? 'হ্যান্ডলার হাব' : 'Handler Hub';
+    case 'cashier':
+      return isBn ? 'ক্যাশিয়ার ডেস্ক' : 'Cashier Desk';
+    case 'receptionist':
+      return isBn ? 'অভ্যর্থনা' : 'Reception';
+    case 'admin':
+    default:
+      return isBn ? 'অ্যাডমিন হাব' : 'Admin Hub';
+  }
+}
 
 export default function Header({
   session,
@@ -66,14 +98,21 @@ export default function Header({
 
   const handleLogout = () => {
     clearSession();
-    toast.success('লগআউট সম্পন্ন হয়েছে');
+    toast.success(language === 'bn' ? 'লগআউট সম্পন্ন হয়েছে' : 'Logged out successfully');
     router.push('/auth/login');
   };
 
   return (
-    <header className="w-full px-3 sm:px-6 py-2.5 border-b border-border/80 bg-card/85 backdrop-blur-xl sticky top-0 z-40 flex flex-wrap items-center justify-between gap-3 shadow-xs">
+    <header
+      className="w-full px-3 sm:px-6 py-2 sm:py-2.5 border-b border-border/80 bg-card/85 backdrop-blur-xl sticky top-0 z-40 flex flex-wrap items-center justify-between gap-2 sm:gap-3 shadow-xs"
+      style={{
+        paddingTop: 'max(0.6rem, env(safe-area-inset-top))',
+        paddingLeft: 'max(0.75rem, env(safe-area-inset-left))',
+        paddingRight: 'max(0.75rem, env(safe-area-inset-right))',
+      }}
+    >
       {/* 1. Left: Brand & Telemetry Badge */}
-      <div className="flex items-center gap-3 shrink-0">
+      <div className="flex items-center gap-2 sm:gap-3 shrink-0">
         <BrandLogo size="sm" variant="full" className="cursor-pointer" onClick={() => router.push('/')} />
 
         {/* Realtime Live Telemetry Badge */}
@@ -134,8 +173,8 @@ export default function Header({
         })}
       </nav>
 
-      {/* 3. Right: Live Clock, Role Selector & Controls */}
-      <div className="flex items-center gap-2 sm:gap-3 shrink-0 ml-auto sm:ml-0">
+      {/* 3. Right: Live Clock, Active Role Dashboard Button & Controls */}
+      <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0 ml-auto sm:ml-0">
         {/* Live Digital Clock */}
         <div className="hidden xl:flex items-center gap-1.5 2xl:gap-2 px-2.5 2xl:px-3 py-1 rounded-xl bg-muted/40 border border-border/60 text-xs font-mono text-muted-foreground">
           <Clock className="size-3.5 text-emerald-500 animate-pulse shrink-0" />
@@ -149,6 +188,28 @@ export default function Header({
           </span>
         </div>
 
+        {/* Active Role Dashboard Button (Visible on both mobile and desktop) */}
+        {session && (
+          <button
+            type="button"
+            onClick={() => {
+              const homeRoute = getRoleHomeRoute(session.role);
+              if (onTabChange) onTabChange(session.role);
+              router.push(homeRoute);
+            }}
+            title={language === 'bn' ? `${getRoleLabel(session.role, true)} ড্যাশবোর্ড` : `${getRoleLabel(session.role, false)} Dashboard`}
+            className="flex items-center gap-1 sm:gap-1.5 h-8 sm:h-9 px-2 sm:px-2.5 rounded-lg sm:rounded-xl text-xs sm:text-sm font-bold bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 transition-all cursor-pointer active:scale-95 shrink-0"
+          >
+            {(() => {
+              const RoleIcon = getRoleIcon(session.role);
+              return <RoleIcon className="size-3.5 sm:size-4 shrink-0 text-emerald-500" />;
+            })()}
+            <span className="hidden xs:inline">
+              {getRoleLabel(session.role, language === 'bn')}
+            </span>
+          </button>
+        )}
+
         {/* Global Switchers: Language + Theme + Fullscreen */}
         <NavbarSwitchers />
 
@@ -158,10 +219,11 @@ export default function Header({
           variant="outline"
           size="icon"
           onClick={handleLogout}
-          title="Logout"
-          className="size-9 rounded-xl border-border/80 bg-card/80 hover:bg-red-500/10 hover:border-red-500/40 text-muted-foreground hover:text-red-500 shrink-0 cursor-pointer"
+          title={language === 'bn' ? 'লগআউট' : 'Logout'}
+          aria-label="Logout"
+          className="size-8 sm:size-9 rounded-lg sm:rounded-xl border-border/80 bg-card/80 hover:bg-red-500/10 hover:border-red-500/40 text-muted-foreground hover:text-red-500 shrink-0 cursor-pointer active:scale-95 transition-all duration-200 flex items-center justify-center"
         >
-          <LogOut className="size-4" />
+          <LogOut className="size-3.5 sm:size-4" />
         </Button>
       </div>
     </header>

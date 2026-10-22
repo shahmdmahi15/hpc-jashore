@@ -324,7 +324,7 @@ export function LanguageToggle({ className }: { className?: string }) {
     return (
       <div
         className={cn(
-          'h-9 px-2.5 rounded-xl border border-zinc-800 bg-zinc-900/60 animate-pulse shrink-0',
+          'h-8 sm:h-9 px-2 sm:px-2.5 rounded-lg sm:rounded-xl border border-zinc-800 bg-zinc-900/60 animate-pulse shrink-0',
           className,
         )}
       />
@@ -340,13 +340,13 @@ export function LanguageToggle({ className }: { className?: string }) {
       type="button"
       onClick={toggleLanguage}
       className={cn(
-        'h-9 px-2.5 rounded-xl border border-border/80 bg-card/80 hover:bg-muted/80 hover:border-emerald-500/40 text-muted-foreground hover:text-foreground flex items-center gap-1.5 transition-all duration-200 cursor-pointer shrink-0 shadow-xs backdrop-blur-md active:scale-95 text-xs font-bold group',
+        'h-8 sm:h-9 px-2 sm:px-2.5 rounded-lg sm:rounded-xl border border-border/80 bg-card/80 hover:bg-muted/80 hover:border-emerald-500/40 text-muted-foreground hover:text-foreground flex items-center gap-1 sm:gap-1.5 transition-all duration-200 cursor-pointer shrink-0 shadow-xs backdrop-blur-md active:scale-95 text-[11px] sm:text-xs font-bold group',
         className,
       )}
       aria-label={isBn ? 'Switch to English' : 'বাংলায় পরিবর্তন করুন'}
       title={isBn ? 'Switch to English' : 'বাংলায় পরিবর্তন করুন'}
     >
-      <Globe className="size-3.5 text-emerald-500 group-hover:rotate-45 transition-transform duration-200" />
+      <Globe className="size-3 sm:size-3.5 text-emerald-500 group-hover:rotate-45 transition-transform duration-200" />
       <span className="font-sans font-bold">
         {isBn ? 'EN' : 'বাং'}
       </span>

@@ -1,15 +1,29 @@
 // apps/web/components/AuthLayout.tsx
 'use client';
 
-import React from 'react';
-import Link from 'next/link';
+import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
-import { AlertCircle, ArrowLeft, ShieldCheck, Tv, User } from 'lucide-react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import {
+  ArrowLeft,
+  Tv,
+  User,
+  LogOut,
+  ShieldCheck,
+  Stethoscope,
+  Activity,
+  CreditCard,
+  ClipboardList,
+  AlertCircle,
+} from 'lucide-react';
 import { NavbarSwitchers } from './NavbarSwitchers';
-import { Badge } from './ui/badge';
 import { Card, CardContent } from './ui/card';
+import { Badge } from './ui/badge';
 import { Alert, AlertDescription } from './ui/alert';
 import { useLanguage } from '../lib/i18n';
+import { getSession, clearSession, getRoleHomeRoute, UserSession } from '../lib/api';
+import { toast } from 'sonner';
 
 interface AuthLayoutProps {
   children: React.ReactNode;
@@ -24,6 +38,38 @@ interface AuthLayoutProps {
   };
 }
 
+function getRoleIcon(role?: string) {
+  switch (role) {
+    case 'doctor':
+      return Stethoscope;
+    case 'handler':
+      return Activity;
+    case 'cashier':
+      return CreditCard;
+    case 'receptionist':
+      return ClipboardList;
+    case 'admin':
+    default:
+      return ShieldCheck;
+  }
+}
+
+function getRoleLabel(role?: string, isBn = true) {
+  switch (role) {
+    case 'doctor':
+      return isBn ? 'ডাক্তার চেম্বার' : 'Doctor Chamber';
+    case 'handler':
+      return isBn ? 'হ্যান্ডলার হাব' : 'Handler Hub';
+    case 'cashier':
+      return isBn ? 'ক্যাশিয়ার ডেস্ক' : 'Cashier Desk';
+    case 'receptionist':
+      return isBn ? 'অভ্যর্থনা' : 'Reception';
+    case 'admin':
+    default:
+      return isBn ? 'অ্যাডমিন হাব' : 'Admin Hub';
+  }
+}
+
 export function AuthLayout({
   children,
   title,
@@ -32,7 +78,21 @@ export function AuthLayout({
   errorMsg,
   topRightLink,
 }: AuthLayoutProps) {
-  const { t } = useLanguage();
+  const router = useRouter();
+  const { t, language } = useLanguage();
+  const isBn = language === 'bn';
+  const [session, setSession] = useState<UserSession | null>(null);
+
+  useEffect(() => {
+    setSession(getSession());
+  }, []);
+
+  const handleLogout = () => {
+    clearSession();
+    setSession(null);
+    toast.success(isBn ? 'লগআউট সম্পন্ন হয়েছে' : 'Logged out successfully');
+    router.push('/auth/login');
+  };
 
   return (
     <main
@@ -61,31 +121,60 @@ export function AuthLayout({
         {/* Home Back Link */}
         <Link
           href="/"
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border/80 bg-card/80 hover:bg-muted/80 text-muted-foreground hover:text-foreground hover:border-emerald-500/40 transition-all font-medium backdrop-blur-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border/80 bg-card/80 hover:bg-muted/80 text-muted-foreground hover:text-foreground hover:border-emerald-500/40 transition-all font-medium backdrop-blur-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 active:scale-95"
           title={t.home}
         >
           <ArrowLeft className="size-3.5 text-emerald-500" />
           <span>{t.home}</span>
         </Link>
 
-        {/* Right Nav: Optional Page Link + Dual Switchers (Language + Theme) */}
-        <div className="flex items-center gap-2">
-          {topRightLink ? (
-            <Link
-              href={topRightLink.href}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 hover:border-emerald-500/50 transition-all font-semibold backdrop-blur-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
-            >
-              {topRightLink.icon || <User className="size-3.5" />}
-              <span>{topRightLink.label}</span>
-            </Link>
+        {/* Right Nav: Session Dashboard & Logout (if logged in) OR Optional Page Link / TV Link + Switchers */}
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          {session ? (
+            <>
+              <Link
+                href={getRoleHomeRoute(session.role)}
+                className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg sm:rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 hover:border-emerald-500/50 transition-all font-semibold backdrop-blur-md text-xs active:scale-95"
+                title={session.displayName || 'Role Dashboard'}
+              >
+                {(() => {
+                  const RoleIcon = getRoleIcon(session.role);
+                  return <RoleIcon className="size-3.5 text-emerald-500 shrink-0" />;
+                })()}
+                <span className="hidden xs:inline">
+                  {getRoleLabel(session.role, isBn)}
+                </span>
+              </Link>
+              <button
+                type="button"
+                onClick={handleLogout}
+                title={isBn ? 'লগআউট' : 'Logout'}
+                aria-label="Logout"
+                className="size-8 sm:size-9 rounded-lg sm:rounded-xl border border-border/80 bg-card/80 hover:bg-red-500/10 hover:border-red-500/40 text-muted-foreground hover:text-red-500 flex items-center justify-center transition-all cursor-pointer active:scale-95 shrink-0"
+              >
+                <LogOut className="size-3.5 sm:size-4" />
+              </button>
+            </>
           ) : (
-            <Link
-              href="/tv"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border/80 bg-card/80 text-muted-foreground hover:text-emerald-500 hover:border-emerald-500/40 transition-all font-medium backdrop-blur-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
-            >
-              <Tv className="size-3.5 text-emerald-500" />
-              <span>{t.tvQueue}</span>
-            </Link>
+            <>
+              {topRightLink ? (
+                <Link
+                  href={topRightLink.href}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg sm:rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 hover:border-emerald-500/50 transition-all font-semibold backdrop-blur-md text-xs active:scale-95"
+                >
+                  {topRightLink.icon || <User className="size-3.5" />}
+                  <span>{topRightLink.label}</span>
+                </Link>
+              ) : (
+                <Link
+                  href="/tv"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg sm:rounded-xl border border-border/80 bg-card/80 text-muted-foreground hover:text-emerald-500 hover:border-emerald-500/40 transition-all font-medium backdrop-blur-md text-xs active:scale-95"
+                >
+                  <Tv className="size-3.5 text-emerald-500" />
+                  <span className="hidden xs:inline">{t.tvQueue}</span>
+                </Link>
+              )}
+            </>
           )}
 
           {/* Proper Switchers: Language + Dual Theme */}

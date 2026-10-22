@@ -33,7 +33,7 @@ export function HardReloadButton({ className }: { className?: string }) {
       title="Hard Reload / হার্ড রিলোড"
       aria-label="Hard Reload"
       className={cn(
-        'size-8 sm:size-9 rounded-xl border-border/80 bg-card/80 hover:bg-muted/80 hover:border-emerald-500/40 text-muted-foreground hover:text-emerald-500 shrink-0 cursor-pointer transition-all duration-200 active:scale-95',
+        'size-8 sm:size-9 rounded-lg sm:rounded-xl border-border/80 bg-card/80 hover:bg-muted/80 hover:border-emerald-500/40 text-muted-foreground hover:text-emerald-500 shrink-0 cursor-pointer transition-all duration-200 active:scale-95',
         className
       )}
     >
@@ -74,7 +74,7 @@ export function FullscreenToggle({ className }: { className?: string }) {
       title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
       aria-label={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
       className={cn(
-        'size-8 sm:size-9 rounded-xl border-border/80 bg-card/80 hover:bg-muted/80 hover:border-emerald-500/40 text-muted-foreground hover:text-foreground shrink-0 cursor-pointer transition-all duration-200 active:scale-95',
+        'size-8 sm:size-9 rounded-lg sm:rounded-xl border-border/80 bg-card/80 hover:bg-muted/80 hover:border-emerald-500/40 text-muted-foreground hover:text-foreground shrink-0 cursor-pointer transition-all duration-200 active:scale-95',
         className
       )}
     >
@@ -97,7 +97,7 @@ export function NavbarSwitchers({
   showReload?: boolean;
 }) {
   return (
-    <div className={cn('flex items-center gap-1.5 sm:gap-2 shrink-0', className)}>
+    <div className={cn('flex items-center gap-1 sm:gap-1.5 md:gap-2 shrink-0', className)}>
       <LanguageToggle />
       <ThemeToggle />
       {showReload && <HardReloadButton />}

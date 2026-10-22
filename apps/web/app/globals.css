@@ -479,6 +479,10 @@ select:-webkit-autofill:active {
 .safe-area-top {
   padding-top: env(safe-area-inset-top, 0px);
 }
+.pt-safe-or-3 { padding-top: max(0.75rem, env(safe-area-inset-top, 0px)); }
+.pt-safe-or-2 { padding-top: max(0.5rem, env(safe-area-inset-top, 0px)); }
+.pb-safe-or-3 { padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0px)); }
+.px-safe { padding-left: max(0.75rem, env(safe-area-inset-left, 0px)); padding-right: max(0.75rem, env(safe-area-inset-right, 0px)); }
 
 @page thermal {
   size: 80mm auto;
