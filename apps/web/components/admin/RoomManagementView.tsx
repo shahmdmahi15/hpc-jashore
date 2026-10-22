@@ -201,6 +201,17 @@ export const STATUS_CONFIG: Record<
   },
 };
 
+function formatDate(dateStr?: string | null): string {
+  if (!dateStr) return '—';
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return '—';
+    return d.toISOString().split('T')[0];
+  } catch {
+    return '—';
+  }
+}
+
 export function RoomManagementView() {
   const { language } = useLanguage();
   const isBn = language === 'bn';
@@ -251,8 +262,16 @@ export function RoomManagementView() {
       });
 
       if (res.success && res.data) {
-        setRooms(res.data.items);
-        setStats(res.data.stats);
+        setRooms(res.data.items || []);
+        setStats(
+          res.data.stats || {
+            total: 0,
+            available: 0,
+            occupied: 0,
+            maintenance: 0,
+            notAllowed: 0,
+          },
+        );
       } else {
         toast.error(res.error || (isBn ? 'রুমের তথ্য লোড করতে সমস্যা হয়েছে' : 'Failed to load rooms'));
       }
@@ -385,7 +404,7 @@ export function RoomManagementView() {
                 {isBn ? 'মোট রুম সংখ্যা' : 'Total Rooms'}
               </p>
               <h3 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
-                {stats.total}
+                {stats?.total ?? 0}
               </h3>
             </div>
             <div className="p-2.5 rounded-xl bg-slate-500/10 text-slate-600 dark:text-slate-400 border border-slate-500/20">
@@ -402,7 +421,7 @@ export function RoomManagementView() {
                 {isBn ? 'প্রস্তুত / খালি' : 'Available'}
               </p>
               <h3 className="text-2xl sm:text-3xl font-bold tracking-tight text-emerald-700 dark:text-emerald-300">
-                {stats.available}
+                {stats?.available ?? 0}
               </h3>
             </div>
             <div className="p-2.5 rounded-xl bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
@@ -419,7 +438,7 @@ export function RoomManagementView() {
                 {isBn ? 'ব্যস্ত / রোগী আছেন' : 'Occupied'}
               </p>
               <h3 className="text-2xl sm:text-3xl font-bold tracking-tight text-blue-700 dark:text-blue-300">
-                {stats.occupied}
+                {stats?.occupied ?? 0}
               </h3>
             </div>
             <div className="p-2.5 rounded-xl bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/30">
@@ -436,7 +455,7 @@ export function RoomManagementView() {
                 {isBn ? 'রক্ষণাবেক্ষণ' : 'Maintenance'}
               </p>
               <h3 className="text-2xl sm:text-3xl font-bold tracking-tight text-amber-700 dark:text-amber-300">
-                {stats.maintenance}
+                {stats?.maintenance ?? 0}
               </h3>
             </div>
             <div className="p-2.5 rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30">
@@ -453,7 +472,7 @@ export function RoomManagementView() {
                 {isBn ? 'অপ্রবেশ্য / বন্ধ' : 'Not Allowed'}
               </p>
               <h3 className="text-2xl sm:text-3xl font-bold tracking-tight text-rose-700 dark:text-rose-300">
-                {stats.notAllowed}
+                {stats?.notAllowed ?? 0}
               </h3>
             </div>
             <div className="p-2.5 rounded-xl bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/30">
@@ -786,7 +805,7 @@ export function RoomManagementView() {
                 {/* Card Actions Footer */}
                 <div className="px-4 py-3 bg-muted/30 border-t border-border/40 flex items-center justify-between gap-2">
                   <span className="text-[10px] text-muted-foreground">
-                    {new Date(room.updatedAt || room.createdAt).toLocaleDateString()}
+                    {formatDate(room.updatedAt || room.createdAt)}
                   </span>
 
                   <div className="flex items-center gap-1.5">

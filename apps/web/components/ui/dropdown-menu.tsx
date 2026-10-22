@@ -43,20 +43,37 @@ export function DropdownMenu({ children }: { children: React.ReactNode }) {
 }
 
 export const DropdownMenuTrigger = React.forwardRef<
-  HTMLButtonElement,
+  any,
   React.ButtonHTMLAttributes<HTMLButtonElement> & { asChild?: boolean }
->(({ className, children, onClick, ...props }, ref) => {
+>(({ className, children, onClick, asChild, ...props }, ref) => {
   const { open, setOpen } = React.useContext(DropdownContext);
+
+  const handleClick = (e: React.MouseEvent<any>) => {
+    setOpen((prev) => !prev);
+    if (asChild && React.isValidElement(children)) {
+      (children as any).props?.onClick?.(e);
+    }
+    onClick?.(e as any);
+  };
+
+  if (asChild && React.isValidElement(children)) {
+    return React.cloneElement(children as React.ReactElement<any>, {
+      ref,
+      'aria-haspopup': 'menu',
+      'aria-expanded': open,
+      onClick: handleClick,
+      className: cn((children as any).props?.className, className),
+      ...props,
+    });
+  }
+
   return (
     <button
       ref={ref}
       type="button"
       aria-haspopup="menu"
       aria-expanded={open}
-      onClick={(e) => {
-        setOpen((prev) => !prev);
-        onClick?.(e);
-      }}
+      onClick={handleClick}
       className={cn('inline-flex items-center justify-center cursor-pointer', className)}
       {...props}
     >

@@ -174,14 +174,6 @@ const ADMIN_ROW2_TABS = [
     descriptionBn: 'থেরাপি হলের সময়সূচী, মেশিন বরাদ্দ ও রোগীর চলমান সেশন মনিটরিং।',
   },
   {
-    id: 'patients',
-    titleEn: 'Patients',
-    titleBn: 'রোগী তালিকা',
-    icon: Users,
-    descriptionEn: 'Central patient directory, electronic medical records (EMR), and contact history.',
-    descriptionBn: 'কেন্দ্রীয় রোগী ডাটাবেস, চিকিৎসা ইতিহাস এবং যোগাযোগের তথ্য।',
-  },
-  {
     id: 'chat',
     titleEn: 'Chat',
     titleBn: 'অভ্যন্তরীণ বার্তা',
@@ -304,7 +296,7 @@ export default function AdminPage() {
               <PatientManagementView />
             </TabsContent>
 
-            {ADMIN_ROW2_TABS.filter((t) => t.id !== 'patients').map((tab) => (
+            {ADMIN_ROW2_TABS.map((tab) => (
               <TabsContent key={tab.id} value={tab.id} className="mt-4 focus-visible:outline-none">
                 <WorkstationTabPlaceholder
                   titleEn={tab.titleEn}

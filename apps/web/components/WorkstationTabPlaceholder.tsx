@@ -51,7 +51,7 @@ export function WorkstationTabPlaceholder({
             </div>
             <div className="flex items-center gap-2 text-xs text-muted-foreground bg-background/50 px-3 py-1.5 rounded-lg border border-border/40 w-fit">
               <Sparkles className="w-3.5 h-3.5 text-emerald-500 animate-pulse" />
-              <span>HPC Jashore v0.1.14</span>
+              <span>HPC Jashore v0.1.15</span>
             </div>
           </div>
         </CardHeader>
