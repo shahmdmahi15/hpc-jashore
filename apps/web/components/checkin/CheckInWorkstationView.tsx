@@ -51,11 +51,13 @@ import {
 } from '../ui/dialog';
 import { toast } from 'sonner';
 import { useLanguage } from '../../lib/i18n';
+import { useRealtime } from '../../lib/use-realtime';
 import {
   getCheckInOverviewAction,
   checkInPatientAction,
   type CheckInOverviewResult,
   type TherapyBookingItem,
+  type TodayConsultationBookingItem,
   type LiveQueuePatient,
   type RecentCheckInVisit,
   type PunctualityStatus,
@@ -129,7 +131,6 @@ export function CheckInWorkstationView() {
   const [selectedPatient, setSelectedPatient] = useState<PatientRecord | null>(null);
 
   // Form inputs
-  const [destination, setDestination] = useState<'therapy' | 'consultation'>('therapy');
   const [priority, setPriority] = useState<'normal' | 'emergency' | 'vip'>('normal');
   const [customToldTime, setCustomToldTime] = useState('');
   const [notes, setNotes] = useState('');
@@ -169,6 +170,23 @@ export function CheckInWorkstationView() {
     const interval = setInterval(loadData, 15000);
     return () => clearInterval(interval);
   }, []);
+
+  // Listen to realtime events across all active workstations, desks, and TV app
+  useRealtime((event) => {
+    if (
+      event.type === 'therapy.slot.updated' ||
+      event.type === 'therapy.booking.cancelled' ||
+      event.type === 'therapy.booking.created' ||
+      event.type === 'therapy.booking.approved' ||
+      event.type === 'therapy.booking.rejected' ||
+      event.type === 'visit.checked_in' ||
+      event.type === 'therapy.queue.updated' ||
+      event.type === 'consultation.booking.cancelled' ||
+      event.type === 'consultation.booking.created'
+    ) {
+      loadData();
+    }
+  });
 
   // Search patient debounce
   useEffect(() => {
@@ -215,15 +233,31 @@ export function CheckInWorkstationView() {
     return validTodayBookings;
   }, [validTodayBookings, todayBookingFilter]);
 
-  // Detected active booking for selected patient
+  // Detected active therapy slot booking for selected patient
   const matchedBooking = useMemo<TherapyBookingItem | null>(() => {
     if (!selectedPatient || !data) return null;
     return (
       validTodayBookings.find(
-        (b) => b.patientId === selectedPatient.id && b.status !== 'attended',
+        (b) =>
+          b.patientId === selectedPatient.id &&
+          b.status !== 'attended' &&
+          b.status !== 'cancelled',
       ) || null
     );
   }, [selectedPatient, validTodayBookings]);
+
+  // Detected active consultation booking for selected patient
+  const matchedConsultationBooking = useMemo<TodayConsultationBookingItem | null>(() => {
+    if (!selectedPatient || !data?.todayConsultationBookings) return null;
+    return (
+      data.todayConsultationBookings.find(
+        (b) =>
+          b.patientId === selectedPatient.id &&
+          b.status !== 'completed' &&
+          b.status !== 'cancelled',
+      ) || null
+    );
+  }, [selectedPatient, data?.todayConsultationBookings]);
 
   // Live forecast punctuality for selected patient
   const forecastPunctuality = useMemo(() => {
@@ -232,7 +266,7 @@ export function CheckInWorkstationView() {
     return calculatePunctuality(timeToEvaluate, new Date());
   }, [customToldTime, matchedBooking]);
 
-  // Handle Cancel Booking directly from Check-In view
+  // Handle Cancel Booking directly from Check-In view with instant optimistic UI update
   const handleCancelBooking = async (bookingId: string) => {
     if (
       !confirm(
@@ -243,6 +277,15 @@ export function CheckInWorkstationView() {
     ) {
       return;
     }
+    // Optimistically remove from state so matchedBooking disappears instantly
+    setData((prev) =>
+      prev
+        ? {
+            ...prev,
+            todayBookings: prev.todayBookings.filter((b) => b.id !== bookingId),
+          }
+        : prev,
+    );
     try {
       const res = await deleteTherapyBookingAction(bookingId);
       if (res.success) {
@@ -254,9 +297,11 @@ export function CheckInWorkstationView() {
         loadData();
       } else {
         toast.error(res.error || (isBn ? 'বুকিং বাতিল ব্যর্থ' : 'Failed to cancel booking'));
+        loadData();
       }
     } catch (err: any) {
       toast.error(err?.message || (isBn ? 'বুকিং বাতিল ব্যর্থ' : 'Failed to cancel booking'));
+      loadData();
     }
   };
 
@@ -268,23 +313,31 @@ export function CheckInWorkstationView() {
       return;
     }
 
-    const effectiveTold = toldTimeOverride || customToldTime.trim() || matchedBooking?.toldTime || undefined;
+    const effectiveBooking = bookingId
+      ? validTodayBookings.find((b) => b.id === bookingId)
+      : matchedBooking;
+    const hasTherapySlot = Boolean(effectiveBooking);
+    const effectiveTold = toldTimeOverride || customToldTime.trim() || effectiveBooking?.toldTime || undefined;
 
     startTransition(async () => {
       try {
         const res = await checkInPatientAction({
           patientId: pId,
-          destination,
+          destination: hasTherapySlot ? 'therapy' : 'waiting_room',
           priority,
           toldTime: effectiveTold,
-          therapyBookingId: bookingId || matchedBooking?.id || undefined,
+          therapyBookingId: effectiveBooking?.id || undefined,
           notes: notes.trim() || undefined,
         });
 
         toast.success(
-          isBn
-            ? `টোকেন #${toBnNum(res.tokenSlip.tokenNumber)} চেক-ইন সম্পন্ন হয়েছে!`
-            : `Token #${res.tokenSlip.tokenNumber} checked in successfully!`,
+          hasTherapySlot
+            ? (isBn
+                ? `টোকেন #${toBnNum(res.tokenSlip.tokenNumber)} চেক-ইন সম্পন্ন! থেরাপি কিউ-তে যুক্ত করা হয়েছে।`
+                : `Token #${res.tokenSlip.tokenNumber} checked in & queued for therapy!`)
+            : (isBn
+                ? `টোকেন #${toBnNum(res.tokenSlip.tokenNumber)} চেক-ইন সম্পন্ন! রোগীকে ওয়েটিং রুমে পাঠানো হয়েছে।`
+                : `Token #${res.tokenSlip.tokenNumber} checked in to waiting room!`),
         );
 
         // Open slip preview
@@ -635,115 +688,174 @@ export function CheckInWorkstationView() {
 
             {/* Right Column: Check-in Destination, Punctuality & Submit (7 Cols) */}
             <Card className="lg:col-span-7 p-4 sm:p-5 rounded-2xl border border-border/50 shadow-2xs space-y-4">
-              <div>
-                <Label className="text-xs font-bold text-foreground">
-                  {isBn ? '২. গন্তব্য ও কিউ নির্বাচন' : '2. Destination & Queue Selection'}
-                </Label>
-                <div className="grid grid-cols-2 gap-2 mt-2">
-                  <div
-                    onClick={() => setDestination('therapy')}
-                    className={`p-3 rounded-xl border cursor-pointer transition-all flex items-center gap-3 ${
-                      destination === 'therapy'
-                        ? 'border-emerald-500 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 shadow-xs'
-                        : 'border-border/60 bg-muted/10 hover:bg-muted/30 text-muted-foreground'
-                    }`}
-                  >
-                    <Activity className="w-5 h-5 text-emerald-500 shrink-0" />
-                    <div>
-                      <div className="text-xs font-bold text-foreground">
-                        {isBn ? 'থেরাপি কিউ (হল)' : 'Therapy Queue (Hall)'}
-                      </div>
-                      <div className="text-[10px] text-muted-foreground">
-                        {isBn ? 'সরাসরি থেরাপি হলে পাঠান' : 'Directly to therapy hall'}
-                      </div>
-                    </div>
-                  </div>
+              {/* Section 2: Destination & Queue Auto-Routing Protocol */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-bold text-foreground">
+                    {isBn ? '২. চেক-ইন গন্তব্য ও কিউ প্রোটোকল' : '2. Destination & Queue Protocol'}
+                  </Label>
+                  <span className="text-[11px] text-muted-foreground font-medium">
+                    {matchedBooking
+                      ? (isBn ? '🟢 থেরাপি কিউ নির্ধারিত' : '🟢 Therapy Queue')
+                      : matchedConsultationBooking
+                      ? (isBn ? '🔵 অপেক্ষাগার (কনসালটেশন বুকড)' : '🔵 Waiting Room (Consultation Booked)')
+                      : (isBn ? '⚪ ওয়েটিং রুম চেক-ইন' : '⚪ Waiting Room')}
+                  </span>
+                </div>
 
-                  <div
-                    onClick={() => setDestination('consultation')}
-                    className={`p-3 rounded-xl border cursor-pointer transition-all flex items-center gap-3 ${
-                      destination === 'consultation'
-                        ? 'border-emerald-500 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 shadow-xs'
-                        : 'border-border/60 bg-muted/10 hover:bg-muted/30 text-muted-foreground'
-                    }`}
-                  >
-                    <Stethoscope className="w-5 h-5 text-emerald-500 shrink-0" />
-                    <div>
-                      <div className="text-xs font-bold text-foreground">
-                        {isBn ? 'ডাক্তার কনসালটেশন' : 'Doctor Consultation'}
+                {!selectedPatient ? (
+                  <div className="p-4 rounded-xl border border-dashed border-border/80 bg-muted/20 text-center space-y-1">
+                    <p className="text-xs font-medium text-muted-foreground">
+                      {isBn
+                        ? 'রোগীর কিউ ও আগমন গন্তব্য দেখতে বাম পাশ থেকে রোগী নির্বাচন করুন।'
+                        : 'Select a patient from the search panel on the left to see their check-in route.'}
+                    </p>
+                  </div>
+                ) : matchedBooking ? (
+                  /* Case 1: Active Today's Therapy Slot Found -> Auto Therapy Queue */
+                  <div className="p-3.5 sm:p-4 rounded-xl border border-emerald-500/40 bg-emerald-500/10 dark:bg-emerald-500/15 space-y-3 shadow-2xs">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <div className="p-1.5 rounded-lg bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
+                          <Activity className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <div className="text-xs font-bold text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
+                            {isBn ? 'স্বয়ংক্রিয় থেরাপি কিউ (Auto Therapy Queue)' : 'Automatic Therapy Queue Entry'}
+                            <Badge className="text-[10px] bg-emerald-600 hover:bg-emerald-600 text-white font-mono px-1.5 py-0">
+                              {isBn ? 'স্লট নিশ্চিত' : 'Active Slot'}
+                            </Badge>
+                          </div>
+                          <div className="text-[11px] text-emerald-700/80 dark:text-emerald-300/80">
+                            {isBn
+                              ? `নির্ধারিত স্লট সময়: ${matchedBooking.slotHour}`
+                              : `Booked Slot: ${matchedBooking.slotHour}`}
+                          </div>
+                        </div>
                       </div>
-                      <div className="text-[10px] text-muted-foreground">
-                        {isBn ? 'ডাক্তার সিরিয়াল তৈরি হবে' : 'Consultation serial queue'}
+
+                      {/* Instant Cancel Booking Button directly on the card */}
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleCancelBooking(matchedBooking.id)}
+                        disabled={isPending}
+                        className="h-7 px-2.5 text-xs font-medium border-rose-500/40 text-rose-600 hover:text-rose-700 hover:bg-rose-500/15 dark:hover:bg-rose-500/20 rounded-lg cursor-pointer transition-all active:scale-95 shadow-2xs gap-1"
+                        title={isBn ? 'এই থেরাপি স্লট বুকিং বাতিল করুন' : 'Cancel this therapy slot booking'}
+                      >
+                        <Trash2 className="w-3 h-3 text-rose-600" />
+                        <span>{isBn ? 'বুকিং বাতিল করুন' : 'Cancel Slot'}</span>
+                      </Button>
+                    </div>
+
+                    <div className="pt-2 border-t border-emerald-500/20 flex flex-wrap items-center justify-between gap-2 text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="text-muted-foreground text-[11px]">
+                          {isBn ? 'নির্ধারিত সময় (Told Time):' : 'Told Time:'}
+                        </span>
+                        <strong className="font-mono text-foreground font-bold">
+                          {matchedBooking.toldTime || (isBn ? 'নির্দিষ্ট নয়' : 'Not set')}
+                        </strong>
+                      </div>
+                      {forecastPunctuality && (
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-muted-foreground text-[11px]">
+                            {isBn ? 'সম্ভাব্য সময়ানুবর্তিতা:' : 'Punctuality:'}
+                          </span>
+                          {renderPunctualityBadge(forecastPunctuality.status, forecastPunctuality.delayMinutes)}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : matchedConsultationBooking ? (
+                  /* Case 2: Consultation Serial Found (No Therapy Slot) -> Waiting Room Check-in */
+                  <div className="p-3.5 sm:p-4 rounded-xl border border-sky-500/40 bg-sky-500/10 dark:bg-sky-500/15 space-y-2 shadow-2xs">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <div className="p-1.5 rounded-lg bg-sky-500/20 text-sky-600 dark:text-sky-400 border border-sky-500/30">
+                          <Stethoscope className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <div className="text-xs font-bold text-sky-900 dark:text-sky-200 flex items-center gap-1.5">
+                            {isBn ? 'অপেক্ষাগার চেক-ইন (Waiting Room Arrival)' : 'Waiting Room Arrival (Consultation)'}
+                            <Badge variant="outline" className="text-[10px] border-sky-500/40 text-sky-700 dark:text-sky-300 font-mono">
+                              {matchedConsultationBooking.slotTime}
+                            </Badge>
+                          </div>
+                          <div className="text-[11px] text-sky-700/80 dark:text-sky-300/80">
+                            {matchedConsultationBooking.doctor?.fullName || (isBn ? 'ডাক্তার চেম্বার' : 'Doctor Chamber')}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground leading-relaxed pt-1 border-t border-sky-500/20">
+                      {isBn
+                        ? 'রোগীর আজকের ডাক্তার কনসালটেশন স্লট বুক করা রয়েছে। ক্লিনিক প্রোটোকল অনুযায়ী চেক-ইনের পর রোগী ওয়েটিং রুমে অবস্থান করবেন। ক্যাশ কাউন্টার/অভ্যর্থনা থেকে পেমেন্ট গ্রহণের পর তাকে ডাক্তার কিউ-তে পাঠানো হবে (চেক-ইন থেকে সরাসরি ডাক্তার কিউতে পাঠানো নিষিদ্ধ)।'
+                        : 'Patient has a booked consultation slot. Upon check-in, patient waits in the waiting room. Reception/cashier will dispatch them to the doctor queue after fee collection.'}
+                    </p>
+                  </div>
+                ) : (
+                  /* Case 3: Walk-in Patient (No Therapy Slot, No Consultation Booking) */
+                  <div className="p-3.5 sm:p-4 rounded-xl border border-slate-500/30 bg-muted/30 dark:bg-muted/20 space-y-2 shadow-2xs">
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 rounded-lg bg-slate-500/15 text-slate-700 dark:text-slate-300 border border-slate-500/20">
+                        <UserCheck className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                          {isBn ? 'সাধারণ ক্লিনিক চেক-ইন (General Walk-In)' : 'General Walk-In Check-In'}
+                          <Badge variant="secondary" className="text-[10px] font-mono">
+                            {isBn ? 'ওয়েটিং রুম' : 'Waiting Room'}
+                          </Badge>
+                        </div>
+                        <div className="text-[11px] text-muted-foreground">
+                          {isBn
+                            ? 'রোগীর কোনো থেরাপি স্লট নেই। আগমন টোকেন ইস্যু করে রোগীকে ওয়েটিং রুমে পাঠানো হবে। কোনো কিউ-তে অটো-এন্ট্রি হবে না।'
+                            : 'Patient has no active therapy slot. Arrival token will be issued to the waiting room. No queue auto-entry.'}
+                        </div>
                       </div>
                     </div>
                   </div>
+                )}
+              </div>
+
+              {/* Told Time & Priority */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs font-semibold text-foreground">
+                    {isBn ? 'নির্ধারিত সময় (Told Time - ঐচ্ছিক)' : 'Told Time (Optional)'}
+                  </Label>
+                  <Input
+                    type="text"
+                    placeholder={matchedBooking?.toldTime ? matchedBooking.toldTime : "e.g. 10:30 AM or 14:15"}
+                    value={customToldTime}
+                    onChange={(e) => setCustomToldTime(e.target.value)}
+                    className="mt-1 text-xs h-9 font-mono"
+                  />
+                  <span className="text-[10px] text-muted-foreground mt-0.5 block">
+                    {isBn ? 'দেরি বা সময়মত পৌঁছানোর হিসাবের জন্য' : 'Used to compute punctuality delay'}
+                  </span>
+                </div>
+
+                <div>
+                  <Label className="text-xs font-semibold text-foreground">
+                    {isBn ? 'অগ্রাধিকার (Priority)' : 'Priority'}
+                  </Label>
+                  <Select value={priority} onValueChange={(v: string) => setPriority(v as any)}>
+                    <SelectTrigger className="mt-1 h-9 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="normal">{isBn ? 'সাধারণ (Normal)' : 'Normal'}</SelectItem>
+                      <SelectItem value="emergency">{isBn ? '🚨 জরুরি (Emergency)' : '🚨 Emergency'}</SelectItem>
+                      <SelectItem value="vip">{isBn ? '⭐ ভিআইপি (VIP)' : '⭐ VIP'}</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 
-              {/* Matched Booking Alert Banner */}
-              {matchedBooking ? (
-                <div className="p-3.5 rounded-xl border border-blue-500/40 bg-blue-500/10 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-blue-700 dark:text-blue-300 flex items-center gap-1.5">
-                      <Calendar className="w-4 h-4 text-blue-500" />
-                      {isBn ? 'আজকের নির্ধারিত থেরাপি স্লট পাওয়া গেছে!' : 'Active Today Booking Found!'}
-                    </span>
-                    <Badge variant="outline" className="text-[10px] font-mono border-blue-500/40 text-blue-600 dark:text-blue-400">
-                      {matchedBooking.slotHour}
-                    </Badge>
-                  </div>
-                  <div className="text-xs text-foreground flex flex-wrap items-center gap-3">
-                    <span>
-                      {isBn ? 'নির্ধারিত সময় (Told Time):' : 'Told Time:'}{' '}
-                      <strong className="font-mono text-foreground text-sm">
-                        {matchedBooking.toldTime || (isBn ? 'নির্দিষ্ট নয়' : 'Not set')}
-                      </strong>
-                    </span>
-                    {forecastPunctuality && (
-                      <span className="flex items-center gap-1.5">
-                        <span className="text-muted-foreground text-[11px]">{isBn ? 'সময়ানুবর্তিতা:' : 'Punctuality:'}</span>
-                        {renderPunctualityBadge(forecastPunctuality.status, forecastPunctuality.delayMinutes)}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <Label className="text-xs font-semibold text-foreground">
-                      {isBn ? 'নির্ধারিত সময় (Told Time - ঐচ্ছিক)' : 'Told Time (Optional)'}
-                    </Label>
-                    <Input
-                      type="text"
-                      placeholder="e.g. 10:30 AM or 14:15"
-                      value={customToldTime}
-                      onChange={(e) => setCustomToldTime(e.target.value)}
-                      className="mt-1 text-xs h-9 font-mono"
-                    />
-                    <span className="text-[10px] text-muted-foreground mt-0.5 block">
-                      {isBn ? 'দেরি বা সময়মত পৌঁছানোর হিসাবের জন্য' : 'Used to compute punctuality delay'}
-                    </span>
-                  </div>
-
-                  <div>
-                    <Label className="text-xs font-semibold text-foreground">
-                      {isBn ? 'অগ্রাধিকার (Priority)' : 'Priority'}
-                    </Label>
-                    <Select value={priority} onValueChange={(v: string) => setPriority(v as any)}>
-                      <SelectTrigger className="mt-1 h-9 text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="normal">{isBn ? 'সাধারণ (Normal)' : 'Normal'}</SelectItem>
-                        <SelectItem value="emergency">{isBn ? '🚨 জরুরি (Emergency)' : '🚨 Emergency'}</SelectItem>
-                        <SelectItem value="vip">{isBn ? '⭐ ভিআইপি (VIP)' : '⭐ VIP'}</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              )}
-
-              {/* Live Forecast Preview if custom told time entered */}
+              {/* Live Forecast Preview if custom told time entered without matched booking */}
               {!matchedBooking && forecastPunctuality && (
                 <div className="p-2.5 rounded-lg border border-border/60 bg-muted/30 flex items-center justify-between text-xs">
                   <span className="text-muted-foreground">{isBn ? 'সম্ভাব্য সময়ানুবর্তিতা মার্ক:' : 'Forecast Punctuality Marker:'}</span>
@@ -769,7 +881,7 @@ export function CheckInWorkstationView() {
                 <Button
                   onClick={() => handlePerformCheckIn()}
                   disabled={!selectedPatient || isPending}
-                  className="w-full h-11 text-sm font-bold bg-emerald-600 hover:bg-emerald-700 text-white gap-2 shadow-sm"
+                  className="w-full h-11 text-sm font-bold bg-emerald-600 hover:bg-emerald-700 text-white gap-2 shadow-sm cursor-pointer active:scale-95 transition-all"
                 >
                   {isPending ? (
                     <>
@@ -780,9 +892,13 @@ export function CheckInWorkstationView() {
                     <>
                       <UserCheck className="w-4 h-4" />
                       <span>
-                        {isBn
-                          ? 'চেক-ইন সম্পন্ন করুন ও টোকেন ইস্যু করুন'
-                          : 'Complete Check-In & Issue Token'}
+                        {matchedBooking
+                          ? (isBn
+                              ? 'চেক-ইন সম্পন্ন করুন ও থেরাপি কিউতে যুক্ত করুন'
+                              : 'Complete Check-In & Queue for Therapy')
+                          : (isBn
+                              ? 'ওয়েটিং রুমে চেক-ইন সম্পন্ন করুন ও টোকেন ইস্যু করুন'
+                              : 'Complete Check-In to Waiting Room & Issue Token')}
                       </span>
                     </>
                   )}

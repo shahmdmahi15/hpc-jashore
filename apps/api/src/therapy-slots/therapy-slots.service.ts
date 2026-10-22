@@ -963,16 +963,18 @@ export class TherapySlotsService {
     if (linkedVisits.length > 0) {
       await this.db
         .update(visits)
-        .set({ status: 'cancelled', updatedAt: now })
+        .set({ status: 'cancelled', therapyBookingId: null, updatedAt: now })
         .where(and(eq(visits.therapyBookingId, id), eq(visits.status, 'checked_in')));
 
       for (const v of linkedVisits) {
-        this.gateway.emit('clinic:global', 'therapy.queue.updated', {
+        const queuePayload = {
           visitId: v.id,
           patientId: v.patientId,
           tokenNumber: v.tokenNumber,
           cancelled: true,
-        });
+        };
+        this.gateway.emit('clinic:global', 'therapy.queue.updated', queuePayload);
+        this.realtime.publish('therapy.queue.updated', queuePayload);
       }
     }
 
@@ -988,7 +990,11 @@ export class TherapySlotsService {
       requestId: meta.requestId,
     });
 
-    this.gateway.emit('clinic:global', 'therapy.slot.updated', { bookingId: id, cancelled: true });
+    const slotPayload = { bookingId: id, patientId: existing.patientId, cancelled: true };
+    this.gateway.emit('clinic:global', 'therapy.slot.updated', slotPayload);
+    this.gateway.emit('clinic:global', 'therapy.booking.cancelled', slotPayload);
+    this.realtime.publish('therapy.slot.updated', slotPayload);
+    this.realtime.publish('therapy.booking.cancelled', slotPayload);
 
     return { success: true };
   }

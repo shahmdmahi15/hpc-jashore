@@ -146,7 +146,7 @@ export class VisitsService {
           and(
             eq(therapySlotBookings.id, dto.therapyBookingId),
             isNull(therapySlotBookings.deletedAt),
-            sql`${therapySlotBookings.status} != 'cancelled'`,
+            sql`${therapySlotBookings.status} NOT IN ('cancelled', 'attended')`,
           ),
         );
       activeBooking = bRows[0] ?? null;
@@ -179,7 +179,7 @@ export class VisitsService {
       }
     }
 
-    // Look up active consultation booking if applicable
+    // Look up active consultation booking if applicable (for reference only, NEVER for auto-queueing to consultation queue)
     let activeDocBooking: any = null;
     if (dto.consultationBookingId) {
       const docBookings = await this.db
@@ -188,11 +188,12 @@ export class VisitsService {
         .where(
           and(
             eq(consultationBookings.id, dto.consultationBookingId),
+            isNull(consultationBookings.deletedAt),
             sql`${consultationBookings.status} != 'cancelled'`,
           ),
         );
       activeDocBooking = docBookings[0] ?? null;
-    } else if (dto.doctorId || dto.destination === 'consultation') {
+    } else {
       const docBookings = await this.db
         .select()
         .from(consultationBookings)
@@ -209,16 +210,18 @@ export class VisitsService {
       activeDocBooking = docBookings[0] ?? null;
     }
 
-    // Determine destination: prioritize therapy if active booking or therapyBookingId exists, or doctorId absent
-    const destination = (activeBooking || dto.therapyBookingId)
-      ? 'therapy'
-      : (dto.destination ?? (dto.doctorId || activeDocBooking ? 'consultation' : 'therapy'));
+    // STRICT USER DIRECTIVES:
+    // 1. If patient has a therapy slot -> automatically put him in therapy queue (destination = 'therapy', visits.therapyBookingId set).
+    // 2. If patient has NO therapy slot -> DO NOT put him in therapy queue, even if he has consultation serial.
+    // 3. If patient has consultation serial and no therapy slot -> DO NOT put him to consultation queue!
+    // 4. During check-in, under no circumstances is any patient auto-queued into the doctor consultation queue.
+    const hasTherapySlot = Boolean(activeBooking);
+    const destination = hasTherapySlot ? 'therapy' : 'waiting_room';
 
     const effectiveToldTime =
       dto.toldTime?.trim() ||
       activeBooking?.toldTime?.trim() ||
-      activeDocBooking?.toldTime?.trim() ||
-      activeDocBooking?.slotTime?.trim() ||
+      (hasTherapySlot ? null : (activeDocBooking?.toldTime?.trim() || activeDocBooking?.slotTime?.trim())) ||
       null;
     const punctuality = effectiveToldTime ? computePunctuality(effectiveToldTime, new Date()) : null;
 
@@ -241,7 +244,7 @@ export class VisitsService {
     const initialLocation = firstWaitingRoom?.name || 'Waiting Room';
     const roomId = firstWaitingRoom?.id ?? null;
 
-    const assignedDoctorId = dto.doctorId ?? activeDocBooking?.doctorId ?? null;
+    const assignedDoctorId = activeDocBooking?.doctorId ?? dto.doctorId ?? null;
 
     const visitId = randomUUID();
     const visitRow = {
@@ -259,8 +262,8 @@ export class VisitsService {
       toldTime: effectiveToldTime,
       punctualityStatus: punctuality?.punctualityStatus ?? null,
       delayMinutes: punctuality?.delayMinutes ?? null,
-      therapyBookingId: activeBooking?.id ?? dto.therapyBookingId ?? null,
-      consultationBookingId: activeDocBooking?.id ?? dto.consultationBookingId ?? null,
+      therapyBookingId: activeBooking ? activeBooking.id : null,
+      consultationBookingId: activeDocBooking ? activeDocBooking.id : null,
       notes: dto.notes ?? null,
       createdAt: now,
       updatedAt: now,
@@ -311,18 +314,22 @@ export class VisitsService {
       destination,
       currentLocation: initialLocation,
       roomId,
-      doctorId: dto.doctorId,
+      doctorId: assignedDoctorId,
       serialNumber: null,
       toldTime: effectiveToldTime,
       punctualityStatus: punctuality?.punctualityStatus ?? null,
       delayMinutes: punctuality?.delayMinutes ?? null,
+      hasTherapySlot,
     };
     this.gateway.emit('clinic:global', 'visit.checked_in', eventPayload);
-    this.gateway.emit('clinic:global', 'queue.updated', { doctorId: dto.doctorId });
-    this.gateway.emit('clinic:global', 'therapy.queue.updated', eventPayload);
     this.realtime.publish('visit.checked_in', eventPayload);
-    this.realtime.publish('queue.updated', { doctorId: dto.doctorId });
-    this.realtime.publish('therapy.queue.updated', eventPayload);
+
+    if (hasTherapySlot && activeBooking) {
+      this.gateway.emit('clinic:global', 'therapy.queue.updated', eventPayload);
+      this.gateway.emit('clinic:global', 'therapy.slot.updated', { bookingId: activeBooking.id, status: 'attended' });
+      this.realtime.publish('therapy.queue.updated', eventPayload);
+      this.realtime.publish('therapy.slot.updated', { bookingId: activeBooking.id, status: 'attended' });
+    }
 
     await this.audit.log({
       actorUserId: actor.sub,
@@ -1147,16 +1154,13 @@ export class VisitsService {
       .where(
         and(
           eq(visits.visitDate, today),
-          sql`(${visits.therapyBookingId} IS NULL OR ${visits.therapyBookingId} NOT IN (SELECT id FROM therapy_slot_bookings WHERE status = 'cancelled' OR deleted_at IS NOT NULL))`,
           or(
+            eq(visits.status, 'in_therapy'),
             and(
               eq(visits.status, 'checked_in'),
-              or(
-                sql`${visits.therapyBookingId} IS NOT NULL`,
-                isNull(visits.doctorId),
-              ),
+              sql`${visits.therapyBookingId} IS NOT NULL`,
+              sql`${visits.therapyBookingId} NOT IN (SELECT id FROM therapy_slot_bookings WHERE status = 'cancelled' OR deleted_at IS NOT NULL)`,
             ),
-            eq(visits.status, 'in_therapy'),
           ),
         ),
       )
@@ -1221,6 +1225,25 @@ export class VisitsService {
       )
       .orderBy(therapySlotBookings.slotHour, therapySlotBookings.toldTime);
 
+    // 2b. All consultation bookings for today
+    const docBookings = await this.db
+      .select({
+        booking: consultationBookings,
+        patient: patients,
+        doctor: staff,
+      })
+      .from(consultationBookings)
+      .innerJoin(patients, eq(consultationBookings.patientId, patients.id))
+      .leftJoin(staff, eq(consultationBookings.doctorId, staff.id))
+      .where(
+        and(
+          eq(consultationBookings.bookingDate, today),
+          isNull(consultationBookings.deletedAt),
+          sql`${consultationBookings.status} != 'cancelled'`,
+        ),
+      )
+      .orderBy(consultationBookings.slotTime);
+
     // 3. Live therapy queue
     const liveTherapyQueue = await this.db
       .select({
@@ -1246,16 +1269,13 @@ export class VisitsService {
       .where(
         and(
           eq(visits.visitDate, today),
-          sql`(${visits.therapyBookingId} IS NULL OR ${visits.therapyBookingId} NOT IN (SELECT id FROM therapy_slot_bookings WHERE status = 'cancelled' OR deleted_at IS NOT NULL))`,
           or(
+            eq(visits.status, 'in_therapy'),
             and(
               eq(visits.status, 'checked_in'),
-              or(
-                sql`${visits.therapyBookingId} IS NOT NULL`,
-                isNull(visits.doctorId),
-              ),
+              sql`${visits.therapyBookingId} IS NOT NULL`,
+              sql`${visits.therapyBookingId} NOT IN (SELECT id FROM therapy_slot_bookings WHERE status = 'cancelled' OR deleted_at IS NOT NULL)`,
             ),
-            eq(visits.status, 'in_therapy'),
           ),
         ),
       )
@@ -1286,6 +1306,11 @@ export class VisitsService {
       todayBookings: bookings.map((b) => ({
         ...b.booking,
         patient: b.patient,
+      })),
+      todayConsultationBookings: docBookings.map((b) => ({
+        ...b.booking,
+        patient: b.patient,
+        doctor: b.doctor ? { id: b.doctor.id, fullName: b.doctor.fullName } : null,
       })),
       liveTherapyQueue,
       recentCheckIns: todayVisits.slice(0, 30).map((v) => ({

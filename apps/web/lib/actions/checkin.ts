@@ -73,10 +73,25 @@ export interface RecentCheckInVisit {
   doctor?: { id: string; fullName: string } | null;
 }
 
+export interface TodayConsultationBookingItem {
+  id: string;
+  bookingNumber: string;
+  patientId: string;
+  doctorId: string;
+  bookingDate: string;
+  slotTime: string;
+  toldTime?: string | null;
+  status: string;
+  notes?: string | null;
+  patient: PatientRecord;
+  doctor?: { id: string; fullName: string } | null;
+}
+
 export interface CheckInOverviewResult {
   date: string;
   stats: CheckInStats;
   todayBookings: TherapyBookingItem[];
+  todayConsultationBookings?: TodayConsultationBookingItem[];
   liveTherapyQueue: LiveQueuePatient[];
   recentCheckIns: RecentCheckInVisit[];
 }
@@ -86,7 +101,7 @@ export interface CheckInPatientPayload {
   doctorId?: string;
   priority?: 'normal' | 'emergency' | 'vip';
   notes?: string;
-  destination?: 'therapy' | 'consultation';
+  destination?: 'therapy' | 'consultation' | 'waiting_room';
   therapyBookingId?: string;
   toldTime?: string;
 }

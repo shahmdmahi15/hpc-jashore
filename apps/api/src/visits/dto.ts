@@ -20,13 +20,13 @@ export class CheckInDto {
   doctorId?: string;
 
   @ApiPropertyOptional({
-    description: 'Check-in destination department: therapy or consultation',
-    enum: ['therapy', 'consultation'],
-    default: 'therapy',
+    description: 'Check-in destination department: therapy, consultation, or waiting_room',
+    enum: ['therapy', 'consultation', 'waiting_room'],
+    default: 'waiting_room',
   })
   @IsOptional()
-  @IsIn(['therapy', 'consultation'])
-  destination?: 'therapy' | 'consultation';
+  @IsIn(['therapy', 'consultation', 'waiting_room'])
+  destination?: 'therapy' | 'consultation' | 'waiting_room';
 
   @ApiPropertyOptional({ enum: ['normal', 'emergency', 'package', 'follow_up', 'elderly'] })
   @IsOptional()
