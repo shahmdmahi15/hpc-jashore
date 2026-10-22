@@ -25,6 +25,7 @@ import {
   ChevronRight,
   HelpCircle,
   Filter,
+  Trash2,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
@@ -60,6 +61,7 @@ import {
   type PunctualityStatus,
 } from '../../lib/actions/checkin';
 import { searchPatientsAction, type PatientRecord } from '../../lib/actions/patients';
+import { deleteTherapyBookingAction } from '../../lib/actions/therapy-slots';
 import { CreatePatientDialog } from '../patient/CreatePatientDialog';
 
 // Bengali digit formatter helper
@@ -118,6 +120,7 @@ export function CheckInWorkstationView() {
   const [data, setData] = useState<CheckInOverviewResult | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'checkin_form' | 'today_bookings' | 'live_queue' | 'recent_checkins'>('checkin_form');
+  const [todayBookingFilter, setTodayBookingFilter] = useState<'pending' | 'attended' | 'all'>('pending');
 
   // Search & Selection State
   const [searchQuery, setSearchQuery] = useState('');
@@ -194,15 +197,33 @@ export function CheckInWorkstationView() {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
+  // Filter out any cancelled or deleted bookings from todayBookings
+  const validTodayBookings = useMemo(() => {
+    return (data?.todayBookings || []).filter(
+      (b) => b.status !== 'cancelled' && !(b as any).deletedAt,
+    );
+  }, [data?.todayBookings]);
+
+  // Filtered list according to tab pill (Pending, Attended, All)
+  const displayedTodayBookings = useMemo(() => {
+    if (todayBookingFilter === 'pending') {
+      return validTodayBookings.filter((b) => b.status !== 'attended');
+    }
+    if (todayBookingFilter === 'attended') {
+      return validTodayBookings.filter((b) => b.status === 'attended');
+    }
+    return validTodayBookings;
+  }, [validTodayBookings, todayBookingFilter]);
+
   // Detected active booking for selected patient
   const matchedBooking = useMemo<TherapyBookingItem | null>(() => {
     if (!selectedPatient || !data) return null;
     return (
-      data.todayBookings.find(
-        (b) => b.patientId === selectedPatient.id && b.status === 'booked',
+      validTodayBookings.find(
+        (b) => b.patientId === selectedPatient.id && b.status !== 'attended',
       ) || null
     );
-  }, [selectedPatient, data]);
+  }, [selectedPatient, validTodayBookings]);
 
   // Live forecast punctuality for selected patient
   const forecastPunctuality = useMemo(() => {
@@ -210,6 +231,34 @@ export function CheckInWorkstationView() {
     if (!timeToEvaluate) return null;
     return calculatePunctuality(timeToEvaluate, new Date());
   }, [customToldTime, matchedBooking]);
+
+  // Handle Cancel Booking directly from Check-In view
+  const handleCancelBooking = async (bookingId: string) => {
+    if (
+      !confirm(
+        isBn
+          ? 'আপনি কি নিশ্চিত যে এই থেরাপি বুকিংটি বাতিল করতে চান?'
+          : 'Are you sure you want to cancel this therapy booking?',
+      )
+    ) {
+      return;
+    }
+    try {
+      const res = await deleteTherapyBookingAction(bookingId);
+      if (res.success) {
+        toast.success(
+          isBn
+            ? 'থেরাপি বুকিং সফলভাবে বাতিল করা হয়েছে'
+            : 'Therapy booking cancelled successfully',
+        );
+        loadData();
+      } else {
+        toast.error(res.error || (isBn ? 'বুকিং বাতিল ব্যর্থ' : 'Failed to cancel booking'));
+      }
+    } catch (err: any) {
+      toast.error(err?.message || (isBn ? 'বুকিং বাতিল ব্যর্থ' : 'Failed to cancel booking'));
+    }
+  };
 
   // Handle Check-In Submission
   const handlePerformCheckIn = (targetPatientId?: string, bookingId?: string, toldTimeOverride?: string) => {
@@ -429,7 +478,7 @@ export function CheckInWorkstationView() {
               <Calendar className="w-3.5 h-3.5" />
               <span>{isBn ? 'আজকের থেরাপি বুকিং' : "Today's Bookings"}</span>
               <span className="ml-1 px-1.5 py-0.2 bg-muted text-[10px] font-mono rounded-full font-bold">
-                {toBnNum(data?.todayBookings.length ?? 0)}
+                {toBnNum(validTodayBookings.filter((b) => b.status !== 'attended').length)}
               </span>
             </TabsTrigger>
             <TabsTrigger
@@ -748,7 +797,7 @@ export function CheckInWorkstationView() {
         {/* ============================================================== */}
         <TabsContent value="today_bookings" className="mt-4 focus-visible:outline-none space-y-3">
           <Card className="p-4 rounded-2xl border border-border/50 shadow-2xs">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
               <div>
                 <h3 className="text-sm font-bold text-foreground">
                   {isBn ? 'আজকের সকল থেরাপি স্লট বুকিং' : "Today's Therapy Slot Bookings"}
@@ -759,19 +808,80 @@ export function CheckInWorkstationView() {
                     : '1-click check-in with automatic punctuality comparison'}
                 </p>
               </div>
-              <Badge variant="outline" className="text-xs font-mono self-start sm:self-auto">
-                {isBn ? `মোট: ${toBnNum(data?.todayBookings.length ?? 0)} টি` : `Total: ${data?.todayBookings.length ?? 0}`}
-              </Badge>
+
+              {/* Status Filter Pills */}
+              <div className="flex items-center gap-1.5 p-1 rounded-xl bg-muted/50 border border-border/60 self-start sm:self-auto">
+                <Button
+                  type="button"
+                  variant={todayBookingFilter === 'pending' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setTodayBookingFilter('pending')}
+                  className={`h-7 px-2.5 text-xs rounded-lg transition-all ${
+                    todayBookingFilter === 'pending'
+                      ? 'bg-background text-foreground shadow-xs font-bold'
+                      : 'text-muted-foreground'
+                  }`}
+                >
+                  <span>{isBn ? 'অপেক্ষমাণ' : 'Pending'}</span>
+                  <span className="ml-1 text-[10px] font-mono opacity-80">
+                    ({toBnNum(validTodayBookings.filter((b) => b.status !== 'attended').length)})
+                  </span>
+                </Button>
+                <Button
+                  type="button"
+                  variant={todayBookingFilter === 'attended' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setTodayBookingFilter('attended')}
+                  className={`h-7 px-2.5 text-xs rounded-lg transition-all ${
+                    todayBookingFilter === 'attended'
+                      ? 'bg-background text-foreground shadow-xs font-bold'
+                      : 'text-muted-foreground'
+                  }`}
+                >
+                  <span>{isBn ? 'উপস্থিত' : 'Attended'}</span>
+                  <span className="ml-1 text-[10px] font-mono opacity-80">
+                    ({toBnNum(validTodayBookings.filter((b) => b.status === 'attended').length)})
+                  </span>
+                </Button>
+                <Button
+                  type="button"
+                  variant={todayBookingFilter === 'all' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setTodayBookingFilter('all')}
+                  className={`h-7 px-2.5 text-xs rounded-lg transition-all ${
+                    todayBookingFilter === 'all'
+                      ? 'bg-background text-foreground shadow-xs font-bold'
+                      : 'text-muted-foreground'
+                  }`}
+                >
+                  <span>{isBn ? 'সকল' : 'All'}</span>
+                  <span className="ml-1 text-[10px] font-mono opacity-80">
+                    ({toBnNum(validTodayBookings.length)})
+                  </span>
+                </Button>
+              </div>
             </div>
 
-            {data?.todayBookings.length === 0 ? (
+            {displayedTodayBookings.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground text-xs space-y-2">
                 <Calendar className="w-8 h-8 mx-auto text-muted-foreground/40" />
-                <div>{isBn ? 'আজকের জন্য কোনো থেরাপি স্লট বুকিং নেই' : 'No therapy bookings scheduled for today'}</div>
+                <div>
+                  {todayBookingFilter === 'pending'
+                    ? isBn
+                      ? 'আজকের জন্য কোনো অপেক্ষমাণ বুকিং নেই'
+                      : 'No pending bookings remaining for today'
+                    : todayBookingFilter === 'attended'
+                    ? isBn
+                      ? 'আজকে এখনও কোনো বুকিং উপস্থিত হয়নি'
+                      : 'No bookings marked attended yet today'
+                    : isBn
+                    ? 'আজকের জন্য কোনো থেরাপি স্লট বুকিং নেই'
+                    : 'No therapy bookings scheduled for today'}
+                </div>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-                {data?.todayBookings.map((b) => {
+                {displayedTodayBookings.map((b) => {
                   const isAttended = b.status === 'attended';
                   const liveForecast = !isAttended && b.toldTime ? calculatePunctuality(b.toldTime, new Date()) : null;
 
@@ -829,17 +939,31 @@ export function CheckInWorkstationView() {
                         </div>
                       </div>
 
-                      {/* 1-click Check-In Button */}
+                      {/* 1-click Check-In Button + Cancel Button */}
                       {!isAttended && (
-                        <Button
-                          size="sm"
-                          onClick={() => handlePerformCheckIn(b.patientId, b.id, b.toldTime || undefined)}
-                          disabled={isPending}
-                          className="w-full h-8 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5"
-                        >
-                          <UserCheck className="w-3.5 h-3.5" />
-                          <span>{isBn ? 'এখনই চেক-ইন করুন' : 'Check In Now'}</span>
-                        </Button>
+                        <div className="flex items-center gap-2 pt-1">
+                          <Button
+                            size="sm"
+                            onClick={() => handlePerformCheckIn(b.patientId, b.id, b.toldTime || undefined)}
+                            disabled={isPending}
+                            className="flex-1 h-8 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 cursor-pointer active:scale-95"
+                          >
+                            <UserCheck className="w-3.5 h-3.5" />
+                            <span>{isBn ? 'এখনই চেক-ইন করুন' : 'Check In Now'}</span>
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleCancelBooking(b.id)}
+                            disabled={isPending}
+                            className="h-8 px-2.5 text-xs font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-500/10 border-rose-500/30 gap-1 cursor-pointer active:scale-95"
+                            title={isBn ? 'বুকিং বাতিল করুন' : 'Cancel Booking'}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span className="hidden sm:inline">{isBn ? 'বাতিল' : 'Cancel'}</span>
+                          </Button>
+                        </div>
                       )}
                     </div>
                   );

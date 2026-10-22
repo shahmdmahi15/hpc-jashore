@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import { and, desc, eq, or, sql } from 'drizzle-orm';
+import { and, desc, eq, isNull, or, sql } from 'drizzle-orm';
 import { AuditService } from '../audit/audit.service';
 import { DB, type Db } from '../db/db.module';
 import {
@@ -135,7 +135,13 @@ export class VisitsService {
       const bRows = await this.db
         .select()
         .from(therapySlotBookings)
-        .where(eq(therapySlotBookings.id, dto.therapyBookingId));
+        .where(
+          and(
+            eq(therapySlotBookings.id, dto.therapyBookingId),
+            isNull(therapySlotBookings.deletedAt),
+            sql`${therapySlotBookings.status} != 'cancelled'`,
+          ),
+        );
       activeBooking = bRows[0] ?? null;
     } else {
       const bRows = await this.db
@@ -146,6 +152,7 @@ export class VisitsService {
             eq(therapySlotBookings.patientId, patient.id),
             eq(therapySlotBookings.bookingDate, today),
             eq(therapySlotBookings.status, 'booked'),
+            isNull(therapySlotBookings.deletedAt),
           ),
         )
         .limit(1);
@@ -715,7 +722,13 @@ export class VisitsService {
       })
       .from(therapySlotBookings)
       .innerJoin(patients, eq(therapySlotBookings.patientId, patients.id))
-      .where(eq(therapySlotBookings.bookingDate, today))
+      .where(
+        and(
+          eq(therapySlotBookings.bookingDate, today),
+          isNull(therapySlotBookings.deletedAt),
+          sql`${therapySlotBookings.status} != 'cancelled'`,
+        ),
+      )
       .orderBy(therapySlotBookings.slotHour, therapySlotBookings.toldTime);
 
     // 3. Live therapy queue

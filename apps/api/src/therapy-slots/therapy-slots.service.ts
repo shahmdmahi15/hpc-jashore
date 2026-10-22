@@ -561,7 +561,22 @@ export class TherapySlotsService {
     const limit = Math.min(200, Math.max(1, dto.limit ?? 50));
     const offset = (page - 1) * limit;
 
-    const conditions = [isNull(therapySlotBookings.deletedAt)];
+    const conditions = [];
+
+    if (dto.status === 'cancelled') {
+      conditions.push(
+        or(
+          eq(therapySlotBookings.status, 'cancelled'),
+          sql`${therapySlotBookings.deletedAt} IS NOT NULL`,
+        )!,
+      );
+    } else if (dto.status && dto.status !== 'all') {
+      conditions.push(eq(therapySlotBookings.status, dto.status as TherapyBookingStatus));
+      conditions.push(isNull(therapySlotBookings.deletedAt));
+    } else {
+      conditions.push(isNull(therapySlotBookings.deletedAt));
+      conditions.push(sql`${therapySlotBookings.status} != 'cancelled'`);
+    }
 
     if (dto.date && dto.date.trim()) {
       conditions.push(eq(therapySlotBookings.bookingDate, dto.date.trim()));
@@ -569,10 +584,6 @@ export class TherapySlotsService {
 
     if (dto.patientId && dto.patientId.trim()) {
       conditions.push(eq(therapySlotBookings.patientId, dto.patientId.trim()));
-    }
-
-    if (dto.status && dto.status !== 'all') {
-      conditions.push(eq(therapySlotBookings.status, dto.status as TherapyBookingStatus));
     }
 
     if (dto.slotHour && dto.slotHour !== 'all') {
@@ -648,7 +659,7 @@ export class TherapySlotsService {
     const total = Number(totalResult[0]?.count ?? 0);
 
     // Date-specific or overall stats calculation
-    const baseStatsConditions = [isNull(therapySlotBookings.deletedAt)];
+    const baseStatsConditions = [];
     if (dto.date && dto.date.trim()) {
       baseStatsConditions.push(eq(therapySlotBookings.bookingDate, dto.date.trim()));
     }
@@ -656,17 +667,18 @@ export class TherapySlotsService {
     const allBookingsForStats = await this.db
       .select({
         status: therapySlotBookings.status,
+        deletedAt: therapySlotBookings.deletedAt,
       })
       .from(therapySlotBookings)
-      .where(and(...baseStatsConditions));
+      .where(baseStatsConditions.length > 0 ? and(...baseStatsConditions) : undefined);
 
     const stats = {
-      total: allBookingsForStats.length,
-      booked: allBookingsForStats.filter((b) => b.status === 'booked').length,
-      confirmed: allBookingsForStats.filter((b) => b.status === 'confirmed').length,
-      attended: allBookingsForStats.filter((b) => b.status === 'attended').length,
-      completed: allBookingsForStats.filter((b) => b.status === 'completed').length,
-      cancelled: allBookingsForStats.filter((b) => b.status === 'cancelled').length,
+      total: allBookingsForStats.filter((b) => b.status !== 'cancelled' && !b.deletedAt).length,
+      booked: allBookingsForStats.filter((b) => b.status === 'booked' && !b.deletedAt).length,
+      confirmed: allBookingsForStats.filter((b) => b.status === 'confirmed' && !b.deletedAt).length,
+      attended: allBookingsForStats.filter((b) => b.status === 'attended' && !b.deletedAt).length,
+      completed: allBookingsForStats.filter((b) => b.status === 'completed' && !b.deletedAt).length,
+      cancelled: allBookingsForStats.filter((b) => b.status === 'cancelled' || !!b.deletedAt).length,
     };
 
     return {
@@ -679,7 +691,7 @@ export class TherapySlotsService {
     };
   }
 
-  async getBooking(id: string) {
+  async getBooking(id: string, includeDeleted = false) {
     const rows = await this.db
       .select({
         id: therapySlotBookings.id,
@@ -716,7 +728,7 @@ export class TherapySlotsService {
       .from(therapySlotBookings)
       .innerJoin(patients, eq(therapySlotBookings.patientId, patients.id))
       .leftJoin(users, eq(therapySlotBookings.bookedBy, users.id))
-      .where(and(eq(therapySlotBookings.id, id), isNull(therapySlotBookings.deletedAt)));
+      .where(and(eq(therapySlotBookings.id, id), includeDeleted ? sql`1=1` : isNull(therapySlotBookings.deletedAt)));
 
     if (!rows[0]) throw new NotFoundException('Therapy slot booking not found');
     return rows[0];
@@ -728,7 +740,7 @@ export class TherapySlotsService {
     dto: UpdateTherapyBookingDto,
     meta: Meta,
   ) {
-    const existing = await this.getBooking(id);
+    const existing = await this.getBooking(id, true);
 
     const patch: Record<string, any> = {
       updatedAt: new Date().toISOString(),
@@ -736,6 +748,11 @@ export class TherapySlotsService {
 
     if (dto.status !== undefined) {
       patch.status = dto.status;
+      if (dto.status === 'cancelled') {
+        patch.deletedAt = new Date().toISOString();
+      } else {
+        patch.deletedAt = null;
+      }
     }
     if (dto.toldTime !== undefined) {
       patch.toldTime = dto.toldTime ? dto.toldTime.trim() : null;
@@ -756,7 +773,7 @@ export class TherapySlotsService {
       .set(patch)
       .where(eq(therapySlotBookings.id, id));
 
-    const updated = await this.getBooking(id);
+    const updated = await this.getBooking(id, true);
 
     await this.audit.log({
       actorUserId: actor.sub,
@@ -774,7 +791,7 @@ export class TherapySlotsService {
   }
 
   async deleteBooking(actor: Actor, id: string, meta: Meta) {
-    const existing = await this.getBooking(id);
+    const existing = await this.getBooking(id, true);
 
     const now = new Date().toISOString();
     await this.db
@@ -799,5 +816,35 @@ export class TherapySlotsService {
     });
 
     return { success: true };
+  }
+
+  async restoreBooking(actor: Actor, id: string, meta: Meta) {
+    const existing = await this.getBooking(id, true);
+
+    const now = new Date().toISOString();
+    await this.db
+      .update(therapySlotBookings)
+      .set({
+        deletedAt: null,
+        status: 'booked',
+        updatedAt: now,
+      })
+      .where(eq(therapySlotBookings.id, id));
+
+    const updated = await this.getBooking(id);
+
+    await this.audit.log({
+      actorUserId: actor.sub,
+      actorRole: actor.role,
+      action: 'therapy_booking.restore',
+      entity: 'therapy_slot_bookings',
+      entityId: id,
+      before: existing,
+      after: updated,
+      ip: meta.ip,
+      requestId: meta.requestId,
+    });
+
+    return updated;
   }
 }

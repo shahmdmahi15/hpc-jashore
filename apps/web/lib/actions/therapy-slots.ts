@@ -443,3 +443,29 @@ export async function deleteTherapyBookingAction(
     };
   }
 }
+
+export async function restoreTherapyBookingAction(
+  id: string,
+): Promise<{
+  success: boolean;
+  error?: string;
+}> {
+  try {
+    await serverFetch(`/therapy-slots/bookings/${encodeURIComponent(id)}/restore`, {
+      method: 'POST',
+    });
+
+    revalidatePath('/admin');
+    revalidatePath('/receptionist');
+    revalidatePath('/doctor');
+    revalidatePath('/cashier');
+    revalidatePath('/handler');
+
+    return { success: true };
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err?.message || 'Failed to restore therapy slot booking',
+    };
+  }
+}

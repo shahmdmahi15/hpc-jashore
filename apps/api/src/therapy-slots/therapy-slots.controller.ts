@@ -113,6 +113,21 @@ export class TherapySlotsController {
     );
   }
 
+  @Post('bookings/:id/restore')
+  @ApiOperation({ summary: 'Restore a cancelled therapy slot booking' })
+  @Roles('admin', 'doctor', 'handler', 'cashier', 'receptionist')
+  restoreBooking(
+    @CurrentUser() user: RequestUser,
+    @Param('id') id: string,
+    @Req() req: Request,
+  ) {
+    return this.therapySlotsService.restoreBooking(
+      { sub: user.sub, role: user.role },
+      id,
+      this.meta(req),
+    );
+  }
+
   // --- Slot Configuration Endpoints ------------------------------------------
 
   @Get()

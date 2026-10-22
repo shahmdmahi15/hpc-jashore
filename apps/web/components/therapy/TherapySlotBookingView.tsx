@@ -28,6 +28,7 @@ import {
   Sparkles,
   ArrowRight,
   UserCheck,
+  RotateCcw,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui/card';
 import { Button } from '../ui/button';
@@ -63,6 +64,7 @@ import {
   listTherapyBookingsAction,
   updateTherapyBookingAction,
   deleteTherapyBookingAction,
+  restoreTherapyBookingAction,
   type DayOfWeek,
   type SlotHour,
   type TherapyBookingStatus,
@@ -239,6 +241,26 @@ export function TherapySlotBookingView() {
         loadData();
       } else {
         toast.error(res.error || (isBn ? 'বাতিল করতে ব্যর্থ' : 'Failed to cancel'));
+      }
+    } finally {
+      setActionInProgressId(null);
+    }
+  };
+
+  // Restore cancelled booking handler
+  const handleRestoreBooking = async (id: string) => {
+    setActionInProgressId(id);
+    try {
+      const res = await restoreTherapyBookingAction(id);
+      if (res.success) {
+        toast.success(
+          isBn
+            ? 'বুকিং পুনরায় সক্রিয় করা হয়েছে'
+            : 'Booking restored successfully',
+        );
+        loadData();
+      } else {
+        toast.error(res.error || (isBn ? 'রিস্টোর করতে ব্যর্থ' : 'Failed to restore'));
       }
     } finally {
       setActionInProgressId(null);
@@ -773,13 +795,23 @@ export function TherapySlotBookingView() {
                                       ),
                                     )}
                                     <DropdownMenuSeparator />
-                                    <DropdownMenuItem
-                                      onClick={() => handleCancelBooking(b.id)}
-                                      className="text-xs text-rose-600 cursor-pointer"
-                                    >
-                                      <Trash2 className="w-3.5 h-3.5 mr-2" />
-                                      <span>{isBn ? 'বুকিং বাতিল করুন' : 'Cancel Booking'}</span>
-                                    </DropdownMenuItem>
+                                    {b.status === 'cancelled' ? (
+                                      <DropdownMenuItem
+                                        onClick={() => handleRestoreBooking(b.id)}
+                                        className="text-xs text-emerald-600 font-semibold cursor-pointer"
+                                      >
+                                        <RotateCcw className="w-3.5 h-3.5 mr-2" />
+                                        <span>{isBn ? 'বুকিং পুনরুদ্ধার করুন' : 'Restore Booking'}</span>
+                                      </DropdownMenuItem>
+                                    ) : (
+                                      <DropdownMenuItem
+                                        onClick={() => handleCancelBooking(b.id)}
+                                        className="text-xs text-rose-600 cursor-pointer"
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5 mr-2" />
+                                        <span>{isBn ? 'বুকিং বাতিল করুন' : 'Cancel Booking'}</span>
+                                      </DropdownMenuItem>
+                                    )}
                                   </DropdownMenuContent>
                                 </DropdownMenu>
                               </div>
@@ -942,13 +974,23 @@ export function TherapySlotBookingView() {
                                   </DropdownMenuItem>
                                 ))}
                                 <DropdownMenuSeparator />
-                                <DropdownMenuItem
-                                  onClick={() => handleCancelBooking(b.id)}
-                                  className="text-xs text-rose-600 cursor-pointer"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5 mr-2" />
-                                  <span>{isBn ? 'বাতিল করুন' : 'Cancel Booking'}</span>
-                                </DropdownMenuItem>
+                                {b.status === 'cancelled' ? (
+                                  <DropdownMenuItem
+                                    onClick={() => handleRestoreBooking(b.id)}
+                                    className="text-xs text-emerald-600 font-semibold cursor-pointer"
+                                  >
+                                    <RotateCcw className="w-3.5 h-3.5 mr-2" />
+                                    <span>{isBn ? 'বুকিং পুনরুদ্ধার করুন' : 'Restore Booking'}</span>
+                                  </DropdownMenuItem>
+                                ) : (
+                                  <DropdownMenuItem
+                                    onClick={() => handleCancelBooking(b.id)}
+                                    className="text-xs text-rose-600 cursor-pointer"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5 mr-2" />
+                                    <span>{isBn ? 'বাতিল করুন' : 'Cancel Booking'}</span>
+                                  </DropdownMenuItem>
+                                )}
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </div>
