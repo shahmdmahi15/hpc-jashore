@@ -205,6 +205,61 @@ export const rooms = sqliteTable('rooms', {
   ...timestamps,
 });
 
+// --- Therapy Slot Configuration ----------------------------------------------
+
+export const DAYS_OF_WEEK = [
+  'Saturday',
+  'Sunday',
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+] as const;
+export type DayOfWeek = (typeof DAYS_OF_WEEK)[number];
+
+export const SLOT_HOURS = [
+  '0:00 AM - 1:00 AM',
+  '1:00 AM - 2:00 AM',
+  '2:00 AM - 3:00 AM',
+  '3:00 AM - 4:00 AM',
+  '4:00 AM - 5:00 AM',
+  '5:00 AM - 6:00 AM',
+  '6:00 AM - 7:00 AM',
+  '7:00 AM - 8:00 AM',
+  '8:00 AM - 9:00 AM',
+  '9:00 AM - 10:00 AM',
+  '10:00 AM - 11:00 AM',
+  '11:00 AM - 12:00 PM',
+  '12:00 PM - 1:00 PM',
+  '1:00 PM - 2:00 PM',
+  '2:00 PM - 3:00 PM',
+  '3:00 PM - 4:00 PM',
+  '4:00 PM - 5:00 PM',
+  '5:00 PM - 6:00 PM',
+  '6:00 PM - 7:00 PM',
+  '7:00 PM - 8:00 PM',
+  '8:00 PM - 9:00 PM',
+  '9:00 PM - 10:00 PM',
+  '10:00 PM - 11:00 PM',
+  '11:00 PM - 12:00 AM',
+] as const;
+export type SlotHour = (typeof SLOT_HOURS)[number];
+
+export const therapySlotConfigs = sqliteTable('therapy_slot_configs', {
+  id: text('id').primaryKey(),
+  day: text('day').notNull().$type<DayOfWeek>(),
+  slotHour: text('slot_hour').notNull().$type<SlotHour>(),
+  slotOrder: integer('slot_order').notNull().default(0),
+  slotMaleRegularCapacity: integer('slot_male_regular_capacity').notNull().default(0),
+  slotFemaleRegularCapacity: integer('slot_female_regular_capacity').notNull().default(0),
+  slotMaleExtraCapacity: integer('slot_male_extra_capacity').notNull().default(0),
+  slotFemaleExtraCapacity: integer('slot_female_extra_capacity').notNull().default(0),
+  isActive: integer('is_active').notNull().default(1),
+  notes: text('notes'),
+  ...timestamps,
+});
+
 // --- Phase 2: Patient Directory, Visits, Serials, Appointments ----------------
 
 export const patients = sqliteTable('patients', {

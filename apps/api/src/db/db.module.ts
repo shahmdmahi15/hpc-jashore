@@ -157,9 +157,25 @@ export type Db = BetterSQLite3Database<typeof schema>;
             if (!roomColNames.has('notes')) {
               sqlite.exec("ALTER TABLE rooms ADD COLUMN notes TEXT");
             }
+            if (!roomColNames.has('is_active')) {
+              sqlite.exec("ALTER TABLE rooms ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1");
+            }
             if (!roomColNames.has('deleted_at')) {
               sqlite.exec("ALTER TABLE rooms ADD COLUMN deleted_at TEXT");
             }
+            if (!roomColNames.has('created_at')) {
+              sqlite.exec("ALTER TABLE rooms ADD COLUMN created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP");
+            }
+            if (!roomColNames.has('updated_at')) {
+              sqlite.exec("ALTER TABLE rooms ADD COLUMN updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP");
+            }
+
+            // Ensure data integrity on existing rows
+            sqlite.exec("UPDATE rooms SET room_number = COALESCE(room_number, code, id) WHERE room_number IS NULL OR room_number = ''");
+            sqlite.exec("UPDATE rooms SET gender = 'common' WHERE gender IS NULL OR gender = ''");
+            sqlite.exec("UPDATE rooms SET status = 'available' WHERE status IS NULL OR status = ''");
+            sqlite.exec("UPDATE rooms SET created_at = CURRENT_TIMESTAMP WHERE created_at IS NULL");
+            sqlite.exec("UPDATE rooms SET updated_at = CURRENT_TIMESTAMP WHERE updated_at IS NULL");
 
             // Seed standard clinic rooms if empty
             const roomCount = sqlite.prepare("SELECT count(*) as count FROM rooms").get() as { count: number };
@@ -246,7 +262,102 @@ export type Db = BetterSQLite3Database<typeof schema>;
                 `);
               }
             }
-          } catch {}
+          } catch (roomErr) {
+            console.error('Error initializing rooms table:', roomErr);
+          }
+
+          // Ensure therapy_slot_configs table and default schedule seeding
+          try {
+            sqlite.exec(`
+              CREATE TABLE IF NOT EXISTS therapy_slot_configs (
+                id TEXT PRIMARY KEY,
+                day TEXT NOT NULL,
+                slot_hour TEXT NOT NULL,
+                slot_order INTEGER NOT NULL DEFAULT 0,
+                slot_male_regular_capacity INTEGER NOT NULL DEFAULT 0,
+                slot_female_regular_capacity INTEGER NOT NULL DEFAULT 0,
+                slot_male_extra_capacity INTEGER NOT NULL DEFAULT 0,
+                slot_female_extra_capacity INTEGER NOT NULL DEFAULT 0,
+                is_active INTEGER NOT NULL DEFAULT 1,
+                notes TEXT,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(day, slot_hour)
+              );
+            `);
+
+            const slotCount = sqlite.prepare("SELECT count(*) as count FROM therapy_slot_configs").get() as { count: number };
+            if (slotCount.count === 0) {
+              const days = ['Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+              const slots = [
+                '0:00 AM - 1:00 AM',
+                '1:00 AM - 2:00 AM',
+                '2:00 AM - 3:00 AM',
+                '3:00 AM - 4:00 AM',
+                '4:00 AM - 5:00 AM',
+                '5:00 AM - 6:00 AM',
+                '6:00 AM - 7:00 AM',
+                '7:00 AM - 8:00 AM',
+                '8:00 AM - 9:00 AM',
+                '9:00 AM - 10:00 AM',
+                '10:00 AM - 11:00 AM',
+                '11:00 AM - 12:00 PM',
+                '12:00 PM - 1:00 PM',
+                '1:00 PM - 2:00 PM',
+                '2:00 PM - 3:00 PM',
+                '3:00 PM - 4:00 PM',
+                '4:00 PM - 5:00 PM',
+                '5:00 PM - 6:00 PM',
+                '6:00 PM - 7:00 PM',
+                '7:00 PM - 8:00 PM',
+                '8:00 PM - 9:00 PM',
+                '9:00 PM - 10:00 PM',
+                '10:00 PM - 11:00 PM',
+                '11:00 PM - 12:00 AM',
+              ];
+
+              const insertStmt = sqlite.prepare(`
+                INSERT OR IGNORE INTO therapy_slot_configs (
+                  id, day, slot_hour, slot_order,
+                  slot_male_regular_capacity, slot_female_regular_capacity,
+                  slot_male_extra_capacity, slot_female_extra_capacity,
+                  is_active, notes
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              `);
+
+              const seedTransaction = sqlite.transaction(() => {
+                for (const day of days) {
+                  slots.forEach((slotHour, index) => {
+                    const id = `slot-${day.toLowerCase()}-${index}`;
+                    const isClinicalHour = index >= 8 && index <= 21;
+                    const maleReg = isClinicalHour ? 4 : 0;
+                    const femaleReg = isClinicalHour ? 4 : 0;
+                    const maleExtra = isClinicalHour ? 1 : 0;
+                    const femaleExtra = isClinicalHour ? 1 : 0;
+                    const isActive = isClinicalHour ? 1 : 0;
+                    const notes = isClinicalHour ? 'Standard clinical therapy slot' : 'Off-peak / closed';
+
+                    insertStmt.run(
+                      id,
+                      day,
+                      slotHour,
+                      index,
+                      maleReg,
+                      femaleReg,
+                      maleExtra,
+                      femaleExtra,
+                      isActive,
+                      notes,
+                    );
+                  });
+                }
+              });
+
+              seedTransaction();
+            }
+          } catch (slotErr) {
+            console.error('Error initializing therapy_slot_configs table:', slotErr);
+          }
         } catch {
           // Idempotent column safety
         }

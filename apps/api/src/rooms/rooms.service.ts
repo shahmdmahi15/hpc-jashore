@@ -24,77 +24,82 @@ export class RoomsService {
   ) {}
 
   async search(dto: RoomQueryDto) {
-    const page = Math.max(1, dto.page ?? 1);
-    const limit = Math.min(100, Math.max(1, dto.limit ?? 50));
-    const offset = (page - 1) * limit;
+    try {
+      const page = Math.max(1, dto.page ?? 1);
+      const limit = Math.min(100, Math.max(1, dto.limit ?? 50));
+      const offset = (page - 1) * limit;
 
-    const conditions = [isNull(rooms.deletedAt)];
+      const conditions = [isNull(rooms.deletedAt)];
 
-    if (dto.query && dto.query.trim()) {
-      const pattern = `%${dto.query.trim()}%`;
-      conditions.push(
-        or(
-          like(rooms.roomNumber, pattern),
-          like(rooms.name, pattern),
-          like(rooms.notes, pattern),
-        )!,
-      );
+      if (dto.query && dto.query.trim()) {
+        const pattern = `%${dto.query.trim()}%`;
+        conditions.push(
+          or(
+            like(rooms.roomNumber, pattern),
+            like(rooms.name, pattern),
+            like(rooms.notes, pattern),
+          )!,
+        );
+      }
+
+      if (dto.type && dto.type !== 'all') {
+        conditions.push(eq(rooms.type, dto.type as RoomType));
+      }
+
+      if (dto.gender && dto.gender !== 'all') {
+        conditions.push(eq(rooms.gender, dto.gender as RoomGender));
+      }
+
+      if (dto.status && dto.status !== 'all') {
+        conditions.push(eq(rooms.status, dto.status as RoomStatus));
+      }
+
+      const whereClause = and(...conditions);
+
+      // Fetch items with pagination
+      const items = await this.db
+        .select()
+        .from(rooms)
+        .where(whereClause)
+        .orderBy(rooms.roomNumber)
+        .limit(limit)
+        .offset(offset);
+
+      // Total count for current query
+      const totalRow = await this.db
+        .select({ count: sql<number>`count(*)` })
+        .from(rooms)
+        .where(whereClause);
+      const total = Number(totalRow[0]?.count ?? 0);
+
+      // Global room stats for KPI ribbon (all non-deleted rooms)
+      const allActiveRooms = await this.db
+        .select({
+          status: rooms.status,
+        })
+        .from(rooms)
+        .where(isNull(rooms.deletedAt));
+
+      const stats = {
+        total: allActiveRooms.length,
+        available: allActiveRooms.filter((r) => r.status === 'available').length,
+        occupied: allActiveRooms.filter((r) => r.status === 'occupied').length,
+        maintenance: allActiveRooms.filter((r) => r.status === 'maintenance').length,
+        notAllowed: allActiveRooms.filter((r) => r.status === 'not_allowed').length,
+      };
+
+      return {
+        items,
+        total,
+        page,
+        limit,
+        totalPages: Math.max(1, Math.ceil(total / limit)),
+        stats,
+      };
+    } catch (err: any) {
+      console.error('[RoomsService] search error:', err);
+      throw err;
     }
-
-    if (dto.type && dto.type !== 'all') {
-      conditions.push(eq(rooms.type, dto.type as RoomType));
-    }
-
-    if (dto.gender && dto.gender !== 'all') {
-      conditions.push(eq(rooms.gender, dto.gender as RoomGender));
-    }
-
-    if (dto.status && dto.status !== 'all') {
-      conditions.push(eq(rooms.status, dto.status as RoomStatus));
-    }
-
-    const whereClause = and(...conditions);
-
-    // Fetch items with pagination
-    const items = await this.db
-      .select()
-      .from(rooms)
-      .where(whereClause)
-      .orderBy(rooms.roomNumber)
-      .limit(limit)
-      .offset(offset);
-
-    // Total count for current query
-    const totalRow = await this.db
-      .select({ count: sql<number>`count(*)` })
-      .from(rooms)
-      .where(whereClause);
-    const total = Number(totalRow[0]?.count ?? 0);
-
-    // Global room stats for KPI ribbon (all non-deleted rooms)
-    const allActiveRooms = await this.db
-      .select({
-        status: rooms.status,
-      })
-      .from(rooms)
-      .where(isNull(rooms.deletedAt));
-
-    const stats = {
-      total: allActiveRooms.length,
-      available: allActiveRooms.filter((r) => r.status === 'available').length,
-      occupied: allActiveRooms.filter((r) => r.status === 'occupied').length,
-      maintenance: allActiveRooms.filter((r) => r.status === 'maintenance').length,
-      notAllowed: allActiveRooms.filter((r) => r.status === 'not_allowed').length,
-    };
-
-    return {
-      items,
-      total,
-      page,
-      limit,
-      totalPages: Math.max(1, Math.ceil(total / limit)),
-      stats,
-    };
   }
 
   async get(id: string) {

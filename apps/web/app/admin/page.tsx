@@ -9,6 +9,7 @@ import AdminDashboardView from '../../components/AdminDashboardView';
 import UsersAndDeviceManagementView from '../../components/admin/UsersAndDeviceManagementView';
 import BulletinManagementView from '../../components/admin/BulletinManagementView';
 import { RoomManagementView } from '../../components/admin/RoomManagementView';
+import { TherapySlotConfigView } from '../../components/admin/TherapySlotConfigView';
 import { PatientManagementView } from '../../components/patient/PatientManagementView';
 import { useLanguage } from '../../lib/i18n';
 import {
@@ -280,7 +281,11 @@ export default function AdminPage() {
               <RoomManagementView />
             </TabsContent>
 
-            {ADMIN_ROW1_TABS.filter((t) => t.id !== 'overview' && t.id !== 'users_devices' && t.id !== 'bulletins' && t.id !== 'patients' && t.id !== 'room_config').map((tab) => (
+            <TabsContent value="therapy_slot_config" className="mt-4 focus-visible:outline-none">
+              <TherapySlotConfigView />
+            </TabsContent>
+
+            {ADMIN_ROW1_TABS.filter((t) => t.id !== 'overview' && t.id !== 'users_devices' && t.id !== 'bulletins' && t.id !== 'patients' && t.id !== 'room_config' && t.id !== 'therapy_slot_config').map((tab) => (
               <TabsContent key={tab.id} value={tab.id} className="mt-4 focus-visible:outline-none">
                 <WorkstationTabPlaceholder
                   titleEn={tab.titleEn}
