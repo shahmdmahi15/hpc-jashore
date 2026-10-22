@@ -25,9 +25,20 @@ export class CatalogService {
   }
 
   async createRoom(actor: Actor, dto: CreateRoomDto, meta: Meta) {
-    const existing = await this.db.select().from(rooms).where(eq(rooms.code, dto.code));
+    const existing = await this.db.select().from(rooms).where(eq(rooms.roomNumber, dto.code));
     if (existing.length > 0) throw new BadRequestException('Room code already exists');
-    const row = { id: randomUUID(), code: dto.code, name: dto.name, type: dto.type, isActive: 1 };
+    const now = new Date().toISOString();
+    const row = {
+      id: randomUUID(),
+      roomNumber: dto.code,
+      name: dto.name,
+      type: (dto.type === 'counter' ? 'cashier_room' : dto.type === 'therapy' ? 'therapy_room' : 'doctor_consultation_room') as any,
+      gender: 'common' as const,
+      status: 'available' as const,
+      isActive: 1,
+      createdAt: now,
+      updatedAt: now,
+    };
     await this.db.insert(rooms).values(row);
     await this.audit.log({
       actorUserId: actor.sub, actorRole: actor.role, action: 'rooms.create',

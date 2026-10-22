@@ -19,6 +19,7 @@ import { PatientsModule } from './patients/patients.module';
 import { RbacModule } from './rbac/rbac.module';
 import { RealtimeModule } from './realtime/realtime.module';
 import { ReportsModule } from './reports/reports.module';
+import { RoomsModule } from './rooms/rooms.module';
 import { SettingsModule } from './settings/settings.module';
 import { ShiftsModule } from './shifts/shifts.module';
 import { StaffModule } from './staff/staff.module';
@@ -63,6 +64,7 @@ import { VisitsModule } from './visits/visits.module';
     UpdatesModule,
     TvModule,
     BulletinsModule,
+    RoomsModule,
   ],
   controllers: [HealthController],
 })

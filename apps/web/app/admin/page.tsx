@@ -8,6 +8,7 @@ import { WorkstationTabPlaceholder } from '../../components/WorkstationTabPlaceh
 import AdminDashboardView from '../../components/AdminDashboardView';
 import UsersAndDeviceManagementView from '../../components/admin/UsersAndDeviceManagementView';
 import BulletinManagementView from '../../components/admin/BulletinManagementView';
+import { RoomManagementView } from '../../components/admin/RoomManagementView';
 import { PatientManagementView } from '../../components/patient/PatientManagementView';
 import { useLanguage } from '../../lib/i18n';
 import {
@@ -275,7 +276,11 @@ export default function AdminPage() {
               <BulletinManagementView />
             </TabsContent>
 
-            {ADMIN_ROW1_TABS.filter((t) => t.id !== 'overview' && t.id !== 'users_devices' && t.id !== 'bulletins' && t.id !== 'patients').map((tab) => (
+            <TabsContent value="room_config" className="mt-4 focus-visible:outline-none">
+              <RoomManagementView />
+            </TabsContent>
+
+            {ADMIN_ROW1_TABS.filter((t) => t.id !== 'overview' && t.id !== 'users_devices' && t.id !== 'bulletins' && t.id !== 'patients' && t.id !== 'room_config').map((tab) => (
               <TabsContent key={tab.id} value={tab.id} className="mt-4 focus-visible:outline-none">
                 <WorkstationTabPlaceholder
                   titleEn={tab.titleEn}

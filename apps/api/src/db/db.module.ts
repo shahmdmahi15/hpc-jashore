@@ -121,6 +121,132 @@ export type Db = BetterSQLite3Database<typeof schema>;
               sqlite.exec("ALTER TABLE patients ADD COLUMN notes TEXT");
             }
           } catch {}
+
+          // Ensure rooms table & schema columns
+          try {
+            sqlite.exec(`
+              CREATE TABLE IF NOT EXISTS rooms (
+                id TEXT PRIMARY KEY,
+                room_number TEXT NOT NULL UNIQUE,
+                name TEXT NOT NULL,
+                type TEXT NOT NULL,
+                gender TEXT NOT NULL DEFAULT 'common',
+                status TEXT NOT NULL DEFAULT 'available',
+                notes TEXT,
+                is_active INTEGER NOT NULL DEFAULT 1,
+                deleted_at TEXT,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+              );
+            `);
+
+            const roomCols = sqlite.prepare("PRAGMA table_info(rooms)").all() as Array<{ name: string }>;
+            const roomColNames = new Set(roomCols.map((c) => c.name));
+            if (!roomColNames.has('room_number')) {
+              sqlite.exec("ALTER TABLE rooms ADD COLUMN room_number TEXT");
+              if (roomColNames.has('code')) {
+                sqlite.exec("UPDATE rooms SET room_number = code WHERE room_number IS NULL");
+              }
+            }
+            if (!roomColNames.has('gender')) {
+              sqlite.exec("ALTER TABLE rooms ADD COLUMN gender TEXT NOT NULL DEFAULT 'common'");
+            }
+            if (!roomColNames.has('status')) {
+              sqlite.exec("ALTER TABLE rooms ADD COLUMN status TEXT NOT NULL DEFAULT 'available'");
+            }
+            if (!roomColNames.has('notes')) {
+              sqlite.exec("ALTER TABLE rooms ADD COLUMN notes TEXT");
+            }
+            if (!roomColNames.has('deleted_at')) {
+              sqlite.exec("ALTER TABLE rooms ADD COLUMN deleted_at TEXT");
+            }
+
+            // Seed standard clinic rooms if empty
+            const roomCount = sqlite.prepare("SELECT count(*) as count FROM rooms").get() as { count: number };
+            if (roomCount.count === 0) {
+              const defaultRooms = [
+                {
+                  id: 'room-wr-01',
+                  room_number: 'WR-01',
+                  name: 'Main Reception & Waiting Lounge',
+                  type: 'waiting_room',
+                  gender: 'common',
+                  status: 'available',
+                  notes: 'Central patient waiting lounge with digital queue monitor and reception intake.',
+                },
+                {
+                  id: 'room-doc-101',
+                  room_number: 'DOC-101',
+                  name: 'Doctor Consultation Chamber 1 (Dr. Toufiq)',
+                  type: 'doctor_consultation_room',
+                  gender: 'common',
+                  status: 'available',
+                  notes: 'Chief Consultant Chamber with diagnostic examination station and prescription screen.',
+                },
+                {
+                  id: 'room-doc-102',
+                  room_number: 'DOC-102',
+                  name: 'Doctor Consultation Chamber 2',
+                  type: 'doctor_consultation_room',
+                  gender: 'common',
+                  status: 'available',
+                  notes: 'General consultation chamber for clinical evaluations and follow-up examinations.',
+                },
+                {
+                  id: 'room-th-01',
+                  room_number: 'TH-01',
+                  name: 'Male Physiotherapy & Rehab Hall',
+                  type: 'therapy_hall',
+                  gender: 'male',
+                  status: 'available',
+                  notes: 'Dedicated male rehabilitation hall equipped with UST, Traction, IFT and Laser units.',
+                },
+                {
+                  id: 'room-th-02',
+                  room_number: 'TH-02',
+                  name: 'Female Physiotherapy & Rehab Hall',
+                  type: 'therapy_hall',
+                  gender: 'female',
+                  status: 'available',
+                  notes: 'Dedicated female rehabilitation hall with privacy screens and female therapy specialists.',
+                },
+                {
+                  id: 'room-tr-01',
+                  room_number: 'TR-01',
+                  name: 'Private Therapy Suite 1',
+                  type: 'private_room',
+                  gender: 'common',
+                  status: 'available',
+                  notes: 'Private acoustic therapy room for specialized manual therapy and needle interventions.',
+                },
+                {
+                  id: 'room-cr-01',
+                  room_number: 'CR-01',
+                  name: 'Central Billing & Cashier Counter',
+                  type: 'cashier_room',
+                  gender: 'common',
+                  status: 'available',
+                  notes: 'POS payment station, 80mm thermal receipt printer, and financial audit desk.',
+                },
+                {
+                  id: 'room-sr-01',
+                  room_number: 'SR-01',
+                  name: 'Medical Staff & Duty Room',
+                  type: 'staff_room',
+                  gender: 'common',
+                  status: 'available',
+                  notes: 'Staff locker room, rest area, and duty roster desk.',
+                },
+              ];
+
+              for (const r of defaultRooms) {
+                sqlite.exec(`
+                  INSERT OR IGNORE INTO rooms (id, room_number, name, type, gender, status, notes)
+                  VALUES ('${r.id}', '${r.room_number}', '${r.name}', '${r.type}', '${r.gender}', '${r.status}', '${r.notes}');
+                `);
+              }
+            }
+          } catch {}
         } catch {
           // Idempotent column safety
         }

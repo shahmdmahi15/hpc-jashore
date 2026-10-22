@@ -174,12 +174,35 @@ export const modalities = sqliteTable('modalities', {
   isActive: integer('is_active').notNull().default(1),
 });
 
+export const ROOM_TYPES = [
+  'waiting_room',
+  'public_room',
+  'private_room',
+  'doctor_consultation_room',
+  'therapy_room',
+  'therapy_hall',
+  'staff_room',
+  'cashier_room',
+] as const;
+export type RoomType = (typeof ROOM_TYPES)[number];
+
+export const ROOM_GENDERS = ['common', 'male', 'female'] as const;
+export type RoomGender = (typeof ROOM_GENDERS)[number];
+
+export const ROOM_STATUSES = ['available', 'occupied', 'maintenance', 'not_allowed'] as const;
+export type RoomStatus = (typeof ROOM_STATUSES)[number];
+
 export const rooms = sqliteTable('rooms', {
   id: text('id').primaryKey(),
-  code: text('code').notNull().unique(),
+  roomNumber: text('room_number').notNull().unique(),
   name: text('name').notNull(),
-  type: text('type').notNull().$type<'consult' | 'therapy' | 'counter'>(),
+  type: text('type').notNull().$type<RoomType>(),
+  gender: text('gender').notNull().default('common').$type<RoomGender>(),
+  status: text('status').notNull().default('available').$type<RoomStatus>(),
+  notes: text('notes'),
   isActive: integer('is_active').notNull().default(1),
+  deletedAt: text('deleted_at'),
+  ...timestamps,
 });
 
 // --- Phase 2: Patient Directory, Visits, Serials, Appointments ----------------

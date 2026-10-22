@@ -1,9 +1,9 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { AuditService } from '../audit/audit.service';
 import { DB, type Db } from '../db/db.module';
-import { attendance, staff } from '../db/schema';
+import { attendance, users, staff } from '../db/schema';
 import type { CreateStaffDto, UpdateStaffDto } from './dto';
 
 interface Actor {
@@ -23,19 +23,49 @@ export class StaffService {
     private readonly audit: AuditService,
   ) {}
 
-  list() {
-    return this.db.select().from(staff);
+  async list() {
+    const userRows = await this.db
+      .select({
+        id: users.id,
+        userId: users.id,
+        fullName: users.displayName,
+        displayName: users.displayName,
+        email: users.email,
+        phone: users.phone,
+        role: users.role,
+        isActive: users.isActive,
+      })
+      .from(users)
+      .where(eq(users.isActive, 1));
+
+    return userRows.map((u) => ({
+      ...u,
+      specialization: u.role === 'doctor' ? 'Consultant' : u.role,
+      feeOverridePaisa: 0,
+      defaultDeskId: u.role === 'receptionist' ? 'reception-1' : u.role === 'cashier' ? 'cashier-1' : 'consult-1',
+    }));
   }
 
   async get(id: string) {
-    const rows = await this.db.select().from(staff).where(eq(staff.id, id));
-    if (!rows[0]) throw new NotFoundException('Staff not found');
-    return rows[0];
+    const rows = await this.db.select().from(users).where(eq(users.id, id));
+    if (rows[0]) {
+      return {
+        id: rows[0].id,
+        userId: rows[0].id,
+        fullName: rows[0].displayName,
+        role: rows[0].role,
+        phone: rows[0].phone,
+        specialization: rows[0].role === 'doctor' ? 'Consultant' : rows[0].role,
+        isActive: rows[0].isActive,
+      };
+    }
+    const legacyRows = await this.db.select().from(staff).where(eq(staff.id, id));
+    if (!legacyRows[0]) throw new NotFoundException('User/Staff not found');
+    return legacyRows[0];
   }
 
   async staffIdForUser(userId: string): Promise<string | null> {
-    const rows = await this.db.select().from(staff).where(eq(staff.userId, userId));
-    return rows[0]?.id ?? null;
+    return userId;
   }
 
   async create(actor: Actor, dto: CreateStaffDto, meta: Meta) {
