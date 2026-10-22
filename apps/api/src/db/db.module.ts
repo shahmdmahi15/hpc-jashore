@@ -447,11 +447,29 @@ export type Db = BetterSQLite3Database<typeof schema>;
             if (!bookingColNames.has('delay_minutes')) {
               sqlite.exec("ALTER TABLE therapy_slot_bookings ADD COLUMN delay_minutes INTEGER");
             }
+            if (!bookingColNames.has('approval_status')) {
+              sqlite.exec("ALTER TABLE therapy_slot_bookings ADD COLUMN approval_status TEXT");
+            }
+            if (!bookingColNames.has('approved_by')) {
+              sqlite.exec("ALTER TABLE therapy_slot_bookings ADD COLUMN approved_by TEXT");
+            }
+            if (!bookingColNames.has('approved_at')) {
+              sqlite.exec("ALTER TABLE therapy_slot_bookings ADD COLUMN approved_at TEXT");
+            }
+            if (!bookingColNames.has('rejected_by')) {
+              sqlite.exec("ALTER TABLE therapy_slot_bookings ADD COLUMN rejected_by TEXT");
+            }
+            if (!bookingColNames.has('rejected_at')) {
+              sqlite.exec("ALTER TABLE therapy_slot_bookings ADD COLUMN rejected_at TEXT");
+            }
+            if (!bookingColNames.has('rejection_reason')) {
+              sqlite.exec("ALTER TABLE therapy_slot_bookings ADD COLUMN rejection_reason TEXT");
+            }
           } catch (bookingErr) {
             console.error('Error initializing therapy_slot_bookings table:', bookingErr);
           }
 
-          // Ensure visits punctuality columns
+          // Ensure visits punctuality & room columns
           try {
             const visitCols = sqlite.prepare("PRAGMA table_info(visits)").all() as Array<{ name: string }>;
             const visitColNames = new Set(visitCols.map((c) => c.name));
@@ -466,6 +484,9 @@ export type Db = BetterSQLite3Database<typeof schema>;
             }
             if (!visitColNames.has('therapy_booking_id')) {
               sqlite.exec("ALTER TABLE visits ADD COLUMN therapy_booking_id TEXT");
+            }
+            if (!visitColNames.has('room_id')) {
+              sqlite.exec("ALTER TABLE visits ADD COLUMN room_id TEXT");
             }
           } catch {}
         } catch {

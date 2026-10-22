@@ -298,6 +298,9 @@ export type TherapyBookingStatus = (typeof THERAPY_BOOKING_STATUSES)[number];
 export const PUNCTUALITY_STATUSES = ['on_time', 'moderate_delay', 'critical_delay'] as const;
 export type PunctualityStatus = (typeof PUNCTUALITY_STATUSES)[number];
 
+export const EXTRA_SLOT_APPROVAL_STATUSES = ['pending', 'approved', 'rejected'] as const;
+export type ExtraSlotApprovalStatus = (typeof EXTRA_SLOT_APPROVAL_STATUSES)[number];
+
 export const therapySlotBookings = sqliteTable('therapy_slot_bookings', {
   id: text('id').primaryKey(),
   bookingNumber: text('booking_number').notNull().unique(),
@@ -311,6 +314,12 @@ export const therapySlotBookings = sqliteTable('therapy_slot_bookings', {
   patientGender: text('patient_gender').notNull().$type<'male' | 'female'>(),
   capacityType: text('capacity_type').notNull().default('regular').$type<'regular' | 'extra'>(),
   status: text('status').notNull().default('booked').$type<TherapyBookingStatus>(),
+  approvalStatus: text('approval_status').$type<ExtraSlotApprovalStatus>(),
+  approvedBy: text('approved_by').references(() => users.id),
+  approvedAt: text('approved_at'),
+  rejectedBy: text('rejected_by').references(() => users.id),
+  rejectedAt: text('rejected_at'),
+  rejectionReason: text('rejection_reason'),
   checkedInAt: text('checked_in_at'),
   punctualityStatus: text('punctuality_status').$type<PunctualityStatus>(),
   delayMinutes: integer('delay_minutes'),
@@ -346,6 +355,7 @@ export const visits = sqliteTable('visits', {
     .$type<'normal' | 'emergency' | 'package' | 'follow_up' | 'elderly'>()
     .default('normal'),
   currentLocation: text('current_location').default('reception'),
+  roomId: text('room_id').references(() => rooms.id),
   checkedInAt: text('checked_in_at'),
   checkedOutAt: text('checked_out_at'),
   toldTime: text('told_time'),

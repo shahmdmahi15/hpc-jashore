@@ -14,6 +14,7 @@ import {
   dues,
   modalities,
   patients,
+  rooms,
   sequences,
   serials,
   staff,
@@ -156,6 +157,19 @@ export class VisitsService {
       activeBooking = bRows[0] ?? null;
     }
 
+    if (activeBooking && activeBooking.capacityType === 'extra') {
+      if (activeBooking.approvalStatus === 'pending') {
+        throw new BadRequestException(
+          'This extra standby slot is pending doctor or admin approval before check-in can proceed.',
+        );
+      }
+      if (activeBooking.approvalStatus === 'rejected') {
+        throw new BadRequestException(
+          `This extra standby slot was rejected by doctor/admin${activeBooking.rejectionReason ? `: ${activeBooking.rejectionReason}` : ''}. Check-in cannot proceed.`,
+        );
+      }
+    }
+
     // Determine destination: prioritize therapy if active booking or therapyBookingId exists, or doctorId absent
     const destination = (activeBooking || dto.therapyBookingId)
       ? 'therapy'
@@ -164,8 +178,24 @@ export class VisitsService {
     const effectiveToldTime = dto.toldTime?.trim() || activeBooking?.toldTime?.trim() || null;
     const punctuality = effectiveToldTime ? computePunctuality(effectiveToldTime, new Date()) : null;
 
-    // Route to therapy hall if destination is therapy; otherwise reception / consultation
-    const initialLocation = destination === 'therapy' ? 'therapy_hall' : 'reception';
+    // Put patient into the first active waiting room found in room config
+    const waitingRoomRows = await this.db
+      .select()
+      .from(rooms)
+      .where(
+        and(
+          eq(rooms.type, 'waiting_room'),
+          eq(rooms.isActive, 1),
+          sql`${rooms.status} != 'not_allowed'`,
+          isNull(rooms.deletedAt),
+        ),
+      )
+      .orderBy(sql`CAST(${rooms.roomNumber} AS INTEGER) ASC`, rooms.roomNumber)
+      .limit(1);
+
+    const firstWaitingRoom = waitingRoomRows[0] ?? null;
+    const initialLocation = firstWaitingRoom?.name || 'Waiting Room';
+    const roomId = firstWaitingRoom?.id ?? null;
 
     const visitId = randomUUID();
     const visitRow = {
@@ -177,6 +207,7 @@ export class VisitsService {
       status: 'checked_in' as const,
       priority: dto.priority ?? ('normal' as const),
       currentLocation: initialLocation,
+      roomId,
       checkedInAt: now,
       checkedOutAt: null,
       toldTime: effectiveToldTime,
@@ -236,6 +267,7 @@ export class VisitsService {
       tokenNumber,
       destination,
       currentLocation: initialLocation,
+      roomId,
       doctorId: dto.doctorId,
       serialNumber: serialRow?.serialNumber ?? null,
       toldTime: effectiveToldTime,
@@ -656,6 +688,7 @@ export class VisitsService {
         patientNameBn: patients.nameBn,
         priority: visits.priority,
         currentLocation: visits.currentLocation,
+        roomId: visits.roomId,
         checkedInAt: visits.checkedInAt,
         toldTime: visits.toldTime,
         punctualityStatus: visits.punctualityStatus,
@@ -666,11 +699,11 @@ export class VisitsService {
       .where(
         and(
           eq(visits.visitDate, today),
+          sql`(${visits.therapyBookingId} IS NULL OR ${visits.therapyBookingId} NOT IN (SELECT id FROM therapy_slot_bookings WHERE status = 'cancelled' OR deleted_at IS NOT NULL))`,
           or(
             and(
               eq(visits.status, 'checked_in'),
               or(
-                eq(visits.currentLocation, 'therapy_hall'),
                 sql`${visits.therapyBookingId} IS NOT NULL`,
                 isNull(visits.doctorId),
               ),
@@ -754,6 +787,7 @@ export class VisitsService {
         priority: visits.priority,
         status: visits.status,
         currentLocation: visits.currentLocation,
+        roomId: visits.roomId,
         toldTime: visits.toldTime,
         punctualityStatus: visits.punctualityStatus,
         delayMinutes: visits.delayMinutes,
@@ -764,11 +798,11 @@ export class VisitsService {
       .where(
         and(
           eq(visits.visitDate, today),
+          sql`(${visits.therapyBookingId} IS NULL OR ${visits.therapyBookingId} NOT IN (SELECT id FROM therapy_slot_bookings WHERE status = 'cancelled' OR deleted_at IS NOT NULL))`,
           or(
             and(
               eq(visits.status, 'checked_in'),
               or(
-                eq(visits.currentLocation, 'therapy_hall'),
                 sql`${visits.therapyBookingId} IS NOT NULL`,
                 isNull(visits.doctorId),
               ),

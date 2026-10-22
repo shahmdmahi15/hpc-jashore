@@ -690,16 +690,41 @@ export function TherapySlotBookingView() {
                                     {b.patient.mrn}
                                   </span>
                                   {b.capacityType === 'extra' && (
-                                    <Badge
-                                      variant="outline"
-                                      className="text-[9px] px-1 py-0 h-4 border-amber-500/40 text-amber-600 dark:text-amber-400 bg-amber-500/10 font-medium"
-                                    >
-                                      {isBn ? 'অতিরিক্ত' : 'Extra'}
-                                    </Badge>
+                                    <>
+                                      {b.approvalStatus === 'pending' || !b.approvalStatus ? (
+                                        <Badge
+                                          variant="outline"
+                                          className="text-[9px] px-1.5 py-0 h-4 border-amber-500/50 text-amber-700 dark:text-amber-300 bg-amber-500/15 font-semibold"
+                                        >
+                                          {isBn ? '⏳ অতিরিক্ত (অনুমোদন প্রয়োজন)' : '⏳ Extra (Pending)'}
+                                        </Badge>
+                                      ) : b.approvalStatus === 'approved' ? (
+                                        <Badge
+                                          variant="outline"
+                                          className="text-[9px] px-1.5 py-0 h-4 border-emerald-500/40 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 font-semibold"
+                                        >
+                                          {isBn ? '✓ অনুমোদিত অতিরিক্ত' : '✓ Approved Extra'}
+                                        </Badge>
+                                      ) : b.approvalStatus === 'rejected' ? (
+                                        <Badge
+                                          variant="outline"
+                                          className="text-[9px] px-1.5 py-0 h-4 border-rose-500/40 text-rose-600 dark:text-rose-400 bg-rose-500/10 font-semibold"
+                                        >
+                                          {isBn ? '✕ প্রত্যাখ্যাত' : '✕ Rejected'}
+                                        </Badge>
+                                      ) : null}
+                                    </>
                                   )}
                                 </div>
 
-                                <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                                {b.capacityType === 'extra' && b.approvalStatus === 'rejected' && b.rejectionReason && (
+                                  <div className="mt-1 text-[11px] px-2 py-0.5 rounded-md bg-rose-500/10 border border-rose-500/20 text-rose-700 dark:text-rose-300 font-medium flex items-start gap-1">
+                                    <AlertCircle className="w-3 h-3 shrink-0 mt-0.5 text-rose-600 dark:text-rose-400" />
+                                    <span><strong>{isBn ? 'কারণ:' : 'Reason:'}</strong> {b.rejectionReason}</span>
+                                  </div>
+                                )}
+
+                                <div className="flex items-center gap-2 text-[11px] text-muted-foreground mt-0.5">
                                   {b.toldTime && (
                                     <span className="inline-flex items-center gap-0.5 font-mono text-emerald-700 dark:text-emerald-400 font-semibold bg-emerald-500/10 px-1.5 py-0.2 rounded">
                                       <Clock className="w-2.5 h-2.5" />
@@ -858,15 +883,52 @@ export function TherapySlotBookingView() {
                           {b.toldTime || '—'}
                         </TableCell>
                         <TableCell>
-                          <span
-                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold border ${stCfg.badgeClass}`}
-                          >
-                            <span className={`w-2 h-2 rounded-full ${stCfg.dotColor}`} />
-                            <span>{isBn ? stCfg.labelBn : stCfg.labelEn}</span>
-                          </span>
+                          <div className="space-y-1">
+                            <span
+                              className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-xs font-semibold border ${stCfg.badgeClass}`}
+                            >
+                              <span className={`w-2 h-2 rounded-full ${stCfg.dotColor}`} />
+                              <span>{isBn ? stCfg.labelBn : stCfg.labelEn}</span>
+                            </span>
+                            {b.capacityType === 'extra' && (
+                              <div>
+                                {b.approvalStatus === 'pending' || !b.approvalStatus ? (
+                                  <Badge
+                                    variant="outline"
+                                    className="text-[9px] px-1.5 py-0 h-4 border-amber-500/50 text-amber-700 dark:text-amber-300 bg-amber-500/15 font-semibold"
+                                  >
+                                    {isBn ? '⏳ অতিরিক্ত (অপেক্ষমাণ)' : '⏳ Extra (Pending)'}
+                                  </Badge>
+                                ) : b.approvalStatus === 'approved' ? (
+                                  <Badge
+                                    variant="outline"
+                                    className="text-[9px] px-1.5 py-0 h-4 border-emerald-500/40 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 font-semibold"
+                                  >
+                                    {isBn ? '✓ অনুমোদিত অতিরিক্ত' : '✓ Approved Extra'}
+                                  </Badge>
+                                ) : b.approvalStatus === 'rejected' ? (
+                                  <Badge
+                                    variant="outline"
+                                    className="text-[9px] px-1.5 py-0 h-4 border-rose-500/40 text-rose-600 dark:text-rose-400 bg-rose-500/10 font-semibold"
+                                  >
+                                    {isBn ? '✕ প্রত্যাখ্যাত' : '✕ Rejected'}
+                                  </Badge>
+                                ) : null}
+                              </div>
+                            )}
+                          </div>
                         </TableCell>
-                        <TableCell className="text-xs text-muted-foreground max-w-[200px] truncate">
-                          {b.notes || '—'}
+                        <TableCell className="text-xs max-w-[200px]">
+                          {b.capacityType === 'extra' && b.approvalStatus === 'rejected' && b.rejectionReason ? (
+                            <div className="p-1 rounded bg-rose-500/10 border border-rose-500/20 text-rose-700 dark:text-rose-300 text-[11px]">
+                              <span className="font-bold">{isBn ? 'কারণ: ' : 'Reason: '}</span>
+                              <span>{b.rejectionReason}</span>
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground truncate block">
+                              {b.notes || '—'}
+                            </span>
+                          )}
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="inline-flex items-center justify-end">

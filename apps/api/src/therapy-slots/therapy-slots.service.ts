@@ -14,10 +14,13 @@ import {
   therapySlotBookings,
   therapySlotConfigs,
   users,
+  visits,
   type DayOfWeek,
   type SlotHour,
   type TherapyBookingStatus,
 } from '../db/schema';
+import { EventsGateway } from '../realtime/events.gateway';
+import { RealtimeService } from '../realtime/realtime.service';
 import type {
   BulkUpdateTherapySlotsDto,
   CopyDayScheduleDto,
@@ -62,6 +65,8 @@ export class TherapySlotsService {
   constructor(
     @Inject(DB) private readonly db: Db,
     private readonly audit: AuditService,
+    private readonly gateway: EventsGateway,
+    private readonly realtime: RealtimeService,
   ) {}
 
   async list(dto: TherapySlotQueryDto) {
@@ -530,6 +535,7 @@ export class TherapySlotsService {
 
     const id = randomUUID();
     const now = new Date().toISOString();
+    const isExtra = assignedCapacityType === 'extra';
 
     const newBooking = {
       id,
@@ -541,7 +547,13 @@ export class TherapySlotsService {
       toldTime: dto.toldTime ? dto.toldTime.trim() : null,
       patientGender: gender,
       capacityType: assignedCapacityType,
-      status: 'confirmed' as const, // Auto-confirmed immediately upon booking
+      status: isExtra ? ('booked' as const) : ('confirmed' as const),
+      approvalStatus: isExtra ? ('pending' as const) : ('approved' as const),
+      approvedBy: isExtra ? null : actor.sub,
+      approvedAt: isExtra ? null : now,
+      rejectedBy: null,
+      rejectedAt: null,
+      rejectionReason: null,
       notes: dto.notes ? dto.notes.trim() : null,
       bookedBy: actor.sub,
       createdAt: now,
@@ -561,7 +573,16 @@ export class TherapySlotsService {
       requestId: meta.requestId,
     });
 
-    return this.getBooking(id);
+    const result = await this.getBooking(id);
+    this.gateway.emit('clinic:global', 'therapy.booking.created', result);
+    this.gateway.emit('clinic:global', 'therapy.slot.updated', {
+      slotHour: dto.slotHour,
+      date: dto.bookingDate,
+      isExtra,
+    });
+    this.realtime.publish('therapy.booking.created', result);
+
+    return result;
   }
 
   async listBookings(dto: TherapyBookingQueryDto) {
@@ -602,6 +623,10 @@ export class TherapySlotsService {
       conditions.push(eq(therapySlotBookings.capacityType, dto.capacityType));
     }
 
+    if (dto.approvalStatus && dto.approvalStatus !== 'all') {
+      conditions.push(eq(therapySlotBookings.approvalStatus, dto.approvalStatus));
+    }
+
     if (dto.query && dto.query.trim()) {
       const pattern = `%${dto.query.trim()}%`;
       conditions.push(
@@ -629,6 +654,12 @@ export class TherapySlotsService {
         patientGender: therapySlotBookings.patientGender,
         capacityType: therapySlotBookings.capacityType,
         status: therapySlotBookings.status,
+        approvalStatus: therapySlotBookings.approvalStatus,
+        approvedBy: therapySlotBookings.approvedBy,
+        approvedAt: therapySlotBookings.approvedAt,
+        rejectedBy: therapySlotBookings.rejectedBy,
+        rejectedAt: therapySlotBookings.rejectedAt,
+        rejectionReason: therapySlotBookings.rejectionReason,
         notes: therapySlotBookings.notes,
         bookedBy: therapySlotBookings.bookedBy,
         createdAt: therapySlotBookings.createdAt,
@@ -716,6 +747,12 @@ export class TherapySlotsService {
         patientGender: therapySlotBookings.patientGender,
         capacityType: therapySlotBookings.capacityType,
         status: therapySlotBookings.status,
+        approvalStatus: therapySlotBookings.approvalStatus,
+        approvedBy: therapySlotBookings.approvedBy,
+        approvedAt: therapySlotBookings.approvedAt,
+        rejectedBy: therapySlotBookings.rejectedBy,
+        rejectedAt: therapySlotBookings.rejectedAt,
+        rejectionReason: therapySlotBookings.rejectionReason,
         notes: therapySlotBookings.notes,
         bookedBy: therapySlotBookings.bookedBy,
         createdAt: therapySlotBookings.createdAt,
@@ -802,6 +839,108 @@ export class TherapySlotsService {
     return updated;
   }
 
+  async approveBooking(actor: Actor, id: string, meta: Meta) {
+    const existing = await this.getBooking(id, true);
+
+    const now = new Date().toISOString();
+    await this.db
+      .update(therapySlotBookings)
+      .set({
+        approvalStatus: 'approved',
+        status: 'confirmed',
+        approvedBy: actor.sub,
+        approvedAt: now,
+        rejectedBy: null,
+        rejectedAt: null,
+        rejectionReason: null,
+        updatedAt: now,
+      })
+      .where(eq(therapySlotBookings.id, id));
+
+    const updated = await this.getBooking(id, true);
+
+    await this.audit.log({
+      actorUserId: actor.sub,
+      actorRole: actor.role,
+      action: 'therapy_booking.approve',
+      entity: 'therapy_slot_bookings',
+      entityId: id,
+      before: existing,
+      after: updated,
+      ip: meta.ip,
+      requestId: meta.requestId,
+    });
+
+    this.gateway.emit('clinic:global', 'therapy.booking.approved', updated);
+    this.gateway.emit('clinic:global', 'therapy.slot.updated', { bookingId: id });
+    this.realtime.publish('therapy.booking.approved', updated);
+
+    return updated;
+  }
+
+  async rejectBooking(actor: Actor, id: string, reason: string, meta: Meta) {
+    const existing = await this.getBooking(id, true);
+
+    if (!reason || !reason.trim()) {
+      throw new BadRequestException('Rejection reason is required');
+    }
+
+    const now = new Date().toISOString();
+    await this.db
+      .update(therapySlotBookings)
+      .set({
+        approvalStatus: 'rejected',
+        status: 'cancelled',
+        rejectedBy: actor.sub,
+        rejectedAt: now,
+        rejectionReason: reason.trim(),
+        updatedAt: now,
+      })
+      .where(eq(therapySlotBookings.id, id));
+
+    // Cancel any linked visits where therapyBookingId = id and status = 'checked_in'
+    const linkedVisits = await this.db
+      .select({ id: visits.id, patientId: visits.patientId, tokenNumber: visits.tokenNumber })
+      .from(visits)
+      .where(and(eq(visits.therapyBookingId, id), eq(visits.status, 'checked_in')));
+
+    if (linkedVisits.length > 0) {
+      await this.db
+        .update(visits)
+        .set({ status: 'cancelled', updatedAt: now })
+        .where(and(eq(visits.therapyBookingId, id), eq(visits.status, 'checked_in')));
+
+      for (const v of linkedVisits) {
+        this.gateway.emit('clinic:global', 'therapy.queue.updated', {
+          visitId: v.id,
+          patientId: v.patientId,
+          tokenNumber: v.tokenNumber,
+          cancelled: true,
+        });
+      }
+    }
+
+    const updated = await this.getBooking(id, true);
+
+    await this.audit.log({
+      actorUserId: actor.sub,
+      actorRole: actor.role,
+      action: 'therapy_booking.reject',
+      entity: 'therapy_slot_bookings',
+      entityId: id,
+      before: existing,
+      after: updated,
+      ip: meta.ip,
+      requestId: meta.requestId,
+    });
+
+    this.gateway.emit('clinic:global', 'therapy.booking.rejected', updated);
+    this.gateway.emit('clinic:global', 'therapy.slot.updated', { bookingId: id });
+    this.realtime.publish('therapy.booking.rejected', updated);
+
+    return updated;
+  }
+
   async deleteBooking(actor: Actor, id: string, meta: Meta) {
     const existing = await this.getBooking(id, true);
 
@@ -815,6 +954,28 @@ export class TherapySlotsService {
       })
       .where(eq(therapySlotBookings.id, id));
 
+    // If the patient already checked in with this therapy booking, cancel the visit and remove them from the queue
+    const linkedVisits = await this.db
+      .select({ id: visits.id, patientId: visits.patientId, tokenNumber: visits.tokenNumber })
+      .from(visits)
+      .where(and(eq(visits.therapyBookingId, id), eq(visits.status, 'checked_in')));
+
+    if (linkedVisits.length > 0) {
+      await this.db
+        .update(visits)
+        .set({ status: 'cancelled', updatedAt: now })
+        .where(and(eq(visits.therapyBookingId, id), eq(visits.status, 'checked_in')));
+
+      for (const v of linkedVisits) {
+        this.gateway.emit('clinic:global', 'therapy.queue.updated', {
+          visitId: v.id,
+          patientId: v.patientId,
+          tokenNumber: v.tokenNumber,
+          cancelled: true,
+        });
+      }
+    }
+
     await this.audit.log({
       actorUserId: actor.sub,
       actorRole: actor.role,
@@ -826,6 +987,8 @@ export class TherapySlotsService {
       ip: meta.ip,
       requestId: meta.requestId,
     });
+
+    this.gateway.emit('clinic:global', 'therapy.slot.updated', { bookingId: id, cancelled: true });
 
     return { success: true };
   }

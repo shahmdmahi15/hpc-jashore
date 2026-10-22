@@ -5,6 +5,7 @@ import {
   IsEnum,
   IsIn,
   IsInt,
+  IsNotEmpty,
   IsNumber,
   IsOptional,
   IsString,
@@ -214,6 +215,11 @@ export class TherapyBookingQueryDto {
   @IsIn(['regular', 'extra'])
   capacityType?: 'regular' | 'extra';
 
+  @ApiPropertyOptional({ description: 'Filter by approval status', enum: ['pending', 'approved', 'rejected', 'all'] })
+  @IsOptional()
+  @IsIn(['pending', 'approved', 'rejected', 'all'])
+  approvalStatus?: 'pending' | 'approved' | 'rejected' | 'all';
+
   @ApiPropertyOptional({ description: 'Search patient name, MRN, phone, booking number' })
   @IsOptional()
   @IsString()
@@ -232,4 +238,11 @@ export class TherapyBookingQueryDto {
   @IsInt()
   @Min(1)
   limit?: number;
+}
+
+export class RejectExtraSlotDto {
+  @ApiProperty({ description: 'Reason for rejecting extra slot request' })
+  @IsString()
+  @IsNotEmpty()
+  reason!: string;
 }

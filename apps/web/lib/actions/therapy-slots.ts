@@ -195,6 +195,8 @@ export type TherapyBookingStatus =
   | 'completed'
   | 'cancelled';
 
+export type ExtraSlotApprovalStatus = 'pending' | 'approved' | 'rejected';
+
 export interface TherapySlotBookingRecord {
   id: string;
   bookingNumber: string;
@@ -205,6 +207,12 @@ export interface TherapySlotBookingRecord {
   toldTime?: string | null;
   patientGender: 'male' | 'female';
   capacityType: 'regular' | 'extra';
+  approvalStatus?: ExtraSlotApprovalStatus | null;
+  approvedBy?: string | null;
+  approvedAt?: string | null;
+  rejectedBy?: string | null;
+  rejectedAt?: string | null;
+  rejectionReason?: string | null;
   status: TherapyBookingStatus;
   notes?: string | null;
   bookedBy?: string | null;
@@ -222,6 +230,16 @@ export interface TherapySlotBookingRecord {
     bloodGroup?: string | null;
   };
   bookedByUser?: {
+    id: string;
+    displayName: string;
+    role: string;
+  } | null;
+  approvedByUser?: {
+    id: string;
+    displayName: string;
+    role: string;
+  } | null;
+  rejectedByUser?: {
     id: string;
     displayName: string;
     role: string;
@@ -318,6 +336,7 @@ export async function listTherapyBookingsAction(params: {
   status?: string;
   slotHour?: string;
   capacityType?: 'regular' | 'extra';
+  approvalStatus?: 'pending' | 'approved' | 'rejected' | 'all';
   query?: string;
   page?: number;
   limit?: number;
@@ -336,6 +355,8 @@ export async function listTherapyBookingsAction(params: {
       queryParts.push(`slotHour=${encodeURIComponent(params.slotHour)}`);
     if (params.capacityType)
       queryParts.push(`capacityType=${encodeURIComponent(params.capacityType)}`);
+    if (params.approvalStatus && params.approvalStatus !== 'all')
+      queryParts.push(`approvalStatus=${encodeURIComponent(params.approvalStatus)}`);
     if (params.query) queryParts.push(`query=${encodeURIComponent(params.query)}`);
     if (params.page) queryParts.push(`page=${params.page}`);
     if (params.limit) queryParts.push(`limit=${params.limit}`);
@@ -470,6 +491,68 @@ export async function restoreTherapyBookingAction(
     return {
       success: false,
       error: err?.message || 'Failed to restore therapy slot booking',
+    };
+  }
+}
+
+export async function approveExtraSlotBookingAction(
+  id: string,
+): Promise<{
+  success: boolean;
+  data?: TherapySlotBookingRecord;
+  error?: string;
+}> {
+  try {
+    const res = await serverFetch<TherapySlotBookingRecord>(
+      `/therapy-slots/bookings/${encodeURIComponent(id)}/approve`,
+      {
+        method: 'POST',
+      },
+    );
+
+    revalidatePath('/admin');
+    revalidatePath('/doctor');
+    revalidatePath('/receptionist');
+    revalidatePath('/handler');
+    revalidatePath('/cashier');
+
+    return { success: true, data: res };
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err?.message || 'Failed to approve extra slot booking',
+    };
+  }
+}
+
+export async function rejectExtraSlotBookingAction(
+  id: string,
+  reason: string,
+): Promise<{
+  success: boolean;
+  data?: TherapySlotBookingRecord;
+  error?: string;
+}> {
+  try {
+    const res = await serverFetch<TherapySlotBookingRecord>(
+      `/therapy-slots/bookings/${encodeURIComponent(id)}/reject`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ reason }),
+      },
+    );
+
+    revalidatePath('/admin');
+    revalidatePath('/doctor');
+    revalidatePath('/receptionist');
+    revalidatePath('/handler');
+    revalidatePath('/cashier');
+
+    return { success: true, data: res };
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err?.message || 'Failed to reject extra slot booking',
     };
   }
 }

@@ -21,6 +21,7 @@ import {
   BulkUpdateTherapySlotsDto,
   CopyDayScheduleDto,
   CreateTherapyBookingDto,
+  RejectExtraSlotDto,
   TherapyAvailabilityQueryDto,
   TherapyBookingQueryDto,
   TherapySlotQueryDto,
@@ -94,6 +95,38 @@ export class TherapySlotsController {
       { sub: user.sub, role: user.role },
       id,
       dto,
+      this.meta(req),
+    );
+  }
+
+  @Post('bookings/:id/approve')
+  @ApiOperation({ summary: 'Approve an extra capacity standby therapy slot booking (doctor/admin)' })
+  @Roles('admin', 'doctor')
+  approveBooking(
+    @CurrentUser() user: RequestUser,
+    @Param('id') id: string,
+    @Req() req: Request,
+  ) {
+    return this.therapySlotsService.approveBooking(
+      { sub: user.sub, role: user.role },
+      id,
+      this.meta(req),
+    );
+  }
+
+  @Post('bookings/:id/reject')
+  @ApiOperation({ summary: 'Reject an extra capacity standby therapy slot booking with reason (doctor/admin)' })
+  @Roles('admin', 'doctor')
+  rejectBooking(
+    @CurrentUser() user: RequestUser,
+    @Param('id') id: string,
+    @Body() dto: RejectExtraSlotDto,
+    @Req() req: Request,
+  ) {
+    return this.therapySlotsService.rejectBooking(
+      { sub: user.sub, role: user.role },
+      id,
+      dto.reason,
       this.meta(req),
     );
   }
