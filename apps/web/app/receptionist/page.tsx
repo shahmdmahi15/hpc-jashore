@@ -7,6 +7,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '../../components/ui/ta
 import { WorkstationTabPlaceholder } from '../../components/WorkstationTabPlaceholder';
 import { PatientManagementView } from '../../components/patient/PatientManagementView';
 import { TherapySlotBookingView } from '../../components/therapy/TherapySlotBookingView';
+import { CheckInWorkstationView } from '../../components/checkin/CheckInWorkstationView';
 import { useLanguage } from '../../lib/i18n';
 import {
   UserCheck,
@@ -112,6 +113,10 @@ export default function ReceptionistPage() {
               </TabsList>
             </div>
 
+            <TabsContent value="checkin" className="mt-4 focus-visible:outline-none">
+              <CheckInWorkstationView />
+            </TabsContent>
+
             <TabsContent value="patients" className="mt-4 focus-visible:outline-none">
               <PatientManagementView />
             </TabsContent>
@@ -120,7 +125,7 @@ export default function ReceptionistPage() {
               <TherapySlotBookingView />
             </TabsContent>
 
-            {RECEPTIONIST_TABS.filter((t) => t.id !== 'patients' && t.id !== 'therapy_slot').map((tab) => (
+            {RECEPTIONIST_TABS.filter((t) => t.id !== 'checkin' && t.id !== 'patients' && t.id !== 'therapy_slot').map((tab) => (
               <TabsContent key={tab.id} value={tab.id} className="mt-4 focus-visible:outline-none">
                 <WorkstationTabPlaceholder
                   titleEn={tab.titleEn}

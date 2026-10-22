@@ -56,6 +56,9 @@ interface TherapyItem {
   priority?: string;
   currentLocation?: string | null;
   checkedInAt?: string | null;
+  toldTime?: string | null;
+  punctualityStatus?: 'on_time' | 'moderate_delay' | 'critical_delay' | null;
+  delayMinutes?: number | null;
 }
 
 interface TvSnapshotData {
@@ -858,6 +861,37 @@ export default function WaitingRoomTvView() {
                           {lang === 'bn' ? item.patientNameBn || item.patientNameEn : item.patientNameEn}
                         </div>
                       </div>
+
+                      {/* Punctuality Marker & Told Time */}
+                      {item.punctualityStatus && (
+                        <div className="my-1 flex items-center gap-1.5 flex-wrap">
+                          {item.punctualityStatus === 'on_time' && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] 2xl:text-xs font-bold font-mono bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                              {item.delayMinutes != null && item.delayMinutes <= 0
+                                ? (lang === 'bn' ? `যথাসময়ে (${toBnNum(Math.abs(item.delayMinutes))} মি. আগে)` : `On Time (${Math.abs(item.delayMinutes)}m early)`)
+                                : (lang === 'bn' ? `যথাসময়ে (+${toBnNum(item.delayMinutes || 0)} মি.)` : `On Time (+${item.delayMinutes || 0}m)`)}
+                            </span>
+                          )}
+                          {item.punctualityStatus === 'moderate_delay' && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] 2xl:text-xs font-bold font-mono bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+                              <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                              {lang === 'bn' ? `দেরি: +${toBnNum(item.delayMinutes || 0)} মি.` : `Late: +${item.delayMinutes || 0}m`}
+                            </span>
+                          )}
+                          {item.punctualityStatus === 'critical_delay' && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] 2xl:text-xs font-bold font-mono bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30 animate-pulse">
+                              <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                              {lang === 'bn' ? `বিলম্বিত: +${toBnNum(item.delayMinutes || 0)} মি.` : `Very Late: +${item.delayMinutes || 0}m`}
+                            </span>
+                          )}
+                          {item.toldTime && (
+                            <span className="text-[10px] 2xl:text-xs text-muted-foreground font-mono">
+                              ⏰ {item.toldTime}
+                            </span>
+                          )}
+                        </div>
+                      )}
 
                       {/* Bottom Row: Hall/Modality & Duration/Status */}
                       <div className="flex items-center justify-between text-[10px] 2xl:text-xs pt-2 border-t border-border/40 mt-1">

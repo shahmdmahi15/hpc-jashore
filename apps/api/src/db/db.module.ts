@@ -387,9 +387,39 @@ export type Db = BetterSQLite3Database<typeof schema>;
               CREATE INDEX IF NOT EXISTS idx_tsb_patient ON therapy_slot_bookings(patient_id);
               CREATE INDEX IF NOT EXISTS idx_tsb_status ON therapy_slot_bookings(status);
             `);
+
+            const bookingCols = sqlite.prepare("PRAGMA table_info(therapy_slot_bookings)").all() as Array<{ name: string }>;
+            const bookingColNames = new Set(bookingCols.map((c) => c.name));
+            if (!bookingColNames.has('checked_in_at')) {
+              sqlite.exec("ALTER TABLE therapy_slot_bookings ADD COLUMN checked_in_at TEXT");
+            }
+            if (!bookingColNames.has('punctuality_status')) {
+              sqlite.exec("ALTER TABLE therapy_slot_bookings ADD COLUMN punctuality_status TEXT");
+            }
+            if (!bookingColNames.has('delay_minutes')) {
+              sqlite.exec("ALTER TABLE therapy_slot_bookings ADD COLUMN delay_minutes INTEGER");
+            }
           } catch (bookingErr) {
             console.error('Error initializing therapy_slot_bookings table:', bookingErr);
           }
+
+          // Ensure visits punctuality columns
+          try {
+            const visitCols = sqlite.prepare("PRAGMA table_info(visits)").all() as Array<{ name: string }>;
+            const visitColNames = new Set(visitCols.map((c) => c.name));
+            if (!visitColNames.has('told_time')) {
+              sqlite.exec("ALTER TABLE visits ADD COLUMN told_time TEXT");
+            }
+            if (!visitColNames.has('punctuality_status')) {
+              sqlite.exec("ALTER TABLE visits ADD COLUMN punctuality_status TEXT");
+            }
+            if (!visitColNames.has('delay_minutes')) {
+              sqlite.exec("ALTER TABLE visits ADD COLUMN delay_minutes INTEGER");
+            }
+            if (!visitColNames.has('therapy_booking_id')) {
+              sqlite.exec("ALTER TABLE visits ADD COLUMN therapy_booking_id TEXT");
+            }
+          } catch {}
         } catch {
           // Idempotent column safety
         }

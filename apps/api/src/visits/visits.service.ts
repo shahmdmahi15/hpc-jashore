@@ -18,13 +18,67 @@ import {
   serials,
   staff,
   therapySessions,
+  therapySlotBookings,
   visits,
+  type PunctualityStatus,
 } from '../db/schema';
 import { EventsGateway } from '../realtime/events.gateway';
 import { RealtimeService } from '../realtime/realtime.service';
 import type { CallSerialDto, CheckInDto, CheckOutDto, RoutePatientDto } from './dto';
 
 const todayDateString = () => new Date().toISOString().slice(0, 10);
+
+/**
+ * Parse told time string (e.g. "09:30 AM", "14:15", "10:00", "2:30 PM") into minutes from midnight.
+ */
+export function parseToldTimeToMinutes(toldTimeStr?: string | null): number | null {
+  if (!toldTimeStr || !toldTimeStr.trim()) return null;
+  const match = toldTimeStr.trim().match(/^(\d{1,2}):(\d{2})(?:\s*([APap][Mm]))?$/);
+  if (!match) return null;
+  let hours = parseInt(match[1], 10);
+  const minutes = parseInt(match[2], 10);
+  const meridiem = match[3]?.toUpperCase();
+
+  if (meridiem === 'PM' && hours < 12) hours += 12;
+  if (meridiem === 'AM' && hours === 12) hours = 0;
+
+  return hours * 60 + minutes;
+}
+
+/**
+ * Calculate punctuality status & delay in minutes:
+ * User requirement:
+ * - Up to 5 min late: Green ('on_time')
+ * - 5 min to 15 min late: Yellow ('moderate_delay')
+ * - > 15 min late: Red ('critical_delay')
+ */
+export function computePunctuality(
+  toldTimeStr?: string | null,
+  checkInDate: Date = new Date(),
+): { punctualityStatus: PunctualityStatus; delayMinutes: number } | null {
+  const toldMinutes = parseToldTimeToMinutes(toldTimeStr);
+  if (toldMinutes === null) return null;
+
+  const currentMinutes = checkInDate.getHours() * 60 + checkInDate.getMinutes();
+  const delayMinutes = currentMinutes - toldMinutes;
+
+  if (delayMinutes <= 5) {
+    return {
+      punctualityStatus: 'on_time',
+      delayMinutes,
+    };
+  } else if (delayMinutes <= 15) {
+    return {
+      punctualityStatus: 'moderate_delay',
+      delayMinutes,
+    };
+  } else {
+    return {
+      punctualityStatus: 'critical_delay',
+      delayMinutes,
+    };
+  }
+}
 
 @Injectable()
 export class VisitsService {
@@ -72,6 +126,38 @@ export class VisitsService {
     const today = todayDateString();
     const now = new Date().toISOString();
 
+    // Determine destination: default 'therapy' if not specified and doctorId is not given
+    const destination = dto.destination ?? (dto.doctorId ? 'consultation' : 'therapy');
+
+    // Find if there is an active therapy slot booking for this patient today
+    let activeBooking = null;
+    if (dto.therapyBookingId) {
+      const bRows = await this.db
+        .select()
+        .from(therapySlotBookings)
+        .where(eq(therapySlotBookings.id, dto.therapyBookingId));
+      activeBooking = bRows[0] ?? null;
+    } else {
+      const bRows = await this.db
+        .select()
+        .from(therapySlotBookings)
+        .where(
+          and(
+            eq(therapySlotBookings.patientId, patient.id),
+            eq(therapySlotBookings.bookingDate, today),
+            eq(therapySlotBookings.status, 'booked'),
+          ),
+        )
+        .limit(1);
+      activeBooking = bRows[0] ?? null;
+    }
+
+    const effectiveToldTime = dto.toldTime?.trim() || activeBooking?.toldTime?.trim() || null;
+    const punctuality = effectiveToldTime ? computePunctuality(effectiveToldTime, new Date()) : null;
+
+    // Route to therapy hall if destination is therapy; otherwise reception / consultation
+    const initialLocation = destination === 'therapy' ? 'therapy_hall' : 'reception';
+
     const visitId = randomUUID();
     const visitRow = {
       id: visitId,
@@ -81,14 +167,32 @@ export class VisitsService {
       visitDate: today,
       status: 'checked_in' as const,
       priority: dto.priority ?? ('normal' as const),
-      currentLocation: 'reception',
+      currentLocation: initialLocation,
       checkedInAt: now,
       checkedOutAt: null,
+      toldTime: effectiveToldTime,
+      punctualityStatus: punctuality?.punctualityStatus ?? null,
+      delayMinutes: punctuality?.delayMinutes ?? null,
+      therapyBookingId: activeBooking?.id ?? dto.therapyBookingId ?? null,
       notes: dto.notes ?? null,
       createdAt: now,
       updatedAt: now,
     };
     await this.db.insert(visits).values(visitRow);
+
+    // If active booking exists, update it to attended with punctuality
+    if (activeBooking) {
+      await this.db
+        .update(therapySlotBookings)
+        .set({
+          status: 'attended',
+          checkedInAt: now,
+          punctualityStatus: punctuality?.punctualityStatus ?? null,
+          delayMinutes: punctuality?.delayMinutes ?? null,
+          updatedAt: now,
+        })
+        .where(eq(therapySlotBookings.id, activeBooking.id));
+    }
 
     let serialRow = null;
     if (dto.doctorId) {
@@ -121,13 +225,20 @@ export class VisitsService {
       mrn: patient.mrn,
       patientName: patient.nameEn,
       tokenNumber,
+      destination,
+      currentLocation: initialLocation,
       doctorId: dto.doctorId,
       serialNumber: serialRow?.serialNumber ?? null,
+      toldTime: effectiveToldTime,
+      punctualityStatus: punctuality?.punctualityStatus ?? null,
+      delayMinutes: punctuality?.delayMinutes ?? null,
     };
     this.gateway.emit('clinic:global', 'visit.checked_in', eventPayload);
     this.gateway.emit('clinic:global', 'queue.updated', { doctorId: dto.doctorId });
+    this.gateway.emit('clinic:global', 'therapy.queue.updated', eventPayload);
     this.realtime.publish('visit.checked_in', eventPayload);
     this.realtime.publish('queue.updated', { doctorId: dto.doctorId });
+    this.realtime.publish('therapy.queue.updated', eventPayload);
 
     await this.audit.log({
       actorUserId: actor.sub,
@@ -154,6 +265,10 @@ export class VisitsService {
         serialNumber: serialRow?.serialNumber ?? null,
         date: today,
         time: now,
+        destination,
+        toldTime: effectiveToldTime,
+        punctualityStatus: punctuality?.punctualityStatus ?? null,
+        delayMinutes: punctuality?.delayMinutes ?? null,
         clinicNameBn: 'এইচপিসি হেলথ অ্যান্ড পেইন কেয়ার সেন্টার, যশোর',
         clinicNameEn: 'HPC Health & Pain Care Center, Jashore',
       },
@@ -533,6 +648,9 @@ export class VisitsService {
         priority: visits.priority,
         currentLocation: visits.currentLocation,
         checkedInAt: visits.checkedInAt,
+        toldTime: visits.toldTime,
+        punctualityStatus: visits.punctualityStatus,
+        delayMinutes: visits.delayMinutes,
       })
       .from(visits)
       .innerJoin(patients, eq(visits.patientId, patients.id))
@@ -546,7 +664,7 @@ export class VisitsService {
         ),
       )
       .orderBy(visits.tokenNumber)
-      .limit(10);
+      .limit(30);
 
     return {
       date: today,
@@ -570,6 +688,100 @@ export class VisitsService {
         'থেরাপি চলাকালীন মোবাইল ফোন সাইলেন্ট রাখুন | Please silence your mobile phones in the therapy hall',
         'জরুরি যোগাযোগ ও হটলাইন: 01711-000000 | নামাজের বিরতি: দুপুর ১:১৫ হতে ১:৪৫ পর্যন্ত',
       ],
+    };
+  }
+
+  async getCheckinOverview() {
+    const today = todayDateString();
+
+    // 1. All visits for today
+    const todayVisits = await this.db
+      .select({
+        visit: visits,
+        patient: patients,
+        doctor: staff,
+      })
+      .from(visits)
+      .innerJoin(patients, eq(visits.patientId, patients.id))
+      .leftJoin(staff, eq(visits.doctorId, staff.id))
+      .where(eq(visits.visitDate, today))
+      .orderBy(desc(visits.createdAt));
+
+    // 2. All therapy slot bookings for today
+    const bookings = await this.db
+      .select({
+        booking: therapySlotBookings,
+        patient: patients,
+      })
+      .from(therapySlotBookings)
+      .innerJoin(patients, eq(therapySlotBookings.patientId, patients.id))
+      .where(eq(therapySlotBookings.bookingDate, today))
+      .orderBy(therapySlotBookings.slotHour, therapySlotBookings.toldTime);
+
+    // 3. Live therapy queue
+    const liveTherapyQueue = await this.db
+      .select({
+        visitId: visits.id,
+        tokenNumber: visits.tokenNumber,
+        patientId: patients.id,
+        mrn: patients.mrn,
+        patientNameEn: patients.nameEn,
+        patientNameBn: patients.nameBn,
+        phone: patients.phone,
+        gender: patients.gender,
+        priority: visits.priority,
+        status: visits.status,
+        currentLocation: visits.currentLocation,
+        toldTime: visits.toldTime,
+        punctualityStatus: visits.punctualityStatus,
+        delayMinutes: visits.delayMinutes,
+        checkedInAt: visits.checkedInAt,
+      })
+      .from(visits)
+      .innerJoin(patients, eq(visits.patientId, patients.id))
+      .where(
+        and(
+          eq(visits.visitDate, today),
+          or(
+            and(eq(visits.status, 'checked_in'), eq(visits.currentLocation, 'therapy_hall')),
+            eq(visits.status, 'in_therapy'),
+          ),
+        ),
+      )
+      .orderBy(visits.tokenNumber);
+
+    // KPIs
+    const totalCheckedIn = todayVisits.length;
+    const totalBooked = bookings.length;
+    const attendedBooked = bookings.filter((b) => b.booking.status === 'attended').length;
+    const onTimeCount = todayVisits.filter((v) => v.visit.punctualityStatus === 'on_time').length;
+    const moderateDelayCount = todayVisits.filter(
+      (v) => v.visit.punctualityStatus === 'moderate_delay',
+    ).length;
+    const criticalDelayCount = todayVisits.filter(
+      (v) => v.visit.punctualityStatus === 'critical_delay',
+    ).length;
+
+    return {
+      date: today,
+      stats: {
+        totalCheckedIn,
+        totalBooked,
+        attendedBooked,
+        onTimeCount,
+        moderateDelayCount,
+        criticalDelayCount,
+      },
+      todayBookings: bookings.map((b) => ({
+        ...b.booking,
+        patient: b.patient,
+      })),
+      liveTherapyQueue,
+      recentCheckIns: todayVisits.slice(0, 30).map((v) => ({
+        ...v.visit,
+        patient: v.patient,
+        doctor: v.doctor ? { id: v.doctor.id, fullName: v.doctor.fullName } : null,
+      })),
     };
   }
 }

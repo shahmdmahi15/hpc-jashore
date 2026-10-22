@@ -66,7 +66,10 @@ data class TherapyPatient(
     val bedName: String = "Bed 1",
     val modality: String = "Physiotherapy",
     val durationMinutes: Int = 20,
-    val priority: String = "regular"
+    val priority: String = "regular",
+    val toldTime: String? = null,
+    val punctualityStatus: String? = null,
+    val delayMinutes: Int? = null
 )
 
 data class TvBulletin(
@@ -150,7 +153,7 @@ class MainActivity : ComponentActivity() {
             LaunchedEffect(pairingCode, isPaired) {
                 if (!isPaired) {
                     withContext(Dispatchers.IO) {
-                        registerTvWithServer(pairingCode, "0.1.17")
+                        registerTvWithServer(pairingCode, "0.1.18")
                     }
                     while (!isPaired && isActive) {
                         withContext(Dispatchers.IO) {
@@ -195,7 +198,7 @@ class MainActivity : ComponentActivity() {
                         var shouldForceUpdate = false
 
                         withContext(Dispatchers.IO) {
-                            sendTvHeartbeat(pairingCode, "0.1.17") { isOk, status, dept, name, theme, lang, forceUpdate ->
+                            sendTvHeartbeat(pairingCode, "0.1.18") { isOk, status, dept, name, theme, lang, forceUpdate ->
                                 if (!isOk || status == "revoked" || status == "unregistered") {
                                     shouldRevoke = true
                                 } else {
@@ -645,6 +648,75 @@ class MainActivity : ComponentActivity() {
                                                             maxLines = 1,
                                                             overflow = TextOverflow.Ellipsis
                                                         )
+
+                                                        // Punctuality Status Badge & Told Time
+                                                        if (item.punctualityStatus != null) {
+                                                            Spacer(modifier = Modifier.height(3.dp))
+                                                            val pBg = when (item.punctualityStatus) {
+                                                                "on_time" -> Color(0xFF10B981).copy(alpha = 0.18f)
+                                                                "moderate_delay" -> Color(0xFFF59E0B).copy(alpha = 0.18f)
+                                                                else -> Color(0xFFEF4444).copy(alpha = 0.18f)
+                                                            }
+                                                            val pBorder = when (item.punctualityStatus) {
+                                                                "on_time" -> Color(0xFF10B981).copy(alpha = 0.6f)
+                                                                "moderate_delay" -> Color(0xFFF59E0B).copy(alpha = 0.6f)
+                                                                else -> Color(0xFFEF4444).copy(alpha = 0.6f)
+                                                            }
+                                                            val pText = when (item.punctualityStatus) {
+                                                                "on_time" -> Color(0xFF34D399)
+                                                                "moderate_delay" -> Color(0xFFFBBF24)
+                                                                else -> Color(0xFFF87171)
+                                                            }
+                                                            val pLabel = when (item.punctualityStatus) {
+                                                                "on_time" -> {
+                                                                    val delay = item.delayMinutes ?: 0
+                                                                    if (delay <= 0) {
+                                                                        if (currentLanguage == "bn") "🟢 যথাসময়ে (${toBnNumber(kotlin.math.abs(delay))} মি. আগে)" else "🟢 On Time (${kotlin.math.abs(delay)}m early)"
+                                                                    } else {
+                                                                        if (currentLanguage == "bn") "🟢 যথাসময়ে (+${toBnNumber(delay)} মি.)" else "🟢 On Time (+${delay}m)"
+                                                                    }
+                                                                }
+                                                                "moderate_delay" -> {
+                                                                    val delay = item.delayMinutes ?: 0
+                                                                    if (currentLanguage == "bn") "🟡 দেরি: +${toBnNumber(delay)} মি." else "🟡 Late: +${delay}m"
+                                                                }
+                                                                else -> {
+                                                                    val delay = item.delayMinutes ?: 0
+                                                                    if (currentLanguage == "bn") "🔴 বিলম্বিত: +${toBnNumber(delay)} মি." else "🔴 Late: +${delay}m"
+                                                                }
+                                                            }
+
+                                                            Row(
+                                                                modifier = Modifier.fillMaxWidth(),
+                                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                                verticalAlignment = Alignment.CenterVertically
+                                                            ) {
+                                                                Box(
+                                                                    modifier = Modifier
+                                                                        .clip(RoundedCornerShape(4.dp))
+                                                                        .background(pBg)
+                                                                        .border(1.dp, pBorder, RoundedCornerShape(4.dp))
+                                                                        .padding(horizontal = 4.dp, vertical = 1.dp)
+                                                                ) {
+                                                                    Text(
+                                                                        text = pLabel,
+                                                                        color = pText,
+                                                                        fontSize = 9.sp,
+                                                                        fontWeight = FontWeight.Bold,
+                                                                        fontFamily = FontFamily.Monospace
+                                                                    )
+                                                                }
+                                                                if (!item.toldTime.isNullOrBlank()) {
+                                                                    Text(
+                                                                        text = "⏰ ${item.toldTime}",
+                                                                        color = textMutedColor,
+                                                                        fontSize = 9.sp,
+                                                                        fontFamily = FontFamily.Monospace
+                                                                    )
+                                                                }
+                                                            }
+                                                        }
+
                                                         Spacer(modifier = Modifier.height(4.dp))
                                                         Row(
                                                             modifier = Modifier.fillMaxWidth(),
@@ -980,7 +1052,10 @@ class MainActivity : ComponentActivity() {
                             bedName = "Bed ${i + 1}",
                             modality = "Physiotherapy",
                             durationMinutes = 20,
-                            priority = obj.optString("priority", "regular")
+                            priority = obj.optString("priority", "regular"),
+                            toldTime = if (obj.has("toldTime") && !obj.isNull("toldTime")) obj.getString("toldTime") else null,
+                            punctualityStatus = if (obj.has("punctualityStatus") && !obj.isNull("punctualityStatus")) obj.getString("punctualityStatus") else null,
+                            delayMinutes = if (obj.has("delayMinutes") && !obj.isNull("delayMinutes")) obj.getInt("delayMinutes") else null
                         )
                     )
                 }
@@ -1265,7 +1340,7 @@ fun TvPairingScreen(
 
         // 3. Footer
         Text(
-            text = "Health & Pain Care Center · Jashore • Hardware Station ID: $pairingCode • Version 0.1.17",
+            text = "Health & Pain Care Center · Jashore • Hardware Station ID: $pairingCode • Version 0.1.18",
             color = textMutedColor,
             fontSize = 11.sp,
             fontFamily = FontFamily.Monospace

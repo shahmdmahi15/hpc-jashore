@@ -7,6 +7,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '../../components/ui/ta
 import { WorkstationTabPlaceholder } from '../../components/WorkstationTabPlaceholder';
 import { PatientManagementView } from '../../components/patient/PatientManagementView';
 import { TherapySlotBookingView } from '../../components/therapy/TherapySlotBookingView';
+import { CheckInWorkstationView } from '../../components/checkin/CheckInWorkstationView';
 import { useLanguage } from '../../lib/i18n';
 import {
   CreditCard,
@@ -17,9 +18,18 @@ import {
   Clock,
   Users,
   MessageSquare,
+  UserCheck,
 } from 'lucide-react';
 
 const CASHIER_TABS = [
+  {
+    id: 'checkin',
+    titleEn: 'Check-in',
+    titleBn: 'চেক-ইন',
+    icon: UserCheck,
+    descriptionEn: 'Verify patient arrival, issue tokens, and check punctuality.',
+    descriptionBn: 'রোগীর আগমন নিবন্ধন, টোকেন ইস্যু ও সময়ানুবর্তিতা যাচাই।',
+  },
   {
     id: 'dues',
     titleEn: 'Dues',
@@ -121,6 +131,10 @@ export default function CashierPage() {
               </TabsList>
             </div>
 
+            <TabsContent value="checkin" className="mt-4 focus-visible:outline-none">
+              <CheckInWorkstationView />
+            </TabsContent>
+
             <TabsContent value="patients" className="mt-4 focus-visible:outline-none">
               <PatientManagementView />
             </TabsContent>
@@ -129,7 +143,7 @@ export default function CashierPage() {
               <TherapySlotBookingView />
             </TabsContent>
 
-            {CASHIER_TABS.filter((t) => t.id !== 'patients' && t.id !== 'therapy_slot').map((tab) => (
+            {CASHIER_TABS.filter((t) => t.id !== 'checkin' && t.id !== 'patients' && t.id !== 'therapy_slot').map((tab) => (
               <TabsContent key={tab.id} value={tab.id} className="mt-4 focus-visible:outline-none">
                 <WorkstationTabPlaceholder
                   titleEn={tab.titleEn}

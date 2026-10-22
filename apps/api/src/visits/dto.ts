@@ -19,10 +19,29 @@ export class CheckInDto {
   @IsString()
   doctorId?: string;
 
+  @ApiPropertyOptional({
+    description: 'Check-in destination department: therapy or consultation',
+    enum: ['therapy', 'consultation'],
+    default: 'therapy',
+  })
+  @IsOptional()
+  @IsIn(['therapy', 'consultation'])
+  destination?: 'therapy' | 'consultation';
+
   @ApiPropertyOptional({ enum: ['normal', 'emergency', 'package', 'follow_up', 'elderly'] })
   @IsOptional()
   @IsIn(['normal', 'emergency', 'package', 'follow_up', 'elderly'])
   priority?: 'normal' | 'emergency' | 'package' | 'follow_up' | 'elderly';
+
+  @ApiPropertyOptional({ description: 'Specific therapy slot booking ID if checking in for booked slot' })
+  @IsOptional()
+  @IsString()
+  therapyBookingId?: string;
+
+  @ApiPropertyOptional({ description: 'Manually instructed told time if overriding booking' })
+  @IsOptional()
+  @IsString()
+  toldTime?: string;
 
   @ApiPropertyOptional()
   @IsOptional()

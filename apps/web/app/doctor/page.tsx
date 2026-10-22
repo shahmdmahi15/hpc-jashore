@@ -7,6 +7,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '../../components/ui/ta
 import { WorkstationTabPlaceholder } from '../../components/WorkstationTabPlaceholder';
 import { PatientManagementView } from '../../components/patient/PatientManagementView';
 import { TherapySlotBookingView } from '../../components/therapy/TherapySlotBookingView';
+import { CheckInWorkstationView } from '../../components/checkin/CheckInWorkstationView';
 import { useLanguage } from '../../lib/i18n';
 import {
   Stethoscope,
@@ -15,6 +16,7 @@ import {
   Clock,
   Users,
   MessageSquare,
+  UserCheck,
 } from 'lucide-react';
 
 const DOCTOR_TABS = [
@@ -25,6 +27,14 @@ const DOCTOR_TABS = [
     icon: Stethoscope,
     descriptionEn: 'Live patient serial calling, consultation history, clinical notes, and prescription drafting.',
     descriptionBn: 'লাইভ সিরিয়াল কলিং, প্রেসক্রিপশন তৈরি, ক্লিনিক্যাল ইতিহাস ও পরামর্শ নথিভুক্তকরণ।',
+  },
+  {
+    id: 'checkin',
+    titleEn: 'Check-in',
+    titleBn: 'চেক-ইন',
+    icon: UserCheck,
+    descriptionEn: 'Patient check-in, token issuance, and punctuality verification.',
+    descriptionBn: 'রোগীর আগমন নিবন্ধন, সিরিয়াল টোকেন ইস্যু ও সময়ানুবর্তিতা যাচাই।',
   },
   {
     id: 'running_therapy',
@@ -111,6 +121,10 @@ export default function DoctorPage() {
               </TabsList>
             </div>
 
+            <TabsContent value="checkin" className="mt-4 focus-visible:outline-none">
+              <CheckInWorkstationView />
+            </TabsContent>
+
             <TabsContent value="patients" className="mt-4 focus-visible:outline-none">
               <PatientManagementView />
             </TabsContent>
@@ -119,7 +133,7 @@ export default function DoctorPage() {
               <TherapySlotBookingView />
             </TabsContent>
 
-            {DOCTOR_TABS.filter((t) => t.id !== 'patients' && t.id !== 'therapy_slot').map((tab) => (
+            {DOCTOR_TABS.filter((t) => t.id !== 'checkin' && t.id !== 'patients' && t.id !== 'therapy_slot').map((tab) => (
               <TabsContent key={tab.id} value={tab.id} className="mt-4 focus-visible:outline-none">
                 <WorkstationTabPlaceholder
                   titleEn={tab.titleEn}

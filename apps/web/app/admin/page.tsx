@@ -12,6 +12,7 @@ import { RoomManagementView } from '../../components/admin/RoomManagementView';
 import { TherapySlotConfigView } from '../../components/admin/TherapySlotConfigView';
 import { TherapySlotBookingView } from '../../components/therapy/TherapySlotBookingView';
 import { PatientManagementView } from '../../components/patient/PatientManagementView';
+import { CheckInWorkstationView } from '../../components/checkin/CheckInWorkstationView';
 import { useLanguage } from '../../lib/i18n';
 import {
   ShieldCheck,
@@ -305,6 +306,10 @@ export default function AdminPage() {
             ))}
 
             {/* Content for Row 2 Tabs */}
+            <TabsContent value="checkin" className="mt-4 focus-visible:outline-none">
+              <CheckInWorkstationView />
+            </TabsContent>
+
             <TabsContent value="patients" className="mt-4 focus-visible:outline-none">
               <PatientManagementView />
             </TabsContent>
@@ -313,7 +318,7 @@ export default function AdminPage() {
               <TherapySlotBookingView />
             </TabsContent>
 
-            {ADMIN_ROW2_TABS.filter((t) => t.id !== 'therapy_slot' && t.id !== 'patients').map((tab) => (
+            {ADMIN_ROW2_TABS.filter((t) => t.id !== 'checkin' && t.id !== 'therapy_slot' && t.id !== 'patients').map((tab) => (
               <TabsContent key={tab.id} value={tab.id} className="mt-4 focus-visible:outline-none">
                 <WorkstationTabPlaceholder
                   titleEn={tab.titleEn}

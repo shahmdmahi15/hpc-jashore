@@ -294,6 +294,9 @@ export const THERAPY_BOOKING_STATUSES = [
 ] as const;
 export type TherapyBookingStatus = (typeof THERAPY_BOOKING_STATUSES)[number];
 
+export const PUNCTUALITY_STATUSES = ['on_time', 'moderate_delay', 'critical_delay'] as const;
+export type PunctualityStatus = (typeof PUNCTUALITY_STATUSES)[number];
+
 export const therapySlotBookings = sqliteTable('therapy_slot_bookings', {
   id: text('id').primaryKey(),
   bookingNumber: text('booking_number').notNull().unique(),
@@ -307,6 +310,9 @@ export const therapySlotBookings = sqliteTable('therapy_slot_bookings', {
   patientGender: text('patient_gender').notNull().$type<'male' | 'female'>(),
   capacityType: text('capacity_type').notNull().default('regular').$type<'regular' | 'extra'>(),
   status: text('status').notNull().default('booked').$type<TherapyBookingStatus>(),
+  checkedInAt: text('checked_in_at'),
+  punctualityStatus: text('punctuality_status').$type<PunctualityStatus>(),
+  delayMinutes: integer('delay_minutes'),
   notes: text('notes'),
   bookedBy: text('booked_by').references(() => users.id),
   deletedAt: text('deleted_at'),
@@ -341,6 +347,10 @@ export const visits = sqliteTable('visits', {
   currentLocation: text('current_location').default('reception'),
   checkedInAt: text('checked_in_at'),
   checkedOutAt: text('checked_out_at'),
+  toldTime: text('told_time'),
+  punctualityStatus: text('punctuality_status').$type<PunctualityStatus>(),
+  delayMinutes: integer('delay_minutes'),
+  therapyBookingId: text('therapy_booking_id').references(() => therapySlotBookings.id),
   notes: text('notes'),
   ...timestamps,
 });

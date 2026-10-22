@@ -33,13 +33,21 @@ export class VisitsController {
   @Post('check-in')
   @ApiBearerAuth()
   @UseGuards(JwtAccessAuthGuard, RolesGuard)
-  @Roles('admin', 'doctor', 'receptionist')
+  @Roles('admin', 'receptionist', 'doctor', 'cashier', 'handler')
   checkIn(
     @CurrentUser() user: RequestUser,
     @Body() dto: CheckInDto,
     @Req() req: Request,
   ) {
     return this.visits.checkIn({ sub: user.sub, role: user.role }, dto, this.meta(req));
+  }
+
+  @Get('checkin/overview')
+  @ApiBearerAuth()
+  @UseGuards(JwtAccessAuthGuard, RolesGuard)
+  @Roles('admin', 'receptionist', 'doctor', 'cashier', 'handler')
+  checkinOverview() {
+    return this.visits.getCheckinOverview();
   }
 
   @Get('today')
