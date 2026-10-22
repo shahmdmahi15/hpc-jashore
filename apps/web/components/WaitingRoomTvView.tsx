@@ -17,6 +17,7 @@ import {
   Minimize2,
   Moon,
   Radio,
+  RotateCw,
   Stethoscope,
   Sun,
   Tv,
@@ -562,6 +563,30 @@ export default function WaitingRoomTvView() {
             title="Toggle Chime Sound"
           >
             {audioEnabled ? <Volume2 className="size-3.5 2xl:size-4" /> : <VolumeX className="size-3.5 2xl:size-4" />}
+          </button>
+
+          {/* Hard Reload */}
+          <button
+            type="button"
+            onClick={async () => {
+              try {
+                if (typeof window !== 'undefined' && 'caches' in window) {
+                  const keys = await caches.keys();
+                  await Promise.all(keys.map((k) => caches.delete(k)));
+                }
+              } catch {}
+              if (typeof window !== 'undefined') {
+                window.location.reload();
+              }
+            }}
+            className={`h-7 w-7 sm:h-8 sm:w-8 2xl:h-10 2xl:w-10 rounded-lg text-xs font-bold border transition-colors flex items-center justify-center cursor-pointer active:scale-95 ${
+              isDark
+                ? 'bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border-zinc-800 hover:text-emerald-400'
+                : 'bg-white hover:bg-zinc-100 text-zinc-800 border-zinc-200 hover:text-emerald-600'
+            }`}
+            title="Hard Reload / হার্ড রিলোড"
+          >
+            <RotateCw className="size-3.5 2xl:size-4" />
           </button>
 
           {/* Fullscreen Toggle */}

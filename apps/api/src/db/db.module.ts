@@ -124,60 +124,108 @@ export type Db = BetterSQLite3Database<typeof schema>;
 
           // Ensure rooms table & schema columns
           try {
-            sqlite.exec(`
-              CREATE TABLE IF NOT EXISTS rooms (
-                id TEXT PRIMARY KEY,
-                room_number TEXT NOT NULL UNIQUE,
-                name TEXT NOT NULL,
-                type TEXT NOT NULL,
-                gender TEXT NOT NULL DEFAULT 'common',
-                status TEXT NOT NULL DEFAULT 'available',
-                capacity INTEGER NOT NULL DEFAULT 1,
-                notes TEXT,
-                is_active INTEGER NOT NULL DEFAULT 1,
-                deleted_at TEXT,
-                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-              );
-            `);
+            const tableCheck = sqlite.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='rooms'").get() as { name: string } | undefined;
+            if (!tableCheck) {
+              sqlite.exec(`
+                CREATE TABLE rooms (
+                  id TEXT PRIMARY KEY,
+                  room_number TEXT NOT NULL UNIQUE,
+                  code TEXT,
+                  name TEXT NOT NULL,
+                  type TEXT NOT NULL,
+                  gender TEXT NOT NULL DEFAULT 'common',
+                  status TEXT NOT NULL DEFAULT 'available',
+                  capacity INTEGER NOT NULL DEFAULT 1,
+                  notes TEXT,
+                  is_active INTEGER NOT NULL DEFAULT 1,
+                  deleted_at TEXT,
+                  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                );
+              `);
+            } else {
+              const roomCols = sqlite.prepare("PRAGMA table_info(rooms)").all() as Array<{ name: string; notnull: number }>;
+              const colMap = new Map(roomCols.map((c) => [c.name, c]));
+              const codeCol = colMap.get('code');
+              const hasRoomNumber = colMap.has('room_number');
+              const hasCapacity = colMap.has('capacity');
+              const hasGender = colMap.has('gender');
+              const hasStatus = colMap.has('status');
 
-            const roomCols = sqlite.prepare("PRAGMA table_info(rooms)").all() as Array<{ name: string }>;
-            const roomColNames = new Set(roomCols.map((c) => c.name));
-            if (!roomColNames.has('room_number')) {
-              sqlite.exec("ALTER TABLE rooms ADD COLUMN room_number TEXT");
-              if (roomColNames.has('code')) {
-                sqlite.exec("UPDATE rooms SET room_number = code WHERE room_number IS NULL");
+              // If legacy table has code with NOT NULL, or lacks room_number / capacity, migrate table safely
+              if ((codeCol && codeCol.notnull === 1) || !hasRoomNumber || !hasCapacity) {
+                sqlite.exec("PRAGMA foreign_keys = OFF;");
+                sqlite.exec(`
+                  CREATE TABLE IF NOT EXISTS _rooms_migrated (
+                    id TEXT PRIMARY KEY,
+                    room_number TEXT NOT NULL UNIQUE,
+                    code TEXT,
+                    name TEXT NOT NULL,
+                    type TEXT NOT NULL,
+                    gender TEXT NOT NULL DEFAULT 'common',
+                    status TEXT NOT NULL DEFAULT 'available',
+                    capacity INTEGER NOT NULL DEFAULT 1,
+                    notes TEXT,
+                    is_active INTEGER NOT NULL DEFAULT 1,
+                    deleted_at TEXT,
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                  );
+                `);
+
+                const selRoomNum = hasRoomNumber ? 'room_number' : (colMap.has('code') ? 'code' : 'id');
+                const selCode = colMap.has('code') ? 'code' : (hasRoomNumber ? 'room_number' : 'id');
+                const selGender = hasGender ? "COALESCE(gender, 'common')" : "'common'";
+                const selStatus = hasStatus ? "COALESCE(status, 'available')" : "'available'";
+                const selCapacity = hasCapacity ? "COALESCE(capacity, 1)" : "1";
+                const selNotes = colMap.has('notes') ? 'notes' : 'NULL';
+                const selDeletedAt = colMap.has('deleted_at') ? 'deleted_at' : 'NULL';
+                const selCreatedAt = colMap.has('created_at') ? 'COALESCE(created_at, CURRENT_TIMESTAMP)' : 'CURRENT_TIMESTAMP';
+                const selUpdatedAt = colMap.has('updated_at') ? 'COALESCE(updated_at, CURRENT_TIMESTAMP)' : 'CURRENT_TIMESTAMP';
+
+                sqlite.exec(`
+                  INSERT OR IGNORE INTO _rooms_migrated (
+                    id, room_number, code, name, type, gender, status, capacity, notes, is_active, deleted_at, created_at, updated_at
+                  )
+                  SELECT 
+                    id,
+                    COALESCE(${selRoomNum}, id) as room_number,
+                    COALESCE(${selCode}, ${selRoomNum}, id) as code,
+                    name,
+                    COALESCE(type, 'waiting_room'),
+                    ${selGender},
+                    ${selStatus},
+                    ${selCapacity},
+                    ${selNotes},
+                    COALESCE(is_active, 1),
+                    ${selDeletedAt},
+                    ${selCreatedAt},
+                    ${selUpdatedAt}
+                  FROM rooms;
+                `);
+
+                sqlite.exec("DROP TABLE rooms;");
+                sqlite.exec("ALTER TABLE _rooms_migrated RENAME TO rooms;");
+                sqlite.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_rooms_room_number ON rooms(room_number);");
+                sqlite.exec("PRAGMA foreign_keys = ON;");
+              } else {
+                if (!hasGender) sqlite.exec("ALTER TABLE rooms ADD COLUMN gender TEXT NOT NULL DEFAULT 'common'");
+                if (!hasStatus) sqlite.exec("ALTER TABLE rooms ADD COLUMN status TEXT NOT NULL DEFAULT 'available'");
+                if (!hasCapacity) sqlite.exec("ALTER TABLE rooms ADD COLUMN capacity INTEGER NOT NULL DEFAULT 1");
+                if (!colMap.has('notes')) sqlite.exec("ALTER TABLE rooms ADD COLUMN notes TEXT");
+                if (!colMap.has('is_active')) sqlite.exec("ALTER TABLE rooms ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1");
+                if (!colMap.has('deleted_at')) sqlite.exec("ALTER TABLE rooms ADD COLUMN deleted_at TEXT");
+                if (!colMap.has('created_at')) sqlite.exec("ALTER TABLE rooms ADD COLUMN created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP");
+                if (!colMap.has('updated_at')) sqlite.exec("ALTER TABLE rooms ADD COLUMN updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP");
               }
-            }
-            if (!roomColNames.has('gender')) {
-              sqlite.exec("ALTER TABLE rooms ADD COLUMN gender TEXT NOT NULL DEFAULT 'common'");
-            }
-            if (!roomColNames.has('status')) {
-              sqlite.exec("ALTER TABLE rooms ADD COLUMN status TEXT NOT NULL DEFAULT 'available'");
-            }
-            if (!roomColNames.has('capacity')) {
-              sqlite.exec("ALTER TABLE rooms ADD COLUMN capacity INTEGER NOT NULL DEFAULT 1");
-            }
-            if (!roomColNames.has('notes')) {
-              sqlite.exec("ALTER TABLE rooms ADD COLUMN notes TEXT");
-            }
-            if (!roomColNames.has('is_active')) {
-              sqlite.exec("ALTER TABLE rooms ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1");
-            }
-            if (!roomColNames.has('deleted_at')) {
-              sqlite.exec("ALTER TABLE rooms ADD COLUMN deleted_at TEXT");
-            }
-            if (!roomColNames.has('created_at')) {
-              sqlite.exec("ALTER TABLE rooms ADD COLUMN created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP");
-            }
-            if (!roomColNames.has('updated_at')) {
-              sqlite.exec("ALTER TABLE rooms ADD COLUMN updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP");
             }
 
             // Ensure data integrity on existing rows
             sqlite.exec("UPDATE rooms SET room_number = COALESCE(room_number, code, id) WHERE room_number IS NULL OR room_number = ''");
+            sqlite.exec("UPDATE rooms SET code = room_number WHERE code IS NULL OR code = ''");
             sqlite.exec("UPDATE rooms SET gender = 'common' WHERE gender IS NULL OR gender = ''");
             sqlite.exec("UPDATE rooms SET status = 'available' WHERE status IS NULL OR status = ''");
+            sqlite.exec("UPDATE rooms SET capacity = 1 WHERE capacity IS NULL OR capacity < 1");
             sqlite.exec("UPDATE rooms SET created_at = CURRENT_TIMESTAMP WHERE created_at IS NULL");
             sqlite.exec("UPDATE rooms SET updated_at = CURRENT_TIMESTAMP WHERE updated_at IS NULL");
 

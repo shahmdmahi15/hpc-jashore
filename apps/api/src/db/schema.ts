@@ -195,6 +195,7 @@ export type RoomStatus = (typeof ROOM_STATUSES)[number];
 export const rooms = sqliteTable('rooms', {
   id: text('id').primaryKey(),
   roomNumber: text('room_number').notNull().unique(),
+  code: text('code'),
   name: text('name').notNull(),
   type: text('type').notNull().$type<RoomType>(),
   gender: text('gender').notNull().default('common').$type<RoomGender>(),

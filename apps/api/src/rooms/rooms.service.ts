@@ -132,6 +132,7 @@ export class RoomsService {
     const row = {
       id: randomUUID(),
       roomNumber: cleanNumber,
+      code: cleanNumber,
       name: cleanName,
       type: dto.type,
       gender: dto.gender || 'common',
@@ -180,7 +181,11 @@ export class RoomsService {
       updatedAt: new Date().toISOString(),
     };
 
-    if (dto.roomNumber !== undefined) patch.roomNumber = dto.roomNumber.trim().toUpperCase();
+    if (dto.roomNumber !== undefined) {
+      const cleanNum = dto.roomNumber.trim().toUpperCase();
+      patch.roomNumber = cleanNum;
+      patch.code = cleanNum;
+    }
     if (dto.name !== undefined) patch.name = dto.name.trim();
     if (dto.type !== undefined) patch.type = dto.type;
     if (dto.gender !== undefined) patch.gender = dto.gender;
