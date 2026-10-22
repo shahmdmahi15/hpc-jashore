@@ -489,6 +489,45 @@ export type Db = BetterSQLite3Database<typeof schema>;
               sqlite.exec("ALTER TABLE visits ADD COLUMN room_id TEXT");
             }
           } catch {}
+
+          // Ensure doctor consultation config columns in staff
+          try {
+            const staffCols = sqlite.prepare("PRAGMA table_info(staff)").all() as Array<{ name: string }>;
+            const staffColNames = new Set(staffCols.map((c) => c.name));
+            if (!staffColNames.has('consultation_fee_paisa')) {
+              sqlite.exec("ALTER TABLE staff ADD COLUMN consultation_fee_paisa INTEGER");
+            }
+            if (!staffColNames.has('follow_up_fee_paisa')) {
+              sqlite.exec("ALTER TABLE staff ADD COLUMN follow_up_fee_paisa INTEGER");
+            }
+            if (!staffColNames.has('report_fee_paisa')) {
+              sqlite.exec("ALTER TABLE staff ADD COLUMN report_fee_paisa INTEGER");
+            }
+            if (!staffColNames.has('qualifications')) {
+              sqlite.exec("ALTER TABLE staff ADD COLUMN qualifications TEXT");
+            }
+            if (!staffColNames.has('chamber_room_id')) {
+              sqlite.exec("ALTER TABLE staff ADD COLUMN chamber_room_id TEXT");
+            }
+            if (!staffColNames.has('daily_quota')) {
+              sqlite.exec("ALTER TABLE staff ADD COLUMN daily_quota INTEGER DEFAULT 40");
+            }
+            if (!staffColNames.has('slot_duration_minutes')) {
+              sqlite.exec("ALTER TABLE staff ADD COLUMN slot_duration_minutes INTEGER DEFAULT 15");
+            }
+            if (!staffColNames.has('duty_start_time')) {
+              sqlite.exec("ALTER TABLE staff ADD COLUMN duty_start_time TEXT");
+            }
+            if (!staffColNames.has('duty_end_time')) {
+              sqlite.exec("ALTER TABLE staff ADD COLUMN duty_end_time TEXT");
+            }
+            if (!staffColNames.has('available_days')) {
+              sqlite.exec("ALTER TABLE staff ADD COLUMN available_days TEXT");
+            }
+            if (!staffColNames.has('notes')) {
+              sqlite.exec("ALTER TABLE staff ADD COLUMN notes TEXT");
+            }
+          } catch {}
         } catch {
           // Idempotent column safety
         }

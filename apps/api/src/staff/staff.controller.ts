@@ -16,7 +16,12 @@ import { extractClientIp } from '../common/request-ip';
 import { CurrentUser, type RequestUser } from '../rbac/current-user.decorator';
 import { Roles } from '../rbac/roles.decorator';
 import { RolesGuard } from '../rbac/roles.guard';
-import { CreateStaffDto, UpdateStaffDto } from './dto';
+import {
+  CreateDoctorDto,
+  CreateStaffDto,
+  UpdateDoctorConfigDto,
+  UpdateStaffDto,
+} from './dto';
 import { StaffService } from './staff.service';
 
 @ApiTags('staff')
@@ -59,6 +64,40 @@ export class StaffController {
   @Roles('admin')
   create(@CurrentUser() user: RequestUser, @Body() dto: CreateStaffDto, @Req() req: Request) {
     return this.staff.create({ sub: user.sub, role: user.role }, dto, this.meta(req));
+  }
+
+  // --- Doctor Configuration Endpoints ---
+  @Get('doctors')
+  @Roles('admin', 'doctor', 'handler', 'cashier', 'receptionist')
+  listDoctors() {
+    return this.staff.listDoctors();
+  }
+
+  @Get('doctors/:id')
+  @Roles('admin', 'doctor', 'handler', 'cashier', 'receptionist')
+  getDoctor(@Param('id') id: string) {
+    return this.staff.getDoctor(id);
+  }
+
+  @Post('doctors')
+  @Roles('admin')
+  createDoctor(
+    @CurrentUser() user: RequestUser,
+    @Body() dto: CreateDoctorDto,
+    @Req() req: Request,
+  ) {
+    return this.staff.createDoctor({ sub: user.sub, role: user.role }, dto, this.meta(req));
+  }
+
+  @Patch('doctors/:id')
+  @Roles('admin')
+  updateDoctor(
+    @CurrentUser() user: RequestUser,
+    @Param('id') id: string,
+    @Body() dto: UpdateDoctorConfigDto,
+    @Req() req: Request,
+  ) {
+    return this.staff.updateDoctor({ sub: user.sub, role: user.role }, id, dto, this.meta(req));
   }
 
   @Get(':id')
