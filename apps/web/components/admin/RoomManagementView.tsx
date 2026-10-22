@@ -395,7 +395,7 @@ export function RoomManagementView() {
       </div>
 
       {/* KPI Ribbon */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
         {/* Total Rooms */}
         <Card className="border-border/60 shadow-xs hover:border-border transition-all">
           <CardContent className="p-4 sm:p-5 flex items-center justify-between">
@@ -409,6 +409,23 @@ export function RoomManagementView() {
             </div>
             <div className="p-2.5 rounded-xl bg-slate-500/10 text-slate-600 dark:text-slate-400 border border-slate-500/20">
               <Building className="w-5 h-5" />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Total Capacity */}
+        <Card className="border-emerald-200/60 dark:border-emerald-900/40 bg-card shadow-xs hover:border-emerald-500/40 transition-all">
+          <CardContent className="p-4 sm:p-5 flex items-center justify-between">
+            <div className="space-y-0.5">
+              <p className="text-[11px] sm:text-xs font-medium text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">
+                {isBn ? 'মোট ধারণক্ষমতা' : 'Total Capacity'}
+              </p>
+              <h3 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
+                {stats?.totalCapacity ?? rooms.reduce((sum, r) => sum + (Number(r.capacity) || 1), 0)}
+              </h3>
+            </div>
+            <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+              <Users className="w-5 h-5" />
             </div>
           </CardContent>
         </Card>
@@ -465,7 +482,7 @@ export function RoomManagementView() {
         </Card>
 
         {/* Not Allowed */}
-        <Card className="border-rose-200/60 dark:border-rose-900/40 bg-rose-500/5 shadow-xs hover:border-rose-300 dark:hover:border-rose-800 transition-all col-span-2 sm:col-span-1">
+        <Card className="border-rose-200/60 dark:border-rose-900/40 bg-rose-500/5 shadow-xs hover:border-rose-300 dark:hover:border-rose-800 transition-all">
           <CardContent className="p-4 sm:p-5 flex items-center justify-between">
             <div className="space-y-0.5">
               <p className="text-[11px] sm:text-xs font-medium text-rose-700 dark:text-rose-400 uppercase tracking-wider">
@@ -726,12 +743,18 @@ export function RoomManagementView() {
                       </div>
                     </div>
 
-                    {/* Gender Badge */}
-                    <span
-                      className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${genderCfg.badgeClass}`}
-                    >
-                      {isBn ? genderCfg.labelBn : genderCfg.labelEn}
-                    </span>
+                    {/* Capacity & Gender Badges */}
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
+                        <Users className="w-3 h-3" />
+                        <span>{room.capacity ?? 1}</span>
+                      </span>
+                      <span
+                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${genderCfg.badgeClass}`}
+                      >
+                        {isBn ? genderCfg.labelBn : genderCfg.labelEn}
+                      </span>
+                    </div>
                   </div>
 
                   {/* Room Name & Info */}
@@ -853,6 +876,9 @@ export function RoomManagementView() {
                   <TableHead className="font-bold text-xs uppercase tracking-wider">
                     {isBn ? 'ক্যাটেগরি / ধরন' : 'Type / Category'}
                   </TableHead>
+                  <TableHead className="font-bold text-xs uppercase tracking-wider text-center">
+                    {isBn ? 'ধারণক্ষমতা' : 'Capacity'}
+                  </TableHead>
                   <TableHead className="font-bold text-xs uppercase tracking-wider">
                     {isBn ? 'জেন্ডার অ্যাক্সেস' : 'Gender'}
                   </TableHead>
@@ -889,6 +915,12 @@ export function RoomManagementView() {
                           <TypeIcon className={`w-3.5 h-3.5 ${typeCfg.color}`} />
                           <span>{isBn ? typeCfg.labelBn : typeCfg.labelEn}</span>
                         </div>
+                      </TableCell>
+                      <TableCell className="text-center font-mono font-bold text-xs">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-muted border border-border/60">
+                          <Users className="w-3 h-3 text-muted-foreground" />
+                          <span>{room.capacity ?? 1}</span>
+                        </span>
                       </TableCell>
                       <TableCell>
                         <span

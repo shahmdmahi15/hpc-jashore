@@ -24,6 +24,7 @@ export interface RoomRecord {
   type: RoomType;
   gender: RoomGender;
   status: RoomStatus;
+  capacity: number;
   notes?: string | null;
   isActive: number;
   deletedAt?: string | null;
@@ -37,6 +38,7 @@ export interface RoomStats {
   occupied: number;
   maintenance: number;
   notAllowed: number;
+  totalCapacity?: number;
 }
 
 export interface PagedRoomsResult {
@@ -54,6 +56,7 @@ export interface CreateRoomInput {
   type: RoomType;
   gender?: RoomGender;
   status?: RoomStatus;
+  capacity?: number;
   notes?: string;
 }
 
@@ -63,6 +66,7 @@ export interface UpdateRoomInput {
   type?: RoomType;
   gender?: RoomGender;
   status?: RoomStatus;
+  capacity?: number;
   notes?: string;
   isActive?: number;
 }

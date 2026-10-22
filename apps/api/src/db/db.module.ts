@@ -132,6 +132,7 @@ export type Db = BetterSQLite3Database<typeof schema>;
                 type TEXT NOT NULL,
                 gender TEXT NOT NULL DEFAULT 'common',
                 status TEXT NOT NULL DEFAULT 'available',
+                capacity INTEGER NOT NULL DEFAULT 1,
                 notes TEXT,
                 is_active INTEGER NOT NULL DEFAULT 1,
                 deleted_at TEXT,
@@ -153,6 +154,9 @@ export type Db = BetterSQLite3Database<typeof schema>;
             }
             if (!roomColNames.has('status')) {
               sqlite.exec("ALTER TABLE rooms ADD COLUMN status TEXT NOT NULL DEFAULT 'available'");
+            }
+            if (!roomColNames.has('capacity')) {
+              sqlite.exec("ALTER TABLE rooms ADD COLUMN capacity INTEGER NOT NULL DEFAULT 1");
             }
             if (!roomColNames.has('notes')) {
               sqlite.exec("ALTER TABLE rooms ADD COLUMN notes TEXT");

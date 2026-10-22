@@ -199,6 +199,7 @@ export const rooms = sqliteTable('rooms', {
   type: text('type').notNull().$type<RoomType>(),
   gender: text('gender').notNull().default('common').$type<RoomGender>(),
   status: text('status').notNull().default('available').$type<RoomStatus>(),
+  capacity: integer('capacity').notNull().default(1),
   notes: text('notes'),
   isActive: integer('is_active').notNull().default(1),
   deletedAt: text('deleted_at'),

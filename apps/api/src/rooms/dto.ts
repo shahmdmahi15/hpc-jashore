@@ -60,6 +60,17 @@ export class CreateRoomDto {
   @IsIn(['available', 'occupied', 'maintenance', 'not_allowed'])
   status?: RoomStatus;
 
+  @ApiPropertyOptional({
+    description: 'Room capacity (number of patients / beds / occupants)',
+    example: 1,
+    default: 1,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  capacity?: number;
+
   @ApiPropertyOptional({ description: 'Operational notes, facilities or equipment information' })
   @IsOptional()
   @IsString()
@@ -120,6 +131,13 @@ export class UpdateRoomDto {
   @IsOptional()
   @IsIn(['available', 'occupied', 'maintenance', 'not_allowed'])
   status?: RoomStatus;
+
+  @ApiPropertyOptional({ description: 'Room capacity (number of patients / beds / occupants)' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  capacity?: number;
 
   @ApiPropertyOptional({ description: 'Operational notes or remarks' })
   @IsOptional()

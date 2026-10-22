@@ -76,9 +76,12 @@ export class RoomsService {
       const allActiveRooms = await this.db
         .select({
           status: rooms.status,
+          capacity: rooms.capacity,
         })
         .from(rooms)
         .where(isNull(rooms.deletedAt));
+
+      const totalCapacity = allActiveRooms.reduce((sum, r) => sum + (Number(r.capacity) || 1), 0);
 
       const stats = {
         total: allActiveRooms.length,
@@ -86,6 +89,7 @@ export class RoomsService {
         occupied: allActiveRooms.filter((r) => r.status === 'occupied').length,
         maintenance: allActiveRooms.filter((r) => r.status === 'maintenance').length,
         notAllowed: allActiveRooms.filter((r) => r.status === 'not_allowed').length,
+        totalCapacity,
       };
 
       return {
@@ -132,6 +136,7 @@ export class RoomsService {
       type: dto.type,
       gender: dto.gender || 'common',
       status: dto.status || 'available',
+      capacity: dto.capacity ? Math.max(1, dto.capacity) : 1,
       notes: dto.notes?.trim() || null,
       isActive: 1,
       deletedAt: null,
@@ -180,6 +185,7 @@ export class RoomsService {
     if (dto.type !== undefined) patch.type = dto.type;
     if (dto.gender !== undefined) patch.gender = dto.gender;
     if (dto.status !== undefined) patch.status = dto.status;
+    if (dto.capacity !== undefined) patch.capacity = Math.max(1, dto.capacity);
     if (dto.notes !== undefined) patch.notes = dto.notes ? dto.notes.trim() : null;
     if (dto.isActive !== undefined) patch.isActive = dto.isActive ? 1 : 0;
 

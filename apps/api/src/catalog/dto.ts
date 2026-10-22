@@ -1,28 +1,4 @@
-import { IsBoolean, IsIn, IsInt, IsOptional, IsString, MaxLength, Min } from 'class-validator';
-
-export class CreateRoomDto {
-  @IsString()
-  @MaxLength(32)
-  code!: string;
-
-  @IsString()
-  @MaxLength(120)
-  name!: string;
-
-  @IsIn(['consult', 'therapy', 'counter'])
-  type!: 'consult' | 'therapy' | 'counter';
-}
-
-export class UpdateRoomDto {
-  @IsOptional()
-  @IsString()
-  @MaxLength(120)
-  name?: string;
-
-  @IsOptional()
-  @IsBoolean()
-  isActive?: boolean;
-}
+import { IsBoolean, IsInt, IsOptional, IsString, MaxLength, Min } from 'class-validator';
 
 export class CreateModalityDto {
   @IsString()

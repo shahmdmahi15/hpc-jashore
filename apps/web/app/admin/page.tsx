@@ -52,7 +52,7 @@ const ADMIN_ROW1_TABS = [
     descriptionBn: 'স্টাফ অ্যাকাউন্ট, ৪-ডিজিট পিন, পদবী বরাদ্দ, টিভি স্ক্রিন পেয়ারিং ও সক্রিয় সেশন নিয়ন্ত্রণ।',
   },
   {
-    id: 'patients',
+    id: 'patients_emr',
     titleEn: 'Patients & EMR',
     titleBn: 'রোগী ডাটাবেস ও EMR',
     icon: Users,
@@ -133,6 +133,14 @@ const ADMIN_ROW2_TABS = [
     icon: LogOut,
     descriptionEn: 'Patient departure clearance, discharge summaries, prescription collection, and follow-ups.',
     descriptionBn: 'রোগীর প্রস্থান অনুমোদন, প্রেসক্রিপশন প্রদান ও পরবর্তী সাক্ষাতের তারিখ নির্ধারণ।',
+  },
+  {
+    id: 'patients',
+    titleEn: 'Patients',
+    titleBn: 'রোগী',
+    icon: Users,
+    descriptionEn: 'Central patient directory, registration, records, and search.',
+    descriptionBn: 'রোগী নিবন্ধন, তথ্য অনুসন্ধান ও বিস্তারিত প্রোফাইল।',
   },
   {
     id: 'dues',
@@ -270,6 +278,10 @@ export default function AdminPage() {
               <BulletinManagementView />
             </TabsContent>
 
+            <TabsContent value="patients_emr" className="mt-4 focus-visible:outline-none">
+              <PatientManagementView />
+            </TabsContent>
+
             <TabsContent value="room_config" className="mt-4 focus-visible:outline-none">
               <RoomManagementView />
             </TabsContent>
@@ -278,7 +290,7 @@ export default function AdminPage() {
               <TherapySlotConfigView />
             </TabsContent>
 
-            {ADMIN_ROW1_TABS.filter((t) => t.id !== 'overview' && t.id !== 'users_devices' && t.id !== 'bulletins' && t.id !== 'patients' && t.id !== 'room_config' && t.id !== 'therapy_slot_config').map((tab) => (
+            {ADMIN_ROW1_TABS.filter((t) => t.id !== 'overview' && t.id !== 'users_devices' && t.id !== 'bulletins' && t.id !== 'patients_emr' && t.id !== 'room_config' && t.id !== 'therapy_slot_config').map((tab) => (
               <TabsContent key={tab.id} value={tab.id} className="mt-4 focus-visible:outline-none">
                 <WorkstationTabPlaceholder
                   titleEn={tab.titleEn}
@@ -301,7 +313,7 @@ export default function AdminPage() {
               <TherapySlotBookingView />
             </TabsContent>
 
-            {ADMIN_ROW2_TABS.filter((t) => t.id !== 'therapy_slot').map((tab) => (
+            {ADMIN_ROW2_TABS.filter((t) => t.id !== 'therapy_slot' && t.id !== 'patients').map((tab) => (
               <TabsContent key={tab.id} value={tab.id} className="mt-4 focus-visible:outline-none">
                 <WorkstationTabPlaceholder
                   titleEn={tab.titleEn}

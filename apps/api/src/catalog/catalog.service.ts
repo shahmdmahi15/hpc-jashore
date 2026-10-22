@@ -3,8 +3,8 @@ import { randomUUID } from 'node:crypto';
 import { eq } from 'drizzle-orm';
 import { AuditService } from '../audit/audit.service';
 import { DB, type Db } from '../db/db.module';
-import { modalities, rooms } from '../db/schema';
-import type { CreateModalityDto, CreateRoomDto, UpdateModalityDto, UpdateRoomDto } from './dto';
+import { modalities } from '../db/schema';
+import type { CreateModalityDto, UpdateModalityDto } from './dto';
 
 interface Actor {
   sub: string;
@@ -19,48 +19,6 @@ interface Meta {
 @Injectable()
 export class CatalogService {
   constructor(@Inject(DB) private readonly db: Db, private readonly audit: AuditService) {}
-
-  listRooms() {
-    return this.db.select().from(rooms);
-  }
-
-  async createRoom(actor: Actor, dto: CreateRoomDto, meta: Meta) {
-    const existing = await this.db.select().from(rooms).where(eq(rooms.roomNumber, dto.code));
-    if (existing.length > 0) throw new BadRequestException('Room code already exists');
-    const now = new Date().toISOString();
-    const row = {
-      id: randomUUID(),
-      roomNumber: dto.code,
-      name: dto.name,
-      type: (dto.type === 'counter' ? 'cashier_room' : dto.type === 'therapy' ? 'therapy_room' : 'doctor_consultation_room') as any,
-      gender: 'common' as const,
-      status: 'available' as const,
-      isActive: 1,
-      createdAt: now,
-      updatedAt: now,
-    };
-    await this.db.insert(rooms).values(row);
-    await this.audit.log({
-      actorUserId: actor.sub, actorRole: actor.role, action: 'rooms.create',
-      entity: 'rooms', entityId: row.id, after: row, ip: meta.ip, requestId: meta.requestId,
-    });
-    return row;
-  }
-
-  async updateRoom(actor: Actor, id: string, dto: UpdateRoomDto, meta: Meta) {
-    const before = (await this.db.select().from(rooms).where(eq(rooms.id, id)))[0];
-    if (!before) throw new BadRequestException('Room not found');
-    const patch: Partial<typeof rooms.$inferInsert> = {};
-    if (dto.name !== undefined) patch.name = dto.name;
-    if (dto.isActive !== undefined) patch.isActive = dto.isActive ? 1 : 0;
-    await this.db.update(rooms).set(patch).where(eq(rooms.id, id));
-    const after = (await this.db.select().from(rooms).where(eq(rooms.id, id)))[0];
-    await this.audit.log({
-      actorUserId: actor.sub, actorRole: actor.role, action: 'rooms.update',
-      entity: 'rooms', entityId: id, before, after, ip: meta.ip, requestId: meta.requestId,
-    });
-    return after;
-  }
 
   listModalities() {
     return this.db.select().from(modalities);

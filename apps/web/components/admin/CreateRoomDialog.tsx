@@ -83,6 +83,7 @@ export function CreateRoomDialog({ open, onOpenChange, onSuccess }: CreateRoomDi
     type: RoomType;
     gender: RoomGender;
     status: RoomStatus;
+    capacity: number;
     notes: string;
   }>({
     roomNumber: '',
@@ -90,6 +91,7 @@ export function CreateRoomDialog({ open, onOpenChange, onSuccess }: CreateRoomDi
     type: 'doctor_consultation_room',
     gender: 'common',
     status: 'available',
+    capacity: 1,
     notes: '',
   });
 
@@ -100,6 +102,7 @@ export function CreateRoomDialog({ open, onOpenChange, onSuccess }: CreateRoomDi
       type: 'doctor_consultation_room',
       gender: 'common',
       status: 'available',
+      capacity: 1,
       notes: '',
     });
     setErrorMsg(null);
@@ -128,6 +131,7 @@ export function CreateRoomDialog({ open, onOpenChange, onSuccess }: CreateRoomDi
         type: form.type,
         gender: form.gender,
         status: form.status,
+        capacity: Number(form.capacity) > 0 ? Number(form.capacity) : 1,
         notes: form.notes.trim() || undefined,
       });
 
@@ -192,9 +196,9 @@ export function CreateRoomDialog({ open, onOpenChange, onSuccess }: CreateRoomDi
               <span>{isBn ? '১. রুম পরিচিতি ও ধরন' : '1. Room Identification & Classification'}</span>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5 sm:gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3.5 sm:gap-4">
               {/* Room Number */}
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 sm:col-span-1">
                 <Label htmlFor="create-room-number" className="text-xs font-semibold flex items-center gap-1">
                   <Hash className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                   <span>{isBn ? 'রুম নম্বর / কোড' : 'Room Number / Code'}</span>
@@ -227,8 +231,30 @@ export function CreateRoomDialog({ open, onOpenChange, onSuccess }: CreateRoomDi
                 />
               </div>
 
+              {/* Room Capacity */}
+              <div className="space-y-1.5 sm:col-span-1">
+                <Label htmlFor="create-room-capacity" className="text-xs font-semibold flex items-center gap-1">
+                  <Users className="w-3.5 h-3.5 text-muted-foreground" />
+                  <span>{isBn ? 'ধারণক্ষমতা' : 'Capacity'}</span>
+                  <span className="text-destructive font-bold">*</span>
+                </Label>
+                <Input
+                  id="create-room-capacity"
+                  type="number"
+                  min={1}
+                  max={200}
+                  value={form.capacity}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value, 10);
+                    setForm({ ...form, capacity: isNaN(val) ? 1 : Math.max(1, val) });
+                  }}
+                  required
+                  className="h-10 text-sm font-mono font-bold"
+                />
+              </div>
+
               {/* Room Type */}
-              <div className="space-y-1.5 sm:col-span-3">
+              <div className="space-y-1.5 sm:col-span-2 md:col-span-4">
                 <Label className="text-xs font-semibold flex items-center gap-1">
                   <Layers className="w-3.5 h-3.5 text-muted-foreground" />
                   <span>{isBn ? 'রুমের ধরন (Room Type)' : 'Room Type'}</span>

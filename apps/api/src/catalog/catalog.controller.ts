@@ -7,7 +7,7 @@ import { CurrentUser, type RequestUser } from '../rbac/current-user.decorator';
 import { Roles } from '../rbac/roles.decorator';
 import { RolesGuard } from '../rbac/roles.guard';
 import { CatalogService } from './catalog.service';
-import { CreateModalityDto, CreateRoomDto, UpdateModalityDto, UpdateRoomDto } from './dto';
+import { CreateModalityDto, UpdateModalityDto } from './dto';
 
 @ApiTags('catalog')
 @ApiBearerAuth()
@@ -21,23 +21,6 @@ export class CatalogController {
       ip: extractClientIp(req),
       requestId: ((req as unknown as { requestId?: string }).requestId ?? null) as string | null,
     };
-  }
-
-  @Get('rooms')
-  rooms() {
-    return this.catalog.listRooms();
-  }
-
-  @Post('rooms')
-  @Roles('admin')
-  createRoom(@CurrentUser() user: RequestUser, @Body() dto: CreateRoomDto, @Req() req: Request) {
-    return this.catalog.createRoom({ sub: user.sub, role: user.role }, dto, this.meta(req));
-  }
-
-  @Patch('rooms/:id')
-  @Roles('admin')
-  updateRoom(@CurrentUser() user: RequestUser, @Param('id') id: string, @Body() dto: UpdateRoomDto, @Req() req: Request) {
-    return this.catalog.updateRoom({ sub: user.sub, role: user.role }, id, dto, this.meta(req));
   }
 
   @Get('modalities')
