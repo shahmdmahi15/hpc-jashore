@@ -6,6 +6,7 @@ import { WorkstationShell } from '../../components/WorkstationShell';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../../components/ui/tabs';
 import { WorkstationTabPlaceholder } from '../../components/WorkstationTabPlaceholder';
 import { PatientManagementView } from '../../components/patient/PatientManagementView';
+import { TherapySlotBookingView } from '../../components/therapy/TherapySlotBookingView';
 import { useLanguage } from '../../lib/i18n';
 import {
   UserCheck,
@@ -115,7 +116,11 @@ export default function ReceptionistPage() {
               <PatientManagementView />
             </TabsContent>
 
-            {RECEPTIONIST_TABS.filter((t) => t.id !== 'patients').map((tab) => (
+            <TabsContent value="therapy_slot" className="mt-4 focus-visible:outline-none">
+              <TherapySlotBookingView />
+            </TabsContent>
+
+            {RECEPTIONIST_TABS.filter((t) => t.id !== 'patients' && t.id !== 'therapy_slot').map((tab) => (
               <TabsContent key={tab.id} value={tab.id} className="mt-4 focus-visible:outline-none">
                 <WorkstationTabPlaceholder
                   titleEn={tab.titleEn}

@@ -11,7 +11,14 @@ import {
   Min,
   ValidateNested,
 } from 'class-validator';
-import { DAYS_OF_WEEK, SLOT_HOURS, type DayOfWeek, type SlotHour } from '../db/schema';
+import {
+  DAYS_OF_WEEK,
+  SLOT_HOURS,
+  THERAPY_BOOKING_STATUSES,
+  type DayOfWeek,
+  type SlotHour,
+  type TherapyBookingStatus,
+} from '../db/schema';
 
 export class TherapySlotQueryDto {
   @ApiPropertyOptional({ enum: DAYS_OF_WEEK, description: 'Day of week filter' })
@@ -117,4 +124,102 @@ export class CopyDayScheduleDto {
   @IsArray()
   @IsIn(DAYS_OF_WEEK, { each: true })
   toDays!: DayOfWeek[];
+}
+
+export class TherapyAvailabilityQueryDto {
+  @ApiProperty({ description: 'Date in YYYY-MM-DD format', example: '2026-10-23' })
+  @IsString()
+  date!: string;
+}
+
+export class CreateTherapyBookingDto {
+  @ApiProperty({ description: 'Patient ID' })
+  @IsString()
+  patientId!: string;
+
+  @ApiProperty({ description: 'Booking date in YYYY-MM-DD format', example: '2026-10-23' })
+  @IsString()
+  bookingDate!: string;
+
+  @ApiProperty({ enum: SLOT_HOURS, description: 'Slot hour' })
+  @IsIn(SLOT_HOURS)
+  slotHour!: SlotHour;
+
+  @ApiPropertyOptional({ description: 'Told time to arrive / attend', example: '09:15 AM' })
+  @IsOptional()
+  @IsString()
+  toldTime?: string;
+
+  @ApiPropertyOptional({ description: 'Booking clinical / operational notes' })
+  @IsOptional()
+  @IsString()
+  notes?: string;
+}
+
+export class UpdateTherapyBookingDto {
+  @ApiPropertyOptional({ enum: THERAPY_BOOKING_STATUSES, description: 'Booking status' })
+  @IsOptional()
+  @IsIn(THERAPY_BOOKING_STATUSES)
+  status?: TherapyBookingStatus;
+
+  @ApiPropertyOptional({ description: 'Told time to arrive / attend' })
+  @IsOptional()
+  @IsString()
+  toldTime?: string;
+
+  @ApiPropertyOptional({ description: 'Booking notes' })
+  @IsOptional()
+  @IsString()
+  notes?: string;
+
+  @ApiPropertyOptional({ enum: SLOT_HOURS, description: 'Updated slot hour' })
+  @IsOptional()
+  @IsIn(SLOT_HOURS)
+  slotHour?: SlotHour;
+
+  @ApiPropertyOptional({ description: 'Updated booking date (YYYY-MM-DD)' })
+  @IsOptional()
+  @IsString()
+  bookingDate?: string;
+}
+
+export class TherapyBookingQueryDto {
+  @ApiPropertyOptional({ description: 'Filter by booking date (YYYY-MM-DD)' })
+  @IsOptional()
+  @IsString()
+  date?: string;
+
+  @ApiPropertyOptional({ description: 'Filter by patient ID' })
+  @IsOptional()
+  @IsString()
+  patientId?: string;
+
+  @ApiPropertyOptional({ description: 'Filter by booking status' })
+  @IsOptional()
+  @IsString()
+  status?: string;
+
+  @ApiPropertyOptional({ description: 'Filter by slot hour' })
+  @IsOptional()
+  @IsString()
+  slotHour?: string;
+
+  @ApiPropertyOptional({ description: 'Search patient name, MRN, phone, booking number' })
+  @IsOptional()
+  @IsString()
+  query?: string;
+
+  @ApiPropertyOptional({ description: 'Page number', default: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number;
+
+  @ApiPropertyOptional({ description: 'Page limit', default: 50 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  limit?: number;
 }

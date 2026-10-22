@@ -358,6 +358,34 @@ export type Db = BetterSQLite3Database<typeof schema>;
           } catch (slotErr) {
             console.error('Error initializing therapy_slot_configs table:', slotErr);
           }
+
+          // Ensure therapy_slot_bookings table & indexes
+          try {
+            sqlite.exec(`
+              CREATE TABLE IF NOT EXISTS therapy_slot_bookings (
+                id TEXT PRIMARY KEY,
+                booking_number TEXT NOT NULL UNIQUE,
+                patient_id TEXT NOT NULL REFERENCES patients(id),
+                booking_date TEXT NOT NULL,
+                day_of_week TEXT NOT NULL,
+                slot_hour TEXT NOT NULL,
+                told_time TEXT,
+                patient_gender TEXT NOT NULL,
+                capacity_type TEXT NOT NULL DEFAULT 'regular',
+                status TEXT NOT NULL DEFAULT 'booked',
+                notes TEXT,
+                booked_by TEXT REFERENCES users(id),
+                deleted_at TEXT,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+              );
+              CREATE INDEX IF NOT EXISTS idx_tsb_date_slot ON therapy_slot_bookings(booking_date, slot_hour);
+              CREATE INDEX IF NOT EXISTS idx_tsb_patient ON therapy_slot_bookings(patient_id);
+              CREATE INDEX IF NOT EXISTS idx_tsb_status ON therapy_slot_bookings(status);
+            `);
+          } catch (bookingErr) {
+            console.error('Error initializing therapy_slot_bookings table:', bookingErr);
+          }
         } catch {
           // Idempotent column safety
         }

@@ -1,12 +1,30 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { and, asc, eq, sql } from 'drizzle-orm';
+import {
+  BadRequestException,
+  ConflictException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
+import { and, asc, desc, eq, isNull, like, or, sql } from 'drizzle-orm';
 import { AuditService } from '../audit/audit.service';
 import { DB, type Db } from '../db/db.module';
-import { therapySlotConfigs, type DayOfWeek } from '../db/schema';
+import {
+  patients,
+  therapySlotBookings,
+  therapySlotConfigs,
+  users,
+  type DayOfWeek,
+  type SlotHour,
+  type TherapyBookingStatus,
+} from '../db/schema';
 import type {
   BulkUpdateTherapySlotsDto,
   CopyDayScheduleDto,
+  CreateTherapyBookingDto,
+  TherapyBookingQueryDto,
   TherapySlotQueryDto,
+  UpdateTherapyBookingDto,
   UpdateTherapySlotDto,
 } from './dto';
 
@@ -18,6 +36,25 @@ interface Actor {
 interface Meta {
   ip?: string | null;
   requestId?: string | null;
+}
+
+function getDayOfWeekFromDate(dateStr: string): DayOfWeek {
+  const parts = dateStr.split('-');
+  const year = Number(parts[0]);
+  const month = Number(parts[1]);
+  const day = Number(parts[2]);
+  const d = new Date(Date.UTC(year, month - 1, day));
+  const dayIndex = d.getUTCDay(); // 0 = Sunday, 6 = Saturday
+  const DAYS: DayOfWeek[] = [
+    'Sunday',
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday',
+    'Saturday',
+  ];
+  return DAYS[dayIndex] || 'Sunday';
 }
 
 @Injectable()
@@ -262,5 +299,505 @@ export class TherapySlotsService {
     });
 
     return { success: true, updatedCount };
+  }
+
+  // --- Therapy Slot Availability & Realtime Capacity --------------------------
+
+  async getAvailability(date: string) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      throw new BadRequestException('Date must be in YYYY-MM-DD format');
+    }
+
+    const dayOfWeek = getDayOfWeekFromDate(date);
+
+    // Fetch slot configs for this day
+    const configs = await this.db
+      .select()
+      .from(therapySlotConfigs)
+      .where(eq(therapySlotConfigs.day, dayOfWeek))
+      .orderBy(asc(therapySlotConfigs.slotOrder));
+
+    // Fetch active bookings for this date (not cancelled, not deleted)
+    const activeBookings = await this.db
+      .select({
+        id: therapySlotBookings.id,
+        slotHour: therapySlotBookings.slotHour,
+        patientGender: therapySlotBookings.patientGender,
+        capacityType: therapySlotBookings.capacityType,
+        status: therapySlotBookings.status,
+      })
+      .from(therapySlotBookings)
+      .where(
+        and(
+          eq(therapySlotBookings.bookingDate, date),
+          isNull(therapySlotBookings.deletedAt),
+          sql`${therapySlotBookings.status} != 'cancelled'`,
+        ),
+      );
+
+    let totalDayRegularCapacity = 0;
+    let totalDayExtraCapacity = 0;
+    let totalDayBooked = 0;
+    let totalMaleBooked = 0;
+    let totalFemaleBooked = 0;
+    let activeSlotsCount = 0;
+
+    const slotAvailabilities = configs.map((cfg) => {
+      const slotBookings = activeBookings.filter((b) => b.slotHour === cfg.slotHour);
+
+      const maleRegularBooked = slotBookings.filter(
+        (b) => b.patientGender === 'male' && b.capacityType === 'regular',
+      ).length;
+      const maleExtraBooked = slotBookings.filter(
+        (b) => b.patientGender === 'male' && b.capacityType === 'extra',
+      ).length;
+      const femaleRegularBooked = slotBookings.filter(
+        (b) => b.patientGender === 'female' && b.capacityType === 'regular',
+      ).length;
+      const femaleExtraBooked = slotBookings.filter(
+        (b) => b.patientGender === 'female' && b.capacityType === 'extra',
+      ).length;
+
+      const maleRegularRemaining = Math.max(0, cfg.slotMaleRegularCapacity - maleRegularBooked);
+      const femaleRegularRemaining = Math.max(0, cfg.slotFemaleRegularCapacity - femaleRegularBooked);
+      const maleExtraRemaining = Math.max(0, cfg.slotMaleExtraCapacity - maleExtraBooked);
+      const femaleExtraRemaining = Math.max(0, cfg.slotFemaleExtraCapacity - femaleExtraBooked);
+
+      const maleTotalAvailable = maleRegularRemaining + maleExtraRemaining;
+      const femaleTotalAvailable = femaleRegularRemaining + femaleExtraRemaining;
+
+      const totalSlotBooked =
+        maleRegularBooked + maleExtraBooked + femaleRegularBooked + femaleExtraBooked;
+      const totalSlotRegularCapacity = cfg.slotMaleRegularCapacity + cfg.slotFemaleRegularCapacity;
+      const totalSlotExtraCapacity = cfg.slotMaleExtraCapacity + cfg.slotFemaleExtraCapacity;
+      const totalSlotCapacity = totalSlotRegularCapacity + totalSlotExtraCapacity;
+
+      if (cfg.isActive === 1) {
+        activeSlotsCount++;
+        totalDayRegularCapacity += totalSlotRegularCapacity;
+        totalDayExtraCapacity += totalSlotExtraCapacity;
+        totalDayBooked += totalSlotBooked;
+        totalMaleBooked += maleRegularBooked + maleExtraBooked;
+        totalFemaleBooked += femaleRegularBooked + femaleExtraBooked;
+      }
+
+      const isMaleFull = maleTotalAvailable === 0;
+      const isFemaleFull = femaleTotalAvailable === 0;
+      const isSlotFull = isMaleFull && isFemaleFull;
+
+      return {
+        id: cfg.id,
+        day: cfg.day,
+        slotHour: cfg.slotHour,
+        slotOrder: cfg.slotOrder,
+        isActive: cfg.isActive,
+        notes: cfg.notes,
+        // Male capacities
+        maleRegularCapacity: cfg.slotMaleRegularCapacity,
+        maleRegularBooked,
+        maleRegularRemaining,
+        maleExtraCapacity: cfg.slotMaleExtraCapacity,
+        maleExtraBooked,
+        maleExtraRemaining,
+        maleTotalAvailable,
+        isMaleFull,
+        // Female capacities
+        femaleRegularCapacity: cfg.slotFemaleRegularCapacity,
+        femaleRegularBooked,
+        femaleRegularRemaining,
+        femaleExtraCapacity: cfg.slotFemaleExtraCapacity,
+        femaleExtraBooked,
+        femaleExtraRemaining,
+        femaleTotalAvailable,
+        isFemaleFull,
+        // Combined slot numbers
+        totalSlotBooked,
+        totalSlotCapacity,
+        totalSlotAvailable: maleTotalAvailable + femaleTotalAvailable,
+        isSlotFull,
+        isOpen: cfg.isActive === 1 && !isSlotFull,
+      };
+    });
+
+    const totalDayCapacity = totalDayRegularCapacity + totalDayExtraCapacity;
+    const utilizationPercent =
+      totalDayCapacity > 0 ? Math.round((totalDayBooked / totalDayCapacity) * 100) : 0;
+
+    return {
+      date,
+      dayOfWeek,
+      stats: {
+        totalDayCapacity,
+        totalDayRegularCapacity,
+        totalDayExtraCapacity,
+        totalDayBooked,
+        totalMaleBooked,
+        totalFemaleBooked,
+        activeSlotsCount,
+        utilizationPercent,
+      },
+      slots: slotAvailabilities,
+    };
+  }
+
+  // --- Therapy Slot Bookings CRUD --------------------------------------------
+
+  async createBooking(actor: Actor, dto: CreateTherapyBookingDto, meta: Meta) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dto.bookingDate)) {
+      throw new BadRequestException('Booking date must be in YYYY-MM-DD format');
+    }
+
+    // 1. Validate Patient
+    const patientRows = await this.db
+      .select()
+      .from(patients)
+      .where(and(eq(patients.id, dto.patientId), isNull(patients.deletedAt)));
+    const patient = patientRows[0];
+    if (!patient) throw new NotFoundException('Patient not found');
+
+    const gender = patient.gender; // 'male' | 'female'
+    const dayOfWeek = getDayOfWeekFromDate(dto.bookingDate);
+
+    // 2. Validate Slot Config
+    const slotConfigRows = await this.db
+      .select()
+      .from(therapySlotConfigs)
+      .where(
+        and(
+          eq(therapySlotConfigs.day, dayOfWeek),
+          eq(therapySlotConfigs.slotHour, dto.slotHour),
+        ),
+      );
+    const config = slotConfigRows[0];
+    if (!config || config.isActive === 0) {
+      throw new BadRequestException(
+        `Therapy slot ${dto.slotHour} is closed/inactive on ${dayOfWeek}`,
+      );
+    }
+
+    // 3. Capacity Check for patient gender
+    const existingBookings = await this.db
+      .select({
+        id: therapySlotBookings.id,
+        capacityType: therapySlotBookings.capacityType,
+      })
+      .from(therapySlotBookings)
+      .where(
+        and(
+          eq(therapySlotBookings.bookingDate, dto.bookingDate),
+          eq(therapySlotBookings.slotHour, dto.slotHour),
+          eq(therapySlotBookings.patientGender, gender),
+          isNull(therapySlotBookings.deletedAt),
+          sql`${therapySlotBookings.status} != 'cancelled'`,
+        ),
+      );
+
+    const regCap =
+      gender === 'male'
+        ? config.slotMaleRegularCapacity
+        : config.slotFemaleRegularCapacity;
+    const extraCap =
+      gender === 'male'
+        ? config.slotMaleExtraCapacity
+        : config.slotFemaleExtraCapacity;
+
+    const regularBookedCount = existingBookings.filter((b) => b.capacityType === 'regular').length;
+    const extraBookedCount = existingBookings.filter((b) => b.capacityType === 'extra').length;
+
+    let assignedCapacityType: 'regular' | 'extra';
+    if (regularBookedCount < regCap) {
+      assignedCapacityType = 'regular';
+    } else if (extraBookedCount < extraCap) {
+      assignedCapacityType = 'extra';
+    } else {
+      throw new ConflictException(
+        `No capacity left for ${gender} patients in slot ${dto.slotHour} on ${dto.bookingDate} (${dayOfWeek}). Slot is fully booked.`,
+      );
+    }
+
+    // 4. Generate Booking Number
+    const dateClean = dto.bookingDate.replace(/-/g, '');
+    const randSuffix = Math.floor(1000 + Math.random() * 9000);
+    const bookingNumber = `TSB-${dateClean}-${randSuffix}`;
+
+    const id = randomUUID();
+    const now = new Date().toISOString();
+
+    const newBooking = {
+      id,
+      bookingNumber,
+      patientId: dto.patientId,
+      bookingDate: dto.bookingDate,
+      dayOfWeek,
+      slotHour: dto.slotHour,
+      toldTime: dto.toldTime ? dto.toldTime.trim() : null,
+      patientGender: gender,
+      capacityType: assignedCapacityType,
+      status: 'booked' as const,
+      notes: dto.notes ? dto.notes.trim() : null,
+      bookedBy: actor.sub,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    await this.db.insert(therapySlotBookings).values(newBooking);
+
+    await this.audit.log({
+      actorUserId: actor.sub,
+      actorRole: actor.role,
+      action: 'therapy_booking.create',
+      entity: 'therapy_slot_bookings',
+      entityId: id,
+      after: newBooking,
+      ip: meta.ip,
+      requestId: meta.requestId,
+    });
+
+    return this.getBooking(id);
+  }
+
+  async listBookings(dto: TherapyBookingQueryDto) {
+    const page = Math.max(1, dto.page ?? 1);
+    const limit = Math.min(200, Math.max(1, dto.limit ?? 50));
+    const offset = (page - 1) * limit;
+
+    const conditions = [isNull(therapySlotBookings.deletedAt)];
+
+    if (dto.date && dto.date.trim()) {
+      conditions.push(eq(therapySlotBookings.bookingDate, dto.date.trim()));
+    }
+
+    if (dto.patientId && dto.patientId.trim()) {
+      conditions.push(eq(therapySlotBookings.patientId, dto.patientId.trim()));
+    }
+
+    if (dto.status && dto.status !== 'all') {
+      conditions.push(eq(therapySlotBookings.status, dto.status as TherapyBookingStatus));
+    }
+
+    if (dto.slotHour && dto.slotHour !== 'all') {
+      conditions.push(eq(therapySlotBookings.slotHour, dto.slotHour as SlotHour));
+    }
+
+    if (dto.query && dto.query.trim()) {
+      const pattern = `%${dto.query.trim()}%`;
+      conditions.push(
+        or(
+          like(therapySlotBookings.bookingNumber, pattern),
+          like(patients.nameEn, pattern),
+          like(patients.nameBn, pattern),
+          like(patients.mrn, pattern),
+          like(patients.phone, pattern),
+        )!,
+      );
+    }
+
+    const whereClause = and(...conditions);
+
+    const rows = await this.db
+      .select({
+        id: therapySlotBookings.id,
+        bookingNumber: therapySlotBookings.bookingNumber,
+        patientId: therapySlotBookings.patientId,
+        bookingDate: therapySlotBookings.bookingDate,
+        dayOfWeek: therapySlotBookings.dayOfWeek,
+        slotHour: therapySlotBookings.slotHour,
+        toldTime: therapySlotBookings.toldTime,
+        patientGender: therapySlotBookings.patientGender,
+        capacityType: therapySlotBookings.capacityType,
+        status: therapySlotBookings.status,
+        notes: therapySlotBookings.notes,
+        bookedBy: therapySlotBookings.bookedBy,
+        createdAt: therapySlotBookings.createdAt,
+        updatedAt: therapySlotBookings.updatedAt,
+        patient: {
+          id: patients.id,
+          mrn: patients.mrn,
+          nameEn: patients.nameEn,
+          nameBn: patients.nameBn,
+          phone: patients.phone,
+          email: patients.email,
+          gender: patients.gender,
+          ageYears: patients.ageYears,
+          bloodGroup: patients.bloodGroup,
+        },
+        bookedByUser: {
+          id: users.id,
+          displayName: users.displayName,
+          role: users.role,
+        },
+      })
+      .from(therapySlotBookings)
+      .innerJoin(patients, eq(therapySlotBookings.patientId, patients.id))
+      .leftJoin(users, eq(therapySlotBookings.bookedBy, users.id))
+      .where(whereClause)
+      .orderBy(
+        asc(therapySlotBookings.bookingDate),
+        asc(therapySlotBookings.slotHour),
+        desc(therapySlotBookings.createdAt),
+      )
+      .limit(limit)
+      .offset(offset);
+
+    const totalResult = await this.db
+      .select({ count: sql<number>`count(*)` })
+      .from(therapySlotBookings)
+      .innerJoin(patients, eq(therapySlotBookings.patientId, patients.id))
+      .where(whereClause);
+
+    const total = Number(totalResult[0]?.count ?? 0);
+
+    // Date-specific or overall stats calculation
+    const baseStatsConditions = [isNull(therapySlotBookings.deletedAt)];
+    if (dto.date && dto.date.trim()) {
+      baseStatsConditions.push(eq(therapySlotBookings.bookingDate, dto.date.trim()));
+    }
+
+    const allBookingsForStats = await this.db
+      .select({
+        status: therapySlotBookings.status,
+      })
+      .from(therapySlotBookings)
+      .where(and(...baseStatsConditions));
+
+    const stats = {
+      total: allBookingsForStats.length,
+      booked: allBookingsForStats.filter((b) => b.status === 'booked').length,
+      confirmed: allBookingsForStats.filter((b) => b.status === 'confirmed').length,
+      attended: allBookingsForStats.filter((b) => b.status === 'attended').length,
+      completed: allBookingsForStats.filter((b) => b.status === 'completed').length,
+      cancelled: allBookingsForStats.filter((b) => b.status === 'cancelled').length,
+    };
+
+    return {
+      items: rows,
+      total,
+      page,
+      limit,
+      totalPages: Math.max(1, Math.ceil(total / limit)),
+      stats,
+    };
+  }
+
+  async getBooking(id: string) {
+    const rows = await this.db
+      .select({
+        id: therapySlotBookings.id,
+        bookingNumber: therapySlotBookings.bookingNumber,
+        patientId: therapySlotBookings.patientId,
+        bookingDate: therapySlotBookings.bookingDate,
+        dayOfWeek: therapySlotBookings.dayOfWeek,
+        slotHour: therapySlotBookings.slotHour,
+        toldTime: therapySlotBookings.toldTime,
+        patientGender: therapySlotBookings.patientGender,
+        capacityType: therapySlotBookings.capacityType,
+        status: therapySlotBookings.status,
+        notes: therapySlotBookings.notes,
+        bookedBy: therapySlotBookings.bookedBy,
+        createdAt: therapySlotBookings.createdAt,
+        updatedAt: therapySlotBookings.updatedAt,
+        patient: {
+          id: patients.id,
+          mrn: patients.mrn,
+          nameEn: patients.nameEn,
+          nameBn: patients.nameBn,
+          phone: patients.phone,
+          email: patients.email,
+          gender: patients.gender,
+          ageYears: patients.ageYears,
+          bloodGroup: patients.bloodGroup,
+        },
+        bookedByUser: {
+          id: users.id,
+          displayName: users.displayName,
+          role: users.role,
+        },
+      })
+      .from(therapySlotBookings)
+      .innerJoin(patients, eq(therapySlotBookings.patientId, patients.id))
+      .leftJoin(users, eq(therapySlotBookings.bookedBy, users.id))
+      .where(and(eq(therapySlotBookings.id, id), isNull(therapySlotBookings.deletedAt)));
+
+    if (!rows[0]) throw new NotFoundException('Therapy slot booking not found');
+    return rows[0];
+  }
+
+  async updateBooking(
+    actor: Actor,
+    id: string,
+    dto: UpdateTherapyBookingDto,
+    meta: Meta,
+  ) {
+    const existing = await this.getBooking(id);
+
+    const patch: Record<string, any> = {
+      updatedAt: new Date().toISOString(),
+    };
+
+    if (dto.status !== undefined) {
+      patch.status = dto.status;
+    }
+    if (dto.toldTime !== undefined) {
+      patch.toldTime = dto.toldTime ? dto.toldTime.trim() : null;
+    }
+    if (dto.notes !== undefined) {
+      patch.notes = dto.notes ? dto.notes.trim() : null;
+    }
+    if (dto.bookingDate !== undefined && dto.bookingDate.trim()) {
+      patch.bookingDate = dto.bookingDate.trim();
+      patch.dayOfWeek = getDayOfWeekFromDate(dto.bookingDate.trim());
+    }
+    if (dto.slotHour !== undefined) {
+      patch.slotHour = dto.slotHour;
+    }
+
+    await this.db
+      .update(therapySlotBookings)
+      .set(patch)
+      .where(eq(therapySlotBookings.id, id));
+
+    const updated = await this.getBooking(id);
+
+    await this.audit.log({
+      actorUserId: actor.sub,
+      actorRole: actor.role,
+      action: 'therapy_booking.update',
+      entity: 'therapy_slot_bookings',
+      entityId: id,
+      before: existing,
+      after: updated,
+      ip: meta.ip,
+      requestId: meta.requestId,
+    });
+
+    return updated;
+  }
+
+  async deleteBooking(actor: Actor, id: string, meta: Meta) {
+    const existing = await this.getBooking(id);
+
+    const now = new Date().toISOString();
+    await this.db
+      .update(therapySlotBookings)
+      .set({
+        deletedAt: now,
+        status: 'cancelled',
+        updatedAt: now,
+      })
+      .where(eq(therapySlotBookings.id, id));
+
+    await this.audit.log({
+      actorUserId: actor.sub,
+      actorRole: actor.role,
+      action: 'therapy_booking.delete',
+      entity: 'therapy_slot_bookings',
+      entityId: id,
+      before: existing,
+      after: { deletedAt: now, status: 'cancelled' },
+      ip: meta.ip,
+      requestId: meta.requestId,
+    });
+
+    return { success: true };
   }
 }

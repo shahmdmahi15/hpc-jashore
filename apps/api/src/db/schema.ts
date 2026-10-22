@@ -284,6 +284,34 @@ export const patients = sqliteTable('patients', {
   ...timestamps,
 });
 
+export const THERAPY_BOOKING_STATUSES = [
+  'booked',
+  'confirmed',
+  'attended',
+  'completed',
+  'cancelled',
+] as const;
+export type TherapyBookingStatus = (typeof THERAPY_BOOKING_STATUSES)[number];
+
+export const therapySlotBookings = sqliteTable('therapy_slot_bookings', {
+  id: text('id').primaryKey(),
+  bookingNumber: text('booking_number').notNull().unique(),
+  patientId: text('patient_id')
+    .notNull()
+    .references(() => patients.id),
+  bookingDate: text('booking_date').notNull(),
+  dayOfWeek: text('day_of_week').notNull().$type<DayOfWeek>(),
+  slotHour: text('slot_hour').notNull().$type<SlotHour>(),
+  toldTime: text('told_time'),
+  patientGender: text('patient_gender').notNull().$type<'male' | 'female'>(),
+  capacityType: text('capacity_type').notNull().default('regular').$type<'regular' | 'extra'>(),
+  status: text('status').notNull().default('booked').$type<TherapyBookingStatus>(),
+  notes: text('notes'),
+  bookedBy: text('booked_by').references(() => users.id),
+  deletedAt: text('deleted_at'),
+  ...timestamps,
+});
+
 export const visits = sqliteTable('visits', {
   id: text('id').primaryKey(),
   patientId: text('patient_id')

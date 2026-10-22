@@ -10,6 +10,7 @@ import UsersAndDeviceManagementView from '../../components/admin/UsersAndDeviceM
 import BulletinManagementView from '../../components/admin/BulletinManagementView';
 import { RoomManagementView } from '../../components/admin/RoomManagementView';
 import { TherapySlotConfigView } from '../../components/admin/TherapySlotConfigView';
+import { TherapySlotBookingView } from '../../components/therapy/TherapySlotBookingView';
 import { PatientManagementView } from '../../components/patient/PatientManagementView';
 import { useLanguage } from '../../lib/i18n';
 import {
@@ -296,7 +297,11 @@ export default function AdminPage() {
               <PatientManagementView />
             </TabsContent>
 
-            {ADMIN_ROW2_TABS.map((tab) => (
+            <TabsContent value="therapy_slot" className="mt-4 focus-visible:outline-none">
+              <TherapySlotBookingView />
+            </TabsContent>
+
+            {ADMIN_ROW2_TABS.filter((t) => t.id !== 'therapy_slot').map((tab) => (
               <TabsContent key={tab.id} value={tab.id} className="mt-4 focus-visible:outline-none">
                 <WorkstationTabPlaceholder
                   titleEn={tab.titleEn}

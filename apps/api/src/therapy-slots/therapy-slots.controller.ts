@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -19,7 +20,11 @@ import { RolesGuard } from '../rbac/roles.guard';
 import {
   BulkUpdateTherapySlotsDto,
   CopyDayScheduleDto,
+  CreateTherapyBookingDto,
+  TherapyAvailabilityQueryDto,
+  TherapyBookingQueryDto,
   TherapySlotQueryDto,
+  UpdateTherapyBookingDto,
   UpdateTherapySlotDto,
 } from './dto';
 import { TherapySlotsService } from './therapy-slots.service';
@@ -38,35 +43,83 @@ export class TherapySlotsController {
     };
   }
 
-  @Get()
-  @ApiOperation({ summary: 'List therapy slot configurations with KPI summary' })
+  // --- Availability & Booking Endpoints (Declared before :id) ------------------
+
+  @Get('availability')
+  @ApiOperation({ summary: 'Get therapy slot availability and remaining capacity for a date' })
   @Roles('admin', 'doctor', 'handler', 'cashier', 'receptionist')
-  list(@Query() query: TherapySlotQueryDto) {
-    return this.therapySlotsService.list(query);
+  getAvailability(@Query() query: TherapyAvailabilityQueryDto) {
+    return this.therapySlotsService.getAvailability(query.date);
   }
 
-  @Get(':id')
-  @ApiOperation({ summary: 'Get single therapy slot configuration' })
+  @Get('bookings')
+  @ApiOperation({ summary: 'List and filter therapy slot bookings' })
   @Roles('admin', 'doctor', 'handler', 'cashier', 'receptionist')
-  get(@Param('id') id: string) {
-    return this.therapySlotsService.get(id);
+  listBookings(@Query() query: TherapyBookingQueryDto) {
+    return this.therapySlotsService.listBookings(query);
   }
 
-  @Patch(':id')
-  @ApiOperation({ summary: 'Update therapy slot capacity, active status and notes' })
-  @Roles('admin')
-  update(
+  @Get('bookings/:id')
+  @ApiOperation({ summary: 'Get single therapy slot booking details' })
+  @Roles('admin', 'doctor', 'handler', 'cashier', 'receptionist')
+  getBooking(@Param('id') id: string) {
+    return this.therapySlotsService.getBooking(id);
+  }
+
+  @Post('bookings')
+  @ApiOperation({ summary: 'Book a therapy slot for a patient' })
+  @Roles('admin', 'doctor', 'handler', 'cashier', 'receptionist')
+  createBooking(
     @CurrentUser() user: RequestUser,
-    @Param('id') id: string,
-    @Body() dto: UpdateTherapySlotDto,
+    @Body() dto: CreateTherapyBookingDto,
     @Req() req: Request,
   ) {
-    return this.therapySlotsService.update(
+    return this.therapySlotsService.createBooking(
+      { sub: user.sub, role: user.role },
+      dto,
+      this.meta(req),
+    );
+  }
+
+  @Patch('bookings/:id')
+  @ApiOperation({ summary: 'Update therapy slot booking status, told time or notes' })
+  @Roles('admin', 'doctor', 'handler', 'cashier', 'receptionist')
+  updateBooking(
+    @CurrentUser() user: RequestUser,
+    @Param('id') id: string,
+    @Body() dto: UpdateTherapyBookingDto,
+    @Req() req: Request,
+  ) {
+    return this.therapySlotsService.updateBooking(
       { sub: user.sub, role: user.role },
       id,
       dto,
       this.meta(req),
     );
+  }
+
+  @Delete('bookings/:id')
+  @ApiOperation({ summary: 'Cancel/Delete therapy slot booking' })
+  @Roles('admin', 'doctor', 'handler', 'cashier', 'receptionist')
+  deleteBooking(
+    @CurrentUser() user: RequestUser,
+    @Param('id') id: string,
+    @Req() req: Request,
+  ) {
+    return this.therapySlotsService.deleteBooking(
+      { sub: user.sub, role: user.role },
+      id,
+      this.meta(req),
+    );
+  }
+
+  // --- Slot Configuration Endpoints ------------------------------------------
+
+  @Get()
+  @ApiOperation({ summary: 'List therapy slot configurations with KPI summary' })
+  @Roles('admin', 'doctor', 'handler', 'cashier', 'receptionist')
+  list(@Query() query: TherapySlotQueryDto) {
+    return this.therapySlotsService.list(query);
   }
 
   @Post('bulk-update')
@@ -94,6 +147,30 @@ export class TherapySlotsController {
   ) {
     return this.therapySlotsService.copyDaySchedule(
       { sub: user.sub, role: user.role },
+      dto,
+      this.meta(req),
+    );
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: 'Get single therapy slot configuration' })
+  @Roles('admin', 'doctor', 'handler', 'cashier', 'receptionist')
+  get(@Param('id') id: string) {
+    return this.therapySlotsService.get(id);
+  }
+
+  @Patch(':id')
+  @ApiOperation({ summary: 'Update therapy slot capacity, active status and notes' })
+  @Roles('admin')
+  update(
+    @CurrentUser() user: RequestUser,
+    @Param('id') id: string,
+    @Body() dto: UpdateTherapySlotDto,
+    @Req() req: Request,
+  ) {
+    return this.therapySlotsService.update(
+      { sub: user.sub, role: user.role },
+      id,
       dto,
       this.meta(req),
     );
