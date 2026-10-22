@@ -11,9 +11,12 @@ import { DB, type Db } from '../db/db.module';
 import {
   beds,
   bills,
+  consultationBookings,
+  consultations,
   dues,
   modalities,
   patients,
+  prescriptions,
   rooms,
   sequences,
   serials,
@@ -25,7 +28,13 @@ import {
 } from '../db/schema';
 import { EventsGateway } from '../realtime/events.gateway';
 import { RealtimeService } from '../realtime/realtime.service';
-import type { CallSerialDto, CheckInDto, CheckOutDto, RoutePatientDto } from './dto';
+import type {
+  CallSerialDto,
+  CheckInDto,
+  CheckOutDto,
+  RoutePatientDto,
+  SendToDoctorQueueDto,
+} from './dto';
 
 const todayDateString = () => new Date().toISOString().slice(0, 10);
 
@@ -170,12 +179,47 @@ export class VisitsService {
       }
     }
 
+    // Look up active consultation booking if applicable
+    let activeDocBooking: any = null;
+    if (dto.consultationBookingId) {
+      const docBookings = await this.db
+        .select()
+        .from(consultationBookings)
+        .where(
+          and(
+            eq(consultationBookings.id, dto.consultationBookingId),
+            sql`${consultationBookings.status} != 'cancelled'`,
+          ),
+        );
+      activeDocBooking = docBookings[0] ?? null;
+    } else if (dto.doctorId || dto.destination === 'consultation') {
+      const docBookings = await this.db
+        .select()
+        .from(consultationBookings)
+        .where(
+          and(
+            eq(consultationBookings.patientId, patient.id),
+            eq(consultationBookings.bookingDate, today),
+            dto.doctorId ? eq(consultationBookings.doctorId, dto.doctorId) : sql`1=1`,
+            sql`${consultationBookings.status} IN ('booked', 'confirmed')`,
+            isNull(consultationBookings.deletedAt),
+          ),
+        )
+        .limit(1);
+      activeDocBooking = docBookings[0] ?? null;
+    }
+
     // Determine destination: prioritize therapy if active booking or therapyBookingId exists, or doctorId absent
     const destination = (activeBooking || dto.therapyBookingId)
       ? 'therapy'
-      : (dto.destination ?? (dto.doctorId ? 'consultation' : 'therapy'));
+      : (dto.destination ?? (dto.doctorId || activeDocBooking ? 'consultation' : 'therapy'));
 
-    const effectiveToldTime = dto.toldTime?.trim() || activeBooking?.toldTime?.trim() || null;
+    const effectiveToldTime =
+      dto.toldTime?.trim() ||
+      activeBooking?.toldTime?.trim() ||
+      activeDocBooking?.toldTime?.trim() ||
+      activeDocBooking?.slotTime?.trim() ||
+      null;
     const punctuality = effectiveToldTime ? computePunctuality(effectiveToldTime, new Date()) : null;
 
     // Put patient into the first active waiting room found in room config
@@ -197,11 +241,13 @@ export class VisitsService {
     const initialLocation = firstWaitingRoom?.name || 'Waiting Room';
     const roomId = firstWaitingRoom?.id ?? null;
 
+    const assignedDoctorId = dto.doctorId ?? activeDocBooking?.doctorId ?? null;
+
     const visitId = randomUUID();
     const visitRow = {
       id: visitId,
       patientId: patient.id,
-      doctorId: dto.doctorId ?? null,
+      doctorId: assignedDoctorId,
       tokenNumber,
       visitDate: today,
       status: 'checked_in' as const,
@@ -214,13 +260,14 @@ export class VisitsService {
       punctualityStatus: punctuality?.punctualityStatus ?? null,
       delayMinutes: punctuality?.delayMinutes ?? null,
       therapyBookingId: activeBooking?.id ?? dto.therapyBookingId ?? null,
+      consultationBookingId: activeDocBooking?.id ?? dto.consultationBookingId ?? null,
       notes: dto.notes ?? null,
       createdAt: now,
       updatedAt: now,
     };
     await this.db.insert(visits).values(visitRow);
 
-    // If active booking exists, update it to attended with punctuality
+    // If active therapy booking exists, update it to attended with punctuality
     if (activeBooking) {
       await this.db
         .update(therapySlotBookings)
@@ -234,29 +281,25 @@ export class VisitsService {
         .where(eq(therapySlotBookings.id, activeBooking.id));
     }
 
-    let serialRow = null;
-    if (dto.doctorId) {
-      const priorSerials = await this.db
-        .select()
-        .from(serials)
-        .where(and(eq(serials.doctorId, dto.doctorId), eq(serials.date, today)));
-      const nextSerialNum = priorSerials.length + 1;
-
-      serialRow = {
-        id: randomUUID(),
-        doctorId: dto.doctorId,
-        date: today,
-        serialNumber: nextSerialNum,
-        visitId,
-        patientId: patient.id,
-        status: 'waiting' as const,
-        calledAt: null,
-        completedAt: null,
-        createdAt: now,
-        updatedAt: now,
-      };
-      await this.db.insert(serials).values(serialRow);
+    // If active consultation booking exists, update it to checked_in with punctuality
+    if (activeDocBooking) {
+      await this.db
+        .update(consultationBookings)
+        .set({
+          status: 'checked_in',
+          checkedInAt: now,
+          punctualityStatus: punctuality?.punctualityStatus ?? null,
+          delayMinutes: punctuality?.delayMinutes ?? null,
+          visitId,
+          updatedAt: now,
+        })
+        .where(eq(consultationBookings.id, activeDocBooking.id));
     }
+
+    // CRITICAL USER DIRECTIVE: Consultation patients do NOT automatically go into serials queue!
+    // They are checked-in in the waiting room.
+    // Someone (cashier, receptionist, admin) manually sends them to the doctor queue (e.g. after fee collection).
+    const serialRow: { serialNumber?: number } | null = null;
 
     // Broadcast realtime event
     const eventPayload = {
@@ -269,7 +312,7 @@ export class VisitsService {
       currentLocation: initialLocation,
       roomId,
       doctorId: dto.doctorId,
-      serialNumber: serialRow?.serialNumber ?? null,
+      serialNumber: null,
       toldTime: effectiveToldTime,
       punctualityStatus: punctuality?.punctualityStatus ?? null,
       delayMinutes: punctuality?.delayMinutes ?? null,
@@ -287,7 +330,7 @@ export class VisitsService {
       action: 'visit.check_in',
       entity: 'visits',
       entityId: visitId,
-      after: { ...visitRow, serialNumber: serialRow?.serialNumber },
+      after: { ...visitRow, serialNumber: null },
       ip: meta.ip,
       requestId: meta.requestId,
     });
@@ -303,7 +346,7 @@ export class VisitsService {
       },
       tokenSlip: {
         tokenNumber,
-        serialNumber: serialRow?.serialNumber ?? null,
+        serialNumber: null,
         date: today,
         time: now,
         destination,
@@ -528,21 +571,197 @@ export class VisitsService {
     return { ok: true, ...payload };
   }
 
-  async checkOut(visitId: string, _dto: CheckOutDto) {
-    const rows = await this.db
-      .select()
-      .from(visits)
-      .where(eq(visits.id, visitId));
-    const visit = rows[0];
-    if (!visit) throw new NotFoundException('Visit not found');
+  async getCheckoutActiveVisits(search?: string, statusFilter?: string) {
+    const today = todayDateString();
 
-    // Verify billing status: cannot check out if unsettled bills exist
+    const visitRows = await this.db
+      .select({
+        visit: visits,
+        patient: patients,
+        doctor: staff,
+        chamber: rooms,
+      })
+      .from(visits)
+      .innerJoin(patients, eq(visits.patientId, patients.id))
+      .leftJoin(staff, eq(visits.doctorId, staff.id))
+      .leftJoin(rooms, eq(visits.roomId, rooms.id))
+      .where(
+        and(
+          eq(visits.visitDate, today),
+          sql`${visits.status} != 'cancelled'`,
+        ),
+      )
+      .orderBy(desc(visits.createdAt));
+
+    const visitIds = visitRows.map((r) => r.visit.id);
+
+    const allBills = visitIds.length > 0
+      ? await this.db.select().from(bills).where(sql`${bills.visitId} IN ${visitIds}`)
+      : [];
+
+    const allPrescriptions = visitIds.length > 0
+      ? await this.db.select().from(prescriptions).where(sql`${prescriptions.visitId} IN ${visitIds}`)
+      : [];
+
+    const allConsultations = visitIds.length > 0
+      ? await this.db.select().from(consultations).where(sql`${consultations.visitId} IN ${visitIds}`)
+      : [];
+
+    const patientIds = Array.from(new Set(visitRows.map((r) => r.patient.id)));
+    const allSessions = patientIds.length > 0
+      ? await this.db.select().from(therapySessions).where(sql`${therapySessions.patientId} IN ${patientIds}`)
+      : [];
+
+    const items = visitRows.map((row) => {
+      const vBills = allBills.filter((b) => b.visitId === row.visit.id && b.status !== 'voided');
+      const totalPaisa = vBills.reduce((acc, b) => acc + (b.totalPaisa || 0), 0);
+      const paidPaisa = vBills.reduce((acc, b) => acc + (b.paidPaisa || 0), 0);
+      const duePaisa = vBills.reduce((acc, b) => acc + (b.duePaisa || 0), 0);
+      const hasDraftBills = vBills.some((b) => b.status === 'draft');
+
+      const vPrescriptions = allPrescriptions.filter((p) => p.visitId === row.visit.id);
+      const vConsultation = allConsultations.find((c) => c.visitId === row.visit.id);
+      const vSessions = allSessions.filter((s) => s.patientId === row.patient.id);
+
+      const isConsultationDone = row.visit.status === 'in_consult' ? false : Boolean(vConsultation || vPrescriptions.length > 0 || !row.visit.doctorId);
+      const isTherapyDone = row.visit.status === 'in_therapy' ? false : Boolean(vSessions.length > 0 || !row.visit.therapyBookingId);
+
+      let readiness: 'ready' | 'pending_dues' | 'in_service' | 'checked_out';
+      if (row.visit.status === 'checked_out') {
+        readiness = 'checked_out';
+      } else if (row.visit.status === 'in_consult' || row.visit.status === 'in_therapy') {
+        readiness = 'in_service';
+      } else if (duePaisa > 0 || hasDraftBills) {
+        readiness = 'pending_dues';
+      } else {
+        readiness = 'ready';
+      }
+
+      return {
+        visit: {
+          id: row.visit.id,
+          tokenNumber: row.visit.tokenNumber,
+          visitDate: row.visit.visitDate,
+          status: row.visit.status,
+          priority: row.visit.priority,
+          currentLocation: row.visit.currentLocation,
+          checkedInAt: row.visit.checkedInAt,
+          checkedOutAt: row.visit.checkedOutAt,
+          toldTime: row.visit.toldTime,
+          punctualityStatus: row.visit.punctualityStatus,
+          delayMinutes: row.visit.delayMinutes,
+          notes: row.visit.notes,
+          dischargeNotes: row.visit.dischargeNotes,
+          nextFollowUpDate: row.visit.nextFollowUpDate,
+        },
+        patient: {
+          id: row.patient.id,
+          mrn: row.patient.mrn,
+          nameEn: row.patient.nameEn,
+          nameBn: row.patient.nameBn,
+          phone: row.patient.phone,
+          gender: row.patient.gender,
+          ageYears: row.patient.ageYears,
+          bloodGroup: row.patient.bloodGroup,
+        },
+        doctor: row.doctor
+          ? {
+              id: row.doctor.id,
+              fullName: row.doctor.fullName,
+              specialization: row.doctor.specialization,
+              chamber: row.chamber?.name || `Chamber ${row.chamber?.roomNumber || ''}`,
+            }
+          : null,
+        financial: {
+          totalBillTaka: Math.round(totalPaisa / 100),
+          paidTaka: Math.round(paidPaisa / 100),
+          dueTaka: Math.round(duePaisa / 100),
+          hasDues: duePaisa > 0,
+          hasDraftBills,
+          billCount: vBills.length,
+        },
+        clinical: {
+          isConsultationDone,
+          isTherapyDone,
+          prescriptionIssued: vPrescriptions.length > 0,
+          prescriptionId: vPrescriptions[0]?.id ?? null,
+          therapySessionsCount: vSessions.length,
+          followUpDate: vConsultation?.followUpDate ?? row.visit.nextFollowUpDate ?? null,
+        },
+        readiness,
+      };
+    });
+
+    let filtered = items;
+    if (search && search.trim()) {
+      const q = search.toLowerCase().trim();
+      filtered = filtered.filter(
+        (i) =>
+          i.patient.nameEn.toLowerCase().includes(q) ||
+          (i.patient.nameBn && i.patient.nameBn.toLowerCase().includes(q)) ||
+          i.patient.mrn.toLowerCase().includes(q) ||
+          (i.patient.phone && i.patient.phone.includes(q)) ||
+          (i.doctor && i.doctor.fullName.toLowerCase().includes(q)),
+      );
+    }
+
+    if (statusFilter && statusFilter !== 'all') {
+      if (statusFilter === 'ready') {
+        filtered = filtered.filter((i) => i.readiness === 'ready');
+      } else if (statusFilter === 'pending_dues') {
+        filtered = filtered.filter((i) => i.readiness === 'pending_dues');
+      } else if (statusFilter === 'in_service') {
+        filtered = filtered.filter((i) => i.readiness === 'in_service');
+      } else if (statusFilter === 'checked_out') {
+        filtered = filtered.filter((i) => i.readiness === 'checked_out');
+      } else if (statusFilter === 'active') {
+        filtered = filtered.filter((i) => i.readiness !== 'checked_out');
+      }
+    }
+
+    const stats = {
+      totalCheckedInToday: items.length,
+      currentlyInClinic: items.filter((i) => i.visit.status !== 'checked_out').length,
+      readyForCheckout: items.filter((i) => i.readiness === 'ready').length,
+      checkedOutToday: items.filter((i) => i.visit.status === 'checked_out').length,
+      pendingDuesCount: items.filter((i) => i.readiness === 'pending_dues').length,
+      totalDuesTaka: items.reduce((acc, i) => acc + (i.financial.dueTaka || 0), 0),
+    };
+
+    return { items: filtered, stats, date: today };
+  }
+
+  async checkOut(
+    actor: { sub: string; role: string },
+    visitId: string,
+    dto: CheckOutDto,
+    meta?: { ip?: string | null; requestId?: string | null },
+  ) {
+    const rows = await this.db
+      .select({
+        visit: visits,
+        patient: patients,
+        doctor: staff,
+        chamber: rooms,
+      })
+      .from(visits)
+      .innerJoin(patients, eq(visits.patientId, patients.id))
+      .leftJoin(staff, eq(visits.doctorId, staff.id))
+      .leftJoin(rooms, eq(visits.roomId, rooms.id))
+      .where(eq(visits.id, visitId));
+    const item = rows[0];
+    if (!item) throw new NotFoundException('Visit not found');
+
+    // Verify billing status
     const patientBills = await this.db
       .select()
       .from(bills)
       .where(and(eq(bills.visitId, visitId), eq(bills.status, 'draft')));
-    if (patientBills.length > 0) {
-      throw new BadRequestException('Cannot check out: Visit has draft unsettled bills');
+
+    if (patientBills.length > 0 && !dto.allowWithDues) {
+      throw new BadRequestException(
+        'Cannot check out: Visit has draft unsettled bills. Please settle bills or check "Allow with Dues".',
+      );
     }
 
     const now = new Date().toISOString();
@@ -552,14 +771,243 @@ export class VisitsService {
         status: 'checked_out',
         currentLocation: 'exit',
         checkedOutAt: now,
+        dischargeNotes: dto.notes ?? null,
+        nextFollowUpDate: dto.nextFollowUpDate ?? null,
+        clearedBy: actor.sub,
         updatedAt: now,
       })
       .where(eq(visits.id, visitId));
 
-    this.gateway.emit('clinic:global', 'visit.checked_out', { visitId, patientId: visit.patientId });
-    this.realtime.publish('visit.checked_out', { visitId, patientId: visit.patientId });
+    // If linked to consultationBookings, mark completed
+    if (item.visit.consultationBookingId) {
+      await this.db
+        .update(consultationBookings)
+        .set({ status: 'completed', updatedAt: now })
+        .where(eq(consultationBookings.id, item.visit.consultationBookingId));
+    }
 
-    return { ok: true, checkedOutAt: now };
+    // If linked to therapySlotBookings, mark completed
+    if (item.visit.therapyBookingId) {
+      await this.db
+        .update(therapySlotBookings)
+        .set({ status: 'completed', updatedAt: now })
+        .where(eq(therapySlotBookings.id, item.visit.therapyBookingId));
+    }
+
+    // Departure slip payload
+    const departureSlip = await this.getDepartureSlip(visitId);
+
+    this.gateway.emit('clinic:global', 'visit.checked_out', {
+      visitId,
+      patientId: item.patient.id,
+      patientName: item.patient.nameEn,
+      checkedOutAt: now,
+    });
+    this.realtime.publish('visit.checked_out', {
+      visitId,
+      patientId: item.patient.id,
+      checkedOutAt: now,
+    });
+
+    if (meta) {
+      await this.audit.log({
+        actorUserId: actor.sub,
+        actorRole: actor.role,
+        action: 'visit.check_out',
+        entity: 'visits',
+        entityId: visitId,
+        after: { visitId, checkedOutAt: now, notes: dto.notes },
+        ip: meta.ip,
+        requestId: meta.requestId,
+      });
+    }
+
+    return { ok: true, checkedOutAt: now, departureSlip };
+  }
+
+  async sendToDoctorQueue(
+    actor: { sub: string; role: string },
+    visitId: string,
+    dto?: SendToDoctorQueueDto,
+    meta?: { ip?: string | null; requestId?: string | null },
+  ) {
+    const rows = await this.db
+      .select({
+        visit: visits,
+        patient: patients,
+        doctor: staff,
+        chamber: rooms,
+      })
+      .from(visits)
+      .innerJoin(patients, eq(visits.patientId, patients.id))
+      .leftJoin(staff, eq(visits.doctorId, staff.id))
+      .leftJoin(rooms, eq(visits.roomId, rooms.id))
+      .where(eq(visits.id, visitId));
+
+    const item = rows[0];
+    if (!item) throw new NotFoundException('Visit not found');
+    const doctorId = item.visit.doctorId;
+    if (!doctorId) {
+      throw new BadRequestException('Cannot queue: No doctor assigned to this visit');
+    }
+
+    const today = item.visit.visitDate || todayDateString();
+    const now = new Date().toISOString();
+
+    // Check if already in queue
+    const existingSerial = await this.db
+      .select()
+      .from(serials)
+      .where(and(eq(serials.visitId, visitId), eq(serials.status, 'waiting')));
+
+    if (existingSerial[0]) {
+      return { ok: true, serial: existingSerial[0] };
+    }
+
+    const priorSerials = await this.db
+      .select()
+      .from(serials)
+      .where(and(eq(serials.doctorId, doctorId), eq(serials.date, today)));
+
+    const nextSerialNum = priorSerials.length + 1;
+    const serialId = randomUUID();
+
+    const serialRow = {
+      id: serialId,
+      doctorId,
+      date: today,
+      serialNumber: nextSerialNum,
+      visitId,
+      patientId: item.patient.id,
+      status: 'waiting' as const,
+      calledAt: null,
+      completedAt: null,
+      createdAt: now,
+      updatedAt: now,
+    };
+    await this.db.insert(serials).values(serialRow);
+
+    // If linked to consultationBookings, update it
+    if (item.visit.consultationBookingId) {
+      await this.db
+        .update(consultationBookings)
+        .set({
+          status: 'in_queue',
+          serialNumber: nextSerialNum,
+          serialId,
+          inQueueAt: now,
+          queuedBy: actor.sub,
+          updatedAt: now,
+        })
+        .where(eq(consultationBookings.id, item.visit.consultationBookingId));
+    }
+
+    const eventPayload = {
+      visitId,
+      serialId,
+      serialNumber: nextSerialNum,
+      doctorId,
+      doctorName: item.doctor?.fullName,
+      chamber: item.chamber?.name,
+      patientId: item.patient.id,
+      patientName: item.patient.nameEn,
+    };
+
+    this.gateway.emit('clinic:global', 'consultation.queued', eventPayload);
+    this.gateway.emit('clinic:global', 'queue.updated', { doctorId });
+    this.gateway.emit('clinic:global', 'doctor.queue.updated', eventPayload);
+    this.realtime.publish('consultation.queued', eventPayload);
+
+    if (meta) {
+      await this.audit.log({
+        actorUserId: actor.sub,
+        actorRole: actor.role,
+        action: 'consultation.queue_patient',
+        entity: 'serials',
+        entityId: serialId,
+        after: eventPayload,
+        ip: meta.ip,
+        requestId: meta.requestId,
+      });
+    }
+
+    return { ok: true, serialNumber: nextSerialNum, serialId };
+  }
+
+  async getDepartureSlip(visitId: string) {
+    const rows = await this.db
+      .select({
+        visit: visits,
+        patient: patients,
+        doctor: staff,
+        chamber: rooms,
+      })
+      .from(visits)
+      .innerJoin(patients, eq(visits.patientId, patients.id))
+      .leftJoin(staff, eq(visits.doctorId, staff.id))
+      .leftJoin(rooms, eq(visits.roomId, rooms.id))
+      .where(eq(visits.id, visitId));
+
+    const item = rows[0];
+    if (!item) throw new NotFoundException('Visit not found');
+
+    const vBills = await this.db
+      .select()
+      .from(bills)
+      .where(and(eq(bills.visitId, visitId), sql`${bills.status} != 'voided'`));
+
+    const totalPaisa = vBills.reduce((acc, b) => acc + (b.totalPaisa || 0), 0);
+    const paidPaisa = vBills.reduce((acc, b) => acc + (b.paidPaisa || 0), 0);
+    const duePaisa = vBills.reduce((acc, b) => acc + (b.duePaisa || 0), 0);
+
+    const vPrescriptions = await this.db
+      .select()
+      .from(prescriptions)
+      .where(eq(prescriptions.visitId, visitId));
+
+    const vConsultation = await this.db
+      .select()
+      .from(consultations)
+      .where(eq(consultations.visitId, visitId));
+
+    return {
+      clinic: {
+        nameEn: 'HPC Health & Pain Care Center',
+        nameBn: 'হেলথ অ্যান্ড পেইন কেয়ার সেন্টার',
+        address: 'Rail Road, Jashore, Bangladesh',
+        hotline: '+880 1515-615188',
+      },
+      slipNumber: `OUT-${item.visit.visitDate.replace(/-/g, '')}-${item.visit.tokenNumber.toString().padStart(4, '0')}`,
+      visitId: item.visit.id,
+      tokenNumber: item.visit.tokenNumber,
+      visitDate: item.visit.visitDate,
+      entryTime: item.visit.checkedInAt,
+      departureTime: item.visit.checkedOutAt || new Date().toISOString(),
+      patient: {
+        mrn: item.patient.mrn,
+        nameEn: item.patient.nameEn,
+        nameBn: item.patient.nameBn,
+        phone: item.patient.phone,
+        gender: item.patient.gender,
+        ageYears: item.patient.ageYears,
+      },
+      doctor: item.doctor
+        ? {
+            name: item.doctor.fullName,
+            specialization: item.doctor.specialization,
+            chamber: item.chamber?.name,
+          }
+        : null,
+      financial: {
+        totalBillTaka: Math.round(totalPaisa / 100),
+        paidTaka: Math.round(paidPaisa / 100),
+        dueTaka: Math.round(duePaisa / 100),
+        status: duePaisa > 0 ? 'Dues Outstanding' : 'Fully Settled',
+      },
+      nextFollowUpDate: item.visit.nextFollowUpDate || vConsultation[0]?.followUpDate || null,
+      dischargeNotes: item.visit.dischargeNotes || item.visit.notes || null,
+      prescriptionIssued: vPrescriptions.length > 0,
+    };
   }
 
   async getTvSnapshot() {

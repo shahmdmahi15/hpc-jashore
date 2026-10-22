@@ -8,6 +8,8 @@ import { WorkstationTabPlaceholder } from '../../components/WorkstationTabPlaceh
 import { PatientManagementView } from '../../components/patient/PatientManagementView';
 import { TherapySlotBookingView } from '../../components/therapy/TherapySlotBookingView';
 import { CheckInWorkstationView } from '../../components/checkin/CheckInWorkstationView';
+import { CheckoutWorkstationView } from '../../components/checkout/CheckoutWorkstationView';
+import { ConsultationBookingView } from '../../components/consultation/ConsultationBookingView';
 import { useLanguage } from '../../lib/i18n';
 import {
   CreditCard,
@@ -19,6 +21,7 @@ import {
   Users,
   MessageSquare,
   UserCheck,
+  LogOut,
 } from 'lucide-react';
 
 const CASHIER_TABS = [
@@ -29,6 +32,14 @@ const CASHIER_TABS = [
     icon: UserCheck,
     descriptionEn: 'Verify patient arrival, issue tokens, and check punctuality.',
     descriptionBn: 'রোগীর আগমন নিবন্ধন, টোকেন ইস্যু ও সময়ানুবর্তিতা যাচাই।',
+  },
+  {
+    id: 'checkout',
+    titleEn: 'Check-out',
+    titleBn: 'চেক-আউট',
+    icon: LogOut,
+    descriptionEn: 'Patient departure clearance, dues settlement verification, and departure receipts.',
+    descriptionBn: 'রোগীর প্রস্থান অনুমোদন, বকেয়া পরিশোধ যাচাই ও ছাড়পত্র প্রদান।',
   },
   {
     id: 'dues',
@@ -135,6 +146,14 @@ export default function CashierPage() {
               <CheckInWorkstationView />
             </TabsContent>
 
+            <TabsContent value="checkout" className="mt-4 focus-visible:outline-none">
+              <CheckoutWorkstationView />
+            </TabsContent>
+
+            <TabsContent value="consultation_serial" className="mt-4 focus-visible:outline-none">
+              <ConsultationBookingView />
+            </TabsContent>
+
             <TabsContent value="patients" className="mt-4 focus-visible:outline-none">
               <PatientManagementView />
             </TabsContent>
@@ -143,7 +162,7 @@ export default function CashierPage() {
               <TherapySlotBookingView />
             </TabsContent>
 
-            {CASHIER_TABS.filter((t) => t.id !== 'checkin' && t.id !== 'patients' && t.id !== 'therapy_slot').map((tab) => (
+            {CASHIER_TABS.filter((t) => t.id !== 'checkin' && t.id !== 'checkout' && t.id !== 'consultation_serial' && t.id !== 'patients' && t.id !== 'therapy_slot').map((tab) => (
               <TabsContent key={tab.id} value={tab.id} className="mt-4 focus-visible:outline-none">
                 <WorkstationTabPlaceholder
                   titleEn={tab.titleEn}

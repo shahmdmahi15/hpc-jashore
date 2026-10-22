@@ -312,6 +312,51 @@ export type PunctualityStatus = (typeof PUNCTUALITY_STATUSES)[number];
 export const EXTRA_SLOT_APPROVAL_STATUSES = ['pending', 'approved', 'rejected'] as const;
 export type ExtraSlotApprovalStatus = (typeof EXTRA_SLOT_APPROVAL_STATUSES)[number];
 
+export const CONSULTATION_VISIT_TYPES = ['new_consultation', 'follow_up', 'report_review'] as const;
+export type ConsultationVisitType = (typeof CONSULTATION_VISIT_TYPES)[number];
+
+export const CONSULTATION_BOOKING_STATUSES = [
+  'booked',
+  'checked_in',
+  'in_queue',
+  'in_chamber',
+  'completed',
+  'cancelled',
+] as const;
+export type ConsultationBookingStatus = (typeof CONSULTATION_BOOKING_STATUSES)[number];
+
+export const consultationBookings = sqliteTable('consultation_bookings', {
+  id: text('id').primaryKey(),
+  bookingNumber: text('booking_number').notNull().unique(),
+  patientId: text('patient_id')
+    .notNull()
+    .references(() => patients.id),
+  doctorId: text('doctor_id')
+    .notNull()
+    .references(() => staff.id),
+  bookingDate: text('booking_date').notNull(),
+  slotTime: text('slot_time').notNull(),
+  toldTime: text('told_time'),
+  visitType: text('visit_type').notNull().default('new_consultation').$type<ConsultationVisitType>(),
+  feePaisa: integer('fee_paisa').notNull().default(50000),
+  serialNumber: integer('serial_number'),
+  status: text('status').notNull().default('booked').$type<ConsultationBookingStatus>(),
+  checkedInAt: text('checked_in_at'),
+  punctualityStatus: text('punctuality_status').$type<PunctualityStatus>(),
+  delayMinutes: integer('delay_minutes'),
+  inQueueAt: text('in_queue_at'),
+  queuedBy: text('queued_by').references(() => users.id),
+  serialId: text('serial_id'),
+  visitId: text('visit_id'),
+  cancelledAt: text('cancelled_at'),
+  cancelledBy: text('cancelled_by').references(() => users.id),
+  cancellationReason: text('cancellation_reason'),
+  notes: text('notes'),
+  bookedBy: text('booked_by').references(() => users.id),
+  deletedAt: text('deleted_at'),
+  ...timestamps,
+});
+
 export const therapySlotBookings = sqliteTable('therapy_slot_bookings', {
   id: text('id').primaryKey(),
   bookingNumber: text('booking_number').notNull().unique(),
@@ -373,6 +418,10 @@ export const visits = sqliteTable('visits', {
   punctualityStatus: text('punctuality_status').$type<PunctualityStatus>(),
   delayMinutes: integer('delay_minutes'),
   therapyBookingId: text('therapy_booking_id').references(() => therapySlotBookings.id),
+  consultationBookingId: text('consultation_booking_id'),
+  dischargeNotes: text('discharge_notes'),
+  nextFollowUpDate: text('next_follow_up_date'),
+  clearedBy: text('cleared_by').references(() => users.id),
   notes: text('notes'),
   ...timestamps,
 });

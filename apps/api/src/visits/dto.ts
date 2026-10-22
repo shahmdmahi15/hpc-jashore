@@ -38,6 +38,11 @@ export class CheckInDto {
   @IsString()
   therapyBookingId?: string;
 
+  @ApiPropertyOptional({ description: 'Specific consultation booking ID if checking in for booked doctor' })
+  @IsOptional()
+  @IsString()
+  consultationBookingId?: string;
+
   @ApiPropertyOptional({ description: 'Manually instructed told time if overriding booking' })
   @IsOptional()
   @IsString()
@@ -68,6 +73,32 @@ export class RoutePatientDto {
 
 export class CheckOutDto {
   @ApiPropertyOptional({ description: 'Optional checkout approval notes' })
+  @IsOptional()
+  @IsString()
+  notes?: string;
+
+  @ApiPropertyOptional({ description: 'Allow checkout even with unsettled dues with reason' })
+  @IsOptional()
+  allowWithDues?: boolean;
+
+  @ApiPropertyOptional({ description: 'Reason for allowing checkout with dues' })
+  @IsOptional()
+  @IsString()
+  dueReason?: string;
+
+  @ApiPropertyOptional({ description: 'Next scheduled follow-up appointment date (YYYY-MM-DD)' })
+  @IsOptional()
+  @IsString()
+  nextFollowUpDate?: string;
+}
+
+export class SendToDoctorQueueDto {
+  @ApiPropertyOptional({ description: 'Optional override chamber room id' })
+  @IsOptional()
+  @IsString()
+  chamberRoomId?: string;
+
+  @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   notes?: string;

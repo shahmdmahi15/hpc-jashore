@@ -9,6 +9,8 @@ import { PatientManagementView } from '../../components/patient/PatientManagemen
 import { TherapySlotBookingView } from '../../components/therapy/TherapySlotBookingView';
 import { ExtraSlotManagementView } from '../../components/therapy/ExtraSlotManagementView';
 import { CheckInWorkstationView } from '../../components/checkin/CheckInWorkstationView';
+import { CheckoutWorkstationView } from '../../components/checkout/CheckoutWorkstationView';
+import { ConsultationBookingView } from '../../components/consultation/ConsultationBookingView';
 import { useLanguage } from '../../lib/i18n';
 import {
   Stethoscope,
@@ -19,6 +21,7 @@ import {
   Users,
   MessageSquare,
   UserCheck,
+  LogOut,
 } from 'lucide-react';
 
 const DOCTOR_TABS = [
@@ -37,6 +40,14 @@ const DOCTOR_TABS = [
     icon: UserCheck,
     descriptionEn: 'Patient check-in, token issuance, and punctuality verification.',
     descriptionBn: 'রোগীর আগমন নিবন্ধন, সিরিয়াল টোকেন ইস্যু ও সময়ানুবর্তিতা যাচাই।',
+  },
+  {
+    id: 'checkout',
+    titleEn: 'Check-out',
+    titleBn: 'চেক-আউট',
+    icon: LogOut,
+    descriptionEn: 'Patient departure clearance, discharge summaries, and follow-ups.',
+    descriptionBn: 'রোগীর প্রস্থান অনুমোদন, প্রেসক্রিপশন প্রদান ও ফলো-আপ ট্র্যাকিং।',
   },
   {
     id: 'running_therapy',
@@ -135,6 +146,14 @@ export default function DoctorPage() {
               <CheckInWorkstationView />
             </TabsContent>
 
+            <TabsContent value="checkout" className="mt-4 focus-visible:outline-none">
+              <CheckoutWorkstationView />
+            </TabsContent>
+
+            <TabsContent value="consultation_serial" className="mt-4 focus-visible:outline-none">
+              <ConsultationBookingView />
+            </TabsContent>
+
             <TabsContent value="patients" className="mt-4 focus-visible:outline-none">
               <PatientManagementView />
             </TabsContent>
@@ -147,7 +166,7 @@ export default function DoctorPage() {
               <ExtraSlotManagementView />
             </TabsContent>
 
-            {DOCTOR_TABS.filter((t) => t.id !== 'checkin' && t.id !== 'patients' && t.id !== 'therapy_slot' && t.id !== 'extra_slot').map((tab) => (
+            {DOCTOR_TABS.filter((t) => t.id !== 'checkin' && t.id !== 'checkout' && t.id !== 'consultation_serial' && t.id !== 'patients' && t.id !== 'therapy_slot' && t.id !== 'extra_slot').map((tab) => (
               <TabsContent key={tab.id} value={tab.id} className="mt-4 focus-visible:outline-none">
                 <WorkstationTabPlaceholder
                   titleEn={tab.titleEn}

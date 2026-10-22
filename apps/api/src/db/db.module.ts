@@ -528,6 +528,61 @@ export type Db = BetterSQLite3Database<typeof schema>;
               sqlite.exec("ALTER TABLE staff ADD COLUMN notes TEXT");
             }
           } catch {}
+
+          // Ensure consultation_bookings table
+          try {
+            sqlite.exec(`
+              CREATE TABLE IF NOT EXISTS consultation_bookings (
+                id TEXT PRIMARY KEY,
+                booking_number TEXT NOT NULL UNIQUE,
+                patient_id TEXT NOT NULL REFERENCES patients(id),
+                doctor_id TEXT NOT NULL REFERENCES staff(id),
+                booking_date TEXT NOT NULL,
+                slot_time TEXT NOT NULL,
+                told_time TEXT,
+                visit_type TEXT NOT NULL DEFAULT 'new_consultation',
+                fee_paisa INTEGER NOT NULL DEFAULT 50000,
+                serial_number INTEGER,
+                status TEXT NOT NULL DEFAULT 'booked',
+                checked_in_at TEXT,
+                punctuality_status TEXT,
+                delay_minutes INTEGER,
+                in_queue_at TEXT,
+                queued_by TEXT REFERENCES users(id),
+                serial_id TEXT REFERENCES serials(id),
+                visit_id TEXT REFERENCES visits(id),
+                cancelled_at TEXT,
+                cancelled_by TEXT REFERENCES users(id),
+                cancellation_reason TEXT,
+                notes TEXT,
+                booked_by TEXT REFERENCES users(id),
+                deleted_at TEXT,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+              );
+              CREATE INDEX IF NOT EXISTS idx_consultation_bookings_doc_date ON consultation_bookings(doctor_id, booking_date);
+              CREATE INDEX IF NOT EXISTS idx_consultation_bookings_patient ON consultation_bookings(patient_id);
+              CREATE INDEX IF NOT EXISTS idx_consultation_bookings_status ON consultation_bookings(status);
+            `);
+          } catch {}
+
+          // Ensure new visit checkout & consultation columns
+          try {
+            const visitCols = sqlite.prepare("PRAGMA table_info(visits)").all() as Array<{ name: string }>;
+            const visitColNames = new Set(visitCols.map((c) => c.name));
+            if (!visitColNames.has('consultation_booking_id')) {
+              sqlite.exec("ALTER TABLE visits ADD COLUMN consultation_booking_id TEXT");
+            }
+            if (!visitColNames.has('discharge_notes')) {
+              sqlite.exec("ALTER TABLE visits ADD COLUMN discharge_notes TEXT");
+            }
+            if (!visitColNames.has('next_follow_up_date')) {
+              sqlite.exec("ALTER TABLE visits ADD COLUMN next_follow_up_date TEXT");
+            }
+            if (!visitColNames.has('cleared_by')) {
+              sqlite.exec("ALTER TABLE visits ADD COLUMN cleared_by TEXT");
+            }
+          } catch {}
         } catch {
           // Idempotent column safety
         }

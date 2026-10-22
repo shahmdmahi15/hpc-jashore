@@ -25,6 +25,7 @@ import { ShiftsModule } from './shifts/shifts.module';
 import { StaffModule } from './staff/staff.module';
 import { TherapySlotsModule } from './therapy-slots/therapy-slots.module';
 import { TherapyModule } from './therapy/therapy.module';
+import { ConsultationBookingsModule } from './consultation-bookings/consultation-bookings.module';
 import { TvModule } from './tv/tv.module';
 import { UpdatesModule } from './updates/updates.module';
 import { UsersModule } from './users/users.module';
@@ -67,6 +68,7 @@ import { VisitsModule } from './visits/visits.module';
     BulletinsModule,
     RoomsModule,
     TherapySlotsModule,
+    ConsultationBookingsModule,
   ],
   controllers: [HealthController],
 })

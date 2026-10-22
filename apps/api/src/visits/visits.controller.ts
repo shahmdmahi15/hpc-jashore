@@ -5,6 +5,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
@@ -15,7 +16,13 @@ import { extractClientIp } from '../common/request-ip';
 import { CurrentUser, type RequestUser } from '../rbac/current-user.decorator';
 import { Roles } from '../rbac/roles.decorator';
 import { RolesGuard } from '../rbac/roles.guard';
-import { CallSerialDto, CheckInDto, CheckOutDto, RoutePatientDto } from './dto';
+import {
+  CallSerialDto,
+  CheckInDto,
+  CheckOutDto,
+  RoutePatientDto,
+  SendToDoctorQueueDto,
+} from './dto';
 import { VisitsService } from './visits.service';
 
 @ApiTags('visits')
@@ -48,6 +55,17 @@ export class VisitsController {
   @Roles('admin', 'receptionist', 'doctor', 'cashier', 'handler')
   checkinOverview() {
     return this.visits.getCheckinOverview();
+  }
+
+  @Get('checkout/active')
+  @ApiBearerAuth()
+  @UseGuards(JwtAccessAuthGuard, RolesGuard)
+  @Roles('admin', 'receptionist', 'doctor', 'cashier', 'handler')
+  checkoutActive(
+    @Query('search') search?: string,
+    @Query('status') status?: string,
+  ) {
+    return this.visits.getCheckoutActiveVisits(search, status);
   }
 
   @Get('today')
@@ -112,15 +130,48 @@ export class VisitsController {
     return this.visits.routePatient(visitId, dto);
   }
 
+  @Post(':id/send-to-doctor-queue')
+  @ApiBearerAuth()
+  @UseGuards(JwtAccessAuthGuard, RolesGuard)
+  @Roles('admin', 'receptionist', 'cashier', 'doctor', 'handler')
+  sendToDoctorQueue(
+    @CurrentUser() user: RequestUser,
+    @Param('id') visitId: string,
+    @Body() dto: SendToDoctorQueueDto,
+    @Req() req: Request,
+  ) {
+    return this.visits.sendToDoctorQueue(
+      { sub: user.sub, role: user.role },
+      visitId,
+      dto,
+      this.meta(req),
+    );
+  }
+
   @Post(':id/check-out')
   @ApiBearerAuth()
   @UseGuards(JwtAccessAuthGuard, RolesGuard)
-  @Roles('admin', 'receptionist', 'cashier')
+  @Roles('admin', 'receptionist', 'cashier', 'doctor')
   checkOut(
+    @CurrentUser() user: RequestUser,
     @Param('id') visitId: string,
     @Body() dto: CheckOutDto,
+    @Req() req: Request,
   ) {
-    return this.visits.checkOut(visitId, dto);
+    return this.visits.checkOut(
+      { sub: user.sub, role: user.role },
+      visitId,
+      dto,
+      this.meta(req),
+    );
+  }
+
+  @Get(':id/departure-slip')
+  @ApiBearerAuth()
+  @UseGuards(JwtAccessAuthGuard, RolesGuard)
+  @Roles('admin', 'receptionist', 'cashier', 'doctor', 'handler')
+  departureSlip(@Param('id') visitId: string) {
+    return this.visits.getDepartureSlip(visitId);
   }
 
   @Get('tv/snapshot')

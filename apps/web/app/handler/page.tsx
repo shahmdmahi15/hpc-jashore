@@ -8,6 +8,8 @@ import { WorkstationTabPlaceholder } from '../../components/WorkstationTabPlaceh
 import { PatientManagementView } from '../../components/patient/PatientManagementView';
 import { TherapySlotBookingView } from '../../components/therapy/TherapySlotBookingView';
 import { CheckInWorkstationView } from '../../components/checkin/CheckInWorkstationView';
+import { CheckoutWorkstationView } from '../../components/checkout/CheckoutWorkstationView';
+import { ConsultationBookingView } from '../../components/consultation/ConsultationBookingView';
 import { useLanguage } from '../../lib/i18n';
 import {
   Activity,
@@ -17,6 +19,7 @@ import {
   MessageSquare,
   Sparkles,
   UserCheck,
+  LogOut,
 } from 'lucide-react';
 
 const HANDLER_TABS = [
@@ -35,6 +38,14 @@ const HANDLER_TABS = [
     icon: UserCheck,
     descriptionEn: 'Receive arrived patients, issue therapy hall tokens, and check punctuality.',
     descriptionBn: 'আগত রোগীদের গ্রহণ, থেরাপি টোকেন ইস্যু ও সময়ানুবর্তিতা যাচাই।',
+  },
+  {
+    id: 'checkout',
+    titleEn: 'Check-out',
+    titleBn: 'চেক-আউট',
+    icon: LogOut,
+    descriptionEn: 'Verify therapy session completion, clear departure, and schedule next therapy visit.',
+    descriptionBn: 'থেরাপি সেশন সমাপ্তি নিশ্চিতকরণ, প্রস্থান অনুমোদন ও পরবর্তী থেরাপির তারিখ নির্ধারণ।',
   },
   {
     id: 'consultation_serial',
@@ -117,6 +128,14 @@ export default function HandlerPage() {
               <CheckInWorkstationView />
             </TabsContent>
 
+            <TabsContent value="checkout" className="mt-4 focus-visible:outline-none">
+              <CheckoutWorkstationView />
+            </TabsContent>
+
+            <TabsContent value="consultation_serial" className="mt-4 focus-visible:outline-none">
+              <ConsultationBookingView />
+            </TabsContent>
+
             <TabsContent value="patients" className="mt-4 focus-visible:outline-none">
               <PatientManagementView />
             </TabsContent>
@@ -125,7 +144,7 @@ export default function HandlerPage() {
               <TherapySlotBookingView />
             </TabsContent>
 
-            {HANDLER_TABS.filter((t) => t.id !== 'checkin' && t.id !== 'patients' && t.id !== 'therapy_slot').map((tab) => (
+            {HANDLER_TABS.filter((t) => t.id !== 'checkin' && t.id !== 'checkout' && t.id !== 'consultation_serial' && t.id !== 'patients' && t.id !== 'therapy_slot').map((tab) => (
               <TabsContent key={tab.id} value={tab.id} className="mt-4 focus-visible:outline-none">
                 <WorkstationTabPlaceholder
                   titleEn={tab.titleEn}
