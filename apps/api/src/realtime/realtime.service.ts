@@ -23,8 +23,13 @@ export class RealtimeService implements OnModuleInit, OnModuleDestroy {
     this.heartbeatTimer = setInterval(() => {
       this.bus.next({
         id: this.seq,
-        event: 'ping',
-        data: JSON.stringify({ timestamp: Date.now() }),
+        event: 'message',
+        data: JSON.stringify({
+          id: String(this.seq),
+          type: 'ping',
+          payload: { timestamp: Date.now() },
+          timestamp: new Date().toISOString(),
+        }),
       });
     }, 15000);
   }
@@ -38,7 +43,18 @@ export class RealtimeService implements OnModuleInit, OnModuleDestroy {
 
   publish(event: string, payload: Record<string, unknown>): number {
     this.seq += 1;
-    const msg: SseMessage = { id: this.seq, event, data: JSON.stringify(payload) };
+    const now = new Date().toISOString();
+    const eventBody = {
+      id: String(this.seq),
+      type: event,
+      payload,
+      timestamp: now,
+    };
+    const msg: SseMessage = {
+      id: this.seq,
+      event: 'message',
+      data: JSON.stringify(eventBody),
+    };
     this.ringBuffer.push(msg);
     if (this.ringBuffer.length > this.maxRingSize) {
       this.ringBuffer.shift();

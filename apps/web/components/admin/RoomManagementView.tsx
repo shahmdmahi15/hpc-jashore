@@ -61,6 +61,7 @@ import {
 } from '../ui/table';
 import { toast } from 'sonner';
 import { useLanguage } from '../../lib/i18n';
+import { useRealtime } from '../../lib/use-realtime';
 import {
   listRoomsAction,
   updateRoomStatusAction,
@@ -277,6 +278,12 @@ export function RoomManagementView() {
       }
     });
   }, [debouncedQuery, typeFilter, genderFilter, statusFilter, isBn]);
+
+  useRealtime((event) => {
+    if (event.type.startsWith('room.')) {
+      fetchRooms();
+    }
+  });
 
   useEffect(() => {
     fetchRooms();

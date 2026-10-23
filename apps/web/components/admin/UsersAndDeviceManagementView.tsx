@@ -215,7 +215,10 @@ export default function UsersAndDeviceManagementView() {
         if (tvRes.success && tvRes.data) setTvDevices(tvRes.data);
       });
     } else if (
+      event.type.startsWith('user.') ||
       event.type.startsWith('user:') ||
+      event.type.startsWith('session.') ||
+      event.type.startsWith('doctor.') ||
       event.type.startsWith('auth:')
     ) {
       listUsersAction().then((uRes) => {

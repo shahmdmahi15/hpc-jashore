@@ -3,6 +3,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { api, UserSession, getSession } from '../lib/api';
+import { useRealtime } from '../lib/use-realtime';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Select } from './ui/select';
@@ -62,6 +63,17 @@ export default function TherapyHallView({ session: propSession }: TherapyHallPro
       console.error(err);
     }
   };
+
+  // Sub-second Realtime sync for therapy beds and active sessions
+  useRealtime((event) => {
+    if (
+      event.type.startsWith('therapy.') ||
+      event.type.startsWith('session.') ||
+      event.type.startsWith('visit.')
+    ) {
+      loadData();
+    }
+  });
 
   useEffect(() => {
     loadData();

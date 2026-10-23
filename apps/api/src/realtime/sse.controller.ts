@@ -33,15 +33,39 @@ export class SseController {
     }
     const lastId = _lastEventId ? parseInt(_lastEventId, 10) : undefined;
     return this.realtime.stream(lastId).pipe(
-      filter(
-        (m) =>
-          m.event.startsWith('queue.') ||
-          m.event.startsWith('serial.') ||
-          m.event.startsWith('presence.') ||
-          m.event.startsWith('settings.') ||
-          m.event.startsWith('announcement.') ||
-          (isStaff && (m.event.startsWith('clinical.') || m.event.startsWith('billing.'))),
-      ),
+      filter((m) => {
+        let type = m.event;
+        try {
+          const parsed = JSON.parse(m.data);
+          if (parsed && typeof parsed.type === 'string') {
+            type = parsed.type;
+          }
+        } catch {
+          // ignore non-json
+        }
+
+        // Keepalive heartbeat ping must always pass
+        if (type === 'ping') return true;
+
+        // Authenticated staff workstations receive all clinic events in real time
+        if (isStaff) return true;
+
+        // Public / TV / Display screens: all queue, serial, visit, therapy, doctor, consultation, announcement, presence events
+        return (
+          type.startsWith('queue.') ||
+          type.startsWith('serial.') ||
+          type.startsWith('presence.') ||
+          type.startsWith('settings.') ||
+          type.startsWith('announcement.') ||
+          type.startsWith('therapy.') ||
+          type.startsWith('visit.') ||
+          type.startsWith('consultation.') ||
+          type.startsWith('checkout.') ||
+          type.startsWith('doctor.') ||
+          type.startsWith('bulletin.') ||
+          type.startsWith('tv:')
+        );
+      }),
     );
   }
 }

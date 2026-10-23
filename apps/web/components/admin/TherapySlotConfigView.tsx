@@ -28,6 +28,7 @@ import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui/card';
 import { Switch } from '../ui/switch';
+import { useRealtime } from '../../lib/use-realtime';
 import {
   Table,
   TableBody,
@@ -95,6 +96,12 @@ export function TherapySlotConfigView() {
       }
     });
   }, [selectedDay, isBn]);
+
+  useRealtime((event) => {
+    if (event.type.startsWith('therapy.')) {
+      fetchSlots();
+    }
+  });
 
   useEffect(() => {
     fetchSlots();

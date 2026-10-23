@@ -214,6 +214,16 @@ export class StaffService {
         id: s.id,
         staffId: s.id,
         userId: s.userId ?? u?.id ?? null,
+        linkedUser: u
+          ? {
+              id: u.id,
+              email: u.email,
+              role: u.role,
+              displayName: u.displayName,
+              phone: u.phone,
+              isActive: u.isActive,
+            }
+          : null,
         fullName: s.fullName || u?.displayName || 'Doctor',
         displayName: u?.displayName || s.fullName,
         email: u?.email ?? null,
@@ -286,6 +296,17 @@ export class StaffService {
       updatedAt: now,
     };
 
+    if (dto.userId !== undefined) {
+      patch.userId = dto.userId || null;
+      if (dto.userId) {
+        // Automatically ensure the linked user's role is set to doctor
+        await this.db
+          .update(users)
+          .set({ role: 'doctor', updatedAt: now })
+          .where(eq(users.id, dto.userId));
+      }
+    }
+
     if (dto.fullName !== undefined) patch.fullName = dto.fullName.trim();
     if (dto.phone !== undefined) patch.phone = dto.phone.trim();
     if (dto.specialization !== undefined) patch.specialization = dto.specialization.trim();
@@ -346,8 +367,24 @@ export class StaffService {
     const now = new Date().toISOString();
     let linkedUserId: string | null = null;
 
-    // 1. If email is provided, check if user exists or create new doctor user
-    if (dto.email && dto.email.trim()) {
+    // 1. If explicit userId is provided, link to existing user account
+    if (dto.userId && dto.userId.trim()) {
+      const existingUser = await this.db
+        .select()
+        .from(users)
+        .where(eq(users.id, dto.userId.trim()));
+      if (existingUser[0]) {
+        linkedUserId = existingUser[0].id;
+        // Ensure user has role doctor
+        if (existingUser[0].role !== 'doctor') {
+          await this.db
+            .update(users)
+            .set({ role: 'doctor', updatedAt: now })
+            .where(eq(users.id, linkedUserId));
+        }
+      }
+    } else if (dto.email && dto.email.trim()) {
+      // 2. If email is provided, check if user exists or create new doctor user
       const email = dto.email.trim().toLowerCase();
       const existingUser = await this.db.select().from(users).where(eq(users.email, email));
       if (existingUser[0]) {

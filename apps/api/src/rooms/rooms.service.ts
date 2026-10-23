@@ -1,9 +1,11 @@
-import { ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Inject, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { and, desc, eq, isNull, like, or, sql } from 'drizzle-orm';
 import { AuditService } from '../audit/audit.service';
 import { DB, type Db } from '../db/db.module';
 import { rooms, type RoomGender, type RoomStatus, type RoomType } from '../db/schema';
+import { RealtimeService } from '../realtime/realtime.service';
+import { EventsGateway } from '../realtime/events.gateway';
 import type { CreateRoomDto, RoomQueryDto, UpdateRoomDto } from './dto';
 
 interface Actor {
@@ -21,6 +23,8 @@ export class RoomsService {
   constructor(
     @Inject(DB) private readonly db: Db,
     private readonly audit: AuditService,
+    private readonly realtime: RealtimeService,
+    @Optional() private readonly gateway?: EventsGateway,
   ) {}
 
   async search(dto: RoomQueryDto) {
@@ -147,6 +151,9 @@ export class RoomsService {
 
     await this.db.insert(rooms).values(row);
 
+    this.realtime.publish('room.created', row);
+    this.gateway?.emit('clinic:global', 'room.created', row);
+
     await this.audit.log({
       actorUserId: actor.sub,
       actorRole: actor.role,
@@ -197,6 +204,9 @@ export class RoomsService {
     await this.db.update(rooms).set(patch).where(eq(rooms.id, id));
     const after = await this.get(id);
 
+    this.realtime.publish('room.updated', after);
+    this.gateway?.emit('clinic:global', 'room.updated', after);
+
     await this.audit.log({
       actorUserId: actor.sub,
       actorRole: actor.role,
@@ -222,6 +232,9 @@ export class RoomsService {
     await this.db.update(rooms).set(patch).where(eq(rooms.id, id));
     const after = await this.get(id);
 
+    this.realtime.publish('room.updated', after);
+    this.gateway?.emit('clinic:global', 'room.updated', after);
+
     await this.audit.log({
       actorUserId: actor.sub,
       actorRole: actor.role,
@@ -245,6 +258,9 @@ export class RoomsService {
     };
 
     await this.db.update(rooms).set(patch).where(eq(rooms.id, id));
+
+    this.realtime.publish('room.deleted', { id });
+    this.gateway?.emit('clinic:global', 'room.deleted', { id });
 
     await this.audit.log({
       actorUserId: actor.sub,

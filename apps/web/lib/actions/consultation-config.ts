@@ -7,6 +7,14 @@ import { revalidatePath } from 'next/cache';
 export interface DoctorConfigRecord {
   id: string;
   userId: string | null;
+  linkedUser?: {
+    id: string;
+    email: string;
+    role: string;
+    displayName: string;
+    phone: string | null;
+    isActive: number;
+  } | null;
   fullName: string;
   role: 'doctor';
   phone: string | null;
@@ -35,6 +43,7 @@ export interface DoctorConfigRecord {
 }
 
 export interface CreateDoctorInput {
+  userId?: string;
   fullName: string;
   email?: string;
   password?: string;
@@ -54,6 +63,7 @@ export interface CreateDoctorInput {
 }
 
 export interface UpdateDoctorConfigInput {
+  userId?: string | null;
   fullName?: string;
   phone?: string;
   specialization?: string;

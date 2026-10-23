@@ -3,6 +3,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { api, UserSession, getSession } from '../lib/api';
+import { useRealtime } from '../lib/use-realtime';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Select } from './ui/select';
@@ -76,6 +77,19 @@ export default function CashierView({ session: propSession }: CashierProps = {})
       setLoading(false);
     }
   };
+
+  // Realtime billing, queue & visit sync for cashier
+  useRealtime((event) => {
+    if (
+      event.type.startsWith('bill.') ||
+      event.type.startsWith('payment.') ||
+      event.type.startsWith('drawer.') ||
+      event.type.startsWith('visit.') ||
+      event.type.startsWith('consultation.')
+    ) {
+      loadData();
+    }
+  });
 
   useEffect(() => {
     loadData();

@@ -4,6 +4,7 @@
 import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { api, UserSession, getSession } from '../lib/api';
+import { useRealtime } from '../lib/use-realtime';
 import { cn } from '../lib/utils';
 import PrescriptionPrintModal from './PrescriptionPrintModal';
 import { Button } from './ui/button';
@@ -112,6 +113,18 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
       setLoading(false);
     }
   };
+
+  // Instant Realtime sync for chamber queue
+  useRealtime((event) => {
+    if (
+      event.type.startsWith('queue.') ||
+      event.type.startsWith('serial.') ||
+      event.type.startsWith('consultation.') ||
+      event.type.startsWith('visit.')
+    ) {
+      loadQueue();
+    }
+  });
 
   useEffect(() => {
     loadQueue();

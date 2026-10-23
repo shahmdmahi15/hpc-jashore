@@ -78,6 +78,11 @@ export class UpdateStaffDto {
 }
 
 export class UpdateDoctorConfigDto {
+  @ApiPropertyOptional({ description: 'Linked User UUID from users table' })
+  @IsOptional()
+  @IsString()
+  userId?: string | null;
+
   @ApiPropertyOptional({ description: 'Doctor full name' })
   @IsOptional()
   @IsString()
@@ -182,6 +187,11 @@ export class UpdateDoctorConfigDto {
 }
 
 export class CreateDoctorDto {
+  @ApiPropertyOptional({ description: 'Link to existing User account UUID' })
+  @IsOptional()
+  @IsString()
+  userId?: string;
+
   @ApiProperty({ description: 'Doctor full name' })
   @IsString()
   @IsNotEmpty()

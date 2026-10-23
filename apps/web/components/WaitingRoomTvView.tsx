@@ -5,6 +5,7 @@ import React, { useEffect, useRef, useState, useMemo } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { api, getSession, clearSession, getRoleHomeRoute, UserSession } from '../lib/api';
+import { useRealtime } from '../lib/use-realtime';
 import {
   Activity,
   AlertTriangle,
@@ -320,7 +321,22 @@ export default function WaitingRoomTvView() {
     }
   };
 
-  // Clock ticker & polling loop
+  // Sub-second Realtime Event Listener for Instant Sync across TV screens
+  useRealtime((event) => {
+    if (
+      event.type.startsWith('queue.') ||
+      event.type.startsWith('serial.') ||
+      event.type.startsWith('therapy.') ||
+      event.type.startsWith('visit.') ||
+      event.type.startsWith('consultation.') ||
+      event.type.startsWith('announcement.') ||
+      event.type.startsWith('tv:')
+    ) {
+      loadData();
+    }
+  });
+
+  // Clock ticker & polling fallback loop
   useEffect(() => {
     loadData();
     const pollTimer = setInterval(loadData, 3000);
