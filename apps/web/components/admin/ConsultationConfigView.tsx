@@ -1046,7 +1046,7 @@ export function ConsultationConfigView() {
                 <Input
                   value={editForm.fullName}
                   onChange={(e) => setEditForm((p) => ({ ...p, fullName: e.target.value }))}
-                  placeholder="e.g. Dr. Md. Toufiquzzaman"
+                  placeholder={language === 'bn' ? 'যেমন: ডা. বিশেষজ্ঞ' : 'e.g. Dr. Specialist / Consultant'}
                   className="h-9 text-xs sm:text-sm"
                 />
               </div>

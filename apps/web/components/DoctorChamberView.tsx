@@ -225,7 +225,7 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
           bloodGroup: activeSerial.patient?.bloodGroup,
         },
         doctor: {
-          name: session?.displayName || 'Dr. Toufiq (Md. Toufiq Uz Zaman)',
+          name: session?.displayName || 'Consultant Doctor',
           specialization: 'Physiotherapist & Pain Specialist',
         },
         clinicalNotes: {

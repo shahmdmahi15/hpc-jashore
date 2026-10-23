@@ -242,7 +242,7 @@ export function AuthLayout({
         <div className="flex items-center gap-2 text-muted-foreground">
           <span className="hidden sm:inline">{t.pwaUniversal}</span>
           <span>·</span>
-          <span>{t.doctorName}</span>
+          <span>{isBn ? 'হেলথ অ্যান্ড পেইন কেয়ার সেন্টার' : 'Health & Pain Care Center'}</span>
         </div>
       </footer>
     </main>

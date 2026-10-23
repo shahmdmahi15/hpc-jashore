@@ -1128,7 +1128,7 @@ export default function UsersAndDeviceManagementView() {
                 <Label className="text-xs font-bold">{isBn ? 'পূর্ণ নাম' : 'Display Name'} *</Label>
                 <Input
                   required
-                  placeholder={isBn ? 'যেমন: ড. তৌফিক উজ জামান' : 'e.g. Dr. Toufiq Uz Zaman'}
+                  placeholder={isBn ? 'যেমন: ডা. বিশেষজ্ঞ' : 'e.g. Dr. Specialist'}
                   value={createForm.displayName}
                   onChange={(e) => setCreateForm({ ...createForm, displayName: e.target.value })}
                   className="rounded-xl h-10 text-xs sm:text-sm"

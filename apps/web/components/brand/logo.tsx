@@ -72,7 +72,7 @@ export function BrandLogo({
           </div>
           {variant === 'full' && (
             <span className="text-[11px] font-medium text-muted-foreground tracking-tight line-clamp-1 truncate max-w-[170px] lg:max-w-[240px] 2xl:max-w-none hidden min-[480px]:block">
-              Health &amp; Pain Care Center · ডাঃ মোঃ তৌফিক উজ জামান
+              Health &amp; Pain Care Center · Jashore
             </span>
           )}
         </div>

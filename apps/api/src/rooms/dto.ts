@@ -10,7 +10,7 @@ export class CreateRoomDto {
   @MaxLength(32)
   roomNumber!: string;
 
-  @ApiProperty({ description: 'Display name of the room', example: 'Doctor Consultation Chamber 1 (Dr. Toufiq)' })
+  @ApiProperty({ description: 'Display name of the room', example: 'Doctor Consultation Chamber 1' })
   @IsString()
   @IsNotEmpty()
   @MaxLength(128)

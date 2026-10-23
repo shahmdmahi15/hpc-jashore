@@ -1171,7 +1171,7 @@ export class VisitsService {
       date: today,
       clinicName: 'Health & Pain Care Center · Jashore',
       clinicNameBn: 'হেলথ অ্যান্ড পেইন কেয়ার সেন্টার · যশোর',
-      chiefDoctor: 'ডাঃ মোঃ তৌফিক উজ জামান (BPT, PGD, MDMR, MPH)',
+      chiefDoctor: '',
       timestamp: new Date().toISOString(),
       channels: snapshot,
       consultationQueue: {
@@ -1185,7 +1185,7 @@ export class VisitsService {
       bulletinNotices: [
         'স্বাগতম: হেলথ অ্যান্ড পেইন কেয়ার সেন্টার (HPC) · যশোর | আধুনিক ফিজিওথেরাপি ও পুনর্বাসন কেন্দ্র',
         'Welcome to HPC Jashore | Please monitor your token number on the screen',
-        'চিফ কনসালট্যান্ট: ডাঃ মোঃ তৌফিক উজ জামান | পরামর্শের জন্য সিরিয়াল অনুযায়ী অপেক্ষা করুন',
+        'আধুনিক ফিজিওথেরাপি, পুনর্বাসন ও পেইন ম্যানেজমেন্ট সেবা | সিরিয়াল অনুযায়ী অপেক্ষা করুন',
         'থেরাপি চলাকালীন মোবাইল ফোন সাইলেন্ট রাখুন | Please silence your mobile phones in the therapy hall',
         'জরুরি যোগাযোগ ও হটলাইন: 01711-000000 | নামাজের বিরতি: দুপুর ১:১৫ হতে ১:৪৫ পর্যন্ত',
       ],

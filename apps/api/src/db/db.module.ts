@@ -245,11 +245,11 @@ export type Db = BetterSQLite3Database<typeof schema>;
                 {
                   id: 'room-doc-101',
                   room_number: 'DOC-101',
-                  name: 'Doctor Consultation Chamber 1 (Dr. Toufiq)',
+                  name: 'Doctor Consultation Chamber 1',
                   type: 'doctor_consultation_room',
                   gender: 'common',
                   status: 'available',
-                  notes: 'Chief Consultant Chamber with diagnostic examination station and prescription screen.',
+                  notes: 'Consultation Chamber with diagnostic examination station and prescription screen.',
                 },
                 {
                   id: 'room-doc-102',

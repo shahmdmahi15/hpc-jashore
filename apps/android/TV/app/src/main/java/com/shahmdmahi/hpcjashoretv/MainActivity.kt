@@ -54,7 +54,7 @@ data class ConsultationPatient(
     val tokenNumber: Int,
     val patientNameEn: String,
     val patientNameBn: String? = null,
-    val doctorName: String = "Dr. Toufiq Uz Zaman",
+    val doctorName: String = "",
     val chamber: String = "Chamber 1",
     val priority: String = "regular"
 )
@@ -1032,7 +1032,7 @@ class MainActivity : ComponentActivity() {
                             tokenNumber = obj.optInt("tokenNumber", i + 1),
                             patientNameEn = obj.optString("patientNameEn", "Patient"),
                             patientNameBn = if (obj.has("patientNameBn") && !obj.isNull("patientNameBn")) obj.getString("patientNameBn") else null,
-                            doctorName = obj.optString("doctorNameEn", "Dr. Toufiq Uz Zaman"),
+                            doctorName = obj.optString("doctorNameEn", ""),
                             chamber = "Chamber 1",
                             priority = obj.optString("priority", "regular")
                         )

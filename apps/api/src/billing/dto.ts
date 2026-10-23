@@ -21,7 +21,7 @@ export class BillItemInputDto {
   @IsString()
   itemId?: string;
 
-  @ApiProperty({ example: 'Consultation with Dr. Toufiq' })
+  @ApiProperty({ example: 'Doctor Consultation' })
   @IsString()
   @IsNotEmpty()
   description!: string;

@@ -223,7 +223,7 @@ export function CreateRoomDialog({ open, onOpenChange, onSuccess }: CreateRoomDi
                 </Label>
                 <Input
                   id="create-room-name"
-                  placeholder={isBn ? 'যেমন: চেম্বার ১ (ডা. তৌফিক), পুরুষ থেরাপি হল' : 'e.g. Chamber 1 (Dr. Toufiq), Male Therapy Hall'}
+                  placeholder={isBn ? 'যেমন: চেম্বার ১, পুরুষ থেরাপি হল' : 'e.g. Chamber 1, Male Therapy Hall'}
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
                   required

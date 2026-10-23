@@ -35,7 +35,7 @@ export default function CashierView({ session: propSession }: CashierProps = {})
   // Bill Creation State
   const [selectedPatientId, setSelectedPatientId] = useState('');
   const [billItems, setBillItems] = useState<any[]>([
-    { itemType: 'consultation', description: 'Doctor Consultation (Dr. Toufiq)', unitPriceTaka: 500, quantity: 1 },
+    { itemType: 'consultation', description: 'Doctor Consultation', unitPriceTaka: 500, quantity: 1 },
     { itemType: 'therapy', description: 'Interferential Therapy (IFT)', unitPriceTaka: 300, quantity: 1 },
   ]);
   const [discountTaka, setDiscountTaka] = useState(0);

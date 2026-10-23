@@ -119,7 +119,37 @@ export default function WaitingRoomTvView() {
 
   useEffect(() => {
     setSession(getSession());
+    try {
+      const savedLang = localStorage.getItem('hpc_tv_lang') as Language | null;
+      if (savedLang === 'bn' || savedLang === 'en') {
+        setLang(savedLang);
+      }
+      const savedTheme = localStorage.getItem('hpc_tv_theme') as Theme | null;
+      if (savedTheme === 'dark' || savedTheme === 'light') {
+        setTheme(savedTheme);
+      }
+    } catch {}
   }, []);
+
+  const toggleLang = () => {
+    setLang((prev) => {
+      const next = prev === 'bn' ? 'en' : 'bn';
+      try {
+        localStorage.setItem('hpc_tv_lang', next);
+      } catch {}
+      return next;
+    });
+  };
+
+  const toggleTheme = () => {
+    setTheme((prev) => {
+      const next = prev === 'dark' ? 'light' : 'dark';
+      try {
+        localStorage.setItem('hpc_tv_theme', next);
+      } catch {}
+      return next;
+    });
+  };
 
   const handleLogout = () => {
     clearSession();
@@ -130,14 +160,14 @@ export default function WaitingRoomTvView() {
     date: new Date().toISOString().slice(0, 10),
     clinicName: 'Health & Pain Care Center · Jashore',
     clinicNameBn: 'হেলথ অ্যান্ড পেইন কেয়ার সেন্টার · যশোর',
-    chiefDoctor: 'ডাঃ মোঃ তৌফিক উজ জামান (BPT, PGD, MDMR, MPH)',
+    chiefDoctor: '',
     timestamp: new Date().toISOString(),
     channels: [],
     consultationQueue: { nowServing: [], waiting: [] },
     therapyQueue: { nowServing: [], waiting: [] },
     bulletinNotices: [
       'স্বাগতম: হেলথ অ্যান্ড পেইন কেয়ার সেন্টার (HPC) · যশোর | আধুনিক ফিজিওথেরাপি ও পুনর্বাসন কেন্দ্র',
-      'চিফ কনসালট্যান্ট: ডাঃ মোঃ তৌফিক উজ জামান (BPT DU, PGD Acupuncture China, MDMR Pain Management DU, MPH)',
+      'আধুনিক ফিজিওথেরাপি, পুনর্বাসন ও পেইন ম্যানেজমেন্ট সেবা | সিরিয়াল অনুযায়ী অপেক্ষা করুন',
       'জরুরি হটলাইন: +880 1515-615188 | অনুগ্রহ করে আপনার টোকেন নম্বর ডিসপ্লেতে লক্ষ্য করুন',
       'চাচড়া পুলিশ ফাঁড়ির বিপরীতে, ডালমিল মোড়, যশোর ৭৪০০ | সিরিয়ালের জন্য অপেক্ষা করুন',
       'থেরাপির সময় মোবাইল ফোন সাইলেন্ট রাখুন | নামাজের বিরতি: দুপুর ১:১৫ হতে ১:৪৫ পর্যন্ত',
@@ -410,11 +440,11 @@ export default function WaitingRoomTvView() {
           break;
         case 'l':
         case 'L':
-          setLang((prev) => (prev === 'bn' ? 'en' : 'bn'));
+          toggleLang();
           break;
         case 't':
         case 'T':
-          setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
+          toggleTheme();
           break;
         case '1':
           setDepartmentFilter('ALL');
@@ -498,8 +528,8 @@ export default function WaitingRoomTvView() {
               }`}
             >
               {lang === 'bn'
-                ? 'চিফ কনসালট্যান্ট: ডাঃ মোঃ তৌফিক উজ জামান (BPT, PGD, MDMR, MPH)'
-                : 'Chief Consultant: Dr. Md. Toufiq Uz Zaman (BPT, PGD, MDMR, MPH)'}
+                ? 'ফিজিওথেরাপি, পুনর্বাসন ও পেইন কেয়ার সেন্টার · যশোর'
+                : 'Physiotherapy, Rehabilitation & Pain Care Center · Jashore'}
             </p>
           </div>
         </div>
@@ -654,6 +684,36 @@ export default function WaitingRoomTvView() {
             {isFullscreen ? <Minimize2 className="size-3.5 2xl:size-4" /> : <Maximize2 className="size-3.5 2xl:size-4" />}
           </button>
 
+          {/* Language Switcher (বাং / EN) */}
+          <button
+            type="button"
+            onClick={toggleLang}
+            className={`h-7 sm:h-8 2xl:h-10 px-2 sm:px-2.5 rounded-lg text-xs 2xl:text-sm font-bold border transition-colors flex items-center justify-center cursor-pointer active:scale-95 ${
+              isDark
+                ? 'bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border-zinc-800 hover:text-emerald-400'
+                : 'bg-white hover:bg-zinc-100 text-zinc-800 border-zinc-200 hover:text-emerald-600'
+            }`}
+            title={lang === 'bn' ? 'Switch to English' : 'বাংলায় পরিবর্তন করুন'}
+          >
+            <span className="font-bold text-[11px] 2xl:text-xs">
+              {lang === 'bn' ? 'EN' : 'বাং'}
+            </span>
+          </button>
+
+          {/* Theme Switcher (Dark / Light) */}
+          <button
+            type="button"
+            onClick={toggleTheme}
+            className={`h-7 w-7 sm:h-8 sm:w-8 2xl:h-10 2xl:w-10 rounded-lg text-xs font-bold border transition-colors flex items-center justify-center cursor-pointer active:scale-95 ${
+              isDark
+                ? 'bg-zinc-900 hover:bg-zinc-800 text-amber-400 border-zinc-800 hover:text-amber-300'
+                : 'bg-white hover:bg-zinc-100 text-zinc-700 border-zinc-200 hover:text-emerald-600'
+            }`}
+            title={isDark ? 'Switch to Light Theme' : 'ডার্ক মোড চালু করুন'}
+          >
+            {isDark ? <Sun className="size-3.5 2xl:size-4" /> : <Moon className="size-3.5 2xl:size-4" />}
+          </button>
+
           {/* Staff Login / Role Dashboard + Logout */}
           {session ? (
             <>
@@ -763,7 +823,7 @@ export default function WaitingRoomTvView() {
                   {lang === 'bn' ? 'ডাক্তার কনসাল্টেশন চেম্বার' : 'Doctor Consultation Chamber'}
                 </div>
                 <div className="text-2xl sm:text-4xl font-black font-mono text-white">
-                  {lang === 'bn' ? 'চেম্বার নং ১ (ডাঃ তৌফিক)' : 'CHAMBER 1 (Dr. Toufiq)'}
+                  {lang === 'bn' ? 'চেম্বার নং ১' : 'CHAMBER 1'}
                 </div>
               </div>
             </div>

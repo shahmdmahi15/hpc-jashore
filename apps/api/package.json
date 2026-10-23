@@ -1,6 +1,6 @@
 {
   "name": "@hpc/api",
-  "version": "0.1.28",
+  "version": "0.1.29",
   "private": true,
   "description": "HPC Jashore — NestJS core API (single writer, realtime source of truth)",
   "scripts": {

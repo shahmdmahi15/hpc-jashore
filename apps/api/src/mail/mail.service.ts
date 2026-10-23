@@ -47,7 +47,7 @@ export class MailService {
       <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 16px; background-color: #ffffff; color: #1e293b;">
         <div style="text-align: center; margin-bottom: 24px;">
           <h1 style="color: #059669; margin: 0; font-size: 24px; font-weight: 800;">HPC Jashore</h1>
-          <p style="color: #64748b; margin: 4px 0 0; font-size: 13px;">Health &amp; Pain Care Center · ডাঃ মোঃ তৌফিক উজ জামান</p>
+          <p style="color: #64748b; margin: 4px 0 0; font-size: 13px;">Health &amp; Pain Care Center · Jashore</p>
         </div>
         
         <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px; padding: 18px; margin-bottom: 24px;">
@@ -114,7 +114,7 @@ export class MailService {
       <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 16px; background-color: #ffffff; color: #1e293b;">
         <div style="text-align: center; margin-bottom: 24px;">
           <h1 style="color: #059669; margin: 0; font-size: 24px; font-weight: 800;">HPC Jashore</h1>
-          <p style="color: #64748b; margin: 4px 0 0; font-size: 13px;">Health &amp; Pain Care Center · ডাঃ মোঃ তৌফিক উজ জামান</p>
+          <p style="color: #64748b; margin: 4px 0 0; font-size: 13px;">Health &amp; Pain Care Center · Jashore</p>
         </div>
         
         <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px; padding: 18px; margin-bottom: 24px;">
