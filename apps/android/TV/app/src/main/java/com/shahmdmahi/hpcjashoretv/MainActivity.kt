@@ -170,7 +170,7 @@ class MainActivity : ComponentActivity() {
             LaunchedEffect(pairingCode, isPaired) {
                 if (!isPaired) {
                     withContext(Dispatchers.IO) {
-                        registerTvWithServer(pairingCode, "0.1.26")
+                        registerTvWithServer(pairingCode, "0.1.32")
                     }
                     while (!isPaired && isActive) {
                         withContext(Dispatchers.IO) {
@@ -215,7 +215,7 @@ class MainActivity : ComponentActivity() {
                         var shouldForceUpdate = false
 
                         withContext(Dispatchers.IO) {
-                            sendTvHeartbeat(pairingCode, "0.1.26") { isOk, status, dept, name, theme, lang, forceUpdate ->
+                            sendTvHeartbeat(pairingCode, "0.1.32") { isOk, status, dept, name, theme, lang, forceUpdate ->
                                 if (!isOk || status == "revoked" || status == "unregistered") {
                                     shouldRevoke = true
                                 } else {
@@ -912,6 +912,7 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+}
 
     private fun toBnNumber(n: Int): String {
         val bnDigits = charArrayOf('০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯')
@@ -1183,7 +1184,6 @@ class MainActivity : ComponentActivity() {
                 textToSpeech?.speak(englishText, TextToSpeech.QUEUE_FLUSH, null, "en_call")
             }
         } catch (_: Exception) {}
-    }
     }
 
     private fun checkSelfUpdate(onResult: (Boolean, String, String?, Boolean) -> Unit) {
@@ -1461,7 +1461,7 @@ fun TvPairingScreen(
 
         // 3. Footer
         Text(
-            text = "Health & Pain Care Center · Jashore • Hardware Station ID: $pairingCode • Version 0.1.31",
+            text = "Health & Pain Care Center · Jashore • Hardware Station ID: $pairingCode • Version 0.1.32",
             color = textMutedColor,
             fontSize = 11.sp,
             fontFamily = FontFamily.Monospace

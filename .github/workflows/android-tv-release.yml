@@ -1,0 +1,210 @@
+name: Android TV Release
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'apps/android/**'
+      - '.github/workflows/android-tv-release.yml'
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version override (e.g. 0.1.32; leave blank to infer from git tag or package.json)'
+        required: false
+        default: ''
+        type: string
+      release_notes:
+        description: 'Custom release notes (Markdown supported; leave blank for automatic commit summary)'
+        required: false
+        default: ''
+        type: string
+      draft:
+        description: 'Create as a draft release'
+        required: false
+        default: false
+        type: boolean
+      prerelease:
+        description: 'Mark as a pre-release'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+  packages: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # =========================================================================
+  # ANDROID TV RELEASE JOB (build-android-tv)
+  # Compiles universal APK, uploads to GitHub Releases, and registers update
+  # =========================================================================
+  build-android-tv:
+    name: Build & Release Android TV (Universal APK)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      COREPACK_ENABLE_DOWNLOAD_PROMPT: '0'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Java Development Kit (JDK 21)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Configure Android SDK & Accept Licenses
+        run: |
+          set -euo pipefail
+          export ANDROID_HOME="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          export ANDROID_SDK_ROOT="${ANDROID_HOME}"
+          echo "ANDROID_HOME=${ANDROID_HOME}" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=${ANDROID_HOME}" >> "$GITHUB_ENV"
+          echo "PATH=${ANDROID_HOME}/cmdline-tools/latest/bin:${ANDROID_HOME}/platform-tools:${PATH}" >> "$GITHUB_ENV"
+
+          echo "Configuring local.properties for Gradle..."
+          echo "sdk.dir=${ANDROID_HOME}" > apps/android/TV/local.properties
+
+          if [ -d "${ANDROID_HOME}/cmdline-tools/latest/bin" ]; then
+            SDK_MGR="${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
+          elif command -v sdkmanager >/dev/null 2>&1; then
+            SDK_MGR="sdkmanager"
+          else
+            SDK_MGR=""
+          fi
+
+          if [ -n "$SDK_MGR" ]; then
+            echo "Using sdkmanager at $SDK_MGR"
+            yes | "$SDK_MGR" --licenses || true
+            yes | "$SDK_MGR" --install "build-tools;35.0.0" "platforms;android-35" || true
+          fi
+
+      - name: Resolve Release Version
+        id: meta
+        env:
+          INPUT_VERSION: ${{ github.event.inputs.version }}
+        run: |
+          set -euo pipefail
+          if [ -n "${INPUT_VERSION:-}" ]; then
+            CLEAN_VERSION="${INPUT_VERSION#v}"
+            TAG_NAME="v${CLEAN_VERSION}"
+          elif [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            RAW_TAG="${GITHUB_REF_NAME}"
+            CLEAN_VERSION="${RAW_TAG#v}"
+            TAG_NAME="${RAW_TAG}"
+          else
+            PKG_VERSION=$(jq -r '.version // empty' package.json 2>/dev/null || echo "0.1.32")
+            CLEAN_VERSION="${PKG_VERSION}"
+            TAG_NAME="v${CLEAN_VERSION}"
+          fi
+          VERSION_CODE=$(grep -E 'versionCode\s*=\s*[0-9]+' apps/android/TV/app/build.gradle.kts | head -n1 | sed -E 's/.*versionCode\s*=\s*([0-9]+).*/\1/' || echo "33")
+          echo "version=${CLEAN_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "version_code=${VERSION_CODE}" >> "$GITHUB_OUTPUT"
+          echo "tag_name=${TAG_NAME}" >> "$GITHUB_OUTPUT"
+          echo "Resolved version: ${CLEAN_VERSION} (versionCode: ${VERSION_CODE}, Tag: ${TAG_NAME})"
+
+      - name: Compile Universal Android TV Release APK
+        working-directory: apps/android/TV
+        run: |
+          chmod +x gradlew
+          # Clean any stale build caches
+          ./gradlew clean --no-daemon
+          ./gradlew assembleRelease --no-daemon --stacktrace
+
+      - name: Stage Android TV APK
+        id: stage_android
+        run: |
+          set -euo pipefail
+          mkdir -p staging/android
+          VERSION="${{ steps.meta.outputs.version }}"
+
+          APK_SRC="apps/android/TV/app/build/outputs/apk/release/app-release.apk"
+          if [ ! -f "$APK_SRC" ]; then
+            echo "Searching for generated release APKs..."
+            APK_SRC=$(find apps/android/TV/app/build/outputs/apk/release -name "*.apk" | head -n 1)
+          fi
+
+          if [ -z "$APK_SRC" ] || [ ! -f "$APK_SRC" ]; then
+            echo "::error::Release APK not found in apps/android/TV/app/build/outputs/apk/release"
+            find apps/android/TV -name "*.apk" || true
+            exit 1
+          fi
+
+          echo "Found release APK: $APK_SRC"
+          cp -v "$APK_SRC" "staging/android/hpc-jashore-tv.apk"
+          cp -v "$APK_SRC" "staging/android/HPC-Jashore-TV-v${VERSION}.apk"
+
+          ls -lh staging/android/
+
+      - name: Upload Android TV Release APKs to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.meta.outputs.tag_name }}
+          files: staging/android/*
+          draft: ${{ github.event.inputs.draft || false }}
+          prerelease: ${{ github.event.inputs.prerelease || false }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish Android TV Release to Server Updater API
+        env:
+          UPDATE_SECRET: ${{ secrets.UPDATE_WEBHOOK_SECRET }}
+          VERSION: ${{ steps.meta.outputs.version }}
+          TAG_NAME: ${{ steps.meta.outputs.tag_name }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${UPDATE_SECRET:-}" ]; then
+            echo "Notice: UPDATE_WEBHOOK_SECRET is not configured; skipping in-app updater registry publish."
+            exit 0
+          fi
+
+          DOWNLOAD_URL="https://github.com/shahmdmahi15/hpc-jashore/releases/download/${TAG_NAME}/hpc-jashore-tv.apk"
+          UPDATE_SERVER="https://hpc.toufiquzzaman.com/api/updates/publish"
+          PLATFORM="android-tv"
+
+          cat <<EOF > update-tv-payload.json
+          {
+            "platform": "${PLATFORM}",
+            "version": "${VERSION}",
+            "downloadUrl": "${DOWNLOAD_URL}",
+            "versionCode": ${{ steps.meta.outputs.version_code }},
+            "signature": "",
+            "notes": "HPC Jashore Android TV Universal Release v${VERSION}"
+          }
+          EOF
+
+          echo "Prepared Android TV update payload:"
+          cat update-tv-payload.json
+
+          echo "Publishing Android TV release metadata to ${UPDATE_SERVER}..."
+          HTTP_RESPONSE=$(curl -sS -w "\n%{http_code}" \
+            --retry 3 \
+            --retry-delay 5 \
+            -X POST "${UPDATE_SERVER}" \
+            -H "Content-Type: application/json" \
+            -H "X-UPDATE-SECRET: ${UPDATE_SECRET}" \
+            -d @update-tv-payload.json || true)
+
+          HTTP_BODY=$(echo "$HTTP_RESPONSE" | sed '$d')
+          HTTP_STATUS=$(echo "$HTTP_RESPONSE" | tail -n 1)
+
+          echo "Server Response (HTTP ${HTTP_STATUS}):"
+          echo "${HTTP_BODY}"
+
+          if [ "${HTTP_STATUS}" -lt 200 ] || [ "${HTTP_STATUS}" -ge 300 ]; then
+            echo "::warning::Update server returned HTTP ${HTTP_STATUS} (registry might require re-sync)"
+          else
+            echo "Successfully published Android TV update metadata for v${VERSION} (${PLATFORM})!"
+          fi
