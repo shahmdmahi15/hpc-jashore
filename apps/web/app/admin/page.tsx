@@ -56,8 +56,8 @@ const ADMIN_ROW1_TABS = [
     titleEn: 'Users & Device Management',
     titleBn: 'ব্যবহারকারী ও ডিভাইস',
     icon: Users,
-    descriptionEn: 'Manage staff credentials, PIN codes, role assignments, TV screen pairing, and active sessions.',
-    descriptionBn: 'স্টাফ অ্যাকাউন্ট, ৪-ডিজিট পিন, পদবী বরাদ্দ, টিভি স্ক্রিন পেয়ারিং ও সক্রিয় সেশন নিয়ন্ত্রণ।',
+    descriptionEn: 'Manage user accounts, approvals, role assignments, TV screen pairing, and active sessions.',
+    descriptionBn: 'ব্যবহারকারী অ্যাকাউন্ট, অনুমোদন, পদবী বরাদ্দ, টিভি স্ক্রিন পেয়ারিং ও সক্রিয় সেশন নিয়ন্ত্রণ।',
   },
   {
     id: 'patients_emr',

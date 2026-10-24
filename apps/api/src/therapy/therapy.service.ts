@@ -17,7 +17,6 @@ import {
   patients,
   patientTimelineEvents,
   rooms,
-  staff,
   therapyPlans,
   therapySessions,
   therapySlotBookings,
@@ -86,15 +85,15 @@ export class TherapyService {
     if (!effectiveTherapistId) {
       const staffRows = await this.db
         .select()
-        .from(staff)
-        .where(eq(staff.id, therapistStaffId));
+        .from(users)
+        .where(eq(users.id, therapistStaffId));
       if (staffRows.length > 0) {
         effectiveTherapistId = staffRows[0].id;
       } else {
         const anyHandler = await this.db
           .select()
-          .from(staff)
-          .where(and(eq(staff.role, 'handler'), eq(staff.isActive, 1)))
+          .from(users)
+          .where(and(eq(users.role, 'handler'), eq(users.approvalStatus, 'approved'), eq(users.isActive, 1)))
           .limit(1);
         effectiveTherapistId = anyHandler[0]?.id ?? therapistStaffId;
       }
@@ -261,13 +260,13 @@ export class TherapyService {
         patient: patients,
         bed: beds,
         machine: machines,
-        therapist: staff,
+        therapist: users,
       })
       .from(therapySessions)
       .innerJoin(patients, eq(therapySessions.patientId, patients.id))
       .leftJoin(beds, eq(therapySessions.bedId, beds.id))
       .leftJoin(machines, eq(therapySessions.machineId, machines.id))
-      .leftJoin(staff, eq(therapySessions.therapistStaffId, staff.id))
+      .leftJoin(users, eq(therapySessions.therapistStaffId, users.id))
       .orderBy(desc(therapySessions.createdAt));
 
     return rows.map((r) => ({
@@ -276,7 +275,7 @@ export class TherapyService {
       patientMrn: r.patient.mrn,
       bedCode: r.bed?.code ?? null,
       machineCode: r.machine?.code ?? null,
-      therapistName: r.therapist?.fullName ?? 'Therapist',
+      therapistName: r.therapist?.displayName ?? 'Therapist',
     }));
   }
 

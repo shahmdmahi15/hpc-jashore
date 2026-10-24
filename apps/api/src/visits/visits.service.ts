@@ -22,7 +22,6 @@ import {
   rooms,
   sequences,
   serials,
-  staff,
   therapySessions,
   therapySlotBookings,
   users,
@@ -395,11 +394,11 @@ export class VisitsService {
       .select({
         visit: visits,
         patient: patients,
-        doctor: staff,
+        doctor: users,
       })
       .from(visits)
       .innerJoin(patients, eq(visits.patientId, patients.id))
-      .leftJoin(staff, eq(visits.doctorId, staff.id))
+      .leftJoin(users, eq(visits.doctorId, users.id))
       .where(eq(visits.visitDate, today))
       .orderBy(desc(visits.createdAt));
 
@@ -414,7 +413,7 @@ export class VisitsService {
         bloodGroup: r.patient.bloodGroup,
         allergies: r.patient.allergies,
       },
-      doctor: r.doctor ? { id: r.doctor.id, fullName: r.doctor.fullName } : null,
+      doctor: r.doctor ? { id: r.doctor.id, fullName: r.doctor.displayName } : null,
     }));
   }
 
@@ -513,17 +512,15 @@ export class VisitsService {
 
     const doctorRows = await this.db
       .select({
-        staff: staff,
         user: users,
         chamber: rooms,
       })
-      .from(staff)
-      .leftJoin(users, eq(staff.userId, users.id))
-      .leftJoin(rooms, eq(staff.chamberRoomId, rooms.id))
-      .where(eq(staff.id, effectiveDoctorId));
+      .from(users)
+      .leftJoin(rooms, eq(users.chamberRoomId, rooms.id))
+      .where(eq(users.id, effectiveDoctorId));
     const doctorItem = doctorRows[0];
 
-    const doctorName = doctorItem?.user?.displayName || doctorItem?.staff?.fullName || 'Doctor';
+    const doctorName = doctorItem?.user?.displayName || 'Doctor';
     const chamberNumber = doctorItem?.chamber?.roomNumber || '101';
     const chamberName = doctorItem?.chamber?.name || `Chamber ${chamberNumber}`;
     const tokenNumber = visit?.tokenNumber || targetSerial.serialNumber;
@@ -584,12 +581,12 @@ export class VisitsService {
       .select({
         serial: serials,
         patient: patients,
-        doctor: staff,
+        doctor: users,
         visit: visits,
       })
       .from(serials)
       .innerJoin(patients, eq(serials.patientId, patients.id))
-      .leftJoin(staff, eq(serials.doctorId, staff.id))
+      .leftJoin(users, eq(serials.doctorId, users.id))
       .leftJoin(visits, eq(serials.visitId, visits.id))
       .where(eq(serials.id, serialId));
 
@@ -621,7 +618,7 @@ export class VisitsService {
       .set({ status: 'in_consultation', updatedAt: now })
       .where(eq(patientIntakeForms.visitId, item.serial.visitId));
 
-    const doctorName = item.doctor?.fullName || 'Doctor';
+    const doctorName = item.doctor?.displayName || 'Doctor';
 
     // Log timeline event
     try {
@@ -661,12 +658,12 @@ export class VisitsService {
       .select({
         serial: serials,
         patient: patients,
-        doctor: staff,
+        doctor: users,
         visit: visits,
       })
       .from(serials)
       .innerJoin(patients, eq(serials.patientId, patients.id))
-      .leftJoin(staff, eq(serials.doctorId, staff.id))
+      .leftJoin(users, eq(serials.doctorId, users.id))
       .leftJoin(visits, eq(serials.visitId, visits.id))
       .where(eq(serials.id, serialId));
 
@@ -818,12 +815,12 @@ export class VisitsService {
       .select({
         visit: visits,
         patient: patients,
-        doctor: staff,
+        doctor: users,
         chamber: rooms,
       })
       .from(visits)
       .innerJoin(patients, eq(visits.patientId, patients.id))
-      .leftJoin(staff, eq(visits.doctorId, staff.id))
+      .leftJoin(users, eq(visits.doctorId, users.id))
       .leftJoin(rooms, eq(visits.roomId, rooms.id))
       .where(
         and(
@@ -907,7 +904,7 @@ export class VisitsService {
         doctor: row.doctor
           ? {
               id: row.doctor.id,
-              fullName: row.doctor.fullName,
+              fullName: row.doctor.displayName,
               specialization: row.doctor.specialization,
               chamber: row.chamber?.name || `Chamber ${row.chamber?.roomNumber || ''}`,
             }
@@ -981,12 +978,12 @@ export class VisitsService {
       .select({
         visit: visits,
         patient: patients,
-        doctor: staff,
+        doctor: users,
         chamber: rooms,
       })
       .from(visits)
       .innerJoin(patients, eq(visits.patientId, patients.id))
-      .leftJoin(staff, eq(visits.doctorId, staff.id))
+      .leftJoin(users, eq(visits.doctorId, users.id))
       .leftJoin(rooms, eq(visits.roomId, rooms.id))
       .where(eq(visits.id, visitId));
     const item = rows[0];
@@ -1075,12 +1072,12 @@ export class VisitsService {
       .select({
         visit: visits,
         patient: patients,
-        doctor: staff,
+        doctor: users,
         chamber: rooms,
       })
       .from(visits)
       .innerJoin(patients, eq(visits.patientId, patients.id))
-      .leftJoin(staff, eq(visits.doctorId, staff.id))
+      .leftJoin(users, eq(visits.doctorId, users.id))
       .leftJoin(rooms, eq(visits.roomId, rooms.id))
       .where(eq(visits.id, visitId));
 
@@ -1147,7 +1144,7 @@ export class VisitsService {
       serialId,
       serialNumber: nextSerialNum,
       doctorId,
-      doctorName: item.doctor?.fullName,
+      doctorName: item.doctor?.displayName,
       chamber: item.chamber?.name,
       patientId: item.patient.id,
       patientName: item.patient.nameEn,
@@ -1179,12 +1176,12 @@ export class VisitsService {
       .select({
         visit: visits,
         patient: patients,
-        doctor: staff,
+        doctor: users,
         chamber: rooms,
       })
       .from(visits)
       .innerJoin(patients, eq(visits.patientId, patients.id))
-      .leftJoin(staff, eq(visits.doctorId, staff.id))
+      .leftJoin(users, eq(visits.doctorId, users.id))
       .leftJoin(rooms, eq(visits.roomId, rooms.id))
       .where(eq(visits.id, visitId));
 
@@ -1233,7 +1230,7 @@ export class VisitsService {
       },
       doctor: item.doctor
         ? {
-            name: item.doctor.fullName,
+            name: item.doctor.displayName,
             specialization: item.doctor.specialization,
             chamber: item.chamber?.name,
           }
@@ -1254,11 +1251,11 @@ export class VisitsService {
     const today = todayDateString();
     const activeDoctors = await this.db
       .select()
-      .from(staff)
+      .from(users)
       .where(
         and(
-          eq(staff.role, 'doctor'),
-          eq(staff.isActive, 1),
+          eq(users.role, 'doctor'),
+          eq(users.isActive, 1),
         ),
       );
 
@@ -1289,7 +1286,7 @@ export class VisitsService {
       snapshot.push({
         doctor: {
           id: doc.id,
-          nameEn: doc.fullName,
+          nameEn: doc.displayName,
           specialization: doc.specialization,
         },
         nowServing: currentCalled[0]
@@ -1313,9 +1310,9 @@ export class VisitsService {
         tokenNumber: visits.tokenNumber,
         patientNameEn: patients.nameEn,
         patientNameBn: patients.nameBn,
-        doctorId: staff.id,
-        doctorNameEn: staff.fullName,
-        doctorSpecialization: staff.specialization,
+        doctorId: users.id,
+        doctorNameEn: users.displayName,
+        doctorSpecialization: users.specialization,
         chamberRoomNumber: rooms.roomNumber,
         chamberName: rooms.name,
         calledAt: serials.calledAt,
@@ -1323,8 +1320,8 @@ export class VisitsService {
       })
       .from(serials)
       .innerJoin(patients, eq(serials.patientId, patients.id))
-      .innerJoin(staff, eq(serials.doctorId, staff.id))
-      .leftJoin(rooms, eq(staff.chamberRoomId, rooms.id))
+      .innerJoin(users, eq(serials.doctorId, users.id))
+      .leftJoin(rooms, eq(users.chamberRoomId, rooms.id))
       .innerJoin(visits, eq(serials.visitId, visits.id))
       .where(
         and(
@@ -1340,15 +1337,15 @@ export class VisitsService {
         tokenNumber: visits.tokenNumber,
         patientNameEn: patients.nameEn,
         patientNameBn: patients.nameBn,
-        doctorNameEn: staff.fullName,
+        doctorNameEn: users.displayName,
         chamberRoomNumber: rooms.roomNumber,
         chamberName: rooms.name,
         priority: visits.priority,
       })
       .from(serials)
       .innerJoin(patients, eq(serials.patientId, patients.id))
-      .innerJoin(staff, eq(serials.doctorId, staff.id))
-      .leftJoin(rooms, eq(staff.chamberRoomId, rooms.id))
+      .innerJoin(users, eq(serials.doctorId, users.id))
+      .leftJoin(rooms, eq(users.chamberRoomId, rooms.id))
       .innerJoin(visits, eq(serials.visitId, visits.id))
       .where(and(eq(serials.date, today), eq(serials.status, 'waiting')))
       .orderBy(serials.serialNumber)
@@ -1478,11 +1475,11 @@ export class VisitsService {
       .select({
         visit: visits,
         patient: patients,
-        doctor: staff,
+        doctor: users,
       })
       .from(visits)
       .innerJoin(patients, eq(visits.patientId, patients.id))
-      .leftJoin(staff, eq(visits.doctorId, staff.id))
+      .leftJoin(users, eq(visits.doctorId, users.id))
       .where(eq(visits.visitDate, today))
       .orderBy(desc(visits.createdAt));
 
@@ -1508,11 +1505,11 @@ export class VisitsService {
       .select({
         booking: consultationBookings,
         patient: patients,
-        doctor: staff,
+        doctor: users,
       })
       .from(consultationBookings)
       .innerJoin(patients, eq(consultationBookings.patientId, patients.id))
-      .leftJoin(staff, eq(consultationBookings.doctorId, staff.id))
+      .leftJoin(users, eq(consultationBookings.doctorId, users.id))
       .where(
         and(
           eq(consultationBookings.bookingDate, today),
@@ -1588,13 +1585,13 @@ export class VisitsService {
       todayConsultationBookings: docBookings.map((b) => ({
         ...b.booking,
         patient: b.patient,
-        doctor: b.doctor ? { id: b.doctor.id, fullName: b.doctor.fullName } : null,
+        doctor: b.doctor ? { id: b.doctor.id, fullName: b.doctor.displayName } : null,
       })),
       liveTherapyQueue,
       recentCheckIns: todayVisits.map((v) => ({
         ...v.visit,
         patient: v.patient,
-        doctor: v.doctor ? { id: v.doctor.id, fullName: v.doctor.fullName } : null,
+        doctor: v.doctor ? { id: v.doctor.id, fullName: v.doctor.displayName } : null,
       })),
     };
   }

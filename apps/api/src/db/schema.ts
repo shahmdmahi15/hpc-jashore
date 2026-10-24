@@ -39,36 +39,20 @@ export const users = sqliteTable('users', {
   consultationFeePaisa: integer('consultation_fee_paisa').notNull().default(50000),
   followUpFeePaisa: integer('follow_up_fee_paisa').notNull().default(0),
   reportFeePaisa: integer('report_fee_paisa').notNull().default(0),
-  chamberRoomId: text('chamber_room_id'),
-  isApproved: integer('is_approved').notNull().default(0),
-  approvalStatus: text('approval_status').notNull().default('pending'), // 'pending' | 'approved' | 'rejected'
-  approvedAt: text('approved_at'),
-  approvedBy: text('approved_by'),
-  rejectionReason: text('rejection_reason'),
-  ...timestamps,
-});
-
-export const staff = sqliteTable('staff', {
-  id: text('id').primaryKey(),
-  // Nullable: PIN-only desk staff may have no personal login.
-  userId: text('user_id').references(() => users.id),
-  fullName: text('full_name').notNull(),
-  role: text('role').notNull().$type<Role>(),
-  phone: text('phone'),
+  chamberRoomId: text('chamber_room_id').references(() => rooms.id),
   specialization: text('specialization'),
   qualifications: text('qualifications'),
-  feeOverridePaisa: integer('fee_override_paisa'),
-  consultationFeePaisa: integer('consultation_fee_paisa'),
-  followUpFeePaisa: integer('follow_up_fee_paisa'),
-  reportFeePaisa: integer('report_fee_paisa'),
-  chamberRoomId: text('chamber_room_id').references(() => rooms.id),
   dailyQuota: integer('daily_quota').default(40),
   slotDurationMinutes: integer('slot_duration_minutes').default(15),
   dutyStartTime: text('duty_start_time'),
   dutyEndTime: text('duty_end_time'),
   availableDays: text('available_days'),
   notes: text('notes'),
-  isActive: integer('is_active').notNull().default(1),
+  isApproved: integer('is_approved').notNull().default(0),
+  approvalStatus: text('approval_status').notNull().default('pending'), // 'pending' | 'approved' | 'rejected'
+  approvedAt: text('approved_at'),
+  approvedBy: text('approved_by'),
+  rejectionReason: text('rejection_reason'),
   ...timestamps,
 });
 
@@ -85,25 +69,12 @@ export const shifts = sqliteTable('shifts', {
   id: text('id').primaryKey(),
   staffId: text('staff_id')
     .notNull()
-    .references(() => staff.id),
+    .references(() => users.id),
   deskId: text('desk_id').references(() => desks.id),
   startsAt: text('starts_at').notNull(),
   endsAt: text('ends_at'),
   status: text('status').notNull().default('scheduled'),
   ...timestamps,
-});
-
-export const pinCredentials = sqliteTable('pin_credentials', {
-  staffId: text('staff_id')
-    .primaryKey()
-    .references(() => staff.id),
-  pinHash: text('pin_hash').notNull(),
-  failedAttempts: integer('failed_attempts').notNull().default(0),
-  lockedUntil: text('locked_until'),
-  updatedAt: text('updated_at')
-    .notNull()
-    .$defaultFn(() => new Date().toISOString()),
-  updatedBy: text('updated_by').references(() => users.id),
 });
 
 // Long-lived refresh sessions (device list + remote logout + rotation chain).
@@ -123,22 +94,6 @@ export const refreshSessions = sqliteTable('refresh_sessions', {
   createdAt: text('created_at')
     .notNull()
     .$defaultFn(() => new Date().toISOString()),
-});
-
-// Short-lived desk action grants issued by PIN verification (60 s TTL).
-export const actionGrants = sqliteTable('action_grants', {
-  id: text('id').primaryKey(), // = JWT jti
-  staffId: text('staff_id')
-    .notNull()
-    .references(() => staff.id),
-  deskId: text('desk_id')
-    .notNull()
-    .references(() => desks.id),
-  scope: text('scope').notNull().default('desk:action'),
-  issuedAt: text('issued_at').notNull(),
-  expiresAt: text('expires_at').notNull(),
-  usedAt: text('used_at'),
-  idempotencyKey: text('idempotency_key').notNull().unique(),
 });
 
 // --- Numbering (MRN, bills, tokens share this pattern) ------------------------
@@ -592,7 +547,7 @@ export const therapySessions = sqliteTable('therapy_sessions', {
   patientId: text('patient_id')
     .notNull()
     .references(() => patients.id),
-  therapistStaffId: text('therapist_staff_id').references(() => staff.id),
+  therapistStaffId: text('therapist_staff_id').references(() => users.id),
   bedId: text('bed_id').references(() => beds.id),
   machineId: text('machine_id').references(() => machines.id),
   modalityCode: text('modality_code')
@@ -652,10 +607,10 @@ export const bills = sqliteTable('bills', {
   patientId: text('patient_id')
     .notNull()
     .references(() => patients.id),
-  cashierStaffId: text('cashier_staff_id').references(() => staff.id),
+  cashierStaffId: text('cashier_staff_id').references(() => users.id),
   subtotalPaisa: integer('subtotal_paisa').notNull(),
   discountPaisa: integer('discount_paisa').notNull().default(0),
-  discountApprovedBy: text('discount_approved_by').references(() => staff.id),
+  discountApprovedBy: text('discount_approved_by').references(() => users.id),
   totalPaisa: integer('total_paisa').notNull(),
   paidPaisa: integer('paid_paisa').notNull().default(0),
   duePaisa: integer('due_paisa').notNull().default(0),
@@ -697,7 +652,7 @@ export const payments = sqliteTable('payments', {
     .notNull()
     .$type<'cash' | 'bkash' | 'nagad' | 'rocket' | 'card' | 'bank'>(),
   txnId: text('txn_id'),
-  receivedByStaffId: text('received_by_staff_id').references(() => staff.id),
+  receivedByStaffId: text('received_by_staff_id').references(() => users.id),
   receiptPrintedAt: text('receipt_printed_at'),
   ...timestamps,
 });
@@ -716,7 +671,7 @@ export const dues = sqliteTable('dues', {
     .notNull()
     .$type<'pending' | 'partial' | 'settled'>()
     .default('pending'),
-  approvedBy: text('approved_by').references(() => staff.id),
+  approvedBy: text('approved_by').references(() => users.id),
   ...timestamps,
 });
 
@@ -724,7 +679,7 @@ export const cashDrawers = sqliteTable('cash_drawers', {
   id: text('id').primaryKey(),
   cashierStaffId: text('cashier_staff_id')
     .notNull()
-    .references(() => staff.id),
+    .references(() => users.id),
   deskId: text('desk_id')
     .notNull()
     .references(() => desks.id),
@@ -754,7 +709,7 @@ export const drawerEvents = sqliteTable('drawer_events', {
     .$type<'open' | 'drop' | 'payout' | 'sale_cash' | 'close'>(),
   amountPaisa: integer('amount_paisa').notNull(),
   description: text('description'),
-  staffId: text('staff_id').references(() => staff.id),
+  staffId: text('staff_id').references(() => users.id),
   ...timestamps,
 });
 
@@ -799,7 +754,7 @@ export const stockMoves = sqliteTable('stock_moves', {
   quantity: integer('quantity').notNull(),
   referenceType: text('reference_type'),
   referenceId: text('reference_id'),
-  actorStaffId: text('actor_staff_id').references(() => staff.id),
+  actorStaffId: text('actor_staff_id').references(() => users.id),
   note: text('note'),
   ...timestamps,
 });
@@ -827,7 +782,7 @@ export const expenses = sqliteTable('expenses', {
   description: text('description').notNull(),
   amountPaisa: integer('amount_paisa').notNull(),
   voucherNumber: text('voucher_number'),
-  approvedByStaffId: text('approved_by_staff_id').references(() => staff.id),
+  approvedByStaffId: text('approved_by_staff_id').references(() => users.id),
   paidAt: text('paid_at').notNull(),
   ...timestamps,
 });
@@ -854,7 +809,7 @@ export const attendance = sqliteTable('attendance', {
   id: text('id').primaryKey(),
   staffId: text('staff_id')
     .notNull()
-    .references(() => staff.id),
+    .references(() => users.id),
   punchType: text('punch_type').notNull().$type<'in' | 'out'>(),
   deskId: text('desk_id').references(() => desks.id),
   timestamp: text('timestamp').notNull(),
@@ -866,8 +821,8 @@ export const feedback = sqliteTable('feedback', {
   id: text('id').primaryKey(),
   visitId: text('visit_id').references(() => visits.id),
   patientId: text('patient_id').references(() => patients.id),
-  doctorStaffId: text('doctor_staff_id').references(() => staff.id),
-  therapistStaffId: text('therapist_staff_id').references(() => staff.id),
+  doctorStaffId: text('doctor_staff_id').references(() => users.id),
+  therapistStaffId: text('therapist_staff_id').references(() => users.id),
   rating: integer('rating').notNull(),
   comment: text('comment'),
   channel: text('channel').notNull().default('kiosk'),

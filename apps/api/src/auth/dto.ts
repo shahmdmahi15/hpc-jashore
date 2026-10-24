@@ -96,33 +96,3 @@ export class LogoutDto {
   @MaxLength(2048)
   refreshToken?: string;
 }
-
-// Desk PIN verification: exactly 4 digits; policy rules live in pin.util.ts.
-export class PinVerifyDto {
-  @IsString()
-  @MaxLength(32)
-  deskCode!: string;
-
-  @IsString()
-  @MaxLength(64)
-  staffId!: string;
-
-  @IsString()
-  @Matches(/^\d{4}$/, { message: 'PIN must be exactly 4 digits' })
-  pin!: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(64)
-  idempotencyKey?: string;
-}
-
-export class PinResetDto {
-  @IsString()
-  @MaxLength(64)
-  staffId!: string;
-
-  @IsString()
-  @Matches(/^\d{4}$/, { message: 'PIN must be exactly 4 digits' })
-  newPin!: string;
-}

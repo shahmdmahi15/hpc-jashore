@@ -614,8 +614,8 @@ export default function UsersAndDeviceManagementView() {
               </h2>
               <p className="text-xs sm:text-sm text-muted-foreground">
                 {isBn
-                  ? 'স্টাফ অ্যাকাউন্ট, ৫টি অনুমোদিত রোল, স্মার্ট টিভি স্ক্রিন পেয়ারিং ও সক্রিয় সেশন নিয়ন্ত্রণ।'
-                  : 'Manage staff credentials across the 5 permitted roles, pair Android TV screens, and monitor sessions.'}
+                  ? 'ব্যবহারকারী অ্যাকাউন্ট, ৫টি অনুমোদিত রোল, স্মার্ট টিভি স্ক্রিন পেয়ারিং ও সক্রিয় সেশন নিয়ন্ত্রণ।'
+                  : 'Manage user accounts across the 5 permitted roles, pair Android TV screens, and monitor sessions.'}
               </p>
             </div>
           </div>
@@ -665,7 +665,7 @@ export default function UsersAndDeviceManagementView() {
             className="flex items-center gap-2 px-3.5 py-2 text-xs sm:text-sm font-semibold rounded-lg data-[state=active]:bg-background data-[state=active]:text-emerald-600 dark:data-[state=active]:text-emerald-400 data-[state=active]:shadow-xs transition-all cursor-pointer touch-manipulation"
           >
             <Users className="w-4 h-4" />
-            <span>{isBn ? 'ব্যবহারকারী তালিকা' : 'Staff Accounts'}</span>
+            <span>{isBn ? 'ব্যবহারকারী তালিকা' : 'User Accounts'}</span>
             <Badge variant="secondary" className="ml-1 text-[11px] px-1.5 py-0 h-5">
               {users.length}
             </Badge>
@@ -749,7 +749,7 @@ export default function UsersAndDeviceManagementView() {
                   placeholder={
                     isBn
                       ? 'নাম, ইমেইল অথবা ফোন নম্বর দিয়ে খুঁজুন...'
-                      : 'Search staff by name, email, or phone number...'
+                      : 'Search users by name, email, or phone number...'
                   }
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -932,13 +932,13 @@ export default function UsersAndDeviceManagementView() {
                 <div className="flex items-center gap-2">
                   <Clock className="w-5 h-5 text-amber-500 animate-pulse" />
                   <h3 className="text-sm sm:text-base font-bold text-foreground">
-                    {isBn ? 'নতুন ব্যবহারকারী অনুমোদন নিয়ন্ত্রণ' : 'Pending Staff Approvals Control'}
+                    {isBn ? 'নতুন ব্যবহারকারী অনুমোদন নিয়ন্ত্রণ' : 'Pending User Approvals Control'}
                   </h3>
                 </div>
                 <p className="text-xs text-muted-foreground max-w-3xl leading-relaxed">
                   {isBn
                     ? 'যেকোনো নতুন ব্যবহারকারী নিবন্ধন বা তৈরি হলে তা প্রথমে অ্যাডমিন অনুমোদনের অপেক্ষায় থাকবে। আপনি অনুমোদন প্রদান না করা পর্যন্ত সংশ্লিষ্ট ব্যক্তি কোনো ওয়ার্কস্টেশনে লগইন করতে পারবে না।'
-                    : 'Whenever new staff register or are created, their accounts remain in pending state. Users cannot log into workstations until approved by an administrator here.'}
+                    : 'Whenever new users register or are created, their accounts remain in pending state. Users cannot log into workstations until approved by an administrator here.'}
                 </p>
               </div>
 
@@ -963,8 +963,8 @@ export default function UsersAndDeviceManagementView() {
               </p>
               <p className="text-xs text-muted-foreground mt-1 max-w-md mx-auto">
                 {isBn
-                  ? 'সকল ব্যবহারকারী সফলভাবে অনুমোদিত। নতুন কোনো স্টাফ নিবন্ধন করলে এই তালিকায় দেখা যাবে।'
-                  : 'All staff accounts have been processed. Any new registration will appear here for your review.'}
+                  ? 'সকল ব্যবহারকারী সফলভাবে অনুমোদিত। নতুন কোনো ব্যবহারকারী নিবন্ধন করলে এই তালিকায় দেখা যাবে।'
+                  : 'All user accounts have been processed. Any new registration will appear here for your review.'}
               </p>
             </Card>
           ) : (

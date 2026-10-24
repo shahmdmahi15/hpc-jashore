@@ -5,7 +5,7 @@ import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { eq } from 'drizzle-orm';
 import { DB, type Db } from '../db/db.module';
-import { refreshSessions, staff, users } from '../db/schema';
+import { refreshSessions, users } from '../db/schema';
 import type { RequestUser } from '../rbac/current-user.decorator';
 
 // Validates stateful session tokens: { sid, type:'access' }.
@@ -85,17 +85,11 @@ export class AccessStrategy extends PassportStrategy(Strategy, 'jwt-access') {
       throw new ForbiddenException('User account is pending administrator approval or has been revoked');
     }
 
-    // 4. Staff verification dynamically from database
-    const [staffRow] = await this.db
-      .select()
-      .from(staff)
-      .where(eq(staff.userId, user.id));
-
     return {
       sub: user.id,
       email: user.email,
       role: user.role, // Live, realtime role from database! Instant reflection!
-      staffId: staffRow?.id ?? null,
+      staffId: user.id,
       sid: session.id,
     };
   }

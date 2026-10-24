@@ -14,8 +14,8 @@ import {
   patients,
   prescriptionItems,
   prescriptions,
-  staff,
   therapyPlans,
+  users,
   visits,
 } from '../db/schema';
 import { EventsGateway } from '../realtime/events.gateway';
@@ -212,16 +212,16 @@ export class ClinicalService {
     const rows = await this.db
       .select({
         consultation: consultations,
-        doctor: staff,
+        doctor: users,
       })
       .from(consultations)
-      .leftJoin(staff, eq(consultations.doctorId, staff.id))
+      .leftJoin(users, eq(consultations.doctorId, users.id))
       .where(eq(consultations.patientId, patientId))
       .orderBy(desc(consultations.createdAt));
 
     return rows.map((r) => ({
       ...r.consultation,
-      doctorName: r.doctor?.fullName ?? 'Unknown Doctor',
+      doctorName: r.doctor?.displayName ?? 'Unknown Doctor',
     }));
   }
 
@@ -230,11 +230,11 @@ export class ClinicalService {
       .select({
         prescription: prescriptions,
         patient: patients,
-        doctor: staff,
+        doctor: users,
       })
       .from(prescriptions)
       .innerJoin(patients, eq(prescriptions.patientId, patients.id))
-      .innerJoin(staff, eq(prescriptions.doctorId, staff.id))
+      .innerJoin(users, eq(prescriptions.doctorId, users.id))
       .where(eq(prescriptions.id, id));
 
     const record = rxRows[0];
@@ -258,7 +258,7 @@ export class ClinicalService {
       },
       doctor: {
         id: record.doctor.id,
-        fullName: record.doctor.fullName,
+        fullName: record.doctor.displayName,
         specialization: record.doctor.specialization,
       },
       items,

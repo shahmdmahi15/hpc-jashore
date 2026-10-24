@@ -11,8 +11,8 @@ import {
   modalities,
   payments,
   prescriptions,
-  staff,
   therapySessions,
+  users,
   visits,
 } from '../db/schema';
 
@@ -158,8 +158,8 @@ export class ReportsService {
     const targetDate = dateString ?? new Date().toISOString().slice(0, 10);
     const doctors = await this.db
       .select()
-      .from(staff)
-      .where(and(eq(staff.role, 'doctor'), eq(staff.isActive, 1)));
+      .from(users)
+      .where(and(eq(users.role, 'doctor'), eq(users.approvalStatus, 'approved'), eq(users.isActive, 1)));
 
     const allConsults = await this.db.select().from(consultations);
     const allPrescriptions = await this.db.select().from(prescriptions);
@@ -174,11 +174,11 @@ export class ReportsService {
 
       return {
         id: doc.id,
-        name: doc.fullName,
+        name: doc.displayName,
         specialization: doc.specialization || 'Physiotherapy & Rehabilitation',
         patientsSeen: docConsults.length,
         prescriptionsCount: docPrescripts.length,
-        feePaisa: doc.feeOverridePaisa ?? 50000,
+        feePaisa: doc.consultationFeePaisa ?? 50000,
       };
     });
   }
@@ -186,19 +186,19 @@ export class ReportsService {
   async getDoctorIncomeReport() {
     const doctors = await this.db
       .select()
-      .from(staff)
-      .where(and(eq(staff.role, 'doctor'), eq(staff.isActive, 1)));
+      .from(users)
+      .where(and(eq(users.role, 'doctor'), eq(users.approvalStatus, 'approved'), eq(users.isActive, 1)));
 
     const allConsults = await this.db.select().from(consultations);
 
     return doctors.map((doc) => {
       const docConsults = allConsults.filter((c) => c.doctorId === doc.id);
-      const feePaisa = doc.feeOverridePaisa ?? 50000;
+      const feePaisa = doc.consultationFeePaisa ?? 50000;
       const estimatedIncomePaisa = docConsults.length * feePaisa;
 
       return {
         doctorId: doc.id,
-        doctorName: doc.fullName,
+        doctorName: doc.displayName,
         specialization: doc.specialization,
         totalConsultations: docConsults.length,
         feePerConsultPaisa: feePaisa,
@@ -210,8 +210,8 @@ export class ReportsService {
   async getTherapistPerformance() {
     const handlers = await this.db
       .select()
-      .from(staff)
-      .where(and(eq(staff.role, 'handler'), eq(staff.isActive, 1)));
+      .from(users)
+      .where(and(eq(users.role, 'handler'), eq(users.approvalStatus, 'approved'), eq(users.isActive, 1)));
 
     const allSessions = await this.db.select().from(therapySessions);
 
@@ -226,9 +226,9 @@ export class ReportsService {
 
       return {
         therapistId: t.id,
-        therapistName: t.fullName,
+        therapistName: t.displayName,
         handlerId: t.id,
-        handlerName: t.fullName,
+        handlerName: t.displayName,
         totalAssigned: mySessions.length,
         completedSessions: completed.length,
         onTimeRatePercent: onTimeRate,

@@ -38,7 +38,6 @@ export default function TherapyHallView({ session: propSession }: TherapyHallPro
 
   // Complete Session Modal
   const [completingSession, setCompletingSession] = useState<any>(null);
-  const [therapistPin, setTherapistPin] = useState('3579');
   const [painScoreAfter, setPainScoreAfter] = useState(3);
   const [outcomeNote, setOutcomeNote] = useState('Good tolerance, muscle spasm relieved.');
 
@@ -105,7 +104,7 @@ export default function TherapyHallView({ session: propSession }: TherapyHallPro
     if (!completingSession) return;
     try {
       await api.therapy.completeSession(completingSession.id, {
-        pin: therapistPin,
+        durationMinutes: completingSession.durationMinutes || 30,
         painScoreAfter,
         outcomeNote,
       });
@@ -250,7 +249,7 @@ export default function TherapyHallView({ session: propSession }: TherapyHallPro
                           className="w-full mt-1 text-xs"
                           onClick={() => setCompletingSession(activeSess)}
                         >
-                          ✓ Complete with PIN
+                          ✓ Complete Session
                         </Button>
                       </div>
                     ) : (
@@ -330,7 +329,7 @@ export default function TherapyHallView({ session: propSession }: TherapyHallPro
                             className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
                             onClick={() => setCompletingSession(s)}
                           >
-                            PIN Complete
+                            Complete
                           </Button>
                         </td>
                       </tr>
@@ -487,28 +486,18 @@ export default function TherapyHallView({ session: propSession }: TherapyHallPro
         </DialogContent>
       </Dialog>
 
-      {/* Complete Session with PIN Dialog */}
+      {/* Complete Session Dialog */}
       {completingSession && (
         <Dialog open={!!completingSession} onOpenChange={() => setCompletingSession(null)}>
           <DialogContent className="max-w-md" onClose={() => setCompletingSession(null)}>
             <DialogHeader>
-              <DialogTitle className="text-lg font-bold">Complete Session with PIN</DialogTitle>
+              <DialogTitle className="text-lg font-bold">Complete Therapy Session</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleCompleteSession} className="flex flex-col gap-4 mt-2" autoComplete="off" data-lpignore="true" data-1p-ignore="true">
               <div className="rounded-lg bg-muted/40 p-3 text-xs flex flex-col gap-1 border border-border">
                 <div>Patient: <strong className="text-foreground">{completingSession.patient?.nameEn || 'Patient'}</strong></div>
                 <div>Modality: <strong className="text-foreground">{completingSession.modalityCode}</strong></div>
               </div>
-
-              <Input
-                label="Therapist 4-Digit Security PIN *"
-                type="password"
-                maxLength={4}
-                required
-                placeholder="Enter PIN (Demo: 3579)"
-                value={therapistPin}
-                onChange={(e) => setTherapistPin(e.target.value)}
-              />
 
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-semibold text-muted-foreground">
@@ -535,7 +524,7 @@ export default function TherapyHallView({ session: propSession }: TherapyHallPro
 
               <div className="flex gap-3 mt-4 pt-2 border-t border-border">
                 <Button type="submit" className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold">
-                  Verify PIN &amp; Complete
+                  Complete Session
                 </Button>
                 <Button type="button" variant="outline" onClick={() => setCompletingSession(null)}>
                   Cancel

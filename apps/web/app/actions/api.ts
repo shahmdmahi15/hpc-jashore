@@ -59,21 +59,8 @@ export async function loginAction(credentials: { email: string; password: string
       email: data.user.email,
       role: data.user.role,
       displayName: data.user.displayName,
-      staffId: undefined as string | undefined,
+      staffId: data.user.id,
     };
-
-    // Find associated staff profile if available
-    try {
-      const staffList = await serverFetch<any[]>('/staff', {}, data.accessToken);
-      const matched = staffList.find(
-        (s) => s.userId === session.userId || s.role === session.role,
-      );
-      if (matched) {
-        session.staffId = matched.id;
-      }
-    } catch {
-      // fallback gracefully
-    }
 
     // Set secure HTTP-only cookies on the Next.js server for stateful sessions
     try {

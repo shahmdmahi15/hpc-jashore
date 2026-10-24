@@ -13,8 +13,8 @@ import {
   expenses,
   medicines,
   prescriptionItems,
-  staff,
   stockMoves,
+  users,
 } from '../db/schema';
 import type {
   CreateExpenseDto,
@@ -226,10 +226,10 @@ export class InventoryService {
     return this.db
       .select({
         expense: expenses,
-        approvedBy: staff,
+        approvedBy: users,
       })
       .from(expenses)
-      .leftJoin(staff, eq(expenses.approvedByStaffId, staff.id))
+      .leftJoin(users, eq(expenses.approvedByStaffId, users.id))
       .orderBy(desc(expenses.paidAt));
   }
 

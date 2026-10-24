@@ -25,7 +25,6 @@ import {
   rooms,
   sequences,
   serials,
-  staff,
   users,
   visits,
 } from '../db/schema';
@@ -629,16 +628,14 @@ export class PatientsService {
         form: patientIntakeForms,
         patient: patients,
         visit: visits,
-        doctor: staff,
-        user: users,
+        doctor: users,
         chamber: rooms,
       })
       .from(patientIntakeForms)
       .innerJoin(patients, eq(patientIntakeForms.patientId, patients.id))
       .leftJoin(visits, eq(patientIntakeForms.visitId, visits.id))
-      .leftJoin(staff, or(eq(patientIntakeForms.doctorId, staff.id), eq(patientIntakeForms.doctorId, staff.userId)))
-      .leftJoin(users, or(eq(patientIntakeForms.doctorId, users.id), eq(staff.userId, users.id)))
-      .leftJoin(rooms, or(eq(staff.chamberRoomId, rooms.id), eq(users.chamberRoomId, rooms.id)))
+      .leftJoin(users, eq(patientIntakeForms.doctorId, users.id))
+      .leftJoin(rooms, eq(users.chamberRoomId, rooms.id))
       .where(whereClause)
       .orderBy(desc(patientIntakeForms.createdAt));
 
@@ -646,11 +643,11 @@ export class PatientsService {
       ...r.form,
       patient: r.patient,
       tokenNumber: r.visit?.tokenNumber,
-      doctor: (r.doctor || r.user)
+      doctor: r.doctor
         ? {
-            id: r.user?.id || r.doctor?.id,
-            fullName: r.user?.displayName || r.doctor?.fullName || 'Doctor',
-            phone: r.user?.phone || r.doctor?.phone,
+            id: r.doctor.id,
+            fullName: r.doctor.displayName,
+            phone: r.doctor.phone,
             chamber: r.chamber ? `Room ${r.chamber.roomNumber} (${r.chamber.name})` : 'Chamber 1',
             chamberRoomNumber: r.chamber?.roomNumber,
           }
@@ -664,16 +661,14 @@ export class PatientsService {
         form: patientIntakeForms,
         patient: patients,
         visit: visits,
-        doctor: staff,
-        user: users,
+        doctor: users,
         chamber: rooms,
       })
       .from(patientIntakeForms)
       .innerJoin(patients, eq(patientIntakeForms.patientId, patients.id))
       .leftJoin(visits, eq(patientIntakeForms.visitId, visits.id))
-      .leftJoin(staff, or(eq(patientIntakeForms.doctorId, staff.id), eq(patientIntakeForms.doctorId, staff.userId)))
-      .leftJoin(users, or(eq(patientIntakeForms.doctorId, users.id), eq(staff.userId, users.id)))
-      .leftJoin(rooms, or(eq(staff.chamberRoomId, rooms.id), eq(users.chamberRoomId, rooms.id)))
+      .leftJoin(users, eq(patientIntakeForms.doctorId, users.id))
+      .leftJoin(rooms, eq(users.chamberRoomId, rooms.id))
       .where(eq(patientIntakeForms.id, id));
 
     const item = rows[0];
@@ -683,11 +678,11 @@ export class PatientsService {
       ...item.form,
       patient: item.patient,
       tokenNumber: item.visit?.tokenNumber,
-      doctor: (item.doctor || item.user)
+      doctor: item.doctor
         ? {
-            id: item.user?.id || item.doctor?.id,
-            fullName: item.user?.displayName || item.doctor?.fullName || 'Doctor',
-            phone: item.user?.phone || item.doctor?.phone,
+            id: item.doctor.id,
+            fullName: item.doctor.displayName,
+            phone: item.doctor.phone,
             chamber: item.chamber ? `Room ${item.chamber.roomNumber} (${item.chamber.name})` : 'Chamber 1',
             chamberRoomNumber: item.chamber?.roomNumber,
           }
@@ -755,56 +750,21 @@ export class PatientsService {
     const doctorRows = await this.db
       .select({
         user: users,
-        staff: staff,
         chamber: rooms,
       })
       .from(users)
-      .leftJoin(staff, eq(staff.userId, users.id))
-      .leftJoin(rooms, or(eq(users.chamberRoomId, rooms.id), eq(staff.chamberRoomId, rooms.id)))
-      .where(or(eq(users.id, effectiveDoctorId), eq(staff.id, effectiveDoctorId)));
+      .leftJoin(rooms, eq(users.chamberRoomId, rooms.id))
+      .where(eq(users.id, effectiveDoctorId));
 
-    let docItem = doctorRows[0];
+    const docItem = doctorRows[0];
     if (!docItem) {
-      const fallbackStaff = await this.db
-        .select({
-          staff: staff,
-          user: users,
-          chamber: rooms,
-        })
-        .from(staff)
-        .leftJoin(users, eq(staff.userId, users.id))
-        .leftJoin(rooms, eq(staff.chamberRoomId, rooms.id))
-        .where(eq(staff.id, effectiveDoctorId));
-      if (!fallbackStaff[0]) throw new NotFoundException('Doctor not found');
-      docItem = fallbackStaff[0] as any;
+      throw new NotFoundException('Doctor not found');
     }
 
-    const doctorName = docItem.user?.displayName || docItem.staff?.fullName || 'Doctor';
+    const doctorName = docItem.user.displayName || 'Doctor';
     const chamberNumber = docItem.chamber?.roomNumber || '101';
     const chamberName = docItem.chamber?.name || `Chamber ${chamberNumber}`;
-
-    let doctorStaffId = docItem.staff?.id;
-    if (!doctorStaffId && docItem.user) {
-      const existing = await this.db.select().from(staff).where(eq(staff.userId, docItem.user.id)).limit(1);
-      if (existing.length > 0) {
-        doctorStaffId = existing[0].id;
-      } else {
-        doctorStaffId = randomUUID();
-        await this.db.insert(staff).values({
-          id: doctorStaffId,
-          userId: docItem.user.id,
-          fullName: docItem.user.displayName,
-          role: 'doctor',
-          consultationFeePaisa: docItem.user.consultationFeePaisa ?? 50000,
-          chamberRoomId: docItem.user.chamberRoomId,
-          createdAt: now,
-          updatedAt: now,
-        });
-      }
-    }
-    if (!doctorStaffId) {
-      doctorStaffId = effectiveDoctorId;
-    }
+    const doctorStaffId = docItem.user.id;
 
     // 2. Resolve Consultation Fee & Payment
     const feeTaka = dto.feeTaka !== undefined
@@ -1031,11 +991,6 @@ export class PatientsService {
       const docUser = this.db.select().from(users).where(eq(users.id, dto.doctorId)).get();
       if (docUser) {
         doctorName = docUser.displayName;
-      } else {
-        const docStaff = this.db.select().from(staff).where(eq(staff.id, dto.doctorId)).get();
-        if (docStaff) {
-          doctorName = docStaff.fullName;
-        }
       }
     }
     if (!doctorName && actor) {

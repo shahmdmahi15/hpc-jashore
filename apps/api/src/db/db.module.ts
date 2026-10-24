@@ -490,46 +490,7 @@ export type Db = BetterSQLite3Database<typeof schema>;
             }
           } catch {}
 
-          // Ensure doctor consultation config columns in staff
-          try {
-            const staffCols = sqlite.prepare("PRAGMA table_info(staff)").all() as Array<{ name: string }>;
-            const staffColNames = new Set(staffCols.map((c) => c.name));
-            if (!staffColNames.has('consultation_fee_paisa')) {
-              sqlite.exec("ALTER TABLE staff ADD COLUMN consultation_fee_paisa INTEGER");
-            }
-            if (!staffColNames.has('follow_up_fee_paisa')) {
-              sqlite.exec("ALTER TABLE staff ADD COLUMN follow_up_fee_paisa INTEGER");
-            }
-            if (!staffColNames.has('report_fee_paisa')) {
-              sqlite.exec("ALTER TABLE staff ADD COLUMN report_fee_paisa INTEGER");
-            }
-            if (!staffColNames.has('qualifications')) {
-              sqlite.exec("ALTER TABLE staff ADD COLUMN qualifications TEXT");
-            }
-            if (!staffColNames.has('chamber_room_id')) {
-              sqlite.exec("ALTER TABLE staff ADD COLUMN chamber_room_id TEXT");
-            }
-            if (!staffColNames.has('daily_quota')) {
-              sqlite.exec("ALTER TABLE staff ADD COLUMN daily_quota INTEGER DEFAULT 40");
-            }
-            if (!staffColNames.has('slot_duration_minutes')) {
-              sqlite.exec("ALTER TABLE staff ADD COLUMN slot_duration_minutes INTEGER DEFAULT 15");
-            }
-            if (!staffColNames.has('duty_start_time')) {
-              sqlite.exec("ALTER TABLE staff ADD COLUMN duty_start_time TEXT");
-            }
-            if (!staffColNames.has('duty_end_time')) {
-              sqlite.exec("ALTER TABLE staff ADD COLUMN duty_end_time TEXT");
-            }
-            if (!staffColNames.has('available_days')) {
-              sqlite.exec("ALTER TABLE staff ADD COLUMN available_days TEXT");
-            }
-            if (!staffColNames.has('notes')) {
-              sqlite.exec("ALTER TABLE staff ADD COLUMN notes TEXT");
-            }
-          } catch {}
-
-          // Ensure doctor fees and chamber room columns directly on users table
+          // Ensure doctor configuration and fee columns directly on users table
           try {
             const userCols = sqlite.prepare("PRAGMA table_info(users)").all() as Array<{ name: string }>;
             const userColNames = new Set(userCols.map((c) => c.name));
@@ -544,6 +505,30 @@ export type Db = BetterSQLite3Database<typeof schema>;
             }
             if (!userColNames.has('chamber_room_id')) {
               sqlite.exec("ALTER TABLE users ADD COLUMN chamber_room_id TEXT");
+            }
+            if (!userColNames.has('specialization')) {
+              sqlite.exec("ALTER TABLE users ADD COLUMN specialization TEXT");
+            }
+            if (!userColNames.has('qualifications')) {
+              sqlite.exec("ALTER TABLE users ADD COLUMN qualifications TEXT");
+            }
+            if (!userColNames.has('daily_quota')) {
+              sqlite.exec("ALTER TABLE users ADD COLUMN daily_quota INTEGER DEFAULT 40");
+            }
+            if (!userColNames.has('slot_duration_minutes')) {
+              sqlite.exec("ALTER TABLE users ADD COLUMN slot_duration_minutes INTEGER DEFAULT 15");
+            }
+            if (!userColNames.has('duty_start_time')) {
+              sqlite.exec("ALTER TABLE users ADD COLUMN duty_start_time TEXT");
+            }
+            if (!userColNames.has('duty_end_time')) {
+              sqlite.exec("ALTER TABLE users ADD COLUMN duty_end_time TEXT");
+            }
+            if (!userColNames.has('available_days')) {
+              sqlite.exec("ALTER TABLE users ADD COLUMN available_days TEXT");
+            }
+            if (!userColNames.has('notes')) {
+              sqlite.exec("ALTER TABLE users ADD COLUMN notes TEXT");
             }
             if (!userColNames.has('is_approved')) {
               sqlite.exec("ALTER TABLE users ADD COLUMN is_approved INTEGER NOT NULL DEFAULT 1");
@@ -561,16 +546,19 @@ export type Db = BetterSQLite3Database<typeof schema>;
               sqlite.exec("ALTER TABLE users ADD COLUMN rejection_reason TEXT");
             }
 
-            // Sync existing staff fee and chamber data to users table for doctors
-            sqlite.exec(`
-              UPDATE users 
-              SET 
-                consultation_fee_paisa = COALESCE((SELECT consultation_fee_paisa FROM staff WHERE staff.user_id = users.id AND staff.consultation_fee_paisa IS NOT NULL LIMIT 1), users.consultation_fee_paisa, 50000),
-                follow_up_fee_paisa = COALESCE((SELECT follow_up_fee_paisa FROM staff WHERE staff.user_id = users.id AND staff.follow_up_fee_paisa IS NOT NULL LIMIT 1), users.follow_up_fee_paisa, 0),
-                report_fee_paisa = COALESCE((SELECT report_fee_paisa FROM staff WHERE staff.user_id = users.id AND staff.report_fee_paisa IS NOT NULL LIMIT 1), users.report_fee_paisa, 0),
-                chamber_room_id = COALESCE((SELECT chamber_room_id FROM staff WHERE staff.user_id = users.id AND staff.chamber_room_id IS NOT NULL LIMIT 1), users.chamber_room_id)
-              WHERE users.role = 'doctor';
-            `);
+            // Sync legacy staff fee and chamber data to users table for doctors if staff table exists
+            const hasStaff = sqlite.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='staff'").get();
+            if (hasStaff) {
+              sqlite.exec(`
+                UPDATE users 
+                SET 
+                  consultation_fee_paisa = COALESCE((SELECT consultation_fee_paisa FROM staff WHERE staff.user_id = users.id AND staff.consultation_fee_paisa IS NOT NULL LIMIT 1), users.consultation_fee_paisa, 50000),
+                  follow_up_fee_paisa = COALESCE((SELECT follow_up_fee_paisa FROM staff WHERE staff.user_id = users.id AND staff.follow_up_fee_paisa IS NOT NULL LIMIT 1), users.follow_up_fee_paisa, 0),
+                  report_fee_paisa = COALESCE((SELECT report_fee_paisa FROM staff WHERE staff.user_id = users.id AND staff.report_fee_paisa IS NOT NULL LIMIT 1), users.report_fee_paisa, 0),
+                  chamber_room_id = COALESCE((SELECT chamber_room_id FROM staff WHERE staff.user_id = users.id AND staff.chamber_room_id IS NOT NULL LIMIT 1), users.chamber_room_id)
+                WHERE users.role = 'doctor';
+              `);
+            }
           } catch (userColErr) {
             console.error('Error initializing doctor columns on users table:', userColErr);
           }
@@ -865,6 +853,15 @@ export type Db = BetterSQLite3Database<typeof schema>;
           } catch (intakeErr) {
             console.error('Error creating patient assessment, intake, and timeline tables:', intakeErr);
           }
+
+          // Safely clean up removed legacy tables
+          try {
+            sqlite.exec(`
+              DROP TABLE IF EXISTS pin_credentials;
+              DROP TABLE IF EXISTS action_grants;
+              DROP TABLE IF EXISTS staff;
+            `);
+          } catch {}
         } catch {
           // Idempotent column safety
         }

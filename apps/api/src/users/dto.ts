@@ -51,6 +51,37 @@ export class CreateUserDto {
   chamberRoomId?: string | null;
 
   @IsOptional()
+  @IsString()
+  specialization?: string;
+
+  @IsOptional()
+  @IsString()
+  qualifications?: string;
+
+  @IsOptional()
+  @IsNumber()
+  dailyQuota?: number;
+
+  @IsOptional()
+  @IsNumber()
+  slotDurationMinutes?: number;
+
+  @IsOptional()
+  @IsString()
+  dutyStartTime?: string;
+
+  @IsOptional()
+  @IsString()
+  dutyEndTime?: string;
+
+  @IsOptional()
+  availableDays?: string[] | string;
+
+  @IsOptional()
+  @IsString()
+  notes?: string;
+
+  @IsOptional()
   @IsBoolean()
   isApproved?: boolean;
 
@@ -110,6 +141,37 @@ export class UpdateUserDto {
   @IsOptional()
   @IsString()
   chamberRoomId?: string | null;
+
+  @IsOptional()
+  @IsString()
+  specialization?: string;
+
+  @IsOptional()
+  @IsString()
+  qualifications?: string;
+
+  @IsOptional()
+  @IsNumber()
+  dailyQuota?: number;
+
+  @IsOptional()
+  @IsNumber()
+  slotDurationMinutes?: number;
+
+  @IsOptional()
+  @IsString()
+  dutyStartTime?: string;
+
+  @IsOptional()
+  @IsString()
+  dutyEndTime?: string;
+
+  @IsOptional()
+  availableDays?: string[] | string;
+
+  @IsOptional()
+  @IsString()
+  notes?: string;
 
   @IsOptional()
   @IsBoolean()

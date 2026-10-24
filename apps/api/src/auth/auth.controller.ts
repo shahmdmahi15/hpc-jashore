@@ -18,8 +18,6 @@ import {
   ForgotPasswordDto,
   LoginDto,
   LogoutDto,
-  PinResetDto,
-  PinVerifyDto,
   RefreshDto,
   RegisterDto,
   ResendVerificationDto,
@@ -130,24 +128,5 @@ export class AuthController {
   @UseGuards(JwtAccessAuthGuard)
   revoke(@CurrentUser() user: RequestUser, @Param('id') id: string, @Req() req: Request) {
     return this.auth.revokeSession({ sub: user.sub, role: user.role }, id, reqMeta(req));
-  }
-
-  @Post('pin-verify')
-  @HttpCode(HttpStatus.OK)
-  async pinVerify(@Body() dto: PinVerifyDto, @Req() req: Request) {
-    const key = (req.header('idempotency-key') ?? dto.idempotencyKey ?? undefined) as string | undefined;
-    return this.auth.pinVerify(
-      { deskCode: dto.deskCode, staffId: dto.staffId, pin: dto.pin, idempotencyKey: key },
-      reqMeta(req),
-    );
-  }
-
-  @Post('pin-reset')
-  @HttpCode(HttpStatus.OK)
-  @ApiBearerAuth()
-  @UseGuards(JwtAccessAuthGuard, RolesGuard)
-  @Roles('admin')
-  pinReset(@CurrentUser() user: RequestUser, @Body() dto: PinResetDto, @Req() req: Request) {
-    return this.auth.pinReset({ sub: user.sub }, dto.staffId, dto.newPin, reqMeta(req));
   }
 }

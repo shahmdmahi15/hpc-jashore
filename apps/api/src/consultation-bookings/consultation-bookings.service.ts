@@ -15,7 +15,6 @@ import {
   rooms,
   sequences,
   serials,
-  staff,
   users,
   visits,
 } from '../db/schema';
@@ -86,13 +85,13 @@ export class ConsultationBookingsService {
       .select({
         booking: consultationBookings,
         patient: patients,
-        doctor: staff,
+        doctor: users,
         chamber: rooms,
       })
       .from(consultationBookings)
       .innerJoin(patients, eq(consultationBookings.patientId, patients.id))
-      .innerJoin(staff, eq(consultationBookings.doctorId, staff.id))
-      .leftJoin(rooms, eq(staff.chamberRoomId, rooms.id))
+      .innerJoin(users, eq(consultationBookings.doctorId, users.id))
+      .leftJoin(rooms, eq(users.chamberRoomId, rooms.id))
       .where(
         and(
           isNull(consultationBookings.deletedAt),
@@ -120,7 +119,8 @@ export class ConsultationBookingsService {
       },
       doctor: {
         id: r.doctor.id,
-        fullName: r.doctor.fullName,
+        fullName: r.doctor.displayName,
+        displayName: r.doctor.displayName,
         specialization: r.doctor.specialization,
         qualifications: r.doctor.qualifications,
         chamberRoomNumber: r.chamber?.roomNumber ?? null,
@@ -158,12 +158,12 @@ export class ConsultationBookingsService {
   async getDoctorSlots(doctorId: string, dateStr: string) {
     const docRows = await this.db
       .select({
-        doctor: staff,
+        doctor: users,
         chamber: rooms,
       })
-      .from(staff)
-      .leftJoin(rooms, eq(staff.chamberRoomId, rooms.id))
-      .where(eq(staff.id, doctorId));
+      .from(users)
+      .leftJoin(rooms, eq(users.chamberRoomId, rooms.id))
+      .where(eq(users.id, doctorId));
 
     const doc = docRows[0];
     if (!doc) throw new NotFoundException('Doctor not found');
@@ -242,7 +242,7 @@ export class ConsultationBookingsService {
     return {
       doctor: {
         id: doc.doctor.id,
-        fullName: doc.doctor.fullName,
+        fullName: doc.doctor.displayName,
         specialization: doc.doctor.specialization,
         qualifications: doc.doctor.qualifications,
         chamber: doc.chamber?.name || `Chamber ${doc.chamber?.roomNumber || ''}`,
@@ -278,7 +278,7 @@ export class ConsultationBookingsService {
     }
 
     // 2. Verify Doctor
-    const docRows = await this.db.select().from(staff).where(eq(staff.id, dto.doctorId));
+    const docRows = await this.db.select().from(users).where(eq(users.id, dto.doctorId));
     const doctor = docRows[0];
     if (!doctor) throw new NotFoundException('Doctor not found');
 
@@ -300,7 +300,7 @@ export class ConsultationBookingsService {
     const maxQuota = doctor.dailyQuota || 40;
     if (existingForDoc.length >= maxQuota) {
       throw new BadRequestException(
-        `Doctor ${doctor.fullName} has reached the maximum daily quota (${maxQuota} patients) for ${targetDate}.`,
+        `Doctor ${doctor.displayName} has reached the maximum daily quota (${maxQuota} patients) for ${targetDate}.`,
       );
     }
 
@@ -371,7 +371,7 @@ export class ConsultationBookingsService {
       feeTaka: Math.round(feePaisa / 100),
       patientName: patient.nameEn,
       patientPhone: patient.phone,
-      doctorName: doctor.fullName,
+      doctorName: doctor.displayName,
     };
 
     // Broadcast realtime event
@@ -404,11 +404,11 @@ export class ConsultationBookingsService {
       .select({
         booking: consultationBookings,
         patient: patients,
-        doctor: staff,
+        doctor: users,
       })
       .from(consultationBookings)
       .innerJoin(patients, eq(consultationBookings.patientId, patients.id))
-      .innerJoin(staff, eq(consultationBookings.doctorId, staff.id))
+      .innerJoin(users, eq(consultationBookings.doctorId, users.id))
       .where(eq(consultationBookings.id, bookingId));
 
     const item = rows[0];
@@ -535,13 +535,13 @@ export class ConsultationBookingsService {
       .select({
         booking: consultationBookings,
         patient: patients,
-        doctor: staff,
+        doctor: users,
         chamber: rooms,
       })
       .from(consultationBookings)
       .innerJoin(patients, eq(consultationBookings.patientId, patients.id))
-      .innerJoin(staff, eq(consultationBookings.doctorId, staff.id))
-      .leftJoin(rooms, eq(staff.chamberRoomId, rooms.id))
+      .innerJoin(users, eq(consultationBookings.doctorId, users.id))
+      .leftJoin(rooms, eq(users.chamberRoomId, rooms.id))
       .where(eq(consultationBookings.id, bookingId));
 
     const item = rows[0];
@@ -619,7 +619,7 @@ export class ConsultationBookingsService {
       patientId: item.patient.id,
       patientName: item.patient.nameEn,
       doctorId: item.doctor.id,
-      doctorName: item.doctor.fullName,
+      doctorName: item.doctor.displayName,
       chamber: item.chamber?.name || `Chamber ${item.chamber?.roomNumber || ''}`,
       status: 'in_queue',
       inQueueAt: now,

@@ -4,7 +4,7 @@ import { asc, desc, eq, isNull, or } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
 import { AuditService } from '../audit/audit.service';
 import { DB, type Db } from '../db/db.module';
-import { refreshSessions, rooms, staff, users } from '../db/schema';
+import { refreshSessions, rooms, users } from '../db/schema';
 import { RealtimeService } from '../realtime/realtime.service';
 import { EventsGateway } from '../realtime/events.gateway';
 import type { CreateUserDto, UpdateUserDto } from './dto';
@@ -105,12 +105,6 @@ export class UsersService {
       })
       .where(eq(users.id, id));
 
-    // Also activate staff row if exists
-    await this.db
-      .update(staff)
-      .set({ isActive: 1, updatedAt: now })
-      .where(or(eq(staff.userId, id), eq(staff.id, id)));
-
     const after = await this.get(id);
 
     this.realtime.publish('user.approved', { userId: id, approvedBy: actor.sub, approvedAt: now, user: after });
@@ -151,12 +145,6 @@ export class UsersService {
         updatedAt: now,
       })
       .where(eq(users.id, id));
-
-    // Deactivate staff row if exists
-    await this.db
-      .update(staff)
-      .set({ isActive: 0, updatedAt: now })
-      .where(or(eq(staff.userId, id), eq(staff.id, id)));
 
     // Revoke any active sessions immediately
     await this.db
@@ -221,6 +209,16 @@ export class UsersService {
       followUpFeePaisa,
       reportFeePaisa,
       chamberRoomId: dto.chamberRoomId?.trim() || null,
+      specialization: dto.specialization?.trim() || (dto.role === 'doctor' ? 'Consultant' : null),
+      qualifications: dto.qualifications?.trim() || null,
+      dailyQuota: dto.dailyQuota ?? 40,
+      slotDurationMinutes: dto.slotDurationMinutes ?? 15,
+      dutyStartTime: dto.dutyStartTime ?? '09:00 AM',
+      dutyEndTime: dto.dutyEndTime ?? '05:00 PM',
+      availableDays: dto.availableDays
+        ? (Array.isArray(dto.availableDays) ? JSON.stringify(dto.availableDays) : dto.availableDays)
+        : JSON.stringify(DEFAULT_DAYS),
+      notes: dto.notes ?? null,
       isApproved,
       approvalStatus,
       approvedAt,
@@ -231,50 +229,15 @@ export class UsersService {
     };
     await this.db.insert(users).values(row);
 
-    // If role is doctor, automatically sync corresponding staff record for compatibility
-    let createdDoctorStaff: any = null;
-    if (dto.role === 'doctor') {
-      const staffRow = {
-        id: row.id,
-        userId: row.id,
-        fullName: row.displayName,
-        role: 'doctor' as const,
-        phone: row.phone,
-        specialization: null,
-        qualifications: null,
-        feeOverridePaisa: consultationFeePaisa,
-        consultationFeePaisa,
-        followUpFeePaisa,
-        reportFeePaisa,
-        chamberRoomId: row.chamberRoomId,
-        dailyQuota: 40,
-        slotDurationMinutes: 15,
-        dutyStartTime: '09:00 AM',
-        dutyEndTime: '05:00 PM',
-        availableDays: JSON.stringify(DEFAULT_DAYS),
-        isActive: 1,
-        createdAt: now,
-        updatedAt: now,
-      };
-      await this.db.insert(staff).values(staffRow);
-      createdDoctorStaff = {
-        ...staffRow,
-        consultationFeeTaka: Math.round(consultationFeePaisa / 100),
-        followUpFeeTaka: Math.round(followUpFeePaisa / 100),
-        reportFeeTaka: Math.round(reportFeePaisa / 100),
-        availableDays: DEFAULT_DAYS,
-      };
-    }
-
     const sanitized = sanitize(row);
 
     // Broadcast realtime synchronization
     this.realtime.publish('user.created', sanitized);
     this.gateway?.emit('clinic:global', 'user.created', sanitized);
 
-    if (createdDoctorStaff) {
-      this.realtime.publish('doctor.created', createdDoctorStaff);
-      this.gateway?.emit('clinic:global', 'doctor.created', createdDoctorStaff);
+    if (dto.role === 'doctor') {
+      this.realtime.publish('doctor.created', sanitized);
+      this.gateway?.emit('clinic:global', 'doctor.created', sanitized);
     }
 
     await this.audit.log({
@@ -347,49 +310,25 @@ export class UsersService {
     if (dto.rejectionReason !== undefined) {
       patch.rejectionReason = dto.rejectionReason;
     }
+    if (dto.specialization !== undefined) patch.specialization = dto.specialization?.trim() || null;
+    if (dto.qualifications !== undefined) patch.qualifications = dto.qualifications?.trim() || null;
+    if (dto.dailyQuota !== undefined) patch.dailyQuota = dto.dailyQuota;
+    if (dto.slotDurationMinutes !== undefined) patch.slotDurationMinutes = dto.slotDurationMinutes;
+    if (dto.dutyStartTime !== undefined) patch.dutyStartTime = dto.dutyStartTime;
+    if (dto.dutyEndTime !== undefined) patch.dutyEndTime = dto.dutyEndTime;
+    if (dto.availableDays !== undefined) {
+      patch.availableDays = Array.isArray(dto.availableDays)
+        ? JSON.stringify(dto.availableDays)
+        : dto.availableDays;
+    }
+    if (dto.notes !== undefined) patch.notes = dto.notes;
 
     await this.db.update(users).set(patch).where(eq(users.id, id));
     const after = await this.get(id);
 
-    // Keep linked staff record synced
-    const linkedStaff = await this.db.select().from(staff).where(or(eq(staff.userId, id), eq(staff.id, id)));
-    if (linkedStaff.length > 0) {
-      const staffPatch: Partial<typeof staff.$inferInsert> = { updatedAt: now };
-      if (patch.displayName) staffPatch.fullName = patch.displayName;
-      if (patch.phone !== undefined) staffPatch.phone = patch.phone;
-      if (patch.isActive !== undefined) staffPatch.isActive = patch.isActive;
-      if (patch.role) staffPatch.role = patch.role;
-      if (patch.consultationFeePaisa !== undefined) {
-        staffPatch.consultationFeePaisa = patch.consultationFeePaisa;
-        staffPatch.feeOverridePaisa = patch.consultationFeePaisa;
-      }
-      if (patch.followUpFeePaisa !== undefined) staffPatch.followUpFeePaisa = patch.followUpFeePaisa;
-      if (patch.reportFeePaisa !== undefined) staffPatch.reportFeePaisa = patch.reportFeePaisa;
-      if (patch.chamberRoomId !== undefined) staffPatch.chamberRoomId = patch.chamberRoomId;
-
-      await this.db.update(staff).set(staffPatch).where(or(eq(staff.userId, id), eq(staff.id, id)));
-
-      this.realtime.publish('doctor.updated', { id, userId: id, ...staffPatch });
-      this.gateway?.emit('clinic:global', 'doctor.updated', { id, userId: id, ...staffPatch });
-    } else if (dto.role === 'doctor' || after.role === 'doctor') {
-      const staffRow = {
-        id,
-        userId: id,
-        fullName: after.displayName,
-        role: 'doctor' as const,
-        phone: after.phone,
-        consultationFeePaisa: after.consultationFeePaisa ?? 50000,
-        feeOverridePaisa: after.consultationFeePaisa ?? 50000,
-        followUpFeePaisa: after.followUpFeePaisa ?? 0,
-        reportFeePaisa: after.reportFeePaisa ?? 0,
-        chamberRoomId: after.chamberRoomId,
-        isActive: after.isActive,
-        createdAt: now,
-        updatedAt: now,
-      };
-      await this.db.insert(staff).values(staffRow);
-      this.realtime.publish('doctor.created', staffRow);
-      this.gateway?.emit('clinic:global', 'doctor.created', staffRow);
+    if (after.role === 'doctor' || dto.role === 'doctor') {
+      this.realtime.publish('doctor.updated', after);
+      this.gateway?.emit('clinic:global', 'doctor.updated', after);
     }
 
     // Broadcast user update
@@ -415,16 +354,14 @@ export class UsersService {
     const before = await this.get(id);
     const now = new Date().toISOString();
     await this.db.update(users).set({ isActive: 0, updatedAt: now }).where(eq(users.id, id));
-    const linked = await this.db.select().from(staff).where(eq(staff.userId, id));
-    for (const s of linked) {
-      await this.db.update(staff).set({ isActive: 0, updatedAt: now }).where(eq(staff.id, s.id));
-    }
 
     // Broadcast user disable
     this.realtime.publish('user.disabled', { id, isActive: 0 });
     this.gateway?.emit('clinic:global', 'user.disabled', { id, isActive: 0 });
-    this.realtime.publish('doctor.updated', { userId: id, isActive: 0 });
-    this.gateway?.emit('clinic:global', 'doctor.updated', { userId: id, isActive: 0 });
+    if (before.role === 'doctor') {
+      this.realtime.publish('doctor.updated', { id, userId: id, isActive: 0 });
+      this.gateway?.emit('clinic:global', 'doctor.updated', { id, userId: id, isActive: 0 });
+    }
 
     await this.audit.log({
       actorUserId: actor.sub,

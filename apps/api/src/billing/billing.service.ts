@@ -17,7 +17,7 @@ import {
   patients,
   payments,
   sequences,
-  staff,
+  users,
   visits,
 } from '../db/schema';
 import { EventsGateway } from '../realtime/events.gateway';
@@ -63,31 +63,25 @@ export class BillingService {
   }
 
   private async resolveStaffId(staffIdOrUserId: string): Promise<string> {
-    const directStaff = await this.db
-      .select({ id: staff.id })
-      .from(staff)
-      .where(eq(staff.id, staffIdOrUserId));
-    if (directStaff[0]) return directStaff[0].id;
-
-    const byUser = await this.db
-      .select({ id: staff.id })
-      .from(staff)
-      .where(eq(staff.userId, staffIdOrUserId));
-    if (byUser[0]) return byUser[0].id;
+    const directUser = await this.db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.id, staffIdOrUserId));
+    if (directUser[0]) return directUser[0].id;
 
     const anyCashier = await this.db
-      .select({ id: staff.id })
-      .from(staff)
-      .where(and(eq(staff.role, 'cashier'), eq(staff.isActive, 1)))
+      .select({ id: users.id })
+      .from(users)
+      .where(and(eq(users.role, 'cashier'), eq(users.isActive, 1)))
       .limit(1);
     if (anyCashier[0]) return anyCashier[0].id;
 
-    const anyStaff = await this.db
-      .select({ id: staff.id })
-      .from(staff)
-      .where(eq(staff.isActive, 1))
+    const anyUser = await this.db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.isActive, 1))
       .limit(1);
-    return anyStaff[0]?.id ?? staffIdOrUserId;
+    return anyUser[0]?.id ?? staffIdOrUserId;
   }
 
   async createBill(
@@ -357,11 +351,11 @@ export class BillingService {
       .select({
         bill: bills,
         patient: patients,
-        cashier: staff,
+        cashier: users,
       })
       .from(bills)
       .innerJoin(patients, eq(bills.patientId, patients.id))
-      .leftJoin(staff, eq(bills.cashierStaffId, staff.id))
+      .leftJoin(users, eq(bills.cashierStaffId, users.id))
       .where(eq(bills.id, id));
 
     const record = billRows[0];
@@ -379,7 +373,7 @@ export class BillingService {
         nameBn: record.patient.nameBn,
         phone: record.patient.phone,
       },
-      cashier: record.cashier ? { id: record.cashier.id, fullName: record.cashier.fullName } : null,
+      cashier: record.cashier ? { id: record.cashier.id, fullName: record.cashier.displayName } : null,
       items,
       payments: paymentRecords,
       printSpecs: {
@@ -414,11 +408,11 @@ export class BillingService {
       .select({
         bill: bills,
         patient: patients,
-        cashier: staff,
+        cashier: users,
       })
       .from(bills)
       .innerJoin(patients, eq(bills.patientId, patients.id))
-      .leftJoin(staff, eq(bills.cashierStaffId, staff.id))
+      .leftJoin(users, eq(bills.cashierStaffId, users.id))
       .orderBy(desc(bills.createdAt))
       .limit(limit);
 
@@ -431,7 +425,7 @@ export class BillingService {
         nameBn: r.patient.nameBn,
         phone: r.patient.phone,
       },
-      cashier: r.cashier ? { id: r.cashier.id, fullName: r.cashier.fullName } : null,
+      cashier: r.cashier ? { id: r.cashier.id, fullName: r.cashier.displayName } : null,
     }));
   }
 
@@ -648,15 +642,15 @@ export class BillingService {
     const rows = await this.db
       .select({
         drawer: cashDrawers,
-        cashier: staff,
+        cashier: users,
       })
       .from(cashDrawers)
-      .innerJoin(staff, eq(cashDrawers.cashierStaffId, staff.id))
+      .innerJoin(users, eq(cashDrawers.cashierStaffId, users.id))
       .orderBy(desc(cashDrawers.openedAt));
 
     return rows.map((r) => ({
       ...r.drawer,
-      cashierName: r.cashier.fullName,
+      cashierName: r.cashier.displayName,
     }));
   }
 }

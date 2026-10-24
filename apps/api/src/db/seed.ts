@@ -29,7 +29,6 @@ async function main() {
 
   const tables = [
     'audit_logs',
-    'action_grants',
     'prescription_items',
     'prescriptions',
     'consultations',
@@ -53,9 +52,7 @@ async function main() {
     'medicines',
     'inventory_items',
     'shifts',
-    'pin_credentials',
     'refresh_sessions',
-    'staff',
     'users',
     'desks',
     'rooms',
@@ -86,7 +83,6 @@ async function main() {
   console.log('   Status: Active (isActive: 1)');
 
   const userId = randomUUID();
-  const staffId = randomUUID();
   const passwordHash = bcrypt.hashSync('Iliket90@#$abc', 10);
 
   // 1. Create User: isActive = 1 (Active, direct login enabled)
@@ -96,27 +92,18 @@ async function main() {
     passwordHash,
     role: 'admin',
     displayName: 'Shah Md. Mahi',
-    isActive: 1,
-    mustChangePassword: 0,
-    createdAt: now(),
-    updatedAt: now(),
-  });
-
-  // 2. Create linked Staff record with Whatsapp number
-  await db.insert(schema.staff).values({
-    id: staffId,
-    userId: userId,
-    fullName: 'Shah Md. Mahi',
-    role: 'admin',
     phone: '+8801757290258',
     specialization: 'System Administrator',
-    feeOverridePaisa: null,
     isActive: 1,
+    mustChangePassword: 0,
+    isApproved: 1,
+    approvalStatus: 'approved',
+    approvedAt: now(),
     createdAt: now(),
     updatedAt: now(),
   });
 
-  // 3. Operational Clinic Desks
+  // 2. Operational Clinic Desks
   const desksToSeed = [
     { id: 'reception-1', code: 'REC-01', name: 'Reception Counter 1', type: 'reception' as const },
     { id: 'therapy-1', code: 'THP-01', name: 'Therapy Hall 1', type: 'therapy' as const },

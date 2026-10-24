@@ -19,15 +19,11 @@ import { MailService } from '../mail/mail.service';
 import { RealtimeService } from '../realtime/realtime.service';
 import { EventsGateway } from '../realtime/events.gateway';
 import {
-  actionGrants,
   desks,
-  pinCredentials,
   refreshSessions,
-  staff,
   users,
   type Role,
 } from '../db/schema';
-import { validatePinPolicy } from './pin.util';
 import { hashToken } from './token.util';
 import type { RegisterDto, ResetPasswordDto, VerifyEmailDto } from './dto';
 
@@ -102,10 +98,6 @@ export class AuthService {
       );
     }
 
-    const staffRow = (
-      await this.db.select().from(staff).where(eq(staff.userId, user.id))
-    )[0];
-
     const sid = randomUUID();
     const refreshToken = await this.jwt.signAsync(
       { sid, sub: user.id, type: 'refresh' },
@@ -143,20 +135,19 @@ export class AuthService {
     return {
       accessToken,
       refreshToken,
-      user: this.publicUser(user, staffRow?.id ?? null),
+      user: this.publicUser(user),
     };
   }
 
   private publicUser(
     user: typeof users.$inferSelect,
-    staffId: string | null,
   ) {
     return {
       id: user.id,
       email: user.email,
       role: user.role,
       displayName: user.displayName,
-      staffId,
+      staffId: user.id,
       mustChangePassword: user.mustChangePassword === 1,
       isApproved: user.isApproved === 1,
       approvalStatus: user.approvalStatus ?? 'approved',
@@ -185,10 +176,7 @@ export class AuthService {
     if (user.isApproved !== 1 || user.approvalStatus !== 'approved') {
       throw new ForbiddenException('Account pending approval or access revoked');
     }
-    const staffRow = (
-      await this.db.select().from(staff).where(eq(staff.userId, user.id))
-    )[0];
-    return this.publicUser(user, staffRow?.id ?? null);
+    return this.publicUser(user);
   }
 
   // Rotates a refresh token: revokes the old session row, inserts the next.
@@ -238,9 +226,6 @@ export class AuthService {
     if (user.isApproved !== 1 || user.approvalStatus !== 'approved') {
       throw new ForbiddenException('Account pending approval or access revoked');
     }
-    const staffRow = (
-      await this.db.select().from(staff).where(eq(staff.userId, user.id))
-    )[0];
 
     const nextSid = randomUUID();
     const nextRefresh = await this.jwt.signAsync(
@@ -271,7 +256,7 @@ export class AuthService {
     return {
       accessToken: await this.accessTokenFor(nextSid),
       refreshToken: nextRefresh,
-      user: this.publicUser(user, staffRow?.id ?? null),
+      user: this.publicUser(user),
     };
   }
 
@@ -358,234 +343,6 @@ export class AuthService {
     return { ok: true };
   }
 
-  // --- Desk PIN ---------------------------------------------------------------
-
-  async pinVerify(
-    input: {
-      deskCode: string;
-      staffId: string;
-      pin: string;
-      idempotencyKey?: string;
-    },
-    meta: ReqMeta,
-  ) {
-    const deskRows = await this.db
-      .select()
-      .from(desks)
-      .where(eq(desks.code, input.deskCode));
-    const desk = deskRows[0];
-    if (!desk || desk.isActive !== 1) {
-      throw new BadRequestException('Unknown or inactive desk');
-    }
-    const staffRows = await this.db
-      .select()
-      .from(staff)
-      .where(eq(staff.id, input.staffId));
-    const member = staffRows[0];
-    if (!member || member.isActive !== 1) {
-      throw new BadRequestException('Unknown or inactive staff');
-    }
-    if (member.userId) {
-      const [u] = await this.db.select().from(users).where(eq(users.id, member.userId));
-      if (u && (u.isApproved !== 1 || u.approvalStatus !== 'approved')) {
-        throw new ForbiddenException('Staff account is pending administrator approval / অ্যাডমিন অনুমোদনের অপেক্ষায় রয়েছে');
-      }
-    }
-
-    // Idempotent retry: same key returns a fresh short-lived JWT for the same
-    // grant (same jti), with no counter changes — safe against double-taps.
-    if (input.idempotencyKey) {
-      const prior = await this.db
-        .select()
-        .from(actionGrants)
-        .where(eq(actionGrants.idempotencyKey, input.idempotencyKey));
-      const hit = prior[0];
-      if (hit) {
-        const remainingMs =
-          new Date(hit.expiresAt).getTime() - Date.now();
-        if (remainingMs <= 0) {
-          throw new UnauthorizedException('Grant expired — verify PIN again');
-        }
-        const staffHit = (
-          await this.db.select().from(staff).where(eq(staff.id, hit.staffId))
-        )[0];
-        const replayToken = await this.jwt.signAsync(
-          {
-            jti: hit.id,
-            staffId: hit.staffId,
-            deskId: hit.deskId,
-            deskCode: desk.code,
-            scope: hit.scope,
-            type: 'grant',
-          },
-          {
-            secret: this.config.getOrThrow<string>('jwt.grantSecret'),
-            expiresIn: Math.floor(remainingMs / 1000),
-          },
-        );
-        return {
-          grantToken: replayToken,
-          expiresAt: hit.expiresAt,
-          staff: {
-            id: hit.staffId,
-            fullName: staffHit?.fullName ?? 'unknown',
-            role: staffHit?.role ?? 'unknown',
-          },
-          desk: { id: desk.id, code: desk.code, type: desk.type },
-          idempotencyKey: hit.idempotencyKey,
-          replayed: true,
-        };
-      }
-    }
-
-    const credRows = await this.db
-      .select()
-      .from(pinCredentials)
-      .where(eq(pinCredentials.staffId, member.id));
-    const cred = credRows[0];
-    if (cred?.lockedUntil && new Date(cred.lockedUntil).getTime() > Date.now()) {
-      throw new HttpException('PIN locked — try again later', HttpStatus.LOCKED);
-    }
-    const ok = cred
-      ? await bcrypt.compare(input.pin, cred.pinHash)
-      : false;
-    if (!ok) {
-      const failed = (cred?.failedAttempts ?? 0) + 1;
-      const locked = failed >= FAILED_LIMIT;
-      if (cred) {
-        await this.db
-          .update(pinCredentials)
-          .set({
-            failedAttempts: failed,
-            lockedUntil: locked
-              ? new Date(Date.now() + LOCK_MS).toISOString()
-              : null,
-          })
-          .where(eq(pinCredentials.staffId, member.id));
-      }
-      await this.audit.log({
-        deskId: desk.id,
-        pinStaffId: member.id,
-        action: locked ? 'auth.pin_locked' : 'auth.pin_failed',
-        entity: 'staff',
-        entityId: member.id,
-        after: { failedAttempts: failed },
-        ip: meta.ip,
-        requestId: meta.requestId,
-      });
-      if (locked) throw new HttpException('Too many wrong PINs — locked 15 min', HttpStatus.LOCKED);
-      throw new UnauthorizedException('Wrong PIN');
-    }
-
-    await this.db
-      .update(pinCredentials)
-      .set({ failedAttempts: 0, lockedUntil: null })
-      .where(eq(pinCredentials.staffId, member.id));
-
-    const jti = randomUUID();
-    const issuedAt = Date.now();
-    const ttl = this.config.get<number>('jwt.grantTtlSeconds') ?? 60;
-    const expiresAt = new Date(issuedAt + ttl * 1000).toISOString();
-    const idempotencyKey = input.idempotencyKey ?? randomUUID();
-    const row = {
-      id: jti,
-      staffId: member.id,
-      deskId: desk.id,
-      scope: 'desk:action' as const,
-      issuedAt: new Date(issuedAt).toISOString(),
-      expiresAt,
-      usedAt: null,
-      idempotencyKey,
-    };
-    await this.db.insert(actionGrants).values(row);
-    await this.audit.log({
-      actorRole: member.role,
-      deskId: desk.id,
-      pinStaffId: member.id,
-      action: 'auth.pin_verify',
-      entity: 'staff',
-      entityId: member.id,
-      after: { deskCode: desk.code, jti },
-      ip: meta.ip,
-      requestId: meta.requestId,
-    });
-
-    const grantToken = await this.jwt.signAsync(
-      {
-        jti,
-        staffId: member.id,
-        deskId: desk.id,
-        deskCode: desk.code,
-        scope: 'desk:action',
-        type: 'grant',
-      },
-      {
-        secret: this.config.getOrThrow<string>('jwt.grantSecret'),
-        expiresIn: ttl,
-      },
-    );
-    return {
-      grantToken,
-      expiresAt,
-      staff: { id: member.id, fullName: member.fullName, role: member.role },
-      desk: { id: desk.id, code: desk.code, type: desk.type },
-      idempotencyKey,
-      replayed: false,
-    };
-  }
-
-  async pinReset(
-    actor: { sub: string },
-    staffId: string,
-    newPin: string,
-    meta: ReqMeta,
-  ) {
-    const policyError = validatePinPolicy(newPin);
-    if (policyError) throw new BadRequestException(policyError);
-    const staffRows = await this.db
-      .select()
-      .from(staff)
-      .where(eq(staff.id, staffId));
-    if (!staffRows[0]) throw new BadRequestException('Unknown staff');
-    const hash = await bcrypt.hash(newPin, 10);
-    const existing = await this.db
-      .select()
-      .from(pinCredentials)
-      .where(eq(pinCredentials.staffId, staffId));
-    if (existing.length > 0) {
-      await this.db
-        .update(pinCredentials)
-        .set({
-          pinHash: hash,
-          failedAttempts: 0,
-          lockedUntil: null,
-          updatedAt: new Date().toISOString(),
-          updatedBy: actor.sub,
-        })
-        .where(eq(pinCredentials.staffId, staffId));
-    } else {
-      await this.db.insert(pinCredentials).values({
-        staffId,
-        pinHash: hash,
-        failedAttempts: 0,
-        lockedUntil: null,
-        updatedAt: new Date().toISOString(),
-        updatedBy: actor.sub,
-      });
-    }
-    await this.audit.log({
-      actorUserId: actor.sub,
-      actorRole: 'admin',
-      pinStaffId: staffId,
-      action: 'auth.pin_reset',
-      entity: 'staff',
-      entityId: staffId,
-      ip: meta.ip,
-      requestId: meta.requestId,
-    });
-    return { ok: true };
-  }
-
   // --- Registration & Email Verification & Password Reset ---
 
   async register(dto: RegisterDto, meta: ReqMeta) {
@@ -606,6 +363,7 @@ export class AuthService {
       passwordHash,
       role,
       displayName: dto.displayName.trim(),
+      phone: dto.phone?.trim() ?? null,
       isActive: 0, // Unverified until verified via email
       mustChangePassword: 0,
       isApproved: 0,
@@ -616,19 +374,6 @@ export class AuthService {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });
-
-    if (dto.phone) {
-      await this.db.insert(staff).values({
-        id: randomUUID(),
-        userId,
-        fullName: dto.displayName.trim(),
-        role: (['admin', 'doctor', 'handler', 'cashier', 'receptionist'].includes(role) ? role : 'receptionist') as Role,
-        phone: dto.phone.trim(),
-        isActive: 0,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      });
-    }
 
     // Trigger realtime notification to admin dashboard
     this.realtime?.publish('user.registered', {
@@ -766,14 +511,6 @@ export class AuthService {
           updatedAt: new Date().toISOString(),
         })
         .where(eq(users.id, user.id));
-
-      await this.db
-        .update(staff)
-        .set({
-          isActive: 1,
-          updatedAt: new Date().toISOString(),
-        })
-        .where(eq(staff.userId, user.id));
 
       await this.audit.log({
         actorUserId: user.id,
