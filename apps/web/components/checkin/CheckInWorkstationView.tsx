@@ -65,6 +65,8 @@ import {
 import { searchPatientsAction, type PatientRecord } from '../../lib/actions/patients';
 import { deleteTherapyBookingAction } from '../../lib/actions/therapy-slots';
 import { CreatePatientDialog } from '../patient/CreatePatientDialog';
+import { PatientIntakeFormModal } from '../patient/PatientIntakeFormModal';
+import { PatientTimelineModal } from '../patient/PatientTimelineModal';
 
 // Bengali digit formatter helper
 function toBnNum(num: number | string | null | undefined): string {
@@ -137,6 +139,9 @@ export function CheckInWorkstationView() {
 
   // Dialogs
   const [isCreatePatientOpen, setIsCreatePatientOpen] = useState(false);
+  const [isIntakeFormOpen, setIsIntakeFormOpen] = useState(false);
+  const [isTimelineOpen, setIsTimelineOpen] = useState(false);
+  const [timelinePatient, setTimelinePatient] = useState<{ id: string; name?: string } | null>(null);
   const [slipModalData, setSlipModalData] = useState<{
     tokenNumber: number;
     serialNumber?: number | null;
@@ -667,6 +672,32 @@ export function CheckInWorkstationView() {
                     <span>ফোন: <strong className="text-foreground">{selectedPatient.phone}</strong></span>
                     <span>লিঙ্গ: <strong className="text-foreground capitalize">{selectedPatient.gender}</strong></span>
                     {selectedPatient.ageYears && <span>বয়স: <strong className="text-foreground">{toBnNum(selectedPatient.ageYears)}</strong></span>}
+                  </div>
+
+                  {/* Quick Patient Actions: Intake Form & Timeline */}
+                  <div className="pt-2 flex flex-wrap items-center gap-2 border-t border-emerald-500/20">
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => setIsIntakeFormOpen(true)}
+                      className="h-7 px-2.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white gap-1.5 rounded-lg shadow-2xs"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>{isBn ? 'রোগীর প্রাথমিক তথ্য ফরম' : 'Patient Intake Form'}</span>
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setTimelinePatient({ id: selectedPatient.id, name: selectedPatient.nameBn || selectedPatient.nameEn });
+                        setIsTimelineOpen(true);
+                      }}
+                      className="h-7 px-2.5 text-xs font-medium border-border/80 gap-1.5 rounded-lg text-foreground hover:bg-muted/40"
+                    >
+                      <Clock className="w-3.5 h-3.5 text-muted-foreground" />
+                      <span>{isBn ? 'টাইমলাইন' : 'Timeline'}</span>
+                    </Button>
                   </div>
                 </div>
               ) : (
@@ -1247,27 +1278,45 @@ export function CheckInWorkstationView() {
                           {new Date(v.checkedInAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                         </td>
                         <td className="py-2.5 px-3 text-right">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() =>
-                              setSlipModalData({
-                                tokenNumber: v.tokenNumber,
-                                patientName: isBn ? v.patient?.nameBn || v.patient?.nameEn : v.patient?.nameEn,
-                                mrn: v.patient?.mrn,
-                                destination: v.currentLocation,
-                                toldTime: v.toldTime,
-                                punctualityStatus: v.punctualityStatus,
-                                delayMinutes: v.delayMinutes,
-                                date: v.visitDate,
-                                time: v.checkedInAt,
-                              })
-                            }
-                            className="h-7 px-2 text-[10px] gap-1"
-                          >
-                            <Printer className="w-3 h-3" />
-                            <span>{isBn ? 'স্লিপ' : 'Slip'}</span>
-                          </Button>
+                          <div className="flex items-center justify-end gap-1.5">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => {
+                                setTimelinePatient({
+                                  id: v.patientId || v.patient?.id,
+                                  name: isBn ? v.patient?.nameBn || v.patient?.nameEn : v.patient?.nameEn,
+                                });
+                                setIsTimelineOpen(true);
+                              }}
+                              className="h-7 px-2 text-[10px] gap-1 text-muted-foreground hover:text-foreground"
+                              title={isBn ? 'রোগীর টাইমলাইন দেখুন' : 'View Patient Timeline'}
+                            >
+                              <Clock className="w-3 h-3 text-emerald-500" />
+                              <span>{isBn ? 'টাইমলাইন' : 'Timeline'}</span>
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() =>
+                                setSlipModalData({
+                                  tokenNumber: v.tokenNumber,
+                                  patientName: isBn ? v.patient?.nameBn || v.patient?.nameEn : v.patient?.nameEn,
+                                  mrn: v.patient?.mrn,
+                                  destination: v.currentLocation,
+                                  toldTime: v.toldTime,
+                                  punctualityStatus: v.punctualityStatus,
+                                  delayMinutes: v.delayMinutes,
+                                  date: v.visitDate,
+                                  time: v.checkedInAt,
+                                })
+                              }
+                              className="h-7 px-2 text-[10px] gap-1"
+                            >
+                              <Printer className="w-3 h-3" />
+                              <span>{isBn ? 'স্লিপ' : 'Slip'}</span>
+                            </Button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -1358,6 +1407,28 @@ export function CheckInWorkstationView() {
           </DialogContent>
         </Dialog>
       )}
+      {/* PATIENT INTAKE FORM MODAL */}
+      <PatientIntakeFormModal
+        open={isIntakeFormOpen}
+        onOpenChange={setIsIntakeFormOpen}
+        patient={selectedPatient}
+        onSuccess={() => {
+          loadData();
+          toast.success(
+            isBn
+              ? 'রোগীর প্রাথমিক তথ্য সংরক্ষিত হয়েছে এবং ক্যাশিয়ারের কাছে পাঠানো হয়েছে!'
+              : 'Intake form saved & forwarded to cashier successfully!'
+          );
+        }}
+      />
+
+      {/* PATIENT TIMELINE MODAL */}
+      <PatientTimelineModal
+        open={isTimelineOpen}
+        onOpenChange={setIsTimelineOpen}
+        patientId={timelinePatient?.id}
+        patientName={timelinePatient?.name}
+      />
     </div>
   );
 }

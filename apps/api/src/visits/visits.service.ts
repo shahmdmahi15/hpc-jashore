@@ -15,7 +15,9 @@ import {
   consultations,
   dues,
   modalities,
+  patientIntakeForms,
   patients,
+  patientTimelineEvents,
   prescriptions,
   rooms,
   sequences,
@@ -23,6 +25,7 @@ import {
   staff,
   therapySessions,
   therapySlotBookings,
+  users,
   visits,
   type PunctualityStatus,
 } from '../db/schema';
@@ -425,10 +428,14 @@ export class VisitsService {
   }
 
   async callNext(doctorId: string, serialId?: string, dto?: CallSerialDto) {
-    return this.callSerial(doctorId, serialId, dto);
+    return this.callSerial(doctorId, serialId, dto, false);
   }
 
-  async callSerial(doctorId: string, serialId?: string, dto?: CallSerialDto) {
+  async recallSerial(doctorId: string, serialId: string, dto?: CallSerialDto) {
+    return this.callSerial(doctorId, serialId, dto, true);
+  }
+
+  async callSerial(doctorId: string, serialId?: string, dto?: CallSerialDto, isRecall = false) {
     const today = todayDateString();
     let targetSerial;
 
@@ -463,6 +470,19 @@ export class VisitsService {
       .set({ status: 'in_consult', currentLocation: 'chamber', updatedAt: now })
       .where(eq(visits.id, targetSerial.visitId));
 
+    const visitRows = await this.db
+      .select()
+      .from(visits)
+      .where(eq(visits.id, targetSerial.visitId));
+    const visit = visitRows[0];
+
+    if (visit?.consultationBookingId) {
+      await this.db
+        .update(consultationBookings)
+        .set({ status: 'calling', updatedAt: now })
+        .where(eq(consultationBookings.id, visit.consultationBookingId));
+    }
+
     const patientRows = await this.db
       .select()
       .from(patients)
@@ -472,30 +492,223 @@ export class VisitsService {
     const effectiveDoctorId = doctorId || targetSerial.doctorId;
 
     const doctorRows = await this.db
-      .select()
+      .select({
+        staff: staff,
+        user: users,
+        chamber: rooms,
+      })
       .from(staff)
+      .leftJoin(users, eq(staff.userId, users.id))
+      .leftJoin(rooms, eq(staff.chamberRoomId, rooms.id))
       .where(eq(staff.id, effectiveDoctorId));
-    const doctor = doctorRows[0];
+    const doctorItem = doctorRows[0];
+
+    const doctorName = doctorItem?.user?.displayName || doctorItem?.staff?.fullName || 'Doctor';
+    const chamberNumber = doctorItem?.chamber?.roomNumber || '101';
+    const chamberName = doctorItem?.chamber?.name || `Chamber ${chamberNumber}`;
+    const tokenNumber = visit?.tokenNumber || targetSerial.serialNumber;
 
     const payload = {
       serialId: targetSerial.id,
       serialNumber: targetSerial.serialNumber,
+      tokenNumber,
       doctorId: effectiveDoctorId,
-      doctorName: doctor?.fullName ?? 'Doctor',
+      doctorName,
+      doctorNameEn: doctorName,
+      doctorNameBn: doctorName,
       patientId: targetSerial.patientId,
-      patientMrn: patient?.mrn,
-      patientName: patient?.nameEn,
-      chamberCode: dto?.chamberCode ?? 'Chamber 1',
+      patientMrn: patient?.mrn || '',
+      patientName: patient?.nameEn || 'Patient',
+      patientNameEn: patient?.nameEn || 'Patient',
+      patientNameBn: patient?.nameBn || patient?.nameEn || 'রোগী',
+      chamberRoomNumber: chamberNumber,
+      chamberCode: dto?.chamberCode || `Chamber ${chamberNumber}`,
+      chamberName,
       calledAt: now,
+      isRecall: Boolean(isRecall),
     };
 
+    // Broadcast realtime event
+    this.gateway.emit('clinic:global', 'consultation.call_chamber', payload);
     this.gateway.emit('clinic:global', 'serial.called', payload);
     this.gateway.emit(`doctor:${effectiveDoctorId}`, 'serial.called', payload);
     this.gateway.emit('clinic:global', 'queue.updated', { doctorId: effectiveDoctorId });
+    this.realtime.publish('consultation.call_chamber', payload);
     this.realtime.publish('serial.called', payload);
     this.realtime.publish('queue.updated', { doctorId: effectiveDoctorId });
 
+    // Log Timeline Event
+    try {
+      await this.db.insert(patientTimelineEvents).values({
+        id: randomUUID(),
+        patientId: targetSerial.patientId,
+        visitId: targetSerial.visitId,
+        step: isRecall ? 'recalled' : 'called_chamber',
+        titleEn: isRecall ? 'Recalled to Chamber' : 'Called to Chamber',
+        titleBn: isRecall ? 'পুনরায় চেম্বারে ডাকা হয়েছে (Recall)' : 'চেম্বারে ডাকা হয়েছে',
+        descriptionEn: `Dr. ${doctorName} called patient to Room ${chamberNumber}`,
+        descriptionBn: `ডাঃ ${doctorName} রোগী ${payload.patientNameBn}-কে রুম নম্বর ${chamberNumber}-এ ডাকছেন।`,
+        metadataJson: JSON.stringify(payload),
+        occurredAt: now,
+        date: today,
+      });
+    } catch (e) {
+      console.warn('Timeline log error:', e);
+    }
+
     return { ok: true, serial: targetSerial, payload };
+  }
+
+  async markInConsultation(serialId: string) {
+    const rows = await this.db
+      .select({
+        serial: serials,
+        patient: patients,
+        doctor: staff,
+        visit: visits,
+      })
+      .from(serials)
+      .innerJoin(patients, eq(serials.patientId, patients.id))
+      .leftJoin(staff, eq(serials.doctorId, staff.id))
+      .leftJoin(visits, eq(serials.visitId, visits.id))
+      .where(eq(serials.id, serialId));
+
+    const item = rows[0];
+    if (!item) throw new NotFoundException('Serial not found');
+
+    const now = new Date().toISOString();
+    const today = item.serial.date || todayDateString();
+
+    await this.db
+      .update(serials)
+      .set({ status: 'in_chamber', updatedAt: now })
+      .where(eq(serials.id, serialId));
+
+    await this.db
+      .update(visits)
+      .set({ status: 'in_consult', currentLocation: 'Chamber Room', updatedAt: now })
+      .where(eq(visits.id, item.serial.visitId));
+
+    if (item.visit?.consultationBookingId) {
+      await this.db
+        .update(consultationBookings)
+        .set({ status: 'in_consultation', updatedAt: now })
+        .where(eq(consultationBookings.id, item.visit.consultationBookingId));
+    }
+
+    await this.db
+      .update(patientIntakeForms)
+      .set({ status: 'in_consultation', updatedAt: now })
+      .where(eq(patientIntakeForms.visitId, item.serial.visitId));
+
+    const doctorName = item.doctor?.fullName || 'Doctor';
+
+    // Log timeline event
+    try {
+      await this.db.insert(patientTimelineEvents).values({
+        id: randomUUID(),
+        patientId: item.serial.patientId,
+        visitId: item.serial.visitId,
+        step: 'in_consultation',
+        titleEn: 'In Consultation',
+        titleBn: 'পরামর্শ শুরু (In Consultation)',
+        descriptionEn: `Patient arrived in chamber; consultation in progress with Dr. ${doctorName}`,
+        descriptionBn: `রোগী চেম্বারে উপস্থিত হয়েছেন এবং ডাঃ ${doctorName}-এর সাথে পরামর্শ শুরু হয়েছে।`,
+        occurredAt: now,
+        date: today,
+      });
+    } catch (e) {
+      console.warn('Timeline log error:', e);
+    }
+
+    const payload = {
+      serialId,
+      status: 'in_chamber',
+      doctorId: item.serial.doctorId,
+      patientId: item.serial.patientId,
+    };
+
+    this.gateway.emit('clinic:global', 'consultation.in_chamber', payload);
+    this.gateway.emit('clinic:global', 'queue.updated', { doctorId: item.serial.doctorId });
+    this.realtime.publish('consultation.in_chamber', payload);
+    this.realtime.publish('queue.updated', { doctorId: item.serial.doctorId });
+
+    return { ok: true, status: 'in_chamber', serialId };
+  }
+
+  async cancelCall(serialId: string) {
+    const rows = await this.db
+      .select({
+        serial: serials,
+        patient: patients,
+        doctor: staff,
+        visit: visits,
+      })
+      .from(serials)
+      .innerJoin(patients, eq(serials.patientId, patients.id))
+      .leftJoin(staff, eq(serials.doctorId, staff.id))
+      .leftJoin(visits, eq(serials.visitId, visits.id))
+      .where(eq(serials.id, serialId));
+
+    const item = rows[0];
+    if (!item) throw new NotFoundException('Serial not found');
+
+    const now = new Date().toISOString();
+    const today = item.serial.date || todayDateString();
+
+    await this.db
+      .update(serials)
+      .set({ status: 'waiting', calledAt: null, updatedAt: now })
+      .where(eq(serials.id, serialId));
+
+    await this.db
+      .update(visits)
+      .set({ status: 'checked_in', currentLocation: 'Waiting Room', updatedAt: now })
+      .where(eq(visits.id, item.serial.visitId));
+
+    if (item.visit?.consultationBookingId) {
+      await this.db
+        .update(consultationBookings)
+        .set({ status: 'in_queue', updatedAt: now })
+        .where(eq(consultationBookings.id, item.visit.consultationBookingId));
+    }
+
+    await this.db
+      .update(patientIntakeForms)
+      .set({ status: 'in_queue', updatedAt: now })
+      .where(eq(patientIntakeForms.visitId, item.serial.visitId));
+
+    // Log timeline event
+    try {
+      await this.db.insert(patientTimelineEvents).values({
+        id: randomUUID(),
+        patientId: item.serial.patientId,
+        visitId: item.serial.visitId,
+        step: 'call_cancelled',
+        titleEn: 'Call Cancelled',
+        titleBn: 'কল বাতিল (অপেক্ষমাণ তালিকায় রাখা হলো)',
+        descriptionEn: 'Doctor cancelled the call; patient kept in consultation waiting queue',
+        descriptionBn: 'ডাক্তার কর্তৃক কল বাতিল করা হয়েছে, রোগী পুনরায় অপেক্ষমাণ কিউতে আছেন।',
+        occurredAt: now,
+        date: today,
+      });
+    } catch (e) {
+      console.warn('Timeline log error:', e);
+    }
+
+    const payload = {
+      serialId,
+      status: 'waiting',
+      doctorId: item.serial.doctorId,
+      patientId: item.serial.patientId,
+    };
+
+    this.gateway.emit('clinic:global', 'consultation.call_cancelled', payload);
+    this.gateway.emit('clinic:global', 'queue.updated', { doctorId: item.serial.doctorId });
+    this.realtime.publish('consultation.call_cancelled', payload);
+    this.realtime.publish('queue.updated', { doctorId: item.serial.doctorId });
+
+    return { ok: true, status: 'waiting', serialId };
   }
 
   async completeSerial(serialId: string) {
@@ -1083,17 +1296,20 @@ export class VisitsService {
         doctorId: staff.id,
         doctorNameEn: staff.fullName,
         doctorSpecialization: staff.specialization,
+        chamberRoomNumber: rooms.roomNumber,
+        chamberName: rooms.name,
         calledAt: serials.calledAt,
         status: serials.status,
       })
       .from(serials)
       .innerJoin(patients, eq(serials.patientId, patients.id))
       .innerJoin(staff, eq(serials.doctorId, staff.id))
+      .leftJoin(rooms, eq(staff.chamberRoomId, rooms.id))
       .innerJoin(visits, eq(serials.visitId, visits.id))
       .where(
         and(
           eq(serials.date, today),
-          or(eq(serials.status, 'called'), eq(serials.status, 'in_chamber')),
+          eq(serials.status, 'called'),
         ),
       )
       .orderBy(desc(serials.calledAt));
@@ -1105,15 +1321,18 @@ export class VisitsService {
         patientNameEn: patients.nameEn,
         patientNameBn: patients.nameBn,
         doctorNameEn: staff.fullName,
+        chamberRoomNumber: rooms.roomNumber,
+        chamberName: rooms.name,
         priority: visits.priority,
       })
       .from(serials)
       .innerJoin(patients, eq(serials.patientId, patients.id))
       .innerJoin(staff, eq(serials.doctorId, staff.id))
+      .leftJoin(rooms, eq(staff.chamberRoomId, rooms.id))
       .innerJoin(visits, eq(serials.visitId, visits.id))
       .where(and(eq(serials.date, today), eq(serials.status, 'waiting')))
       .orderBy(serials.serialNumber)
-      .limit(10);
+      .limit(50);
 
     // Therapy Queue aggregate
     const activeTherapies = await this.db

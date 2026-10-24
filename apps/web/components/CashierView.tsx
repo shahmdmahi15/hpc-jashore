@@ -6,11 +6,29 @@ import { api, UserSession, getSession } from '../lib/api';
 import { useRealtime } from '../lib/use-realtime';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
+import { Label } from './ui/label';
 import { Select } from './ui/select';
 import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
 import { cn } from '../lib/utils';
+import { toast } from 'sonner';
+import { PatientTimelineModal } from './patient/PatientTimelineModal';
+import {
+  FileText,
+  Clock,
+  CheckCircle,
+  CreditCard,
+  UserCheck,
+  Send,
+  Stethoscope,
+  HeartPulse,
+  History,
+  AlertCircle,
+  Loader2,
+  Eye,
+  CheckCircle2,
+} from 'lucide-react';
 
 export interface CashierProps {
   session?: UserSession | null;
@@ -24,6 +42,16 @@ export default function CashierView({ session: propSession }: CashierProps = {})
   const [patients, setPatients] = useState<any[]>([]);
   const [activeDrawer, setActiveDrawer] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+
+  // Reception Forwarded Intakes State
+  const [forwardedIntakes, setForwardedIntakes] = useState<any[]>([]);
+  const [selectedIntakeForDetail, setSelectedIntakeForDetail] = useState<any>(null);
+  const [selectedIntakeForPayment, setSelectedIntakeForPayment] = useState<any>(null);
+  const [feeTakaInput, setFeeTakaInput] = useState<number>(500);
+  const [consultationPaymentMethod, setConsultationPaymentMethod] = useState<'cash' | 'bkash' | 'nagad' | 'card'>('cash');
+  const [admittingToQueue, setAdmittingToQueue] = useState(false);
+  const [isTimelineOpen, setIsTimelineOpen] = useState(false);
+  const [timelinePatient, setTimelinePatient] = useState<{ id: string; name?: string } | null>(null);
 
   // Cash Drawer Modal
   const [showOpenDrawerModal, setShowOpenDrawerModal] = useState(false);
@@ -51,15 +79,17 @@ export default function CashierView({ session: propSession }: CashierProps = {})
   const loadData = async () => {
     try {
       setLoading(true);
-      const [bList, dList, pList, staffList] = await Promise.all([
+      const [bList, dList, pList, staffList, intakes] = await Promise.all([
         api.billing.getBills(),
         api.billing.getDues(),
         api.patients.list(),
         api.staff.list(),
+        api.patients.listIntakeForms({ status: 'forwarded_to_cashier' }).catch(() => []),
       ]);
       setBills(bList || []);
       setDues(dList || []);
       setPatients(pList || []);
+      setForwardedIntakes(intakes || []);
 
       if (pList && pList.length > 0 && !selectedPatientId) {
         setSelectedPatientId(pList[0].id);
@@ -85,7 +115,9 @@ export default function CashierView({ session: propSession }: CashierProps = {})
       event.type.startsWith('payment.') ||
       event.type.startsWith('drawer.') ||
       event.type.startsWith('visit.') ||
-      event.type.startsWith('consultation.')
+      event.type.startsWith('consultation.') ||
+      event.type.startsWith('patient.') ||
+      event.type.startsWith('intake.')
     ) {
       loadData();
     }
@@ -150,6 +182,30 @@ export default function CashierView({ session: propSession }: CashierProps = {})
       loadData();
     } catch (err: any) {
       alert(`Billing failed: ${err.message}`);
+    }
+  };
+
+  const openPaymentModal = (intake: any) => {
+    setSelectedIntakeForPayment(intake);
+    setFeeTakaInput(intake.doctorFee || 500);
+    setConsultationPaymentMethod('cash');
+  };
+
+  const handleAdmitToQueue = async () => {
+    if (!selectedIntakeForPayment) return;
+    try {
+      setAdmittingToQueue(true);
+      await api.patients.admitIntakeFormToQueue(selectedIntakeForPayment.id, {
+        feeTaka: feeTakaInput,
+        paymentMethod: consultationPaymentMethod,
+      });
+      toast.success('পেমেন্ট সফল! রোগীকে ডাক্তার কনসালটেশন কিউতে পাঠানো হয়েছে।');
+      setSelectedIntakeForPayment(null);
+      loadData();
+    } catch (err: any) {
+      toast.error(err?.message || 'কিউতে পাঠাতে ব্যর্থ হয়েছে');
+    } finally {
+      setAdmittingToQueue(false);
     }
   };
 
@@ -245,6 +301,141 @@ export default function CashierView({ session: propSession }: CashierProps = {})
               </Button>
             )}
           </div>
+        </CardContent>
+      </Card>
+
+      {/* ============================================================== */}
+      {/* FORWARDED FROM RECEPTION: PATIENT INTAKE & DOCTOR QUEUE ADMISSION */}
+      {/* ============================================================== */}
+      <Card className="border-2 border-emerald-500/40 bg-gradient-to-r from-emerald-500/5 via-teal-500/5 to-transparent shadow-sm">
+        <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 gap-2">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-xl bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
+              <Stethoscope className="size-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-base sm:text-lg font-bold">
+                  রিসেপশন থেকে আগত রোগী (Forwarded from Reception)
+                </CardTitle>
+                <Badge className="bg-emerald-600 text-white font-mono text-xs">
+                  {forwardedIntakes.length} জন অপেক্ষমাণ
+                </Badge>
+              </div>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                রিসেপশনিস্টের পূরণকৃত ফরম যাচাই করুন, ডাক্তার ফি গ্রহণ করুন এবং সরাসরি লাইভ কিউতে পাঠান
+              </p>
+            </div>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={loadData}
+            disabled={loading}
+            className="h-8 text-xs gap-1.5 self-start sm:self-auto"
+          >
+            <Clock className={`size-3.5 ${loading ? 'animate-spin' : ''}`} />
+            রিফ্রেশ
+          </Button>
+        </CardHeader>
+
+        <CardContent>
+          {forwardedIntakes.length === 0 ? (
+            <div className="p-6 text-center rounded-xl border border-dashed border-border/80 bg-muted/20 text-muted-foreground text-xs space-y-1">
+              <UserCheck className="size-6 mx-auto opacity-40 text-emerald-500" />
+              <p className="font-medium">বর্তমানে রিসেপশন থেকে অপেক্ষমাণ কোনো রোগী নেই</p>
+              <p className="text-[11px] text-muted-foreground/80">
+                রিসেপশনিস্ট যখন কোনো রোগীর প্রাথমিক তথ্য ফরম সাবমিট করে ক্যাশিয়ারে পাঠাবেন, তা এখানে রিয়েলটাইমে দৃশ্যমান হবে।
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5">
+              {forwardedIntakes.map((intake) => (
+                <div
+                  key={intake.id}
+                  className="p-4 rounded-xl border border-emerald-500/30 bg-card/80 hover:bg-card shadow-xs transition-all space-y-3"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className="font-bold text-sm sm:text-base text-foreground">
+                        {intake.name}
+                      </div>
+                      <div className="text-xs text-muted-foreground font-mono">
+                        {intake.phone} • {intake.gender === 'male' ? 'পুরুষ' : 'মহিলা'}
+                        {intake.ageYears ? ` • ${intake.ageYears} বছর` : ''}
+                      </div>
+                    </div>
+                    <Badge variant="outline" className="border-emerald-500/50 text-emerald-600 dark:text-emerald-400 text-[10px]">
+                      {intake.status === 'forwarded_to_cashier' ? 'ক্যাশিয়ার অপেক্ষমাণ' : intake.status}
+                    </Badge>
+                  </div>
+
+                  {/* Doctor & Chamber */}
+                  <div className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-xs space-y-1">
+                    <div className="flex items-center justify-between font-semibold text-emerald-800 dark:text-emerald-300">
+                      <span>🩺 {intake.doctorName || 'ডাক্তার নির্ধারিত'}</span>
+                      <span className="font-mono font-bold">৳{intake.doctorFee || 500}</span>
+                    </div>
+                    <div className="text-[11px] text-muted-foreground">
+                      {intake.chamberRoomNumber ? `চেম্বার: রুম ${intake.chamberRoomNumber}` : 'চেম্বার নির্ধারিত'}
+                    </div>
+                  </div>
+
+                  {/* Chief complaint & health snippet */}
+                  <div className="text-xs text-muted-foreground space-y-0.5 border-t border-border/50 pt-2">
+                    {intake.chiefComplaint && (
+                      <p className="line-clamp-2">
+                        <strong className="text-foreground">সমস্যা:</strong> {intake.chiefComplaint}
+                      </p>
+                    )}
+                    {(intake.bpSystolic || intake.bloodSugar || intake.hasDiabetes) && (
+                      <div className="text-[11px] flex flex-wrap gap-2 pt-1 font-mono">
+                        {intake.bpSystolic && <span>BP: {intake.bpSystolic}/{intake.bpDiastolic || 80}</span>}
+                        {intake.bloodSugar && <span>Sugar: {intake.bloodSugar}</span>}
+                        {intake.hasDiabetes === 1 && <span className="text-amber-500">ডায়াবেটিস: হ্যাঁ</span>}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Action buttons */}
+                  <div className="flex items-center gap-2 pt-2 border-t border-border/50">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setSelectedIntakeForDetail(intake)}
+                      className="h-8 px-2.5 text-xs gap-1 flex-1"
+                    >
+                      <Eye className="size-3.5" />
+                      <span>ফরম</span>
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setTimelinePatient({ id: intake.patientId, name: intake.name });
+                        setIsTimelineOpen(true);
+                      }}
+                      className="h-8 px-2.5 text-xs gap-1"
+                      title="টাইমলাইন"
+                    >
+                      <Clock className="size-3.5 text-muted-foreground" />
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => openPaymentModal(intake)}
+                      className="h-8 px-3 text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white gap-1.5 flex-1 shadow-xs"
+                    >
+                      <CreditCard className="size-3.5" />
+                      <span>ফি ও কিউ</span>
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -725,6 +916,229 @@ export default function CashierView({ session: propSession }: CashierProps = {})
           </DialogContent>
         </Dialog>
       )}
+
+      {/* MODAL 1: CONSULTATION FEE COLLECTION & QUEUE ADMISSION */}
+      {selectedIntakeForPayment && (
+        <Dialog
+          open={!!selectedIntakeForPayment}
+          onOpenChange={(open) => {
+            if (!open) setSelectedIntakeForPayment(null);
+          }}
+        >
+          <DialogContent className="max-w-md p-5 bg-background border-emerald-500/30">
+            <DialogHeader>
+              <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-bold text-xs uppercase tracking-wider">
+                <CreditCard className="size-4" />
+                <span>পরামর্শ ফি গ্রহণ ও কিউতে অন্তর্ভুক্তি</span>
+              </div>
+              <DialogTitle className="text-lg font-bold">
+                {selectedIntakeForPayment.name}
+              </DialogTitle>
+              <DialogDescription className="text-xs text-muted-foreground">
+                ফোন: {selectedIntakeForPayment.phone} • ডাক্তার: {selectedIntakeForPayment.doctorName || 'নির্ধারিত ডাক্তার'}
+                {selectedIntakeForPayment.chamberRoomNumber ? ` (রুম ${selectedIntakeForPayment.chamberRoomNumber})` : ''}
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 py-3 text-xs">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold">পরামর্শ ফি (Consultation Fee in ৳) *</Label>
+                <Input
+                  type="number"
+                  value={feeTakaInput}
+                  onChange={(e) => setFeeTakaInput(parseInt(e.target.value, 10) || 0)}
+                  placeholder="500"
+                  className="h-9 text-sm font-mono font-bold"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold">পেমেন্ট মেথড (Payment Method) *</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { id: 'cash', label: 'নগদ (Cash)' },
+                    { id: 'bkash', label: 'বিকাশ (bKash)' },
+                    { id: 'nagad', label: 'নগদ অ্যাপ (Nagad)' },
+                    { id: 'card', label: 'পিওএস কার্ড (Card)' },
+                  ].map((m) => (
+                    <button
+                      type="button"
+                      key={m.id}
+                      onClick={() => setConsultationPaymentMethod(m.id as any)}
+                      className={`p-2.5 rounded-lg border text-left transition-all text-xs font-medium flex items-center justify-between ${
+                        consultationPaymentMethod === m.id
+                          ? 'border-emerald-500 bg-emerald-500/10 text-emerald-400 font-bold shadow-xs'
+                          : 'border-border/60 hover:bg-muted/30 text-muted-foreground'
+                      }`}
+                    >
+                      <span>{m.label}</span>
+                      {consultationPaymentMethod === m.id && <CheckCircle2 className="size-3.5 text-emerald-500" />}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="p-3 rounded-lg border border-emerald-500/20 bg-emerald-500/5 text-muted-foreground text-[11px] leading-relaxed">
+                ℹ️ ফি গ্রহণ নিশ্চিত করামাত্র রোগীকে স্বয়ংক্রিয়ভাবে ডাক্তার কনসালটেশন কিউতে প্রবেশ করানো হবে এবং ওয়েটিং রুমের টিভি স্ক্রিন ও ওয়েবে সিরিয়াল প্রদর্শিত হবে।
+              </div>
+            </div>
+
+            <DialogFooter className="flex flex-row justify-between gap-2 pt-2 border-t border-border">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setSelectedIntakeForPayment(null)}
+                disabled={admittingToQueue}
+                className="flex-1 text-xs"
+              >
+                বাতিল
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleAdmitToQueue}
+                disabled={admittingToQueue}
+                className="flex-1 text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-bold gap-1.5 shadow-xs"
+              >
+                {admittingToQueue ? (
+                  <>
+                    <Loader2 className="size-3.5 animate-spin" /> সম্পন্ন হচ্ছে...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="size-3.5" /> ফি গ্রহণ ও কিউতে পাঠান
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* MODAL 2: INTAKE FORM FULL DETAIL VIEWER */}
+      {selectedIntakeForDetail && (
+        <Dialog
+          open={!!selectedIntakeForDetail}
+          onOpenChange={(open) => {
+            if (!open) setSelectedIntakeForDetail(null);
+          }}
+        >
+          <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto p-5 bg-background border-emerald-500/30">
+            <DialogHeader className="border-b border-border pb-3">
+              <div className="flex items-center gap-2 text-emerald-500 font-bold text-xs uppercase tracking-wider">
+                <FileText className="size-4" />
+                <span>রোগীর প্রাথমিক তথ্য ও রিসেপশন ফরম বিবরণী</span>
+              </div>
+              <DialogTitle className="text-lg font-bold">
+                {selectedIntakeForDetail.name} ({selectedIntakeForDetail.phone})
+              </DialogTitle>
+              <DialogDescription className="text-xs text-muted-foreground">
+                রিসেপশনিস্ট: {selectedIntakeForDetail.receptionistName || 'ডেস্ক'} • অবস্থা: {selectedIntakeForDetail.status}
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 py-3 text-xs">
+              {/* Personal Details */}
+              <div className="p-3 rounded-lg border border-border/70 bg-card/50 space-y-2">
+                <div className="font-semibold text-emerald-500 flex items-center gap-1.5">
+                  <UserCheck className="size-3.5" />
+                  <span>১. ব্যাক্তিগত তথ্য</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-muted-foreground">
+                  <div>নাম: <strong className="text-foreground">{selectedIntakeForDetail.name}</strong></div>
+                  <div>মোবাইল: <strong className="text-foreground font-mono">{selectedIntakeForDetail.phone}</strong></div>
+                  <div>বয়স: <strong className="text-foreground">{selectedIntakeForDetail.ageYears || 'অনির্ধারিত'} বছর</strong></div>
+                  <div>লিঙ্গ: <strong className="text-foreground capitalize">{selectedIntakeForDetail.gender === 'male' ? 'পুরুষ' : 'মহিলা'}</strong></div>
+                  <div>পেশা: <strong className="text-foreground">{selectedIntakeForDetail.occupation || 'উলেখ নেই'}</strong></div>
+                  <div className="col-span-2">ঠিকানা: <strong className="text-foreground">{selectedIntakeForDetail.address || 'উলেখ নেই'}</strong></div>
+                </div>
+              </div>
+
+              {/* Health Info */}
+              <div className="p-3 rounded-lg border border-border/70 bg-card/50 space-y-2">
+                <div className="font-semibold text-rose-500 flex items-center gap-1.5">
+                  <HeartPulse className="size-3.5" />
+                  <span>২. প্রাথমিক স্বাস্থ্য তথ্য</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-muted-foreground">
+                  <div>রক্তচাপ: <strong className="text-foreground font-mono">{selectedIntakeForDetail.bpSystolic ? `${selectedIntakeForDetail.bpSystolic}/${selectedIntakeForDetail.bpDiastolic || 80} mmHg` : 'পরিমাপ করা হয়নি'}</strong></div>
+                  <div>রক্তে শর্করা: <strong className="text-foreground font-mono">{selectedIntakeForDetail.bloodSugar ? `${selectedIntakeForDetail.bloodSugar} mmol/L` : 'পরিমাপ করা হয়নি'}</strong></div>
+                  <div>ডায়াবেটিস: <strong className="text-foreground">{selectedIntakeForDetail.hasDiabetes === 1 ? 'হ্যাঁ (আক্রান্ত)' : 'না'}</strong></div>
+                  <div>ওজন: <strong className="text-foreground font-mono">{selectedIntakeForDetail.weightKg ? `${selectedIntakeForDetail.weightKg} কেজি` : 'পরিমাপ করা হয়নি'}</strong></div>
+                  <div className="col-span-2">প্রধান শারীরিক সমস্যা: <strong className="text-foreground">{selectedIntakeForDetail.chiefComplaint || 'উলেখ নেই'}</strong></div>
+                  {selectedIntakeForDetail.problemDuration && (
+                    <div className="col-span-2">কতদিন ধরে সমস্যা: <strong className="text-foreground">{selectedIntakeForDetail.problemDuration}</strong></div>
+                  )}
+                </div>
+              </div>
+
+              {/* Past History */}
+              <div className="p-3 rounded-lg border border-border/70 bg-card/50 space-y-2">
+                <div className="font-semibold text-amber-500 flex items-center gap-1.5">
+                  <History className="size-3.5" />
+                  <span>৩. পূর্ববর্তী চিকিৎসার বিবরণ</span>
+                </div>
+                <div className="space-y-1 text-muted-foreground">
+                  <div>পূর্বে ডাক্তার দেখিয়েছেন: <strong className="text-foreground">{selectedIntakeForDetail.seenDoctorBefore === 1 ? `হ্যাঁ (${selectedIntakeForDetail.previousDoctorDetails || ''})` : 'না'}</strong></div>
+                  <div>পূর্বের টেস্ট রিপোর্ট: <strong className="text-foreground">{selectedIntakeForDetail.hasPreviousReports === 1 ? `হ্যাঁ (${selectedIntakeForDetail.previousReportNames || ''})` : 'না'}</strong></div>
+                  <div>নিয়মিত ওষুধ সেবন: <strong className="text-foreground">{selectedIntakeForDetail.takesRegularMedication === 1 ? `হ্যাঁ (${selectedIntakeForDetail.regularMedicationDetails || ''})` : 'না'}</strong></div>
+                  <div>ওষুধে এলার্জি: <strong className="text-foreground text-red-400">{selectedIntakeForDetail.hasDrugAllergies === 1 ? `হ্যাঁ (${selectedIntakeForDetail.drugAllergyDetails || ''})` : 'না'}</strong></div>
+                </div>
+              </div>
+
+              {/* Referral & Target Doctor */}
+              <div className="p-3 rounded-lg border border-emerald-500/30 bg-emerald-500/5 space-y-2">
+                <div className="font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                  <Stethoscope className="size-3.5" />
+                  <span>৪. রেফারেল ও নির্ধারিত ডাক্তার</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-muted-foreground">
+                  <div>সোর্স: <strong className="text-foreground capitalize">{selectedIntakeForDetail.referralSource || 'অনির্ধারিত'}</strong></div>
+                  <div>নির্ধারিত ডাক্তার: <strong className="text-foreground">{selectedIntakeForDetail.doctorName || 'ডাক্তার'}</strong></div>
+                  <div>চেম্বার রুম: <strong className="text-foreground">{selectedIntakeForDetail.chamberRoomNumber ? `রুম ${selectedIntakeForDetail.chamberRoomNumber}` : 'নির্ধারিত রুম'}</strong></div>
+                  <div>পরামর্শ ফি: <strong className="text-foreground font-mono">৳{selectedIntakeForDetail.doctorFee || 500}</strong></div>
+                  {selectedIntakeForDetail.specialNotes && (
+                    <div className="col-span-2">রিসেপশন মন্তব্য: <strong className="text-foreground">{selectedIntakeForDetail.specialNotes}</strong></div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <DialogFooter className="flex flex-row justify-between gap-2 pt-2 border-t border-border">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setSelectedIntakeForDetail(null)}
+                className="text-xs"
+              >
+                বন্ধ করুন
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => {
+                  const it = selectedIntakeForDetail;
+                  setSelectedIntakeForDetail(null);
+                  openPaymentModal(it);
+                }}
+                className="text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-bold gap-1.5"
+              >
+                <CreditCard className="size-3.5" /> ফি গ্রহণ ও কিউতে পাঠান
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* PATIENT TIMELINE MODAL */}
+      <PatientTimelineModal
+        open={isTimelineOpen}
+        onOpenChange={setIsTimelineOpen}
+        patientId={timelinePatient?.id}
+        patientName={timelinePatient?.name}
+      />
     </div>
   );
 }

@@ -104,6 +104,33 @@ export class VisitsController {
     return this.visits.callNext('', serialId, dto);
   }
 
+  @Post('serials/:id/recall')
+  @ApiBearerAuth()
+  @UseGuards(JwtAccessAuthGuard, RolesGuard)
+  @Roles('admin', 'doctor')
+  recallSerial(
+    @Param('id') serialId: string,
+    @Body() dto: CallSerialDto,
+  ) {
+    return this.visits.recallSerial('', serialId, dto);
+  }
+
+  @Post('serials/:id/mark-in-consultation')
+  @ApiBearerAuth()
+  @UseGuards(JwtAccessAuthGuard, RolesGuard)
+  @Roles('admin', 'doctor')
+  markInConsultation(@Param('id') serialId: string) {
+    return this.visits.markInConsultation(serialId);
+  }
+
+  @Post('serials/:id/cancel-call')
+  @ApiBearerAuth()
+  @UseGuards(JwtAccessAuthGuard, RolesGuard)
+  @Roles('admin', 'doctor')
+  cancelCall(@Param('id') serialId: string) {
+    return this.visits.cancelCall(serialId);
+  }
+
   @Post('serials/:id/complete')
   @ApiBearerAuth()
   @UseGuards(JwtAccessAuthGuard, RolesGuard)

@@ -3,8 +3,12 @@ package com.shahmdmahi.hpcjashoretv
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
+import android.media.AudioManager
+import android.media.ToneGenerator
 import android.net.Uri
 import android.os.Bundle
+import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -83,6 +87,8 @@ data class TvBulletin(
 class MainActivity : ComponentActivity() {
 
     private lateinit var prefs: SharedPreferences
+    private var textToSpeech: TextToSpeech? = null
+    private var toneGenerator: ToneGenerator? = null
 
     @OptIn(ExperimentalTvMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -90,6 +96,15 @@ class MainActivity : ComponentActivity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         prefs = getSharedPreferences("hpc_tv_prefs", Context.MODE_PRIVATE)
+
+        try {
+            toneGenerator = ToneGenerator(AudioManager.STREAM_MUSIC, 100)
+            textToSpeech = TextToSpeech(this) { status ->
+                if (status == TextToSpeech.SUCCESS) {
+                    textToSpeech?.setSpeechRate(0.9f)
+                }
+            }
+        } catch (_: Exception) {}
 
         // Initialize persistent pairing code
         var pairingCode = prefs.getString("pairing_code", null)
@@ -107,6 +122,8 @@ class MainActivity : ComponentActivity() {
 
             var waitingDoctorList by remember { mutableStateOf<List<ConsultationPatient>>(emptyList()) }
             var waitingTherapyList by remember { mutableStateOf<List<TherapyPatient>>(emptyList()) }
+            var activeCallAlert by remember { mutableStateOf<ConsultationPatient?>(null) }
+            var lastCalledSerial by remember { mutableStateOf<Int?>(null) }
             var liveBulletins by remember { mutableStateOf<List<TvBulletin>>(emptyList()) }
             var currentBulletinIndex by remember { mutableStateOf(0) }
 
@@ -267,9 +284,21 @@ class MainActivity : ComponentActivity() {
                         // 2. Queue Snapshot
                         if (isPaired) {
                             withContext(Dispatchers.IO) {
-                                fetchQueueSnapshot { docWait, thWait ->
+                                fetchQueueSnapshot { docWait, thWait, calledPat ->
                                     waitingDoctorList = docWait
                                     waitingTherapyList = thWait
+                                    if (calledPat != null) {
+                                        if (calledPat.serialNumber != lastCalledSerial) {
+                                            lastCalledSerial = calledPat.serialNumber
+                                            activeCallAlert = calledPat
+                                            speakChamberCall(calledPat)
+                                        }
+                                    } else {
+                                        if (activeCallAlert != null) {
+                                            activeCallAlert = null
+                                            try { textToSpeech?.stop() } catch (_: Exception) {}
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -310,12 +339,13 @@ class MainActivity : ComponentActivity() {
                             currentTime = currentTime
                         )
                     } else {
-                        // LIVE 2-COLUMN QUEUE GRID SCREEN
-                        Column(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(16.dp)
-                        ) {
+                        Box(modifier = Modifier.fillMaxSize()) {
+                            // LIVE 2-COLUMN QUEUE GRID SCREEN
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(16.dp)
+                            ) {
                             // 1. TOP HEADER (BRANDING, LIVE CLOCK - Remotely Controlled Theme/Language)
                             Row(
                                 modifier = Modifier
@@ -867,6 +897,16 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
                         }
+
+                        // Fullscreen Calling Alert Notification Overlay
+                        activeCallAlert?.let { patient ->
+                            CallingAlertOverlay(
+                                patient = patient,
+                                currentLanguage = currentLanguage,
+                                isDarkTheme = isDarkTheme,
+                                onDismiss = { activeCallAlert = null }
+                            )
+                        }
                     }
                 }
             }
@@ -1008,7 +1048,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun fetchQueueSnapshot(
-        onResult: (List<ConsultationPatient>, List<TherapyPatient>) -> Unit
+        onResult: (List<ConsultationPatient>, List<TherapyPatient>, ConsultationPatient?) -> Unit
     ) {
         try {
             val url = URL("https://hpc.toufiquzzaman.com/api/visits/tv/snapshot")
@@ -1039,6 +1079,29 @@ class MainActivity : ComponentActivity() {
                     )
                 }
 
+                // Check active called patient in nowServing
+                val nowServingArr = consultationObj?.optJSONArray("nowServing")
+                var calledPatient: ConsultationPatient? = null
+                if (nowServingArr != null && nowServingArr.length() > 0) {
+                    val obj = nowServingArr.getJSONObject(0)
+                    val chamberStr = if (obj.has("chamberRoomNumber") && !obj.isNull("chamberRoomNumber")) {
+                        "Room ${obj.optString("chamberRoomNumber")}"
+                    } else if (obj.has("chamberName") && !obj.isNull("chamberName")) {
+                        obj.optString("chamberName")
+                    } else {
+                        "Chamber 1"
+                    }
+                    calledPatient = ConsultationPatient(
+                        serialNumber = obj.optInt("serialNumber", 1),
+                        tokenNumber = obj.optInt("tokenNumber", 1),
+                        patientNameEn = obj.optString("patientNameEn", "Patient"),
+                        patientNameBn = if (obj.has("patientNameBn") && !obj.isNull("patientNameBn")) obj.getString("patientNameBn") else null,
+                        doctorName = obj.optString("doctorNameEn", "Doctor"),
+                        chamber = chamberStr,
+                        priority = obj.optString("priority", "regular")
+                    )
+                }
+
                 val therapyObj = json.optJSONObject("therapyQueue")
                 val thArr = therapyObj?.optJSONArray("waiting") ?: JSONArray()
                 val thList = mutableListOf<TherapyPatient>()
@@ -1059,10 +1122,68 @@ class MainActivity : ComponentActivity() {
                         )
                     )
                 }
-                onResult(docList, thList)
+                onResult(docList, thList, calledPatient)
             }
             conn.disconnect()
         } catch (_: Exception) {}
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        try {
+            textToSpeech?.stop()
+            textToSpeech?.shutdown()
+            toneGenerator?.release()
+        } catch (_: Exception) {}
+    }
+
+    private fun speakChamberCall(patient: ConsultationPatient) {
+        try {
+            toneGenerator?.startTone(ToneGenerator.TONE_PROP_BEEP2, 500)
+        } catch (_: Exception) {}
+
+        val doctorName = patient.doctorName.ifBlank { "Doctor" }
+        val patientNameBn = patient.patientNameBn ?: patient.patientNameEn
+        val patientNameEn = patient.patientNameEn
+        val chamber = patient.chamber
+
+        val chamberDigits = chamber.replace(Regex("[^0-9]"), "").ifBlank { "1" }
+
+        val banglaText = "ডাঃ $doctorName, রোগী $patientNameBn-কে রুম নম্বর $chamberDigits-এ ডাকছেন।"
+        val englishText = "Dr. $doctorName is calling patient $patientNameEn to room number $chamberDigits."
+
+        try {
+            textToSpeech?.stop()
+            val bnLocale = Locale("bn", "BD")
+            val enLocale = Locale("en", "IN")
+
+            val bnSupported = textToSpeech?.setLanguage(bnLocale)
+            if (bnSupported != TextToSpeech.LANG_MISSING_DATA && bnSupported != TextToSpeech.LANG_NOT_SUPPORTED) {
+                textToSpeech?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+                    override fun onStart(utteranceId: String?) {}
+                    override fun onDone(utteranceId: String?) {
+                        if (utteranceId == "bn_call") {
+                            try {
+                                Thread.sleep(350)
+                                textToSpeech?.language = enLocale
+                                textToSpeech?.speak(englishText, TextToSpeech.QUEUE_FLUSH, null, "en_call")
+                            } catch (_: Exception) {}
+                        }
+                    }
+                    override fun onError(utteranceId: String?) {
+                        try {
+                            textToSpeech?.language = enLocale
+                            textToSpeech?.speak(englishText, TextToSpeech.QUEUE_FLUSH, null, "en_call")
+                        } catch (_: Exception) {}
+                    }
+                })
+                textToSpeech?.speak(banglaText, TextToSpeech.QUEUE_FLUSH, null, "bn_call")
+            } else {
+                textToSpeech?.language = enLocale
+                textToSpeech?.speak(englishText, TextToSpeech.QUEUE_FLUSH, null, "en_call")
+            }
+        } catch (_: Exception) {}
+    }
     }
 
     private fun checkSelfUpdate(onResult: (Boolean, String, String?, Boolean) -> Unit) {
@@ -1340,10 +1461,132 @@ fun TvPairingScreen(
 
         // 3. Footer
         Text(
-            text = "Health & Pain Care Center · Jashore • Hardware Station ID: $pairingCode • Version 0.1.26",
+            text = "Health & Pain Care Center · Jashore • Hardware Station ID: $pairingCode • Version 0.1.31",
             color = textMutedColor,
             fontSize = 11.sp,
             fontFamily = FontFamily.Monospace
         )
+    }
+}
+
+@Composable
+fun CallingAlertOverlay(
+    patient: ConsultationPatient,
+    currentLanguage: String,
+    isDarkTheme: Boolean,
+    onDismiss: () -> Unit
+) {
+    val isBn = currentLanguage == "bn"
+    val cardBg = if (isDarkTheme) Color(0xF5090D0B) else Color(0xF9FFFFFF)
+    val textPrimary = if (isDarkTheme) Color.White else Color(0xFF0F172A)
+    val textSecondary = if (isDarkTheme) Color(0xFF94A3B8) else Color(0xFF475569)
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.88f))
+            .clickable { onDismiss() },
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            modifier = Modifier
+                .widthIn(min = 520.dp, max = 820.dp)
+                .clip(RoundedCornerShape(28.dp))
+                .background(cardBg)
+                .border(4.dp, Emerald500, RoundedCornerShape(28.dp))
+                .padding(32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // Pulse Badge
+            Row(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(30.dp))
+                    .background(Emerald500.copy(alpha = 0.15f))
+                    .border(1.dp, Emerald500.copy(alpha = 0.5f), RoundedCornerShape(30.dp))
+                    .padding(horizontal = 16.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(10.dp)
+                        .clip(RoundedCornerShape(5.dp))
+                        .background(Emerald400)
+                )
+                Text(
+                    text = if (isBn) "রোগীকে ডাকা হচ্ছে • NOW CALLING" else "NOW CALLING PATIENT",
+                    color = Emerald400,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = 1.5.sp
+                )
+            }
+
+            // Token Number
+            val bnDigits = charArrayOf('০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯')
+            val tokenStr = patient.tokenNumber.toString().let { raw ->
+                if (isBn) {
+                    val sb = StringBuilder()
+                    for (ch in raw) {
+                        if (ch in '0'..'9') sb.append(bnDigits[ch - '0']) else sb.append(ch)
+                    }
+                    sb.toString()
+                } else raw
+            }
+
+            Text(
+                text = if (isBn) "টোকেন #$tokenStr" else "TOKEN #${patient.tokenNumber}",
+                color = Emerald400,
+                fontSize = 38.sp,
+                fontFamily = FontFamily.Monospace,
+                fontWeight = FontWeight.Black
+            )
+
+            // Patient Name
+            Text(
+                text = if (isBn) patient.patientNameBn ?: patient.patientNameEn else patient.patientNameEn,
+                color = textPrimary,
+                fontSize = 44.sp,
+                fontWeight = FontWeight.Black,
+                textAlign = TextAlign.Center,
+                lineHeight = 50.sp
+            )
+
+            // Doctor & Chamber Box
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(Emerald600)
+                    .padding(horizontal = 24.dp, vertical = 18.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = if (patient.doctorName.isNotBlank()) "ডাঃ ${patient.doctorName}" else "ডাক্তার কনসাল্টেশন চেম্বার",
+                        color = Color(0xFFD1FAE5),
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.sp
+                    )
+                    Text(
+                        text = patient.chamber,
+                        color = Color.White,
+                        fontSize = 32.sp,
+                        fontWeight = FontWeight.Black,
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
+            }
+
+            // Auto dismiss hint
+            Text(
+                text = if (isBn) "পর্দার যেকোনো স্থানে চাপ দিয়ে বন্ধ করুন" else "Tap anywhere to dismiss notification",
+                color = textSecondary,
+                fontSize = 11.sp
+            )
+        }
     }
 }

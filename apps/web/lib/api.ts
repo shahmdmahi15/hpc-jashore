@@ -211,6 +211,33 @@ export const api = {
       apiFetch<any>('/patients', { method: 'POST', body: JSON.stringify(data) }),
     getById: (id: string) => apiFetch<any>(`/patients/${id}`),
     getHistory: (id: string) => apiFetch<any>(`/patients/${id}/history`),
+    createIntakeForm: (data: any) =>
+      apiFetch<any>('/patients/intake-form', { method: 'POST', body: JSON.stringify(data) }),
+    listIntakeForms: (params?: { date?: string; status?: string; doctorId?: string; patientId?: string; search?: string }) => {
+      const q = new URLSearchParams();
+      if (params?.date) q.append('date', params.date);
+      if (params?.status) q.append('status', params.status);
+      if (params?.doctorId) q.append('doctorId', params.doctorId);
+      if (params?.patientId) q.append('patientId', params.patientId);
+      if (params?.search) q.append('search', params.search);
+      const str = q.toString();
+      return apiFetch<any[]>(`/patients/intake-forms${str ? `?${str}` : ''}`);
+    },
+    getIntakeForm: (id: string) => apiFetch<any>(`/patients/intake-form/${id}`),
+    forwardIntakeFormToCashier: (id: string) =>
+      apiFetch<any>(`/patients/intake-form/${id}/forward-to-cashier`, { method: 'POST' }),
+    admitIntakeFormToQueue: (id: string, data?: any) =>
+      apiFetch<any>(`/patients/intake-form/${id}/admit-to-queue`, {
+        method: 'POST',
+        body: JSON.stringify(data || {}),
+      }),
+    getTimeline: (patientId: string, date?: string) =>
+      apiFetch<any[]>(`/patients/${patientId}/timeline${date ? `?date=${encodeURIComponent(date)}` : ''}`),
+    addTimelineEvent: (patientId: string, data: any) =>
+      apiFetch<any>(`/patients/${patientId}/timeline`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
   },
   visits: {
     getToday: () => apiFetch<any[]>('/visits/today'),
@@ -227,6 +254,15 @@ export const api = {
         method: 'POST',
         body: JSON.stringify(dto || {}),
       }),
+    recallSerial: (serialId: string, dto?: any) =>
+      apiFetch<any>(`/visits/serials/${serialId}/recall`, {
+        method: 'POST',
+        body: JSON.stringify(dto || {}),
+      }),
+    markInConsultation: (serialId: string) =>
+      apiFetch<any>(`/visits/serials/${serialId}/mark-in-consultation`, { method: 'POST' }),
+    cancelCall: (serialId: string) =>
+      apiFetch<any>(`/visits/serials/${serialId}/cancel-call`, { method: 'POST' }),
     completeSerial: (serialId: string) =>
       apiFetch<any>(`/visits/serials/${serialId}/complete`, { method: 'POST' }),
     skipSerial: (serialId: string) =>
@@ -325,6 +361,9 @@ export const api = {
     list: () => apiFetch<any[]>('/staff'),
     punch: (data: any) =>
       apiFetch<any>('/staff/attendance', { method: 'POST', body: JSON.stringify(data) }),
+  },
+  users: {
+    list: () => apiFetch<any[]>('/users'),
   },
   updates: {
     check: (platform: string, versionCode?: number, versionName?: string) => {

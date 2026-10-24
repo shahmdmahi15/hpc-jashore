@@ -614,6 +614,79 @@ export type Db = BetterSQLite3Database<typeof schema>;
               sqlite.exec("ALTER TABLE visits ADD COLUMN cleared_by TEXT");
             }
           } catch {}
+
+          // Ensure patient_intake_forms and patient_timeline_events tables
+          try {
+            sqlite.exec(`
+              CREATE TABLE IF NOT EXISTS patient_intake_forms (
+                id TEXT PRIMARY KEY,
+                patient_id TEXT NOT NULL REFERENCES patients(id),
+                visit_id TEXT REFERENCES visits(id),
+                consultation_booking_id TEXT,
+                doctor_id TEXT REFERENCES staff(id),
+                receptionist_id TEXT REFERENCES users(id),
+                receptionist_name TEXT,
+                date TEXT NOT NULL,
+                name TEXT NOT NULL,
+                age_years INTEGER,
+                phone TEXT NOT NULL,
+                gender TEXT NOT NULL DEFAULT 'male',
+                occupation TEXT,
+                address TEXT,
+                bp_systolic INTEGER,
+                bp_diastolic INTEGER,
+                blood_sugar TEXT,
+                has_diabetes INTEGER NOT NULL DEFAULT 0,
+                weight_kg TEXT,
+                chief_complaint TEXT,
+                problem_duration TEXT,
+                seen_doctor_before INTEGER NOT NULL DEFAULT 0,
+                previous_doctor_details TEXT,
+                has_previous_reports INTEGER NOT NULL DEFAULT 0,
+                previous_report_names TEXT,
+                takes_regular_medication INTEGER NOT NULL DEFAULT 0,
+                regular_medication_details TEXT,
+                has_drug_allergies INTEGER NOT NULL DEFAULT 0,
+                drug_allergy_details TEXT,
+                referral_source TEXT,
+                referral_other_details TEXT,
+                special_notes TEXT,
+                status TEXT NOT NULL DEFAULT 'submitted',
+                forwarded_to_cashier_at TEXT,
+                billed_at TEXT,
+                queued_at TEXT,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+              );
+              CREATE INDEX IF NOT EXISTS idx_patient_intake_forms_patient ON patient_intake_forms(patient_id);
+              CREATE INDEX IF NOT EXISTS idx_patient_intake_forms_date ON patient_intake_forms(date);
+              CREATE INDEX IF NOT EXISTS idx_patient_intake_forms_status ON patient_intake_forms(status);
+              CREATE INDEX IF NOT EXISTS idx_patient_intake_forms_doctor ON patient_intake_forms(doctor_id);
+
+              CREATE TABLE IF NOT EXISTS patient_timeline_events (
+                id TEXT PRIMARY KEY,
+                patient_id TEXT NOT NULL REFERENCES patients(id),
+                visit_id TEXT,
+                consultation_booking_id TEXT,
+                intake_form_id TEXT,
+                step TEXT NOT NULL,
+                title_en TEXT NOT NULL,
+                title_bn TEXT NOT NULL,
+                description_en TEXT,
+                description_bn TEXT,
+                actor_id TEXT,
+                actor_name TEXT,
+                actor_role TEXT,
+                metadata_json TEXT,
+                occurred_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                date TEXT NOT NULL
+              );
+              CREATE INDEX IF NOT EXISTS idx_patient_timeline_patient_date ON patient_timeline_events(patient_id, date);
+              CREATE INDEX IF NOT EXISTS idx_patient_timeline_occurred ON patient_timeline_events(occurred_at);
+            `);
+          } catch (intakeErr) {
+            console.error('Error creating patient intake and timeline tables:', intakeErr);
+          }
         } catch {
           // Idempotent column safety
         }

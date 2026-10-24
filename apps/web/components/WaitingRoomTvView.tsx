@@ -40,7 +40,10 @@ interface ConsultationItem {
   patientNameEn: string;
   patientNameBn?: string | null;
   doctorId?: string;
+  doctorName?: string;
   doctorNameEn?: string;
+  chamberRoomNumber?: string | number | null;
+  chamberName?: string | null;
   doctorSpecialization?: string | null;
   calledAt?: string | null;
   status?: string;
@@ -257,18 +260,72 @@ export default function WaitingRoomTvView() {
     }
   };
 
-  const speakAnnouncement = (text: string, voiceLang: 'bn-BD' | 'en-US') => {
-    if (!audioEnabled || !('speechSynthesis' in window)) return;
-    try {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = voiceLang;
-      utterance.rate = 0.92;
-      utterance.pitch = 1.0;
-      window.speechSynthesis.speak(utterance);
-    } catch (e) {
-      console.warn('Speech synthesis error:', e);
+  const triggerCallingAlert = (latestCalled: any) => {
+    setActiveCallAlert(latestCalled);
+    setCallCountdown(16);
+
+    if (audioEnabled && typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      playChime();
+      setTimeout(() => {
+        window.speechSynthesis.cancel();
+        const doctor = latestCalled.doctorNameEn || latestCalled.doctorName || 'ডাক্তার';
+        const patientBn = latestCalled.patientNameBn || latestCalled.patientNameEn || 'রোগী';
+        const patientEn = latestCalled.patientNameEn || latestCalled.patientNameBn || 'Patient';
+        const chamber = latestCalled.chamberRoomNumber || latestCalled.chamberName || '১';
+
+        // 1. Speak in Bangla: ডাঃ <doctor_name>, রোগী <patient_name>-কে রুম নম্বর <chamber_no>-এ ডাকছেন
+        const textBn = `ডাঃ ${doctor}, রোগী ${patientBn}-কে রুম নম্বর ${chamber}-এ ডাকছেন।`;
+        const utteranceBn = new SpeechSynthesisUtterance(textBn);
+        utteranceBn.lang = 'bn-BD';
+        utteranceBn.rate = 0.9;
+        utteranceBn.pitch = 1.0;
+
+        const bnVoice = voices.find((v) => v.lang.startsWith('bn'));
+        if (bnVoice) utteranceBn.voice = bnVoice;
+
+        // 2. Speak sequentially in English: Dr. <doctor_name> is calling patient <patient_name> to room number <chamber_no>
+        utteranceBn.onend = () => {
+          setTimeout(() => {
+            const textEn = `Dr. ${doctor} is calling patient ${patientEn} to room number ${chamber}.`;
+            const utteranceEn = new SpeechSynthesisUtterance(textEn);
+            const enInVoice =
+              voices.find((v) => v.lang === 'en-IN' || v.lang.startsWith('en-IN')) ||
+              voices.find((v) => v.lang.startsWith('en'));
+            if (enInVoice) {
+              utteranceEn.voice = enInVoice;
+              utteranceEn.lang = enInVoice.lang;
+            } else {
+              utteranceEn.lang = 'en-IN';
+            }
+            utteranceEn.rate = 0.92;
+            utteranceEn.pitch = 1.0;
+            window.speechSynthesis.speak(utteranceEn);
+          }, 350);
+        };
+
+        utteranceBn.onerror = () => {
+          const textEn = `Dr. ${doctor} is calling patient ${patientEn} to room number ${chamber}.`;
+          const utteranceEn = new SpeechSynthesisUtterance(textEn);
+          utteranceEn.lang = 'en-IN';
+          utteranceEn.rate = 0.92;
+          window.speechSynthesis.speak(utteranceEn);
+        };
+
+        window.speechSynthesis.speak(utteranceBn);
+      }, 650);
     }
+
+    if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+    countdownIntervalRef.current = setInterval(() => {
+      setCallCountdown((prev) => {
+        if (prev <= 1) {
+          if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+          setActiveCallAlert(null);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
   };
 
   const toBnNum = (n: number | string | undefined | null): string => {
@@ -311,39 +368,19 @@ export default function WaitingRoomTvView() {
 
         // Detect newly called consultation serial
         const latestCalled = data.consultationQueue?.nowServing?.[0];
-        if (latestCalled && latestCalled.serialNumber !== lastCalledSerialRef.current) {
-          lastCalledSerialRef.current = latestCalled.serialNumber;
-          setActiveCallAlert(latestCalled);
-          setCallCountdown(12);
-
-          if (audioEnabled) {
-            playChime();
-            setTimeout(() => {
-              if (lang === 'bn') {
-                speakAnnouncement(
-                  `টোকেন নম্বর ${latestCalled.tokenNumber || latestCalled.serialNumber}, ${latestCalled.patientNameBn || latestCalled.patientNameEn}, ডাক্তার চেম্বারে আসুন।`,
-                  'bn-BD',
-                );
-              } else {
-                speakAnnouncement(
-                  `Token number ${latestCalled.tokenNumber || latestCalled.serialNumber}, ${latestCalled.patientNameEn}, please enter doctor consultation chamber.`,
-                  'en-US',
-                );
-              }
-            }, 600);
+        if (latestCalled) {
+          if (latestCalled.serialNumber !== lastCalledSerialRef.current) {
+            lastCalledSerialRef.current = latestCalled.serialNumber;
+            triggerCallingAlert(latestCalled);
           }
-
-          if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
-          countdownIntervalRef.current = setInterval(() => {
-            setCallCountdown((prev) => {
-              if (prev <= 1) {
-                if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
-                setActiveCallAlert(null);
-                return 0;
-              }
-              return prev - 1;
-            });
-          }, 1000);
+        } else {
+          // No one is currently called (e.g. marked in consultation or call cancelled)
+          if (activeCallAlert) {
+            setActiveCallAlert(null);
+            if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+              window.speechSynthesis.cancel();
+            }
+          }
         }
       }
     } catch (err) {
@@ -362,6 +399,17 @@ export default function WaitingRoomTvView() {
       event.type.startsWith('announcement.') ||
       event.type.startsWith('tv:')
     ) {
+      const payloadData = (event as any).data || (event as any).payload;
+      if (event.type === 'consultation.call_chamber') {
+        if (payloadData) {
+          triggerCallingAlert(payloadData);
+        }
+      } else if (event.type === 'consultation.in_chamber' || event.type === 'consultation.call_cancelled') {
+        setActiveCallAlert(null);
+        if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+          window.speechSynthesis.cancel();
+        }
+      }
       loadData();
     }
   });
@@ -819,11 +867,15 @@ export default function WaitingRoomTvView() {
                 <DoorOpen className="size-10 sm:size-12 text-white" />
               </div>
               <div className="text-left">
-                <div className="text-xs uppercase tracking-widest text-emerald-100 font-bold">
-                  {lang === 'bn' ? 'ডাক্তার কনসাল্টেশন চেম্বার' : 'Doctor Consultation Chamber'}
+                <div className="text-xs sm:text-sm uppercase tracking-widest text-emerald-100 font-bold">
+                  {activeCallAlert.doctorNameEn || activeCallAlert.doctorName
+                    ? `ডাঃ ${activeCallAlert.doctorNameEn || activeCallAlert.doctorName}`
+                    : (lang === 'bn' ? 'ডাক্তার কনসাল্টেশন চেম্বার' : 'Doctor Consultation Chamber')}
                 </div>
                 <div className="text-2xl sm:text-4xl font-black font-mono text-white">
-                  {lang === 'bn' ? 'চেম্বার নং ১' : 'CHAMBER 1'}
+                  {activeCallAlert.chamberRoomNumber
+                    ? (lang === 'bn' ? `রুম নম্বর ${toBnNum(activeCallAlert.chamberRoomNumber)}` : `ROOM ${activeCallAlert.chamberRoomNumber}`)
+                    : (lang === 'bn' ? 'চেম্বার রুম ১' : 'CHAMBER ROOM 1')}
                 </div>
               </div>
             </div>

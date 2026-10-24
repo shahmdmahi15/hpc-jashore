@@ -26,6 +26,7 @@ import {
   X,
   FileSpreadsheet,
   FileText,
+  Clock,
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -48,6 +49,8 @@ import {
 import { CreatePatientDialog } from './CreatePatientDialog';
 import { EditPatientDialog } from './EditPatientDialog';
 import { PatientDetailModal } from './PatientDetailModal';
+import { PatientIntakeFormModal } from './PatientIntakeFormModal';
+import { PatientTimelineModal } from './PatientTimelineModal';
 
 const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'] as const;
 
@@ -75,6 +78,10 @@ export function PatientManagementView() {
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [selectedPatientForEdit, setSelectedPatientForEdit] = useState<PatientRecord | null>(null);
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [selectedPatientForIntake, setSelectedPatientForIntake] = useState<any>(null);
+  const [isIntakeOpen, setIsIntakeOpen] = useState(false);
+  const [selectedPatientForTimeline, setSelectedPatientForTimeline] = useState<{ id: string; name?: string } | null>(null);
+  const [isTimelineOpen, setIsTimelineOpen] = useState(false);
 
   // Clipboard copy state
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -657,6 +664,33 @@ export function PatientManagementView() {
                             size="sm"
                             variant="ghost"
                             onClick={() => {
+                              setSelectedPatientForIntake(patient);
+                              setIsIntakeOpen(true);
+                            }}
+                            className="h-8 px-2.5 text-xs text-muted-foreground hover:text-teal-600 cursor-pointer"
+                            title={isBn ? 'প্রাথমিক তথ্য ফরম' : 'Intake Form'}
+                          >
+                            <FileText className="w-3.5 h-3.5 text-teal-600" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => {
+                              setSelectedPatientForTimeline({
+                                id: patient.id,
+                                name: isBn ? patient.nameBn || patient.nameEn : patient.nameEn,
+                              });
+                              setIsTimelineOpen(true);
+                            }}
+                            className="h-8 px-2.5 text-xs text-muted-foreground hover:text-purple-600 cursor-pointer"
+                            title={isBn ? 'টাইমলাইন' : 'Timeline'}
+                          >
+                            <Clock className="w-3.5 h-3.5 text-purple-600" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => {
                               setSelectedPatientForDetail(patient.id);
                               setIsDetailOpen(true);
                             }}
@@ -767,6 +801,22 @@ export function PatientManagementView() {
         open={isEditOpen}
         onOpenChange={setIsEditOpen}
         onSuccess={handlePatientUpdated}
+      />
+
+      <PatientIntakeFormModal
+        open={isIntakeOpen}
+        onOpenChange={setIsIntakeOpen}
+        patient={selectedPatientForIntake}
+        onSuccess={() => {
+          toast.success(isBn ? 'প্রাথমিক তথ্য ফরম সংরক্ষিত হয়েছে!' : 'Intake form saved!');
+        }}
+      />
+
+      <PatientTimelineModal
+        open={isTimelineOpen}
+        onOpenChange={setIsTimelineOpen}
+        patientId={selectedPatientForTimeline?.id}
+        patientName={selectedPatientForTimeline?.name}
       />
     </div>
   );

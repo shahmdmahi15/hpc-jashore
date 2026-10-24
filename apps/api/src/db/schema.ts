@@ -323,7 +323,9 @@ export const CONSULTATION_BOOKING_STATUSES = [
   'booked',
   'checked_in',
   'in_queue',
+  'calling',
   'in_chamber',
+  'in_consultation',
   'completed',
   'cancelled',
 ] as const;
@@ -908,6 +910,92 @@ export const bulletins = sqliteTable('bulletins', {
   priority: integer('priority').notNull().default(0),
   createdBy: text('created_by').references(() => users.id),
   ...timestamps,
+});
+
+export const INTAKE_FORM_STATUSES = [
+  'submitted',
+  'forwarded_to_cashier',
+  'billed',
+  'in_queue',
+  'in_consultation',
+  'completed',
+  'cancelled',
+] as const;
+export type IntakeFormStatus = (typeof INTAKE_FORM_STATUSES)[number];
+
+export const patientIntakeForms = sqliteTable('patient_intake_forms', {
+  id: text('id').primaryKey(),
+  patientId: text('patient_id')
+    .notNull()
+    .references(() => patients.id),
+  visitId: text('visit_id').references(() => visits.id),
+  consultationBookingId: text('consultation_booking_id'),
+  doctorId: text('doctor_id').references(() => staff.id),
+  receptionistId: text('receptionist_id').references(() => users.id),
+  receptionistName: text('receptionist_name'),
+  date: text('date').notNull(),
+
+  // 1. Personal Info
+  name: text('name').notNull(),
+  ageYears: integer('age_years'),
+  phone: text('phone').notNull(),
+  gender: text('gender').notNull().default('male').$type<'male' | 'female' | 'other'>(),
+  occupation: text('occupation'),
+  address: text('address'),
+
+  // 2. Initial Health Info
+  bpSystolic: integer('bp_systolic'),
+  bpDiastolic: integer('bp_diastolic'),
+  bloodSugar: text('blood_sugar'),
+  hasDiabetes: integer('has_diabetes').notNull().default(0), // 0: No, 1: Yes
+  weightKg: text('weight_kg'),
+  chiefComplaint: text('chief_complaint'),
+  problemDuration: text('problem_duration'),
+
+  // 3. Past Medical History
+  seenDoctorBefore: integer('seen_doctor_before').notNull().default(0), // 0: No, 1: Yes
+  previousDoctorDetails: text('previous_doctor_details'),
+  hasPreviousReports: integer('has_previous_reports').notNull().default(0), // 0: No, 1: Yes
+  previousReportNames: text('previous_report_names'),
+  takesRegularMedication: integer('takes_regular_medication').notNull().default(0), // 0: No, 1: Yes
+  regularMedicationDetails: text('regular_medication_details'),
+  hasDrugAllergies: integer('has_drug_allergies').notNull().default(0), // 0: No, 1: Yes
+  drugAllergyDetails: text('drug_allergy_details'),
+
+  // 4. Referral Source
+  referralSource: text('referral_source'), // 'facebook' | 'google' | 'known_person' | 'previous_patient' | 'other'
+  referralOtherDetails: text('referral_other_details'),
+
+  // 5. Reception Notes & Status
+  specialNotes: text('special_notes'),
+  status: text('status').notNull().default('submitted').$type<IntakeFormStatus>(),
+  forwardedToCashierAt: text('forwarded_to_cashier_at'),
+  billedAt: text('billed_at'),
+  queuedAt: text('queued_at'),
+  ...timestamps,
+});
+
+export const patientTimelineEvents = sqliteTable('patient_timeline_events', {
+  id: text('id').primaryKey(),
+  patientId: text('patient_id')
+    .notNull()
+    .references(() => patients.id),
+  visitId: text('visit_id'),
+  consultationBookingId: text('consultation_booking_id'),
+  intakeFormId: text('intake_form_id'),
+  step: text('step').notNull(),
+  titleEn: text('title_en').notNull(),
+  titleBn: text('title_bn').notNull(),
+  descriptionEn: text('description_en'),
+  descriptionBn: text('description_bn'),
+  actorId: text('actor_id'),
+  actorName: text('actor_name'),
+  actorRole: text('actor_role'),
+  metadataJson: text('metadata_json'),
+  occurredAt: text('occurred_at')
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+  date: text('date').notNull(),
 });
 
 // Keeps the sqlite import used; WAL/foreign-keys are set in DbModule.
