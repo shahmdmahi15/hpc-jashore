@@ -116,6 +116,8 @@ export async function logoutAction() {
     cookieStore.delete('hpc_session_token');
     cookieStore.delete('hpc_access_token');
     cookieStore.delete('hpc_session');
+    cookieStore.delete('SESSION_TOKEN');
+    cookieStore.delete('__Host-SESSION_TOKEN');
   } catch {
     // ignore
   }

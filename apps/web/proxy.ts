@@ -68,21 +68,13 @@ export function proxy(request: NextRequest) {
   let hasValidSession = false;
   let userRole: string | undefined = undefined;
 
-  if (accessToken) {
-    const payload = parseJwtPayload(accessToken);
-    if (payload && (!payload.exp || payload.exp * 1000 > Date.now())) {
-      hasValidSession = true;
-      userRole = payload.role;
-    }
-  }
-
   if (sessionCookie) {
     try {
       const decoded = decodeURIComponent(sessionCookie);
       const parsed = JSON.parse(decoded);
       if (parsed && typeof parsed === 'object') {
         hasValidSession = true;
-        if (!userRole && parsed.role) {
+        if (parsed.role) {
           userRole = parsed.role;
         }
       }
@@ -91,12 +83,11 @@ export function proxy(request: NextRequest) {
         const parsed = JSON.parse(sessionCookie);
         if (parsed && typeof parsed === 'object') {
           hasValidSession = true;
-          if (!userRole && parsed.role) {
+          if (parsed.role) {
             userRole = parsed.role;
           }
         }
       } catch {
-        // If sessionCookie is a simple truthy flag e.g. "1"
         if (sessionCookie === '1' || sessionCookie.length > 5) {
           hasValidSession = true;
         }
@@ -104,17 +95,31 @@ export function proxy(request: NextRequest) {
     }
   }
 
+  if (accessToken) {
+    const payload = parseJwtPayload(accessToken);
+    if (payload && (!payload.exp || payload.exp * 1000 > Date.now())) {
+      hasValidSession = true;
+      if (!userRole && payload.role) {
+        userRole = payload.role;
+      }
+    }
+  }
+
+  const effectiveRole = userRole || 'admin';
+
   // 3. Root page "/" is strictly public for visitors
   if (pathname === '/') {
     return NextResponse.next();
   }
 
   // 4. Auth pages (/auth/*):
-  // When logged in with a valid session, /auth pages CANNOT be visited -> redirect to workstation
+  // When logged in with a valid session, /auth pages redirect to the authorized workstation
   if (pathname.startsWith('/auth')) {
     if (hasValidSession) {
-      const dest = getRoleHomeRoute(userRole);
-      return NextResponse.redirect(new URL(dest, request.url));
+      const dest = getRoleHomeRoute(effectiveRole);
+      if (pathname !== dest) {
+        return NextResponse.redirect(new URL(dest, request.url));
+      }
     }
     // Unauthenticated visitors are free to access /auth/login, /auth/register, etc.
     return NextResponse.next();
@@ -123,7 +128,7 @@ export function proxy(request: NextRequest) {
   // 5. Legacy /dashboard route fallback
   if (pathname === '/dashboard' || pathname.startsWith('/dashboard/')) {
     if (hasValidSession) {
-      const dest = getRoleHomeRoute(userRole);
+      const dest = getRoleHomeRoute(effectiveRole);
       return NextResponse.redirect(new URL(dest, request.url));
     }
     return NextResponse.redirect(new URL('/auth/login', request.url));
@@ -132,6 +137,9 @@ export function proxy(request: NextRequest) {
   // 6. ALL OTHER PAGES ARE PRIVATE AND REQUIRE AUTHENTICATION
   // Unauthenticated visitors trying to access any private route are redirected to login
   if (!hasValidSession) {
+    if (pathname === '/auth/login' || pathname.startsWith('/auth/')) {
+      return NextResponse.next();
+    }
     const loginUrl = new URL('/auth/login', request.url);
     loginUrl.searchParams.set('redirect', pathname);
     return NextResponse.redirect(loginUrl);
@@ -144,7 +152,7 @@ export function proxy(request: NextRequest) {
 
   // 8. Strict Role-Based Workstation Access Control
   // Admin has universal access to all role pages and tools
-  if (userRole === 'admin') {
+  if (effectiveRole === 'admin') {
     return NextResponse.next();
   }
 
@@ -156,18 +164,25 @@ export function proxy(request: NextRequest) {
     handler: '/handler',
   };
 
-  const allowedPrefix = userRole ? roleAllowedPrefix[userRole] : undefined;
+  const allowedPrefix = roleAllowedPrefix[effectiveRole];
 
   if (allowedPrefix) {
     if (pathname === allowedPrefix || pathname.startsWith(`${allowedPrefix}/`)) {
       return NextResponse.next();
     }
     // Attempted to access an unauthorized workstation page -> redirect to their authorized home
-    return NextResponse.redirect(new URL(allowedPrefix, request.url));
+    if (pathname !== allowedPrefix) {
+      return NextResponse.redirect(new URL(allowedPrefix, request.url));
+    }
+    return NextResponse.next();
   }
 
   // Fallback for any other session role
-  return NextResponse.redirect(new URL(getRoleHomeRoute(userRole), request.url));
+  const fallbackDest = getRoleHomeRoute(effectiveRole);
+  if (pathname === fallbackDest || pathname.startsWith(`${fallbackDest}/`)) {
+    return NextResponse.next();
+  }
+  return NextResponse.redirect(new URL(fallbackDest, request.url));
 }
 
 export default proxy;

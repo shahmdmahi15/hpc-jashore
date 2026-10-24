@@ -66,6 +66,10 @@ export function setSession(session: UserSession | null) {
     } else {
       localStorage.removeItem('hpc_session');
       document.cookie = `hpc_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax; Secure`;
+      document.cookie = `hpc_session_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax; Secure`;
+      document.cookie = `hpc_access_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax; Secure`;
+      document.cookie = `SESSION_TOKEN=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax; Secure`;
+      document.cookie = `__Host-SESSION_TOKEN=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax; Secure`;
     }
   }
 }
