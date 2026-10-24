@@ -9,32 +9,18 @@ import {
   RefreshCw,
   Edit2,
   CheckCircle2,
-  Clock,
   DoorOpen,
-  Calendar,
   Banknote,
-  DollarSign,
   Users,
   ShieldCheck,
   LayoutGrid,
   Table as TableIcon,
   Phone,
   Mail,
-  GraduationCap,
-  Sparkles,
-  Info,
   Check,
-  ChevronRight,
-  SlidersHorizontal,
   X,
-  FileText,
-  BadgeAlert,
-  Percent,
   UserCheck,
   UserPlus,
-  Link2,
-  Unlink,
-  AlertCircle,
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -63,7 +49,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../ui/dialog';
-import { Textarea } from '../ui/textarea';
 import { Switch } from '../ui/switch';
 import { toast } from 'sonner';
 import { useLanguage } from '../../lib/i18n';
@@ -78,16 +63,6 @@ import {
 } from '../../lib/actions/consultation-config';
 import { listRoomsAction, RoomRecord } from '../../lib/actions/rooms';
 import { listUsersAction, UserRecord } from '../../lib/actions/users';
-
-const DAYS_OF_WEEK = [
-  { id: 'Saturday', en: 'Saturday', bn: 'শনিবার' },
-  { id: 'Sunday', en: 'Sunday', bn: 'রবিবার' },
-  { id: 'Monday', en: 'Monday', bn: 'সোমবার' },
-  { id: 'Tuesday', en: 'Tuesday', bn: 'মঙ্গলবার' },
-  { id: 'Wednesday', en: 'Wednesday', bn: 'বুধবার' },
-  { id: 'Thursday', en: 'Thursday', bn: 'বৃহস্পতিবার' },
-  { id: 'Friday', en: 'Friday', bn: 'শুক্রবার' },
-];
 
 export function ConsultationConfigView() {
   const { language } = useLanguage();
@@ -108,80 +83,46 @@ export function ConsultationConfigView() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState<boolean>(false);
   const [addMode, setAddMode] = useState<'existing_user' | 'new_user'>('existing_user');
 
-  // Form State for Editing
+  // Form State for Editing Fee & Chamber directly on user
   const [editForm, setEditForm] = useState<{
-    userId: string;
     fullName: string;
     phone: string;
-    specialization: string;
-    qualifications: string;
     consultationFeeTaka: number;
     followUpFeeTaka: number;
     reportFeeTaka: number;
     chamberRoomId: string;
-    dailyQuota: number;
-    slotDurationMinutes: number;
-    dutyStartTime: string;
-    dutyEndTime: string;
-    availableDays: string[];
-    notes: string;
     isActive: boolean;
   }>({
-    userId: '',
     fullName: '',
     phone: '',
-    specialization: '',
-    qualifications: '',
     consultationFeeTaka: 500,
     followUpFeeTaka: 300,
     reportFeeTaka: 0,
     chamberRoomId: '',
-    dailyQuota: 40,
-    slotDurationMinutes: 15,
-    dutyStartTime: '09:00 AM',
-    dutyEndTime: '05:00 PM',
-    availableDays: ['Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday'],
-    notes: '',
     isActive: true,
   });
 
-  // Form State for Adding
+  // Form State for Adding Doctor
   const [newDoctorForm, setNewDoctorForm] = useState<{
     userId: string;
     fullName: string;
     email: string;
     phone: string;
     password: string;
-    specialization: string;
-    qualifications: string;
     consultationFeeTaka: number;
     followUpFeeTaka: number;
     reportFeeTaka: number;
     chamberRoomId: string;
-    dailyQuota: number;
-    slotDurationMinutes: number;
-    dutyStartTime: string;
-    dutyEndTime: string;
-    availableDays: string[];
-    notes: string;
   }>({
     userId: '',
     fullName: '',
     email: '',
     phone: '',
     password: '',
-    specialization: 'Physiotherapy & Rehabilitation Specialist',
-    qualifications: 'BPT, PGD, MDMR, MPH',
     consultationFeeTaka: 500,
     followUpFeeTaka: 300,
     reportFeeTaka: 0,
     chamberRoomId: '',
-    dailyQuota: 40,
-    slotDurationMinutes: 15,
-    dutyStartTime: '09:00 AM',
-    dutyEndTime: '05:00 PM',
-    availableDays: ['Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday'],
-    notes: '',
   });
 
   // Load Data
@@ -190,7 +131,7 @@ export function ConsultationConfigView() {
     try {
       const [docRes, roomRes, userRes] = await Promise.all([
         listDoctorsAction(),
-        listRoomsAction({ type: 'doctor_consultation_room', limit: 100 }),
+        listRoomsAction({ limit: 100 }),
         listUsersAction(),
       ]);
 
@@ -237,50 +178,15 @@ export function ConsultationConfigView() {
   const openEditModal = (doc: DoctorConfigRecord) => {
     setEditingDoctor(doc);
     setEditForm({
-      userId: doc.userId || 'none',
-      fullName: doc.fullName,
+      fullName: doc.fullName || doc.displayName,
       phone: doc.phone || '',
-      specialization: doc.specialization || '',
-      qualifications: doc.qualifications || '',
       consultationFeeTaka: doc.consultationFeeTaka || 500,
-      followUpFeeTaka: doc.followUpFeeTaka || 300,
+      followUpFeeTaka: doc.followUpFeeTaka || 0,
       reportFeeTaka: doc.reportFeeTaka || 0,
-      chamberRoomId: doc.chamberRoomId || (rooms[0]?.id ?? ''),
-      dailyQuota: doc.dailyQuota || 40,
-      slotDurationMinutes: doc.slotDurationMinutes || 15,
-      dutyStartTime: doc.dutyStartTime || '09:00 AM',
-      dutyEndTime: doc.dutyEndTime || '05:00 PM',
-      availableDays: Array.isArray(doc.availableDays) ? doc.availableDays : ['Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday'],
-      notes: doc.notes || '',
-      isActive: doc.isActive === 1,
+      chamberRoomId: doc.chamberRoomId || '',
+      isActive: doc.isActive === 1 || doc.isActive === true,
     });
     setIsEditDialogOpen(true);
-  };
-
-  // Toggle Day in Edit Form
-  const toggleEditDay = (day: string) => {
-    setEditForm((prev) => {
-      const exists = prev.availableDays.includes(day);
-      return {
-        ...prev,
-        availableDays: exists
-          ? prev.availableDays.filter((d) => d !== day)
-          : [...prev.availableDays, day],
-      };
-    });
-  };
-
-  // Toggle Day in New Doctor Form
-  const toggleNewDay = (day: string) => {
-    setNewDoctorForm((prev) => {
-      const exists = prev.availableDays.includes(day);
-      return {
-        ...prev,
-        availableDays: exists
-          ? prev.availableDays.filter((d) => d !== day)
-          : [...prev.availableDays, day],
-      };
-    });
   };
 
   // Handle Existing User Selection in Add Form
@@ -300,7 +206,7 @@ export function ConsultationConfigView() {
   const handleEditSubmit = () => {
     if (!editingDoctor) return;
     if (!editForm.fullName.trim()) {
-      toast.error(language === 'bn' ? 'ডাক্তারের নাম বাধ্যতামূলক' : 'Doctor name is required');
+      toast.error(language === 'bn' ? 'ডাক্তারের নাম আবশ্যক' : 'Doctor name is required');
       return;
     }
     if (editForm.consultationFeeTaka < 0) {
@@ -310,21 +216,13 @@ export function ConsultationConfigView() {
 
     startTransition(async () => {
       const payload: UpdateDoctorConfigInput = {
-        userId: editForm.userId === 'none' ? null : (editForm.userId || undefined),
         fullName: editForm.fullName.trim(),
+        displayName: editForm.fullName.trim(),
         phone: editForm.phone.trim() || undefined,
-        specialization: editForm.specialization.trim() || undefined,
-        qualifications: editForm.qualifications.trim() || undefined,
         consultationFeeTaka: Number(editForm.consultationFeeTaka),
         followUpFeeTaka: Number(editForm.followUpFeeTaka),
         reportFeeTaka: Number(editForm.reportFeeTaka),
-        chamberRoomId: editForm.chamberRoomId || undefined,
-        dailyQuota: Number(editForm.dailyQuota),
-        slotDurationMinutes: Number(editForm.slotDurationMinutes),
-        dutyStartTime: editForm.dutyStartTime.trim(),
-        dutyEndTime: editForm.dutyEndTime.trim(),
-        availableDays: editForm.availableDays,
-        notes: editForm.notes.trim() || undefined,
+        chamberRoomId: editForm.chamberRoomId || null,
         isActive: editForm.isActive,
       };
 
@@ -332,14 +230,14 @@ export function ConsultationConfigView() {
       if (res.success && res.data) {
         toast.success(
           language === 'bn'
-            ? `${res.data.fullName}-এর কনসালটেশন ফি, চেম্বার ও ইউজার অ্যাকাউন্ট আপডেট হয়েছে!`
-            : `Consultation fee, chamber & user account updated for ${res.data.fullName}!`
+            ? `${res.data.fullName || res.data.displayName}-এর ফি ও চেম্বার আপডেট সম্পন্ন হয়েছে!`
+            : `Fee and chamber updated for ${res.data.fullName || res.data.displayName}!`
         );
         setIsEditDialogOpen(false);
         setEditingDoctor(null);
         await loadData(false);
       } else {
-        toast.error(res.error || (language === 'bn' ? 'আপডেট করতে ব্যর্থ হয়েছে' : 'Failed to update doctor config'));
+        toast.error(res.error || (language === 'bn' ? 'আপডেট করতে ব্যর্থ হয়েছে' : 'Failed to update doctor fee & chamber'));
       }
     });
   };
@@ -347,7 +245,7 @@ export function ConsultationConfigView() {
   // Handle Create Submit
   const handleCreateSubmit = () => {
     if (!newDoctorForm.fullName.trim()) {
-      toast.error(language === 'bn' ? 'ডাক্তারের নাম বাধ্যতামূলক' : 'Doctor name is required');
+      toast.error(language === 'bn' ? 'ডাক্তারের নাম আবশ্যক' : 'Doctor name is required');
       return;
     }
 
@@ -355,29 +253,22 @@ export function ConsultationConfigView() {
       const payload: CreateDoctorInput = {
         userId: addMode === 'existing_user' && newDoctorForm.userId ? newDoctorForm.userId : undefined,
         fullName: newDoctorForm.fullName.trim(),
+        displayName: newDoctorForm.fullName.trim(),
         email: addMode === 'new_user' ? (newDoctorForm.email.trim() || undefined) : (newDoctorForm.email || undefined),
         password: addMode === 'new_user' ? (newDoctorForm.password.trim() || undefined) : undefined,
         phone: newDoctorForm.phone.trim() || undefined,
-        specialization: newDoctorForm.specialization.trim() || undefined,
-        qualifications: newDoctorForm.qualifications.trim() || undefined,
         consultationFeeTaka: Number(newDoctorForm.consultationFeeTaka),
         followUpFeeTaka: Number(newDoctorForm.followUpFeeTaka),
         reportFeeTaka: Number(newDoctorForm.reportFeeTaka),
-        chamberRoomId: newDoctorForm.chamberRoomId || undefined,
-        dailyQuota: Number(newDoctorForm.dailyQuota),
-        slotDurationMinutes: Number(newDoctorForm.slotDurationMinutes),
-        dutyStartTime: newDoctorForm.dutyStartTime.trim(),
-        dutyEndTime: newDoctorForm.dutyEndTime.trim(),
-        availableDays: newDoctorForm.availableDays,
-        notes: newDoctorForm.notes.trim() || undefined,
+        chamberRoomId: newDoctorForm.chamberRoomId || null,
       };
 
       const res = await createDoctorAction(payload);
       if (res.success && res.data) {
         toast.success(
           language === 'bn'
-            ? `নতুন ডাক্তার ${res.data.fullName} সফলভাবে যুক্ত হয়েছে!`
-            : `Doctor ${res.data.fullName} added successfully!`
+            ? `ডাক্তার ${res.data.fullName || res.data.displayName} সফলভাবে যুক্ত হয়েছে!`
+            : `Doctor ${res.data.fullName || res.data.displayName} added successfully!`
         );
         setIsAddDialogOpen(false);
         setNewDoctorForm({
@@ -386,18 +277,10 @@ export function ConsultationConfigView() {
           email: '',
           phone: '',
           password: '',
-          specialization: 'Physiotherapy & Rehabilitation Specialist',
-          qualifications: 'BPT, PGD, MDMR, MPH',
           consultationFeeTaka: 500,
           followUpFeeTaka: 300,
           reportFeeTaka: 0,
           chamberRoomId: '',
-          dailyQuota: 40,
-          slotDurationMinutes: 15,
-          dutyStartTime: '09:00 AM',
-          dutyEndTime: '05:00 PM',
-          availableDays: ['Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday'],
-          notes: '',
         });
         await loadData(false);
       } else {
@@ -411,36 +294,35 @@ export function ConsultationConfigView() {
     const q = searchQuery.toLowerCase().trim();
     const matchSearch =
       !q ||
-      doc.fullName.toLowerCase().includes(q) ||
+      (doc.fullName && doc.fullName.toLowerCase().includes(q)) ||
+      (doc.displayName && doc.displayName.toLowerCase().includes(q)) ||
       (doc.phone && doc.phone.toLowerCase().includes(q)) ||
       (doc.email && doc.email.toLowerCase().includes(q)) ||
-      (doc.specialization && doc.specialization.toLowerCase().includes(q)) ||
-      (doc.qualifications && doc.qualifications.toLowerCase().includes(q)) ||
-      (doc.chamberName && doc.chamberName.toLowerCase().includes(q)) ||
-      (doc.linkedUser?.email && doc.linkedUser.email.toLowerCase().includes(q));
+      (doc.chamberName && doc.chamberName.toLowerCase().includes(q));
 
+    const isActive = doc.isActive === 1 || doc.isActive === true;
     const matchStatus =
       statusFilter === 'all' ||
-      (statusFilter === 'active' && doc.isActive === 1) ||
-      (statusFilter === 'inactive' && doc.isActive === 0);
+      (statusFilter === 'active' && isActive) ||
+      (statusFilter === 'inactive' && !isActive);
 
     return matchSearch && matchStatus;
   });
 
   // KPI Calculations
   const totalDoctors = doctors.length;
-  const activeDoctors = doctors.filter((d) => d.isActive === 1).length;
+  const activeDoctors = doctors.filter((d) => d.isActive === 1 || d.isActive === true).length;
   const avgFee = totalDoctors > 0
     ? Math.round(doctors.reduce((acc, d) => acc + (d.consultationFeeTaka || 0), 0) / totalDoctors)
     : 0;
-  const totalDailyQuota = doctors.reduce((acc, d) => acc + (d.dailyQuota || 0), 0);
+  const assignedChambersCount = doctors.filter((d) => Boolean(d.chamberRoomId)).length;
 
   return (
     <div className="space-y-4 sm:space-y-6 w-full">
       {/* Top Banner & KPI Metric Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
         {/* Metric 1: Total Doctors */}
-        <Card className="border-border/60 bg-card/60 backdrop-blur-sm shadow-sm relative overflow-hidden">
+        <Card className="border-border/60 bg-card/60 backdrop-blur-sm shadow-xs relative overflow-hidden">
           <CardContent className="p-3.5 sm:p-5 flex items-center justify-between">
             <div className="space-y-0.5 sm:space-y-1">
               <span className="text-[11px] sm:text-xs font-semibold text-muted-foreground uppercase tracking-wider">
@@ -462,7 +344,7 @@ export function ConsultationConfigView() {
         </Card>
 
         {/* Metric 2: Avg Consultation Fee */}
-        <Card className="border-border/60 bg-card/60 backdrop-blur-sm shadow-sm relative overflow-hidden">
+        <Card className="border-border/60 bg-card/60 backdrop-blur-sm shadow-xs relative overflow-hidden">
           <CardContent className="p-3.5 sm:p-5 flex items-center justify-between">
             <div className="space-y-0.5 sm:space-y-1">
               <span className="text-[11px] sm:text-xs font-semibold text-muted-foreground uppercase tracking-wider">
@@ -483,41 +365,41 @@ export function ConsultationConfigView() {
           </CardContent>
         </Card>
 
-        {/* Metric 3: Total Daily Capacity */}
-        <Card className="border-border/60 bg-card/60 backdrop-blur-sm shadow-sm relative overflow-hidden">
+        {/* Metric 3: Assigned Chambers */}
+        <Card className="border-border/60 bg-card/60 backdrop-blur-sm shadow-xs relative overflow-hidden">
           <CardContent className="p-3.5 sm:p-5 flex items-center justify-between">
             <div className="space-y-0.5 sm:space-y-1">
               <span className="text-[11px] sm:text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                {language === 'bn' ? 'দৈনিক মোট কোটা' : 'Daily Quota'}
+                {language === 'bn' ? 'বরাদ্দকৃত চেম্বার' : 'Assigned Chambers'}
               </span>
               <div className="flex items-baseline gap-1">
                 <span className="text-xl sm:text-3xl font-black tracking-tight text-foreground">
-                  {totalDailyQuota}
+                  {assignedChambersCount}
                 </span>
                 <span className="text-[10px] sm:text-xs text-muted-foreground font-medium">
-                  {language === 'bn' ? 'রোগী / দিন' : 'pts / day'}
+                  / {totalDoctors} {language === 'bn' ? 'ডাক্তার' : 'doctors'}
                 </span>
               </div>
             </div>
             <div className="size-9 sm:size-12 rounded-xl bg-sky-500/10 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0">
-              <Users className="size-5 sm:size-6" />
+              <DoorOpen className="size-5 sm:size-6" />
             </div>
           </CardContent>
         </Card>
 
-        {/* Metric 4: Connected System Users */}
-        <Card className="border-border/60 bg-card/60 backdrop-blur-sm shadow-sm relative overflow-hidden">
+        {/* Metric 4: Direct User Accounts */}
+        <Card className="border-border/60 bg-card/60 backdrop-blur-sm shadow-xs relative overflow-hidden">
           <CardContent className="p-3.5 sm:p-5 flex items-center justify-between">
             <div className="space-y-0.5 sm:space-y-1">
               <span className="text-[11px] sm:text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                {language === 'bn' ? 'সংযুক্ত ইউজার' : 'Linked Logins'}
+                {language === 'bn' ? 'ইউজার মডেল অ্যাকাউন্ট' : 'Direct User Model'}
               </span>
               <div className="flex items-baseline gap-1">
                 <span className="text-xl sm:text-3xl font-black tracking-tight text-emerald-600 dark:text-emerald-400">
-                  {doctors.filter((d) => d.userId || d.linkedUser).length}
+                  {totalDoctors}
                 </span>
                 <span className="text-[10px] sm:text-xs text-muted-foreground font-medium">
-                  / {totalDoctors} {language === 'bn' ? 'ডাক্তার' : 'doctors'}
+                  ({language === 'bn' ? '১০০% ডিরেক্ট' : '100% direct'})
                 </span>
               </div>
             </div>
@@ -529,20 +411,20 @@ export function ConsultationConfigView() {
       </div>
 
       {/* Main Management Card */}
-      <Card className="border-border/70 shadow-sm bg-card/80 backdrop-blur-sm">
+      <Card className="border-border/70 shadow-xs bg-card/80 backdrop-blur-sm">
         <CardHeader className="p-4 sm:p-6 pb-3">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <CardTitle className="text-lg sm:text-xl font-bold flex items-center gap-2">
                 <Stethoscope className="size-5 text-emerald-500" />
                 {language === 'bn'
-                  ? 'ডাক্তার কনসালটেশন ফি ও চেম্বার শিডিউল কনফিগারেশন'
-                  : 'Doctor Consultation Fee & Chamber Schedule'}
+                  ? 'ডাক্তার কনসালটেশন ফি ও চেম্বার রুম'
+                  : 'Doctor Consultation Fee & Chamber'}
               </CardTitle>
               <CardDescription className="text-xs sm:text-sm mt-0.5">
                 {language === 'bn'
-                  ? 'প্রতিটি ডাক্তারের মূল ভিজিট ফি, ফলো-আপ ফি, রিপোর্ট ফি, চেম্বার রুম ও সাপ্তাহিক শিডিউল পরিচালনা করুন।'
-                  : 'Manage per-doctor consultation fees (main visit, follow-up, report), assigned chamber rooms, daily quotas, and weekly schedules.'}
+                  ? 'ইউজার মডেলের ডাক্তার অ্যাকাউন্টে সরাসরি চেম্বার রুম এবং ভিজিট ফি নির্ধারণ করুন।'
+                  : 'Directly manage consultation fees and assigned chamber rooms on doctor user accounts.'}
               </CardDescription>
             </div>
 
@@ -564,10 +446,10 @@ export function ConsultationConfigView() {
                   setAddMode('existing_user');
                   setIsAddDialogOpen(true);
                 }}
-                className="h-9 rounded-xl text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-semibold flex items-center gap-1.5 shadow-sm"
+                className="h-9 rounded-xl text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-semibold flex items-center gap-1.5 shadow-xs"
               >
                 <Plus className="size-4" />
-                <span>{language === 'bn' ? 'নতুন ডাক্তার যুক্ত করুন' : 'Add New Doctor'}</span>
+                <span>{language === 'bn' ? 'নতুন ডাক্তার যুক্ত করুন' : 'Add Doctor'}</span>
               </Button>
             </div>
           </div>
@@ -580,8 +462,8 @@ export function ConsultationConfigView() {
                 <Input
                   placeholder={
                     language === 'bn'
-                      ? 'ডাক্তারের নাম, ফোন, পদবী বা চেম্বার খুঁজুন...'
-                      : 'Search doctor, phone, specialization, chamber...'
+                      ? 'ডাক্তারের নাম, ফোন বা চেম্বার খুঁজুন...'
+                      : 'Search doctor, phone, email, chamber...'
                   }
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -641,7 +523,7 @@ export function ConsultationConfigView() {
             <div className="py-16 text-center space-y-3">
               <RefreshCw className="size-8 text-emerald-500 animate-spin mx-auto" />
               <p className="text-sm text-muted-foreground font-medium">
-                {language === 'bn' ? 'ডাক্তারদের তথ্য ও ফি শিডিউল লোড হচ্ছে...' : 'Loading doctor fee schedules...'}
+                {language === 'bn' ? 'ডাক্তারদের ফি ও চেম্বার লোড হচ্ছে...' : 'Loading doctor fee schedules...'}
               </p>
             </div>
           ) : filteredDoctors.length === 0 ? (
@@ -671,16 +553,17 @@ export function ConsultationConfigView() {
               )}
             </div>
           ) : viewMode === 'grid' ? (
-            /* Cards Grid View */
+            /* Cards Grid View: Pure Doctor User + Room + Fees */
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
               {filteredDoctors.map((doc) => {
-                const daysList = Array.isArray(doc.availableDays) ? doc.availableDays : [];
-                const isLinked = Boolean(doc.userId || doc.linkedUser);
+                const isActive = doc.isActive === 1 || doc.isActive === true;
+                const displayName = doc.displayName || doc.fullName;
+
                 return (
                   <Card
                     key={doc.id}
                     className={`border transition-all duration-200 overflow-hidden relative flex flex-col justify-between ${
-                      doc.isActive === 1
+                      isActive
                         ? 'border-border/70 hover:border-emerald-500/50 hover:shadow-md'
                         : 'border-border/40 opacity-75 bg-muted/20'
                     }`}
@@ -690,15 +573,15 @@ export function ConsultationConfigView() {
                       <div className="p-4 sm:p-5 border-b border-border/40 bg-gradient-to-br from-card to-muted/30">
                         <div className="flex items-start justify-between gap-3">
                           <div className="flex items-center gap-3">
-                            <div className="size-11 sm:size-12 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 flex items-center justify-center font-bold text-base sm:text-lg shrink-0 shadow-inner">
-                              {doc.fullName.slice(0, 2).toUpperCase()}
+                            <div className="size-12 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 flex items-center justify-center font-bold text-base sm:text-lg shrink-0 shadow-inner">
+                              {displayName.slice(0, 2).toUpperCase()}
                             </div>
                             <div className="space-y-0.5">
                               <div className="flex items-center gap-1.5 flex-wrap">
                                 <h4 className="font-bold text-sm sm:text-base text-foreground leading-snug">
-                                  {doc.fullName}
+                                  {displayName}
                                 </h4>
-                                {doc.isActive === 1 ? (
+                                {isActive ? (
                                   <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 text-[10px] px-1.5 py-0 font-medium">
                                     {language === 'bn' ? 'সক্রিয়' : 'Active'}
                                   </Badge>
@@ -708,86 +591,43 @@ export function ConsultationConfigView() {
                                   </Badge>
                                 )}
                               </div>
-                              <p className="text-xs text-primary font-medium">
-                                {doc.specialization || (language === 'bn' ? 'বিশেষজ্ঞ ডাক্তার' : 'Specialist')}
+                              <p className="text-xs text-muted-foreground flex items-center gap-1 font-mono">
+                                <Mail className="size-3 text-muted-foreground/70 shrink-0" />
+                                <span className="truncate">{doc.email}</span>
                               </p>
-                              {doc.qualifications && (
-                                <p className="text-[11px] text-muted-foreground flex items-center gap-1">
-                                  <GraduationCap className="size-3 text-muted-foreground/80 shrink-0" />
-                                  <span className="truncate">{doc.qualifications}</span>
+                              {doc.phone && (
+                                <p className="text-xs text-muted-foreground flex items-center gap-1 font-mono">
+                                  <Phone className="size-3 text-sky-500 shrink-0" />
+                                  <span>{doc.phone}</span>
                                 </p>
                               )}
                             </div>
                           </div>
                         </div>
 
-                        {/* Chamber & Contact Badges */}
+                        {/* Assigned Chamber Room Badge */}
                         <div className="flex items-center gap-2 flex-wrap mt-3 pt-2.5 border-t border-border/30 text-xs">
-                          <div className="flex items-center gap-1 text-muted-foreground bg-background/80 px-2.5 py-1 rounded-lg border border-border/40">
-                            <DoorOpen className="size-3 text-emerald-500 shrink-0" />
-                            <span className="font-medium text-[11px] text-foreground">
+                          <div className="flex items-center gap-1.5 text-muted-foreground bg-background/80 px-2.5 py-1 rounded-lg border border-border/40">
+                            <DoorOpen className="size-3.5 text-emerald-500 shrink-0" />
+                            <span className="font-semibold text-xs text-foreground">
                               {doc.chamberName || (doc.chamberRoomNumber ? `Chamber ${doc.chamberRoomNumber}` : (language === 'bn' ? 'চেম্বার নির্ধারিত নেই' : 'No Chamber'))}
                             </span>
                           </div>
-
-                          {doc.phone && (
-                            <div className="flex items-center gap-1 text-muted-foreground bg-background/80 px-2 py-1 rounded-lg border border-border/40">
-                              <Phone className="size-3 text-sky-500 shrink-0" />
-                              <span className="text-[11px] font-mono">{doc.phone}</span>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Connected User Account System Badge */}
-                        <div className="mt-2.5 pt-2 border-t border-border/30">
-                          {isLinked ? (
-                            <div className="flex items-center justify-between gap-1.5 p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs">
-                              <span className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-300 font-medium text-[11px] truncate">
-                                <ShieldCheck className="size-3.5 text-emerald-500 shrink-0" />
-                                <span className="font-semibold">{language === 'bn' ? 'সংযুক্ত ইউজার:' : 'Linked User:'}</span>
-                                <span className="truncate font-mono">{doc.linkedUser?.email || doc.email || doc.userId}</span>
-                              </span>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => openEditModal(doc)}
-                                className="h-6 px-1.5 text-[10px] text-emerald-700 hover:text-emerald-800 dark:text-emerald-300"
-                              >
-                                {language === 'bn' ? 'পরিবর্তন' : 'Change'}
-                              </Button>
-                            </div>
-                          ) : (
-                            <div className="flex items-center justify-between gap-1.5 p-2 rounded-xl bg-amber-500/10 border border-amber-500/25 text-xs">
-                              <span className="flex items-center gap-1.5 text-amber-700 dark:text-amber-300 font-medium text-[11px]">
-                                <AlertCircle className="size-3.5 text-amber-500 shrink-0" />
-                                {language === 'bn' ? 'ইউজার অ্যাকাউন্ট নেই' : 'No Login Account'}
-                              </span>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => openEditModal(doc)}
-                                className="h-6 px-2 text-[10px] border-amber-500/30 text-amber-700 dark:text-amber-300 hover:bg-amber-500/20"
-                              >
-                                <Link2 className="size-2.5 mr-1" />
-                                {language === 'bn' ? 'সংযুক্ত করুন' : 'Connect'}
-                              </Button>
-                            </div>
-                          )}
                         </div>
                       </div>
 
-                      {/* Fee Structure Display Box (Highlight) */}
+                      {/* Fee Structure Display Box */}
                       <div className="p-4 sm:p-5 space-y-3">
                         <span className="text-[10px] font-bold tracking-wider text-muted-foreground uppercase flex items-center gap-1">
-                          <Banknote className="size-3 text-emerald-500" />
-                          {language === 'bn' ? 'ভিজিট ফি কাঠামো' : 'Fee Structure'}
+                          <Banknote className="size-3.5 text-emerald-500" />
+                          {language === 'bn' ? 'কনসালটেশন ফি কাঠামো' : 'Fee Structure'}
                         </span>
 
                         <div className="grid grid-cols-3 gap-2">
                           {/* 1. Main Consultation Fee */}
                           <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-center">
                             <span className="text-[10px] text-emerald-700 dark:text-emerald-300 font-semibold block leading-tight">
-                              {language === 'bn' ? 'মূল কনসালটেশন' : 'New Visit'}
+                              {language === 'bn' ? 'মূল ভিজিট ফি' : 'New Visit'}
                             </span>
                             <span className="text-base sm:text-lg font-black text-emerald-600 dark:text-emerald-400 tracking-tight mt-0.5 block">
                               ৳{doc.consultationFeeTaka}
@@ -807,55 +647,12 @@ export function ConsultationConfigView() {
                           {/* 3. Report Review Fee */}
                           <div className="p-2.5 rounded-xl bg-violet-500/10 border border-violet-500/25 text-center">
                             <span className="text-[10px] text-violet-700 dark:text-violet-300 font-semibold block leading-tight">
-                              {language === 'bn' ? 'রিপোর্ট দেখানো' : 'Report'}
+                              {language === 'bn' ? 'রিপোর্ট ফি' : 'Report'}
                             </span>
                             <span className="text-base sm:text-lg font-black text-violet-600 dark:text-violet-400 tracking-tight mt-0.5 block">
                               ৳{doc.reportFeeTaka}
                             </span>
                           </div>
-                        </div>
-
-                        {/* Schedule & Operational Details */}
-                        <div className="space-y-2 pt-2 border-t border-border/30 text-xs">
-                          {/* Duty Time & Daily Quota */}
-                          <div className="flex items-center justify-between text-muted-foreground">
-                            <div className="flex items-center gap-1.5">
-                              <Clock className="size-3.5 text-muted-foreground/70" />
-                              <span className="font-mono text-[11px] text-foreground">
-                                {doc.dutyStartTime} - {doc.dutyEndTime}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-1 font-semibold text-foreground">
-                              <span>{language === 'bn' ? 'কোটা:' : 'Quota:'}</span>
-                              <span className="text-primary">{doc.dailyQuota} {language === 'bn' ? 'জন' : 'pts'}</span>
-                            </div>
-                          </div>
-
-                          {/* Available Days */}
-                          <div className="flex items-center gap-1 flex-wrap pt-1">
-                            <Calendar className="size-3 text-muted-foreground/60 shrink-0 mr-0.5" />
-                            {DAYS_OF_WEEK.map((day) => {
-                              const isAvail = daysList.includes(day.id);
-                              return (
-                                <span
-                                  key={day.id}
-                                  className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase ${
-                                    isAvail
-                                      ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30'
-                                      : 'bg-muted/40 text-muted-foreground/40 line-through'
-                                  }`}
-                                >
-                                  {language === 'bn' ? day.bn.slice(0, 3) : day.en.slice(0, 3)}
-                                </span>
-                              );
-                            })}
-                          </div>
-
-                          {doc.notes && (
-                            <p className="text-[11px] text-muted-foreground italic bg-muted/30 p-2 rounded-lg border border-border/30 line-clamp-2 mt-1">
-                              "{doc.notes}"
-                            </p>
-                          )}
                         </div>
                       </div>
                     </div>
@@ -863,7 +660,7 @@ export function ConsultationConfigView() {
                     {/* Card Action Footer */}
                     <div className="p-3 sm:p-4 bg-muted/20 border-t border-border/40 flex items-center justify-between gap-2">
                       <span className="text-[10px] text-muted-foreground font-mono">
-                        ID: {doc.id.slice(0, 8)}...
+                        UID: {doc.id.slice(0, 8)}
                       </span>
                       <Button
                         size="sm"
@@ -872,7 +669,7 @@ export function ConsultationConfigView() {
                         className="h-8 px-3 rounded-xl text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-semibold flex items-center gap-1.5 shadow-xs"
                       >
                         <Edit2 className="size-3" />
-                        {language === 'bn' ? 'ফি ও শিডিউল এডিট' : 'Edit Fee & Config'}
+                        {language === 'bn' ? 'ফি ও চেম্বার পরিবর্তন' : 'Edit Fee & Chamber'}
                       </Button>
                     </div>
                   </Card>
@@ -880,13 +677,13 @@ export function ConsultationConfigView() {
               })}
             </div>
           ) : (
-            /* Table View */
+            /* Table View: Pure Doctor User + Room + Fees */
             <div className="rounded-2xl border border-border/70 overflow-hidden bg-background">
               <Table>
                 <TableHeader className="bg-muted/50">
                   <TableRow>
                     <TableHead className="font-bold text-xs">{language === 'bn' ? 'ডাক্তার' : 'Doctor'}</TableHead>
-                    <TableHead className="font-bold text-xs">{language === 'bn' ? 'সংযুক্ত ইউজার' : 'Linked User'}</TableHead>
+                    <TableHead className="font-bold text-xs">{language === 'bn' ? 'ফোন' : 'Phone'}</TableHead>
                     <TableHead className="font-bold text-xs">{language === 'bn' ? 'চেম্বার' : 'Chamber'}</TableHead>
                     <TableHead className="font-bold text-xs text-right text-emerald-600 dark:text-emerald-400">
                       {language === 'bn' ? 'মূল ভিজিট ফি' : 'Visit Fee'}
@@ -897,81 +694,68 @@ export function ConsultationConfigView() {
                     <TableHead className="font-bold text-xs text-right text-violet-600 dark:text-violet-400">
                       {language === 'bn' ? 'রিপোর্ট ফি' : 'Report Fee'}
                     </TableHead>
-                    <TableHead className="font-bold text-xs text-center">{language === 'bn' ? 'দৈনিক কোটা' : 'Quota'}</TableHead>
-                    <TableHead className="font-bold text-xs">{language === 'bn' ? 'ডিউটি সময়' : 'Duty Time'}</TableHead>
                     <TableHead className="font-bold text-xs text-center">{language === 'bn' ? 'স্ট্যাটাস' : 'Status'}</TableHead>
                     <TableHead className="font-bold text-xs text-right">{language === 'bn' ? 'অ্যাকশন' : 'Actions'}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredDoctors.map((doc) => (
-                    <TableRow key={doc.id} className="hover:bg-muted/30">
-                      <TableCell className="font-medium">
-                        <div className="space-y-0.5">
-                          <span className="font-bold text-sm text-foreground block">{doc.fullName}</span>
-                          <span className="text-[11px] text-muted-foreground block truncate max-w-[200px]">
-                            {doc.qualifications || doc.specialization}
+                  {filteredDoctors.map((doc) => {
+                    const isActive = doc.isActive === 1 || doc.isActive === true;
+                    const displayName = doc.displayName || doc.fullName;
+
+                    return (
+                      <TableRow key={doc.id} className="hover:bg-muted/30">
+                        <TableCell className="font-medium">
+                          <div className="space-y-0.5">
+                            <span className="font-bold text-sm text-foreground block">{displayName}</span>
+                            <span className="text-[11px] text-muted-foreground block font-mono">
+                              {doc.email}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-xs font-mono text-muted-foreground">
+                          {doc.phone || '-'}
+                        </TableCell>
+                        <TableCell className="text-xs">
+                          <span className="inline-flex items-center gap-1 font-medium bg-muted/60 px-2 py-0.5 rounded-lg border border-border/40">
+                            <DoorOpen className="size-3 text-emerald-500" />
+                            {doc.chamberName || (doc.chamberRoomNumber ? `Chamber ${doc.chamberRoomNumber}` : '-')}
                           </span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-xs">
-                        {doc.userId || doc.linkedUser ? (
-                          <span className="inline-flex items-center gap-1 font-mono text-[11px] text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-                            <UserCheck className="size-3" />
-                            {doc.linkedUser?.email || doc.email || 'Linked'}
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-[11px] text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
-                            <AlertCircle className="size-3" />
-                            {language === 'bn' ? 'সংযুক্ত নেই' : 'Unlinked'}
-                          </span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-xs">
-                        <span className="inline-flex items-center gap-1 font-medium bg-muted/60 px-2 py-0.5 rounded border border-border/40">
-                          <DoorOpen className="size-3 text-emerald-500" />
-                          {doc.chamberName || (doc.chamberRoomNumber ? `Chamber ${doc.chamberRoomNumber}` : '-')}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-right font-black text-sm text-emerald-600 dark:text-emerald-400">
-                        ৳{doc.consultationFeeTaka}
-                      </TableCell>
-                      <TableCell className="text-right font-bold text-xs text-sky-600 dark:text-sky-400">
-                        ৳{doc.followUpFeeTaka}
-                      </TableCell>
-                      <TableCell className="text-right font-bold text-xs text-violet-600 dark:text-violet-400">
-                        ৳{doc.reportFeeTaka}
-                      </TableCell>
-                      <TableCell className="text-center font-bold text-xs">
-                        {doc.dailyQuota} {language === 'bn' ? 'জন' : 'pts'}
-                      </TableCell>
-                      <TableCell className="text-xs font-mono text-muted-foreground">
-                        {doc.dutyStartTime} - {doc.dutyEndTime}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        {doc.isActive === 1 ? (
-                          <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 text-[10px] px-2 py-0.5">
-                            {language === 'bn' ? 'সক্রিয়' : 'Active'}
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="text-muted-foreground text-[10px] px-2 py-0.5">
-                            {language === 'bn' ? 'নিষ্ক্রিয়' : 'Inactive'}
-                          </Badge>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => openEditModal(doc)}
-                          className="h-8 px-2.5 rounded-lg text-xs"
-                        >
-                          <Edit2 className="size-3 mr-1" />
-                          {language === 'bn' ? 'এডিট' : 'Edit'}
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                        </TableCell>
+                        <TableCell className="text-right font-black text-sm text-emerald-600 dark:text-emerald-400">
+                          ৳{doc.consultationFeeTaka}
+                        </TableCell>
+                        <TableCell className="text-right font-bold text-xs text-sky-600 dark:text-sky-400">
+                          ৳{doc.followUpFeeTaka}
+                        </TableCell>
+                        <TableCell className="text-right font-bold text-xs text-violet-600 dark:text-violet-400">
+                          ৳{doc.reportFeeTaka}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {isActive ? (
+                            <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 text-[10px] px-2 py-0.5">
+                              {language === 'bn' ? 'সক্রিয়' : 'Active'}
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-muted-foreground text-[10px] px-2 py-0.5">
+                              {language === 'bn' ? 'নিষ্ক্রিয়' : 'Inactive'}
+                            </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => openEditModal(doc)}
+                            className="h-8 px-2.5 rounded-lg text-xs"
+                          >
+                            <Edit2 className="size-3 mr-1" />
+                            {language === 'bn' ? 'ফি ও চেম্বার' : 'Edit'}
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
@@ -979,65 +763,23 @@ export function ConsultationConfigView() {
         </CardContent>
       </Card>
 
-      {/* Edit Doctor Fee & Schedule Dialog */}
+      {/* Edit Doctor Fee & Chamber Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl font-bold">
               <Stethoscope className="size-5 text-emerald-500" />
-              {language === 'bn' ? 'ডাক্তার কনসালটেশন ফি ও শিডিউল পরিবর্তন' : 'Edit Doctor Fee & Schedule'}
+              {language === 'bn' ? 'ডাক্তার ফি ও চেম্বার পরিবর্তন' : 'Edit Doctor Fee & Chamber'}
             </DialogTitle>
             <DialogDescription className="text-xs sm:text-sm">
               {language === 'bn'
-                ? `${editingDoctor?.fullName}-এর ভিজিট ফি, চেম্বার, সংযুক্ত ইউজার এবং দৈনিক রোগী কোটা আপডেট করুন।`
-                : `Update fee structure, chamber assignment, linked user account, and daily schedule for ${editingDoctor?.fullName}.`}
+                ? `${editingDoctor?.displayName || editingDoctor?.fullName}-এর ভিজিট ফি ও চেম্বার রুম আপডেট করুন।`
+                : `Update consultation fees and chamber room for ${editingDoctor?.displayName || editingDoctor?.fullName}.`}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
-            {/* Connected User Account Selector */}
-            <div className="p-3.5 rounded-xl bg-muted/40 border border-border/60 space-y-2.5">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                  <ShieldCheck className="size-4 text-emerald-500" />
-                  {language === 'bn' ? 'সংযুক্ত ইউজার লগইন অ্যাকাউন্ট' : 'Connected User Login Account'}
-                </label>
-                {editForm.userId && editForm.userId !== 'none' && (
-                  <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 text-[10px]">
-                    {language === 'bn' ? 'লগইন সক্রিয়' : 'Login Active'}
-                  </Badge>
-                )}
-              </div>
-
-              <Select
-                value={editForm.userId || 'none'}
-                onValueChange={(val: string) => setEditForm((p) => ({ ...p, userId: val }))}
-              >
-                <SelectTrigger className="h-9 text-xs sm:text-sm bg-background">
-                  <SelectValue placeholder={language === 'bn' ? 'ইউজার নির্বাচন করুন' : 'Select User'} />
-                </SelectTrigger>
-                <SelectContent className="max-h-60">
-                  <SelectItem value="none">
-                    <span className="text-muted-foreground italic">
-                      {language === 'bn' ? 'কোনো ইউজার লগইন সংযুক্ত নেই (অফলাইন ডাক্তার)' : 'None (Offline Doctor / No User Account)'}
-                    </span>
-                  </SelectItem>
-                  {usersList.map((u) => (
-                    <SelectItem key={u.id} value={u.id}>
-                      <div className="flex items-center gap-2 text-xs">
-                        <span className="font-semibold text-foreground">{u.displayName}</span>
-                        <span className="text-muted-foreground font-mono">({u.email})</span>
-                        <span className="px-1.5 py-0.2 rounded text-[10px] bg-muted font-bold text-muted-foreground">
-                          {u.role.toUpperCase()}
-                        </span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Full Name & Phone */}
+            {/* Doctor Info & Phone */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-foreground">
@@ -1046,7 +788,7 @@ export function ConsultationConfigView() {
                 <Input
                   value={editForm.fullName}
                   onChange={(e) => setEditForm((p) => ({ ...p, fullName: e.target.value }))}
-                  placeholder={language === 'bn' ? 'যেমন: ডা. বিশেষজ্ঞ' : 'e.g. Dr. Specialist / Consultant'}
+                  placeholder={language === 'bn' ? 'যেমন: ডা. বিশেষজ্ঞ' : 'e.g. Dr. Name'}
                   className="h-9 text-xs sm:text-sm"
                 />
               </div>
@@ -1064,32 +806,16 @@ export function ConsultationConfigView() {
               </div>
             </div>
 
-            {/* Specialization & Qualifications */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-foreground">
-                  {language === 'bn' ? 'বিশেষজ্ঞ পদবী' : 'Specialization'}
-                </label>
-                <Input
-                  value={editForm.specialization}
-                  onChange={(e) => setEditForm((p) => ({ ...p, specialization: e.target.value }))}
-                  placeholder="Physiotherapy & Rehabilitation Specialist"
-                  className="h-9 text-xs sm:text-sm"
-                />
+            {/* Email info */}
+            {editingDoctor?.email && (
+              <div className="p-2.5 rounded-xl bg-muted/40 border border-border/50 flex items-center justify-between text-xs">
+                <span className="text-muted-foreground flex items-center gap-1.5">
+                  <Mail className="size-3.5 text-muted-foreground/70" />
+                  <span>{language === 'bn' ? 'ইউজার ইমেইল:' : 'User Email:'}</span>
+                </span>
+                <span className="font-mono font-medium text-foreground">{editingDoctor.email}</span>
               </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-foreground">
-                  {language === 'bn' ? 'ডিগ্রি ও যোগ্যতা' : 'Qualifications'}
-                </label>
-                <Input
-                  value={editForm.qualifications}
-                  onChange={(e) => setEditForm((p) => ({ ...p, qualifications: e.target.value }))}
-                  placeholder="MBBS, BPT, PGD, MDMR, MPH"
-                  className="h-9 text-xs sm:text-sm"
-                />
-              </div>
-            </div>
+            )}
 
             {/* Chamber Room Selection */}
             <div className="space-y-1.5">
@@ -1098,13 +824,18 @@ export function ConsultationConfigView() {
                 {language === 'bn' ? 'চেম্বার রুম বরাদ্দ' : 'Assigned Chamber Room'}
               </label>
               <Select
-                value={editForm.chamberRoomId}
-                onValueChange={(val: string) => setEditForm((p) => ({ ...p, chamberRoomId: val }))}
+                value={editForm.chamberRoomId || 'none'}
+                onValueChange={(val: string) => setEditForm((p) => ({ ...p, chamberRoomId: val === 'none' ? '' : val }))}
               >
                 <SelectTrigger className="h-9 text-xs sm:text-sm">
                   <SelectValue placeholder={language === 'bn' ? 'চেম্বার সিলেক্ট করুন' : 'Select Chamber'} />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="none">
+                    <span className="text-muted-foreground italic">
+                      {language === 'bn' ? 'কোনো চেম্বার বরাদ্দ নেই' : 'No Chamber Assigned'}
+                    </span>
+                  </SelectItem>
                   {rooms.map((r) => (
                     <SelectItem key={r.id} value={r.id}>
                       {r.roomNumber ? `[Room ${r.roomNumber}] ` : ''}{r.name}
@@ -1169,112 +900,6 @@ export function ConsultationConfigView() {
               </div>
             </div>
 
-            {/* Daily Quota & Slot Duration */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-foreground">
-                  {language === 'bn' ? 'দৈনিক রোগী দেখার সর্বোচ্চ কোটা' : 'Daily Patient Quota'}
-                </label>
-                <Input
-                  type="number"
-                  min={1}
-                  max={200}
-                  value={editForm.dailyQuota}
-                  onChange={(e) => setEditForm((p) => ({ ...p, dailyQuota: Number(e.target.value) }))}
-                  className="h-9 text-xs sm:text-sm font-mono"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-foreground">
-                  {language === 'bn' ? 'গড় কনসালটেশন সময় (মিনিট)' : 'Avg Slot Duration (mins)'}
-                </label>
-                <Input
-                  type="number"
-                  min={5}
-                  max={60}
-                  step={5}
-                  value={editForm.slotDurationMinutes}
-                  onChange={(e) => setEditForm((p) => ({ ...p, slotDurationMinutes: Number(e.target.value) }))}
-                  className="h-9 text-xs sm:text-sm font-mono"
-                />
-              </div>
-            </div>
-
-            {/* Duty Hours */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-foreground">
-                  {language === 'bn' ? 'ডিউটি শুরু' : 'Duty Start Time'}
-                </label>
-                <Input
-                  value={editForm.dutyStartTime}
-                  onChange={(e) => setEditForm((p) => ({ ...p, dutyStartTime: e.target.value }))}
-                  placeholder="09:00 AM"
-                  className="h-9 text-xs sm:text-sm font-mono"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-foreground">
-                  {language === 'bn' ? 'ডিউটি সমাপ্তি' : 'Duty End Time'}
-                </label>
-                <Input
-                  value={editForm.dutyEndTime}
-                  onChange={(e) => setEditForm((p) => ({ ...p, dutyEndTime: e.target.value }))}
-                  placeholder="05:00 PM"
-                  className="h-9 text-xs sm:text-sm font-mono"
-                />
-              </div>
-            </div>
-
-            {/* Available Days Checkboxes */}
-            <div className="space-y-2">
-              <label className="text-xs font-semibold text-foreground block">
-                {language === 'bn' ? 'সাপ্তাহিক চেম্বার উপস্থিতির দিনসমূহ' : 'Available Days in Clinic'}
-              </label>
-              <div className="flex flex-wrap gap-1.5">
-                {DAYS_OF_WEEK.map((day) => {
-                  const isSelected = editForm.availableDays.includes(day.id);
-                  return (
-                    <Button
-                      type="button"
-                      key={day.id}
-                      variant={isSelected ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => toggleEditDay(day.id)}
-                      className={`h-8 px-2.5 rounded-lg text-xs font-medium ${
-                        isSelected
-                          ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
-                          : 'border-border/60 hover:bg-muted'
-                      }`}
-                    >
-                      {isSelected && <Check className="size-3 mr-1" />}
-                      {language === 'bn' ? day.bn : day.en}
-                    </Button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Doctor Notes */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-foreground">
-                {language === 'bn' ? 'চেম্বার ও ভিজিট সংক্রান্ত নোট' : 'Consultation Instructions / Notes'}
-              </label>
-              <Textarea
-                rows={2}
-                value={editForm.notes}
-                onChange={(e) => setEditForm((p) => ({ ...p, notes: e.target.value }))}
-                placeholder={
-                  language === 'bn'
-                    ? 'সিরিয়াল বুকিং বা পরামর্শ সংক্রান্ত জরুরি বার্তা...'
-                    : 'Special clinical notes or serial guidance...'
-                }
-                className="text-xs sm:text-sm resize-none"
-              />
-            </div>
-
             {/* Active Status Switch */}
             <div className="flex items-center justify-between p-3 rounded-xl bg-muted/30 border border-border/40">
               <div className="space-y-0.5">
@@ -1321,18 +946,18 @@ export function ConsultationConfigView() {
         </DialogContent>
       </Dialog>
 
-      {/* Add New Doctor Dialog */}
+      {/* Add / Assign Doctor Dialog */}
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl font-bold">
               <Plus className="size-5 text-emerald-500" />
-              {language === 'bn' ? 'নতুন ডাক্তার যুক্ত করুন' : 'Add New Doctor Profile'}
+              {language === 'bn' ? 'নতুন ডাক্তার যুক্ত করুন' : 'Add / Assign Doctor'}
             </DialogTitle>
             <DialogDescription className="text-xs sm:text-sm">
               {language === 'bn'
-                ? 'বিদ্যমান ইউজার অ্যাকাউন্ট নির্বাচন করুন অথবা নতুন ইউজার ও ডাক্তার একসাথে তৈরি করুন।'
-                : 'Select an existing user account or create a new user & doctor profile together.'}
+                ? 'বিদ্যমান ইউজার অ্যাকাউন্টকে ডাক্তার হিসেবে নির্ধারণ করুন অথবা নতুন অ্যাকাউন্ট তৈরি করুন।'
+                : 'Assign doctor role to an existing user or create a new doctor user account.'}
             </DialogDescription>
           </DialogHeader>
 
@@ -1349,7 +974,7 @@ export function ConsultationConfigView() {
                 }`}
               >
                 <UserCheck className="size-3.5" />
-                {language === 'bn' ? 'বিদ্যমান ইউজার সিলেক্ট' : '1. Link Existing User'}
+                {language === 'bn' ? 'বিদ্যমান ইউজার নির্বাচন' : '1. Existing User'}
               </button>
               <button
                 type="button"
@@ -1361,7 +986,7 @@ export function ConsultationConfigView() {
                 }`}
               >
                 <UserPlus className="size-3.5" />
-                {language === 'bn' ? 'নতুন ইউজার ও ডাক্তার তৈরি' : '2. Create Brand New User'}
+                {language === 'bn' ? 'নতুন ইউজার তৈরি' : '2. Create User'}
               </button>
             </div>
 
@@ -1370,19 +995,18 @@ export function ConsultationConfigView() {
               <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25 space-y-2">
                 <label className="text-xs font-bold text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
                   <UserCheck className="size-4 text-emerald-500" />
-                  {language === 'bn' ? 'সিস্টেম ইউজার সিলেক্ট করুন' : 'Select Registered System User'} *
+                  {language === 'bn' ? 'ইউজার সিলেক্ট করুন' : 'Select Registered User'} *
                 </label>
                 <Select
                   value={newDoctorForm.userId}
                   onValueChange={handleSelectExistingUser}
                 >
                   <SelectTrigger className="h-10 text-xs sm:text-sm bg-background border-emerald-500/30">
-                    <SelectValue placeholder={language === 'bn' ? 'ইউজার বেছে নিন (ডাক্তার / স্টাফ)' : 'Choose a registered user'} />
+                    <SelectValue placeholder={language === 'bn' ? 'ইউজার নির্বাচন করুন' : 'Choose a user'} />
                   </SelectTrigger>
                   <SelectContent className="max-h-60">
                     {usersList.map((u) => {
                       const isDoc = u.role === 'doctor';
-                      const alreadyLinked = doctors.some((d) => d.userId === u.id);
                       return (
                         <SelectItem key={u.id} value={u.id}>
                           <div className="flex items-center justify-between gap-3 text-xs">
@@ -1393,9 +1017,6 @@ export function ConsultationConfigView() {
                             }`}>
                               {u.role.toUpperCase()}
                             </span>
-                            {alreadyLinked && (
-                              <span className="text-[10px] text-amber-600 font-semibold">[Already Linked]</span>
-                            )}
                           </div>
                         </SelectItem>
                       );
@@ -1404,8 +1025,8 @@ export function ConsultationConfigView() {
                 </Select>
                 <p className="text-[11px] text-emerald-700 dark:text-emerald-300/80">
                   {language === 'bn'
-                    ? 'ইউজার সিলেক্ট করলে তাদের নাম, ইমেইল এবং ফোন স্বয়ংক্রিয়ভাবে যুক্ত হবে।'
-                    : 'Selecting a user auto-populates their name, email, and phone.'}
+                    ? 'ইউজার সিলেক্ট করলে তাদের নাম, ইমেইল ও ফোন সরাসরি লোড হবে।'
+                    : 'Selecting a user loads their name, email, and phone.'}
                 </p>
               </div>
             )}
@@ -1414,7 +1035,7 @@ export function ConsultationConfigView() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-foreground">
-                  {language === 'bn' ? 'ডাক্তারের পুরো নাম' : 'Doctor Full Name'} *
+                  {language === 'bn' ? 'ডাক্তারের নাম' : 'Doctor Name'} *
                 </label>
                 <Input
                   value={newDoctorForm.fullName}
@@ -1456,7 +1077,7 @@ export function ConsultationConfigView() {
               {addMode === 'new_user' ? (
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-foreground">
-                    {language === 'bn' ? 'লগইন পাসওয়ার্ড (ঐচ্ছিক)' : 'Login Password (Optional)'}
+                    {language === 'bn' ? 'লগইন পাসওয়ার্ড (ঐচ্ছিক)' : 'Password (Optional)'}
                   </label>
                   <Input
                     type="password"
@@ -1466,45 +1087,7 @@ export function ConsultationConfigView() {
                     className="h-9 text-xs sm:text-sm font-mono"
                   />
                 </div>
-              ) : (
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-foreground">
-                    {language === 'bn' ? 'সংযুক্ত ইউজার আইডি' : 'Linked User ID'}
-                  </label>
-                  <Input
-                    value={newDoctorForm.userId || 'None selected'}
-                    disabled
-                    className="h-9 text-xs sm:text-sm font-mono bg-muted/40"
-                  />
-                </div>
-              )}
-            </div>
-
-            {/* Specialization & Qualifications */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-foreground">
-                  {language === 'bn' ? 'বিশেষজ্ঞ পদবী' : 'Specialization'}
-                </label>
-                <Input
-                  value={newDoctorForm.specialization}
-                  onChange={(e) => setNewDoctorForm((p) => ({ ...p, specialization: e.target.value }))}
-                  placeholder="Consultant - Physical Therapy"
-                  className="h-9 text-xs sm:text-sm"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-foreground">
-                  {language === 'bn' ? 'ডিগ্রি ও যোগ্যতা' : 'Qualifications'}
-                </label>
-                <Input
-                  value={newDoctorForm.qualifications}
-                  onChange={(e) => setNewDoctorForm((p) => ({ ...p, qualifications: e.target.value }))}
-                  placeholder="BPT, PGD, MDMR, MPH"
-                  className="h-9 text-xs sm:text-sm"
-                />
-              </div>
+              ) : null}
             </div>
 
             {/* Chamber Room Selection */}
@@ -1514,13 +1097,18 @@ export function ConsultationConfigView() {
                 {language === 'bn' ? 'চেম্বার রুম বরাদ্দ' : 'Assigned Chamber Room'}
               </label>
               <Select
-                value={newDoctorForm.chamberRoomId}
-                onValueChange={(val: string) => setNewDoctorForm((p) => ({ ...p, chamberRoomId: val }))}
+                value={newDoctorForm.chamberRoomId || 'none'}
+                onValueChange={(val: string) => setNewDoctorForm((p) => ({ ...p, chamberRoomId: val === 'none' ? '' : val }))}
               >
                 <SelectTrigger className="h-9 text-xs sm:text-sm">
                   <SelectValue placeholder={language === 'bn' ? 'চেম্বার সিলেক্ট করুন' : 'Select Chamber Room'} />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="none">
+                    <span className="text-muted-foreground italic">
+                      {language === 'bn' ? 'কোনো চেম্বার বরাদ্দ নেই' : 'No Chamber Assigned'}
+                    </span>
+                  </SelectItem>
                   {rooms.map((r) => (
                     <SelectItem key={r.id} value={r.id}>
                       {r.roomNumber ? `[Room ${r.roomNumber}] ` : ''}{r.name}
@@ -1580,112 +1168,6 @@ export function ConsultationConfigView() {
                   />
                 </div>
               </div>
-            </div>
-
-            {/* Daily Quota & Slot Duration */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-foreground">
-                  {language === 'bn' ? 'দৈনিক রোগী দেখার সর্বোচ্চ কোটা' : 'Daily Patient Quota'}
-                </label>
-                <Input
-                  type="number"
-                  min={1}
-                  max={200}
-                  value={newDoctorForm.dailyQuota}
-                  onChange={(e) => setNewDoctorForm((p) => ({ ...p, dailyQuota: Number(e.target.value) }))}
-                  className="h-9 text-xs sm:text-sm font-mono"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-foreground">
-                  {language === 'bn' ? 'গড় কনসালটেশন সময় (মিনিট)' : 'Avg Slot Duration (mins)'}
-                </label>
-                <Input
-                  type="number"
-                  min={5}
-                  max={60}
-                  step={5}
-                  value={newDoctorForm.slotDurationMinutes}
-                  onChange={(e) => setNewDoctorForm((p) => ({ ...p, slotDurationMinutes: Number(e.target.value) }))}
-                  className="h-9 text-xs sm:text-sm font-mono"
-                />
-              </div>
-            </div>
-
-            {/* Duty Hours */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-foreground">
-                  {language === 'bn' ? 'ডিউটি শুরু' : 'Duty Start Time'}
-                </label>
-                <Input
-                  value={newDoctorForm.dutyStartTime}
-                  onChange={(e) => setNewDoctorForm((p) => ({ ...p, dutyStartTime: e.target.value }))}
-                  placeholder="09:00 AM"
-                  className="h-9 text-xs sm:text-sm font-mono"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-foreground">
-                  {language === 'bn' ? 'ডিউটি সমাপ্তি' : 'Duty End Time'}
-                </label>
-                <Input
-                  value={newDoctorForm.dutyEndTime}
-                  onChange={(e) => setNewDoctorForm((p) => ({ ...p, dutyEndTime: e.target.value }))}
-                  placeholder="05:00 PM"
-                  className="h-9 text-xs sm:text-sm font-mono"
-                />
-              </div>
-            </div>
-
-            {/* Available Days Checkboxes */}
-            <div className="space-y-2">
-              <label className="text-xs font-semibold text-foreground block">
-                {language === 'bn' ? 'সাপ্তাহিক চেম্বার উপস্থিতির দিনসমূহ' : 'Available Days in Clinic'}
-              </label>
-              <div className="flex flex-wrap gap-1.5">
-                {DAYS_OF_WEEK.map((day) => {
-                  const isSelected = newDoctorForm.availableDays.includes(day.id);
-                  return (
-                    <Button
-                      type="button"
-                      key={day.id}
-                      variant={isSelected ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => toggleNewDay(day.id)}
-                      className={`h-8 px-2.5 rounded-lg text-xs font-medium ${
-                        isSelected
-                          ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
-                          : 'border-border/60 hover:bg-muted'
-                      }`}
-                    >
-                      {isSelected && <Check className="size-3 mr-1" />}
-                      {language === 'bn' ? day.bn : day.en}
-                    </Button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Doctor Notes */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-foreground">
-                {language === 'bn' ? 'চেম্বার ও ভিজিট সংক্রান্ত নোট' : 'Consultation Instructions / Notes'}
-              </label>
-              <Textarea
-                rows={2}
-                value={newDoctorForm.notes}
-                onChange={(e) => setNewDoctorForm((p) => ({ ...p, notes: e.target.value }))}
-                placeholder={
-                  language === 'bn'
-                    ? 'সিরিয়াল বুকিং বা পরামর্শ সংক্রান্ত জরুরি বার্তা...'
-                    : 'Special clinical notes or serial guidance...'
-                }
-                className="text-xs sm:text-sm resize-none"
-              />
             </div>
           </div>
 

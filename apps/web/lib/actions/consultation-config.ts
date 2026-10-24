@@ -6,22 +6,12 @@ import { revalidatePath } from 'next/cache';
 
 export interface DoctorConfigRecord {
   id: string;
-  userId: string | null;
-  linkedUser?: {
-    id: string;
-    email: string;
-    role: string;
-    displayName: string;
-    phone: string | null;
-    isActive: number;
-  } | null;
+  userId: string;
+  displayName: string;
   fullName: string;
-  role: 'doctor';
+  email: string;
   phone: string | null;
-  email?: string | null;
-  specialization: string | null;
-  qualifications: string | null;
-  feeOverridePaisa: number | null;
+  role: 'doctor';
   consultationFeePaisa: number;
   consultationFeeTaka: number;
   followUpFeePaisa: number;
@@ -31,53 +21,39 @@ export interface DoctorConfigRecord {
   chamberRoomId: string | null;
   chamberRoomNumber?: string | null;
   chamberName?: string | null;
-  dailyQuota: number;
-  slotDurationMinutes: number;
-  dutyStartTime: string;
-  dutyEndTime: string;
-  availableDays: string[];
-  notes: string | null;
-  isActive: number;
+  chamberRoom?: {
+    id: string;
+    roomNumber: string;
+    name: string;
+    type: string;
+    status: string;
+  } | null;
+  isActive: boolean | number;
   createdAt: string;
   updatedAt: string;
 }
 
 export interface CreateDoctorInput {
   userId?: string;
-  fullName: string;
+  displayName?: string;
+  fullName?: string;
   email?: string;
   password?: string;
   phone?: string;
-  specialization?: string;
-  qualifications?: string;
   consultationFeeTaka?: number;
   followUpFeeTaka?: number;
   reportFeeTaka?: number;
-  chamberRoomId?: string;
-  dailyQuota?: number;
-  slotDurationMinutes?: number;
-  dutyStartTime?: string;
-  dutyEndTime?: string;
-  availableDays?: string[];
-  notes?: string;
+  chamberRoomId?: string | null;
 }
 
 export interface UpdateDoctorConfigInput {
-  userId?: string | null;
+  displayName?: string;
   fullName?: string;
   phone?: string;
-  specialization?: string;
-  qualifications?: string;
   consultationFeeTaka?: number;
   followUpFeeTaka?: number;
   reportFeeTaka?: number;
-  chamberRoomId?: string;
-  dailyQuota?: number;
-  slotDurationMinutes?: number;
-  dutyStartTime?: string;
-  dutyEndTime?: string;
-  availableDays?: string[];
-  notes?: string;
+  chamberRoomId?: string | null;
   isActive?: boolean;
 }
 

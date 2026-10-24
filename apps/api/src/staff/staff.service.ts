@@ -6,7 +6,7 @@ import {
   Optional,
 } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import { and, eq, or, sql } from 'drizzle-orm';
+import { and, eq, isNull, or, sql } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
 import { AuditService } from '../audit/audit.service';
 import { DB, type Db } from '../db/db.module';
@@ -110,7 +110,7 @@ export class StaffService {
 
   async listDoctors() {
     // 1. Fetch all doctors from staff & users
-    const doctorUsers = await this.db
+    const allDoctorUsers = await this.db
       .select()
       .from(users)
       .where(eq(users.role, 'doctor'));
@@ -123,7 +123,7 @@ export class StaffService {
     // 2. Ensure every doctor user has a linked staff record (idempotent synchronization)
     const staffByUserId = new Map(existingDoctorStaff.filter((s) => s.userId).map((s) => [s.userId!, s]));
 
-    for (const docUser of doctorUsers) {
+    for (const docUser of allDoctorUsers) {
       if (!staffByUserId.has(docUser.id)) {
         const newStaffId = randomUUID();
         const now = new Date().toISOString();
@@ -152,93 +152,41 @@ export class StaffService {
       }
     }
 
-    // 3. If there are strictly ZERO doctors in the clinic, seed the default Chief Doctor
-    const recheckStaff = await this.db.select().from(staff).where(eq(staff.role, 'doctor'));
-    if (recheckStaff.length === 0) {
-      const chiefId = randomUUID();
-      const now = new Date().toISOString();
-      await this.db.insert(staff).values({
-        id: chiefId,
-        userId: null,
-        fullName: 'ডাঃ মোঃ তৌফিক উজ জামান (Dr. Md. Toufiquzzaman)',
-        role: 'doctor',
-        phone: '+8801711000000',
-        specialization: 'Chief Consultant & Physiotherapy Specialist',
-        qualifications: 'BPT, PGD, MDMR, MPH',
-        feeOverridePaisa: 50000,
-        consultationFeePaisa: 50000,
-        followUpFeePaisa: 30000,
-        reportFeePaisa: 0,
-        chamberRoomId: 'room-doc-101',
-        dailyQuota: 40,
-        slotDurationMinutes: 15,
-        dutyStartTime: '09:00 AM',
-        dutyEndTime: '05:00 PM',
-        availableDays: JSON.stringify(DEFAULT_DAYS),
-        notes: 'Chief Consultant of Health & Pain Care Center · Jashore',
-        isActive: 1,
-        createdAt: now,
-        updatedAt: now,
-      });
-    }
+    // 3. Clean up any orphaned legacy dummy staff doctor rows without a user account
+    await this.db.delete(staff).where(and(eq(staff.role, 'doctor'), isNull(staff.userId)));
 
-    // 4. Fetch rich doctor records joined with users and chambers (rooms)
-    const doctorRows = await this.db
+    // 4. Fetch rich doctor records directly from users table joined with chambers (rooms)
+    const doctorUsers = await this.db
       .select({
-        staff: staff,
         user: users,
         room: rooms,
       })
-      .from(staff)
-      .leftJoin(users, eq(staff.userId, users.id))
-      .leftJoin(rooms, eq(staff.chamberRoomId, rooms.id))
-      .where(eq(staff.role, 'doctor'))
-      .orderBy(sql`COALESCE(${staff.fullName}, ${users.displayName}) ASC`);
+      .from(users)
+      .leftJoin(rooms, eq(users.chamberRoomId, rooms.id))
+      .where(eq(users.role, 'doctor'))
+      .orderBy(sql`${users.displayName} ASC`);
 
-    return doctorRows.map(({ staff: s, user: u, room: r }) => {
-      const feePaisa = s.consultationFeePaisa ?? s.feeOverridePaisa ?? 50000;
-      const followUpPaisa = s.followUpFeePaisa ?? 30000;
-      const reportPaisa = s.reportFeePaisa ?? 0;
-
-      let availableDays: string[] = DEFAULT_DAYS;
-      if (s.availableDays) {
-        try {
-          const parsed = JSON.parse(s.availableDays);
-          if (Array.isArray(parsed)) availableDays = parsed;
-        } catch {
-          availableDays = DEFAULT_DAYS;
-        }
-      }
+    return doctorUsers.map(({ user: u, room: r }) => {
+      const consultationFeePaisa = u.consultationFeePaisa ?? 50000;
+      const followUpFeePaisa = u.followUpFeePaisa ?? 0;
+      const reportFeePaisa = u.reportFeePaisa ?? 0;
 
       return {
-        id: s.id,
-        staffId: s.id,
-        userId: s.userId ?? u?.id ?? null,
-        linkedUser: u
-          ? {
-              id: u.id,
-              email: u.email,
-              role: u.role,
-              displayName: u.displayName,
-              phone: u.phone,
-              isActive: u.isActive,
-            }
-          : null,
-        fullName: s.fullName || u?.displayName || 'Doctor',
-        displayName: u?.displayName || s.fullName,
-        email: u?.email ?? null,
-        phone: s.phone || u?.phone || null,
+        id: u.id,
+        staffId: u.id,
+        userId: u.id,
+        fullName: u.displayName,
+        displayName: u.displayName,
+        email: u.email,
+        phone: u.phone || null,
         role: 'doctor' as const,
-        specialization: s.specialization || 'Consultant Specialist',
-        qualifications: s.qualifications || 'BPT, PGD, MDMR, MPH',
-        feeOverridePaisa: feePaisa,
-        consultationFeePaisa: feePaisa,
-        consultationFeeTaka: Math.round(feePaisa / 100),
-        followUpFeePaisa: followUpPaisa,
-        followUpFeeTaka: Math.round(followUpPaisa / 100),
-        reportFeePaisa: reportPaisa,
-        reportFeeTaka: Math.round(reportPaisa / 100),
-        chamberRoomId: s.chamberRoomId ?? null,
+        consultationFeePaisa,
+        consultationFeeTaka: Math.round(consultationFeePaisa / 100),
+        followUpFeePaisa,
+        followUpFeeTaka: Math.round(followUpFeePaisa / 100),
+        reportFeePaisa,
+        reportFeeTaka: Math.round(reportFeePaisa / 100),
+        chamberRoomId: u.chamberRoomId ?? null,
         chamberRoom: r
           ? {
               id: r.id,
@@ -248,15 +196,11 @@ export class StaffService {
               status: r.status,
             }
           : null,
-        dailyQuota: s.dailyQuota ?? 40,
-        slotDurationMinutes: s.slotDurationMinutes ?? 15,
-        dutyStartTime: s.dutyStartTime || '09:00 AM',
-        dutyEndTime: s.dutyEndTime || '05:00 PM',
-        availableDays,
-        isActive: Boolean(s.isActive),
-        notes: s.notes ?? null,
-        createdAt: s.createdAt,
-        updatedAt: s.updatedAt,
+        chamberName: r?.name || null,
+        chamberRoomNumber: r?.roomNumber || null,
+        isActive: u.isActive === 1,
+        createdAt: u.createdAt,
+        updatedAt: u.updatedAt,
       };
     });
   }
@@ -292,50 +236,59 @@ export class StaffService {
         ? dto.reportFeeTaka * 100
         : dto.reportFeePaisa;
 
-    const patch: Partial<typeof staff.$inferInsert> = {
+    const userPatch: Partial<typeof users.$inferInsert> = {
       updatedAt: now,
     };
+    if (dto.fullName !== undefined) userPatch.displayName = dto.fullName.trim();
+    if (dto.phone !== undefined) userPatch.phone = dto.phone.trim();
+    if (consultationFeePaisa !== undefined) userPatch.consultationFeePaisa = consultationFeePaisa;
+    if (followUpFeePaisa !== undefined) userPatch.followUpFeePaisa = followUpFeePaisa;
+    if (reportFeePaisa !== undefined) userPatch.reportFeePaisa = reportFeePaisa;
+    if (dto.chamberRoomId !== undefined) userPatch.chamberRoomId = dto.chamberRoomId || null;
+    if (dto.isActive !== undefined) userPatch.isActive = dto.isActive ? 1 : 0;
 
-    if (dto.userId !== undefined) {
-      patch.userId = dto.userId || null;
-      if (dto.userId) {
-        // Automatically ensure the linked user's role is set to doctor
-        await this.db
-          .update(users)
-          .set({ role: 'doctor', updatedAt: now })
-          .where(eq(users.id, dto.userId));
-      }
-    }
+    await this.db
+      .update(users)
+      .set(userPatch)
+      .where(or(eq(users.id, existing.userId || existing.id), eq(users.id, id)));
 
-    if (dto.fullName !== undefined) patch.fullName = dto.fullName.trim();
-    if (dto.phone !== undefined) patch.phone = dto.phone.trim();
-    if (dto.specialization !== undefined) patch.specialization = dto.specialization.trim();
-    if (dto.qualifications !== undefined) patch.qualifications = dto.qualifications.trim();
-    if (consultationFeePaisa !== undefined) {
-      patch.consultationFeePaisa = consultationFeePaisa;
-      patch.feeOverridePaisa = consultationFeePaisa;
-    }
-    if (followUpFeePaisa !== undefined) patch.followUpFeePaisa = followUpFeePaisa;
-    if (reportFeePaisa !== undefined) patch.reportFeePaisa = reportFeePaisa;
-    if (dto.chamberRoomId !== undefined) patch.chamberRoomId = dto.chamberRoomId || null;
-    if (dto.dailyQuota !== undefined) patch.dailyQuota = dto.dailyQuota;
-    if (dto.slotDurationMinutes !== undefined) patch.slotDurationMinutes = dto.slotDurationMinutes;
-    if (dto.dutyStartTime !== undefined) patch.dutyStartTime = dto.dutyStartTime.trim();
-    if (dto.dutyEndTime !== undefined) patch.dutyEndTime = dto.dutyEndTime.trim();
-    if (dto.availableDays !== undefined) patch.availableDays = JSON.stringify(dto.availableDays);
-    if (dto.isActive !== undefined) patch.isActive = dto.isActive ? 1 : 0;
-    if (dto.notes !== undefined) patch.notes = dto.notes?.trim() ?? null;
+    // Keep staff row synced for backwards compatibility
+    const staffRows = await this.db
+      .select()
+      .from(staff)
+      .where(or(eq(staff.userId, existing.userId || existing.id), eq(staff.id, id)));
 
-    // Update staff row
-    await this.db.update(staff).set(patch).where(eq(staff.id, existing.id));
-
-    // Also update linked user displayName / phone / active status if user exists
-    if (existing.userId) {
-      const userPatch: Partial<typeof users.$inferInsert> = { updatedAt: now };
-      if (patch.fullName) userPatch.displayName = patch.fullName;
-      if (patch.phone) userPatch.phone = patch.phone;
-      if (patch.isActive !== undefined) userPatch.isActive = patch.isActive;
-      await this.db.update(users).set(userPatch).where(eq(users.id, existing.userId));
+    if (staffRows.length > 0) {
+      await this.db
+        .update(staff)
+        .set({
+          fullName: userPatch.displayName,
+          phone: userPatch.phone,
+          consultationFeePaisa: userPatch.consultationFeePaisa,
+          feeOverridePaisa: userPatch.consultationFeePaisa,
+          followUpFeePaisa: userPatch.followUpFeePaisa,
+          reportFeePaisa: userPatch.reportFeePaisa,
+          chamberRoomId: userPatch.chamberRoomId,
+          isActive: userPatch.isActive,
+          updatedAt: now,
+        })
+        .where(or(eq(staff.userId, existing.userId || existing.id), eq(staff.id, id)));
+    } else {
+      await this.db.insert(staff).values({
+        id: existing.userId || id,
+        userId: existing.userId || id,
+        fullName: userPatch.displayName || existing.fullName,
+        role: 'doctor',
+        phone: userPatch.phone || existing.phone,
+        consultationFeePaisa: userPatch.consultationFeePaisa ?? 50000,
+        feeOverridePaisa: userPatch.consultationFeePaisa ?? 50000,
+        followUpFeePaisa: userPatch.followUpFeePaisa ?? 0,
+        reportFeePaisa: userPatch.reportFeePaisa ?? 0,
+        chamberRoomId: userPatch.chamberRoomId ?? null,
+        isActive: userPatch.isActive ?? 1,
+        createdAt: now,
+        updatedAt: now,
+      });
     }
 
     const updated = await this.getDoctor(existing.id);
@@ -348,7 +301,7 @@ export class StaffService {
       actorUserId: actor.sub,
       actorRole: actor.role,
       action: 'doctor.update_config',
-      entity: 'staff',
+      entity: 'users',
       entityId: existing.id,
       before: existing,
       after: updated,
@@ -367,7 +320,22 @@ export class StaffService {
     const now = new Date().toISOString();
     let linkedUserId: string | null = null;
 
-    // 1. If explicit userId is provided, link to existing user account
+    const consultationFeePaisa =
+      dto.consultationFeeTaka !== undefined
+        ? dto.consultationFeeTaka * 100
+        : (dto.consultationFeePaisa ?? 50000);
+
+    const followUpFeePaisa =
+      dto.followUpFeeTaka !== undefined
+        ? dto.followUpFeeTaka * 100
+        : (dto.followUpFeePaisa ?? 0);
+
+    const reportFeePaisa =
+      dto.reportFeeTaka !== undefined
+        ? dto.reportFeeTaka * 100
+        : (dto.reportFeePaisa ?? 0);
+
+    // 1. If explicit userId is provided, assign fees and chamber on existing user account
     if (dto.userId && dto.userId.trim()) {
       const existingUser = await this.db
         .select()
@@ -375,20 +343,39 @@ export class StaffService {
         .where(eq(users.id, dto.userId.trim()));
       if (existingUser[0]) {
         linkedUserId = existingUser[0].id;
-        // Ensure user has role doctor
-        if (existingUser[0].role !== 'doctor') {
-          await this.db
-            .update(users)
-            .set({ role: 'doctor', updatedAt: now })
-            .where(eq(users.id, linkedUserId));
-        }
+        await this.db
+          .update(users)
+          .set({
+            role: 'doctor',
+            displayName: dto.fullName?.trim() || existingUser[0].displayName,
+            phone: dto.phone?.trim() || existingUser[0].phone,
+            consultationFeePaisa,
+            followUpFeePaisa,
+            reportFeePaisa,
+            chamberRoomId: dto.chamberRoomId || existingUser[0].chamberRoomId,
+            updatedAt: now,
+          })
+          .where(eq(users.id, linkedUserId));
       }
     } else if (dto.email && dto.email.trim()) {
-      // 2. If email is provided, check if user exists or create new doctor user
+      // 2. If email is provided, create new doctor user account directly
       const email = dto.email.trim().toLowerCase();
       const existingUser = await this.db.select().from(users).where(eq(users.email, email));
       if (existingUser[0]) {
         linkedUserId = existingUser[0].id;
+        await this.db
+          .update(users)
+          .set({
+            role: 'doctor',
+            displayName: dto.fullName.trim(),
+            phone: dto.phone?.trim() ?? existingUser[0].phone,
+            consultationFeePaisa,
+            followUpFeePaisa,
+            reportFeePaisa,
+            chamberRoomId: dto.chamberRoomId || null,
+            updatedAt: now,
+          })
+          .where(eq(users.id, linkedUserId));
       } else {
         const password = dto.password?.trim() || 'Doctor1234#';
         linkedUserId = randomUUID();
@@ -399,6 +386,10 @@ export class StaffService {
           role: 'doctor',
           displayName: dto.fullName.trim(),
           phone: dto.phone?.trim() ?? null,
+          consultationFeePaisa,
+          followUpFeePaisa,
+          reportFeePaisa,
+          chamberRoomId: dto.chamberRoomId || null,
           isActive: 1,
           mustChangePassword: 1,
           createdAt: now,
@@ -407,49 +398,52 @@ export class StaffService {
       }
     }
 
-    const consultationFeePaisa =
-      dto.consultationFeeTaka !== undefined
-        ? dto.consultationFeeTaka * 100
-        : dto.consultationFeePaisa ?? 50000;
+    const doctorUserId = linkedUserId || randomUUID();
 
-    const followUpFeePaisa =
-      dto.followUpFeeTaka !== undefined
-        ? dto.followUpFeeTaka * 100
-        : dto.followUpFeePaisa ?? 30000;
+    // Ensure synced staff record exists
+    const staffRows = await this.db
+      .select()
+      .from(staff)
+      .where(or(eq(staff.userId, doctorUserId), eq(staff.id, doctorUserId)));
 
-    const reportFeePaisa =
-      dto.reportFeeTaka !== undefined
-        ? dto.reportFeeTaka * 100
-        : dto.reportFeePaisa ?? 0;
+    if (staffRows.length === 0) {
+      await this.db.insert(staff).values({
+        id: doctorUserId,
+        userId: doctorUserId,
+        fullName: dto.fullName.trim(),
+        role: 'doctor' as const,
+        phone: dto.phone?.trim() ?? null,
+        consultationFeePaisa,
+        feeOverridePaisa: consultationFeePaisa,
+        followUpFeePaisa,
+        reportFeePaisa,
+        chamberRoomId: dto.chamberRoomId || null,
+        dailyQuota: 40,
+        slotDurationMinutes: 15,
+        dutyStartTime: '09:00 AM',
+        dutyEndTime: '05:00 PM',
+        availableDays: JSON.stringify(DEFAULT_DAYS),
+        isActive: 1,
+        createdAt: now,
+        updatedAt: now,
+      });
+    } else {
+      await this.db
+        .update(staff)
+        .set({
+          fullName: dto.fullName.trim(),
+          phone: dto.phone?.trim() ?? staffRows[0].phone,
+          consultationFeePaisa,
+          feeOverridePaisa: consultationFeePaisa,
+          followUpFeePaisa,
+          reportFeePaisa,
+          chamberRoomId: dto.chamberRoomId || staffRows[0].chamberRoomId,
+          updatedAt: now,
+        })
+        .where(eq(staff.id, staffRows[0].id));
+    }
 
-    const staffId = randomUUID();
-    const newStaffRow = {
-      id: staffId,
-      userId: linkedUserId,
-      fullName: dto.fullName.trim(),
-      role: 'doctor' as const,
-      phone: dto.phone?.trim() ?? null,
-      specialization: dto.specialization?.trim() || 'Physiotherapy & Rehabilitation Specialist',
-      qualifications: dto.qualifications?.trim() || 'BPT, PGD, MDMR, MPH',
-      feeOverridePaisa: consultationFeePaisa,
-      consultationFeePaisa: consultationFeePaisa,
-      followUpFeePaisa: followUpFeePaisa,
-      reportFeePaisa: reportFeePaisa,
-      chamberRoomId: dto.chamberRoomId || 'room-doc-101',
-      dailyQuota: dto.dailyQuota ?? 40,
-      slotDurationMinutes: dto.slotDurationMinutes ?? 15,
-      dutyStartTime: dto.dutyStartTime?.trim() || '09:00 AM',
-      dutyEndTime: dto.dutyEndTime?.trim() || '05:00 PM',
-      availableDays: JSON.stringify(dto.availableDays || DEFAULT_DAYS),
-      notes: dto.notes?.trim() ?? null,
-      isActive: 1,
-      createdAt: now,
-      updatedAt: now,
-    };
-
-    await this.db.insert(staff).values(newStaffRow);
-
-    const createdDoctor = await this.getDoctor(staffId);
+    const createdDoctor = await this.getDoctor(doctorUserId);
 
     // Emit realtime event
     this.gateway?.emit('clinic:global', 'doctor.created', createdDoctor);
@@ -460,7 +454,7 @@ export class StaffService {
       actorRole: actor.role,
       action: 'doctor.create',
       entity: 'staff',
-      entityId: staffId,
+      entityId: doctorUserId,
       after: createdDoctor,
       ip: meta.ip,
       requestId: meta.requestId,

@@ -529,6 +529,37 @@ export type Db = BetterSQLite3Database<typeof schema>;
             }
           } catch {}
 
+          // Ensure doctor fees and chamber room columns directly on users table
+          try {
+            const userCols = sqlite.prepare("PRAGMA table_info(users)").all() as Array<{ name: string }>;
+            const userColNames = new Set(userCols.map((c) => c.name));
+            if (!userColNames.has('consultation_fee_paisa')) {
+              sqlite.exec("ALTER TABLE users ADD COLUMN consultation_fee_paisa INTEGER NOT NULL DEFAULT 50000");
+            }
+            if (!userColNames.has('follow_up_fee_paisa')) {
+              sqlite.exec("ALTER TABLE users ADD COLUMN follow_up_fee_paisa INTEGER NOT NULL DEFAULT 0");
+            }
+            if (!userColNames.has('report_fee_paisa')) {
+              sqlite.exec("ALTER TABLE users ADD COLUMN report_fee_paisa INTEGER NOT NULL DEFAULT 0");
+            }
+            if (!userColNames.has('chamber_room_id')) {
+              sqlite.exec("ALTER TABLE users ADD COLUMN chamber_room_id TEXT");
+            }
+
+            // Sync existing staff fee and chamber data to users table for doctors
+            sqlite.exec(`
+              UPDATE users 
+              SET 
+                consultation_fee_paisa = COALESCE((SELECT consultation_fee_paisa FROM staff WHERE staff.user_id = users.id AND staff.consultation_fee_paisa IS NOT NULL LIMIT 1), users.consultation_fee_paisa, 50000),
+                follow_up_fee_paisa = COALESCE((SELECT follow_up_fee_paisa FROM staff WHERE staff.user_id = users.id AND staff.follow_up_fee_paisa IS NOT NULL LIMIT 1), users.follow_up_fee_paisa, 0),
+                report_fee_paisa = COALESCE((SELECT report_fee_paisa FROM staff WHERE staff.user_id = users.id AND staff.report_fee_paisa IS NOT NULL LIMIT 1), users.report_fee_paisa, 0),
+                chamber_room_id = COALESCE((SELECT chamber_room_id FROM staff WHERE staff.user_id = users.id AND staff.chamber_room_id IS NOT NULL LIMIT 1), users.chamber_room_id)
+              WHERE users.role = 'doctor';
+            `);
+          } catch (userColErr) {
+            console.error('Error initializing doctor columns on users table:', userColErr);
+          }
+
           // Ensure consultation_bookings table
           try {
             sqlite.exec(`

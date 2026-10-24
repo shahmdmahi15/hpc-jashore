@@ -36,6 +36,10 @@ export const users = sqliteTable('users', {
   phone: text('phone'),
   isActive: integer('is_active').notNull().default(1),
   mustChangePassword: integer('must_change_password').notNull().default(1),
+  consultationFeePaisa: integer('consultation_fee_paisa').notNull().default(50000),
+  followUpFeePaisa: integer('follow_up_fee_paisa').notNull().default(0),
+  reportFeePaisa: integer('report_fee_paisa').notNull().default(0),
+  chamberRoomId: text('chamber_room_id'),
   ...timestamps,
 });
 

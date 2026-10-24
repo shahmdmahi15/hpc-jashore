@@ -1,4 +1,4 @@
-import { IsBoolean, IsEmail, IsIn, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsBoolean, IsEmail, IsIn, IsNumber, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 import type { Role } from '../db/schema';
 
 export class CreateUserDto {
@@ -21,6 +21,34 @@ export class CreateUserDto {
   @IsOptional()
   @IsString()
   phone?: string;
+
+  @IsOptional()
+  @IsNumber()
+  consultationFeePaisa?: number;
+
+  @IsOptional()
+  @IsNumber()
+  consultationFeeTaka?: number;
+
+  @IsOptional()
+  @IsNumber()
+  followUpFeePaisa?: number;
+
+  @IsOptional()
+  @IsNumber()
+  followUpFeeTaka?: number;
+
+  @IsOptional()
+  @IsNumber()
+  reportFeePaisa?: number;
+
+  @IsOptional()
+  @IsNumber()
+  reportFeeTaka?: number;
+
+  @IsOptional()
+  @IsString()
+  chamberRoomId?: string | null;
 }
 
 export class UpdateUserDto {
@@ -46,4 +74,32 @@ export class UpdateUserDto {
   @MinLength(8)
   @MaxLength(128)
   password?: string;
+
+  @IsOptional()
+  @IsNumber()
+  consultationFeePaisa?: number;
+
+  @IsOptional()
+  @IsNumber()
+  consultationFeeTaka?: number;
+
+  @IsOptional()
+  @IsNumber()
+  followUpFeePaisa?: number;
+
+  @IsOptional()
+  @IsNumber()
+  followUpFeeTaka?: number;
+
+  @IsOptional()
+  @IsNumber()
+  reportFeePaisa?: number;
+
+  @IsOptional()
+  @IsNumber()
+  reportFeeTaka?: number;
+
+  @IsOptional()
+  @IsString()
+  chamberRoomId?: string | null;
 }
