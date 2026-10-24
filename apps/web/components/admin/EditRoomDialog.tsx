@@ -187,7 +187,7 @@ export function EditRoomDialog({ room, open, onOpenChange, onSuccess }: EditRoom
         </DialogHeader>
 
         {/* Scrollable Form Body */}
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5">
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5" autoComplete="off" data-lpignore="true" data-1p-ignore="true">
           {errorMsg && (
             <div className="flex items-start gap-2.5 p-3 rounded-xl bg-destructive/10 border border-destructive/30 text-destructive text-xs sm:text-sm">
               <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />

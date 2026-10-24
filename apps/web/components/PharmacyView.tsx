@@ -309,7 +309,7 @@ export default function PharmacyView() {
           <DialogHeader>
             <DialogTitle className="text-lg font-bold">Record Clinic Expense</DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleCreateExpense} className="flex flex-col gap-4 mt-2">
+          <form onSubmit={handleCreateExpense} className="flex flex-col gap-4 mt-2" autoComplete="off" data-lpignore="true" data-1p-ignore="true">
             <Select
               label="Expense Category"
               value={expCategory}

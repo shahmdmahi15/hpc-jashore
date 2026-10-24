@@ -66,7 +66,7 @@ function ResendVerificationForm() {
         </Alert>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off" data-lpignore="true" data-1p-ignore="true">
         {/* ONLY Email input */}
         <div className="space-y-1.5">
           <Label htmlFor="resend-email">
@@ -77,7 +77,12 @@ function ResendVerificationForm() {
             <Input
               id="resend-email"
               type="email"
-              autoComplete="email"
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck={false}
+              data-lpignore="true"
+              data-1p-ignore="true"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="name@example.com"

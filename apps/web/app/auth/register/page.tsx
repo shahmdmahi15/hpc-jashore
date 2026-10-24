@@ -123,7 +123,7 @@ export default function RegisterPage() {
         </Alert>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-3.5">
+      <form onSubmit={handleSubmit} className="space-y-3.5" autoComplete="off" data-lpignore="true" data-1p-ignore="true">
         {/* 1. Name */}
         <div className="space-y-1">
           <Label htmlFor="reg-name">
@@ -134,7 +134,12 @@ export default function RegisterPage() {
             <Input
               id="reg-name"
               type="text"
-              autoComplete="name"
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck={false}
+              data-lpignore="true"
+              data-1p-ignore="true"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder={t.namePlaceholder}
@@ -154,7 +159,12 @@ export default function RegisterPage() {
             <Input
               id="reg-email"
               type="email"
-              autoComplete="email"
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck={false}
+              data-lpignore="true"
+              data-1p-ignore="true"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="name@example.com"
@@ -174,7 +184,12 @@ export default function RegisterPage() {
             <Input
               id="reg-whatsapp"
               type="tel"
-              autoComplete="tel"
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck={false}
+              data-lpignore="true"
+              data-1p-ignore="true"
               value={whatsappNumber}
               onChange={(e) => setWhatsappNumber(e.target.value)}
               placeholder={t.whatsappPlaceholder}
@@ -194,7 +209,12 @@ export default function RegisterPage() {
             <Input
               id="reg-password"
               type={showPassword ? 'text' : 'password'}
-              autoComplete="new-password"
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck={false}
+              data-lpignore="true"
+              data-1p-ignore="true"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder={t.passwordPlaceholder}
@@ -224,7 +244,12 @@ export default function RegisterPage() {
             <Input
               id="reg-confirm-password"
               type={showConfirmPassword ? 'text' : 'password'}
-              autoComplete="new-password"
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck={false}
+              data-lpignore="true"
+              data-1p-ignore="true"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               placeholder={t.confirmPasswordPlaceholder}

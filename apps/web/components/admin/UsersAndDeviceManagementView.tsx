@@ -1358,7 +1358,7 @@ export default function UsersAndDeviceManagementView() {
       {/* ========================================================================= */}
       <Dialog open={isCreateUserOpen} onOpenChange={setIsCreateUserOpen}>
         <DialogContent className="sm:max-w-[480px] rounded-2xl">
-          <form onSubmit={handleCreateUser}>
+          <form onSubmit={handleCreateUser} autoComplete="off" data-lpignore="true" data-1p-ignore="true">
             <DialogHeader>
               <DialogTitle className="text-lg font-bold">
                 {isBn ? 'নতুন ব্যবহারকারী তৈরি করুন' : 'Create New User Account'}
@@ -1475,7 +1475,7 @@ export default function UsersAndDeviceManagementView() {
       {/* ========================================================================= */}
       <Dialog open={isEditUserOpen} onOpenChange={setIsEditUserOpen}>
         <DialogContent className="sm:max-w-[480px] rounded-2xl">
-          <form onSubmit={handleUpdateUser}>
+          <form onSubmit={handleUpdateUser} autoComplete="off" data-lpignore="true" data-1p-ignore="true">
             <DialogHeader>
               <DialogTitle className="text-lg font-bold">
                 {isBn ? 'ব্যবহারকারীর তথ্য সম্পাদনা' : 'Edit User Account'}
@@ -1590,7 +1590,7 @@ export default function UsersAndDeviceManagementView() {
       {/* ========================================================================= */}
       <Dialog open={isPairTvOpen} onOpenChange={setIsPairTvOpen}>
         <DialogContent className="sm:max-w-[480px] rounded-2xl">
-          <form onSubmit={handlePairTv}>
+          <form onSubmit={handlePairTv} autoComplete="off" data-lpignore="true" data-1p-ignore="true">
             <DialogHeader>
               <DialogTitle className="text-lg font-bold flex items-center gap-2">
                 <Tv className="w-5 h-5 text-emerald-500" />

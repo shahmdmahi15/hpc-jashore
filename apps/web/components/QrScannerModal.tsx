@@ -141,7 +141,7 @@ export default function QrScannerModal({ onScan, onClose }: QrScannerModalProps)
         </div>
 
         {/* Manual Barcode / MRN Input */}
-        <form onSubmit={handleManualSubmit} className="space-y-3 mt-1">
+        <form onSubmit={handleManualSubmit} className="space-y-3 mt-1" autoComplete="off" data-lpignore="true" data-1p-ignore="true">
           <div className="space-y-1.5">
             <Label htmlFor="manual-mrn-input" className="text-xs font-semibold">
               Or Enter / Scan MRN Manually:

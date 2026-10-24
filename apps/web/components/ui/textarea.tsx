@@ -8,7 +8,7 @@ export interface TextareaProps
 }
 
 const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
-  ({ className, label, error, ...props }, ref) => {
+  ({ className, label, error, autoComplete = 'off', autoCorrect = 'off', autoCapitalize = 'off', spellCheck = false, ...props }, ref) => {
     return (
       <div className="w-full flex flex-col gap-1.5">
         {label && (
@@ -17,6 +17,14 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
           </label>
         )}
         <textarea
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="off"
+          spellCheck={false}
+          data-lpignore="true"
+          data-1p-ignore="true"
+          data-bwignore="true"
+          data-form-type="other"
           className={cn(
             'flex min-h-[80px] w-full rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm font-medium text-foreground transition-all duration-150 placeholder:text-muted-foreground',
             'focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-50 shadow-2xs',

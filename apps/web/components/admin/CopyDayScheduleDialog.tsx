@@ -133,7 +133,7 @@ export function CopyDayScheduleDialog({
           </div>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4 pt-2">
+        <form onSubmit={handleSubmit} className="space-y-4 pt-2" autoComplete="off" data-lpignore="true" data-1p-ignore="true">
           {/* Quick Select Buttons */}
           <div className="flex flex-wrap items-center gap-1.5">
             <Button

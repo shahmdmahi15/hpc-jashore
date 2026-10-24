@@ -406,7 +406,7 @@ export function PainAssessmentFormModal({
         </div>
 
         {/* Scrollable Form Body */}
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6" autoComplete="off" data-lpignore="true" data-1p-ignore="true">
           {/* Paper Form Header Replica */}
           <div className="p-4 sm:p-5 rounded-2xl border-2 border-emerald-500/30 bg-gradient-to-r from-emerald-500/10 via-teal-500/5 to-transparent text-center space-y-1 shadow-xs">
             <h1 className="text-base sm:text-xl font-black tracking-wider text-emerald-700 dark:text-emerald-400 uppercase">

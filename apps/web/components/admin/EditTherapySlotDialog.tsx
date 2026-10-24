@@ -154,7 +154,7 @@ export function EditTherapySlotDialog({
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-5 pt-2">
+        <form onSubmit={handleSubmit} className="space-y-5 pt-2" autoComplete="off" data-lpignore="true" data-1p-ignore="true">
           {/* Active Switch */}
           <div className="p-3.5 rounded-xl bg-muted/40 border border-border/50 flex items-center justify-between">
             <div className="space-y-0.5">

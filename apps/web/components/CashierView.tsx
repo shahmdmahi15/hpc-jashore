@@ -534,7 +534,7 @@ export default function CashierView({ session: propSession }: CashierProps = {})
             </CardHeader>
 
             <CardContent>
-              <form onSubmit={handleCreateBill} className="flex flex-col gap-4">
+              <form onSubmit={handleCreateBill} className="flex flex-col gap-4" autoComplete="off" data-lpignore="true" data-1p-ignore="true">
                 <Select
                   label="Select Patient *"
                   value={selectedPatientId}
@@ -804,7 +804,7 @@ export default function CashierView({ session: propSession }: CashierProps = {})
           <DialogHeader>
             <DialogTitle className="text-lg font-bold">Open Cash Drawer Float</DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleOpenDrawer} className="flex flex-col gap-4 mt-2">
+          <form onSubmit={handleOpenDrawer} className="flex flex-col gap-4 mt-2" autoComplete="off" data-lpignore="true" data-1p-ignore="true">
             <Input
               label="Opening Cash Float (৳)"
               type="number"
@@ -830,7 +830,7 @@ export default function CashierView({ session: propSession }: CashierProps = {})
           <DialogHeader>
             <DialogTitle className="text-lg font-bold">Close Shift &amp; Reconcile Drawer</DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleCloseDrawer} className="flex flex-col gap-4 mt-2">
+          <form onSubmit={handleCloseDrawer} className="flex flex-col gap-4 mt-2" autoComplete="off" data-lpignore="true" data-1p-ignore="true">
             <Input
               label="Physical Cash Count in Drawer (৳)"
               type="number"

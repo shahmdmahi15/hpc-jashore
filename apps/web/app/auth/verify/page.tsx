@@ -161,7 +161,7 @@ function VerifyContent() {
         </Alert>
       )}
 
-      <form onSubmit={handleManualSubmit} className="space-y-4">
+      <form onSubmit={handleManualSubmit} className="space-y-4" autoComplete="off" data-lpignore="true" data-1p-ignore="true">
         {/* Email */}
         <div className="space-y-1.5">
           <Label htmlFor="verify-email">
@@ -172,7 +172,12 @@ function VerifyContent() {
             <Input
               id="verify-email"
               type="email"
-              autoComplete="email"
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck={false}
+              data-lpignore="true"
+              data-1p-ignore="true"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="user@example.com"
@@ -193,6 +198,12 @@ function VerifyContent() {
               id="verify-code"
               type="text"
               maxLength={6}
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck={false}
+              data-lpignore="true"
+              data-1p-ignore="true"
               value={code}
               onChange={(e) => setCode(e.target.value)}
               placeholder={t.pinPlaceholder}

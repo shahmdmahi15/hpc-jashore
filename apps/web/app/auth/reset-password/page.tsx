@@ -136,7 +136,12 @@ function ResetPasswordForm() {
               <Input
                 id="reset-email"
                 type="email"
-                autoComplete="email"
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="off"
+                spellCheck={false}
+                data-lpignore="true"
+                data-1p-ignore="true"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="name@example.com"
@@ -156,6 +161,12 @@ function ResetPasswordForm() {
                 id="reset-code"
                 type="text"
                 maxLength={6}
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="off"
+                spellCheck={false}
+                data-lpignore="true"
+                data-1p-ignore="true"
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
                 placeholder="123456"
@@ -168,7 +179,7 @@ function ResetPasswordForm() {
       )}
 
       {/* Main Password Inputs: new password and confirm password */}
-      <form onSubmit={handleSubmit} className="space-y-3.5">
+      <form onSubmit={handleSubmit} className="space-y-3.5" autoComplete="off" data-lpignore="true" data-1p-ignore="true">
         <div className="space-y-1">
           <Label htmlFor="reset-new-password">
             {t.newPasswordLabel} <span className="text-emerald-500">*</span>
@@ -178,7 +189,12 @@ function ResetPasswordForm() {
             <Input
               id="reset-new-password"
               type={showPassword ? 'text' : 'password'}
-              autoComplete="new-password"
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck={false}
+              data-lpignore="true"
+              data-1p-ignore="true"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
               placeholder={t.newPasswordPlaceholder}
@@ -207,7 +223,12 @@ function ResetPasswordForm() {
             <Input
               id="reset-confirm-password"
               type={showConfirmPassword ? 'text' : 'password'}
-              autoComplete="new-password"
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck={false}
+              data-lpignore="true"
+              data-1p-ignore="true"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               placeholder={t.confirmPasswordPlaceholder}

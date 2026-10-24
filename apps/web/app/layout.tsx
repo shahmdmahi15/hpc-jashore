@@ -111,6 +111,60 @@ export default function RootLayout({
         <meta name="msapplication-tap-highlight" content="no" />
         <meta name="format-detection" content="telephone=no" />
         <script
+          // Universal browser autofill suppression across all dynamic inputs & forms
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function(){
+                function sanitizeNode(el){
+                  if(!el || !el.setAttribute) return;
+                  var tag = el.tagName;
+                  if(tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT'){
+                    el.setAttribute('autocomplete', 'off');
+                    el.setAttribute('autocorrect', 'off');
+                    el.setAttribute('autocapitalize', 'off');
+                    el.setAttribute('spellcheck', 'false');
+                    el.setAttribute('data-lpignore', 'true');
+                    el.setAttribute('data-1p-ignore', 'true');
+                    el.setAttribute('data-bwignore', 'true');
+                    el.setAttribute('data-form-type', 'other');
+                  } else if(tag === 'FORM'){
+                    el.setAttribute('autocomplete', 'off');
+                    el.setAttribute('data-lpignore', 'true');
+                    el.setAttribute('data-1p-ignore', 'true');
+                    el.setAttribute('data-bwignore', 'true');
+                  }
+                }
+                function scan(root){
+                  if(!root || !root.querySelectorAll) return;
+                  sanitizeNode(root);
+                  var nodes = root.querySelectorAll('input, textarea, select, form');
+                  for(var i = 0; i < nodes.length; i++){
+                    sanitizeNode(nodes[i]);
+                  }
+                }
+                if(typeof document !== 'undefined'){
+                  if(document.readyState === 'loading'){
+                    document.addEventListener('DOMContentLoaded', function(){ scan(document.body); });
+                  } else {
+                    scan(document.body);
+                  }
+                  if(typeof MutationObserver !== 'undefined'){
+                    var mo = new MutationObserver(function(mutations){
+                      for(var m = 0; m < mutations.length; m++){
+                        var added = mutations[m].addedNodes;
+                        for(var a = 0; a < added.length; a++){
+                          scan(added[a]);
+                        }
+                      }
+                    });
+                    mo.observe(document.documentElement, { childList: true, subtree: true });
+                  }
+                }
+              })();
+            `,
+          }}
+        />
+        <script
           // Apply saved theme before first paint (no flash).
           dangerouslySetInnerHTML={{
             __html: `(function(){try{var t=localStorage.getItem('hpc-theme');if(!t){t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'}document.documentElement.dataset.theme=t;if(t==='dark'){document.documentElement.classList.add('dark')}else{document.documentElement.classList.remove('dark')}}catch(e){}})()`,

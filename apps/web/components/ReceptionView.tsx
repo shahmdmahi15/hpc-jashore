@@ -175,7 +175,7 @@ export default function ReceptionView() {
               </Button>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleCheckIn} className="flex flex-col gap-4">
+              <form onSubmit={handleCheckIn} className="flex flex-col gap-4" autoComplete="off" data-lpignore="true" data-1p-ignore="true">
                 <div className="flex flex-col gap-2">
                   <label className="text-xs font-semibold text-muted-foreground">
                     Search / Select Patient:

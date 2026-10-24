@@ -474,7 +474,7 @@ export default function BulletinManagementView() {
             </DialogDescription>
           </DialogHeader>
 
-          <form onSubmit={handleCreate} className="space-y-4 py-2">
+          <form onSubmit={handleCreate} className="space-y-4 py-2" autoComplete="off" data-lpignore="true" data-1p-ignore="true">
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold">{isBn ? 'বুলেটিন শিরোনাম' : 'Internal Title'}</Label>
               <Input
@@ -576,7 +576,7 @@ export default function BulletinManagementView() {
             </DialogTitle>
           </DialogHeader>
 
-          <form onSubmit={handleUpdate} className="space-y-4 py-2">
+          <form onSubmit={handleUpdate} className="space-y-4 py-2" autoComplete="off" data-lpignore="true" data-1p-ignore="true">
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold">{isBn ? 'বুলেটিন শিরোনাম' : 'Internal Title'}</Label>
               <Input

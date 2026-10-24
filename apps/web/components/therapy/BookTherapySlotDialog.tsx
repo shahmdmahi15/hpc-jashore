@@ -332,7 +332,7 @@ export function BookTherapySlotDialog({
           </DialogHeader>
 
           {/* Form Body */}
-          <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-5">
+          <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-5" autoComplete="off" data-lpignore="true" data-1p-ignore="true">
             {/* 1. Patient Selection */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">

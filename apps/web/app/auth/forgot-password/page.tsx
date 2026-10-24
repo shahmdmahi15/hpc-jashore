@@ -72,7 +72,7 @@ export default function ForgotPasswordPage() {
         </Alert>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off" data-lpignore="true" data-1p-ignore="true">
         {/* ONLY Email Field */}
         <div className="space-y-1.5">
           <Label htmlFor="forgot-email">
@@ -83,7 +83,12 @@ export default function ForgotPasswordPage() {
             <Input
               id="forgot-email"
               type="email"
-              autoComplete="email"
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck={false}
+              data-lpignore="true"
+              data-1p-ignore="true"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="name@example.com"

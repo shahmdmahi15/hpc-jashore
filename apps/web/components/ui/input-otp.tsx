@@ -42,6 +42,11 @@ function InputOTP({
           maxLength={maxLength}
           value={value}
           onChange={handleChange}
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="off"
+          spellCheck={false}
+          data-lpignore="true"
           className="absolute inset-0 z-10 opacity-0 cursor-pointer"
           {...props}
         />

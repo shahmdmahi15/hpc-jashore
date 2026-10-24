@@ -409,7 +409,7 @@ export default function TherapyHallView({ session: propSession }: TherapyHallPro
           <DialogHeader>
             <DialogTitle className="text-lg font-bold">Start Physical Therapy Session</DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleStartSession} className="flex flex-col gap-4 mt-2">
+          <form onSubmit={handleStartSession} className="flex flex-col gap-4 mt-2" autoComplete="off" data-lpignore="true" data-1p-ignore="true">
             <Select
               label="Select Patient *"
               value={selectedPatientId}
@@ -494,7 +494,7 @@ export default function TherapyHallView({ session: propSession }: TherapyHallPro
             <DialogHeader>
               <DialogTitle className="text-lg font-bold">Complete Session with PIN</DialogTitle>
             </DialogHeader>
-            <form onSubmit={handleCompleteSession} className="flex flex-col gap-4 mt-2">
+            <form onSubmit={handleCompleteSession} className="flex flex-col gap-4 mt-2" autoComplete="off" data-lpignore="true" data-1p-ignore="true">
               <div className="rounded-lg bg-muted/40 p-3 text-xs flex flex-col gap-1 border border-border">
                 <div>Patient: <strong className="text-foreground">{completingSession.patient?.nameEn || 'Patient'}</strong></div>
                 <div>Modality: <strong className="text-foreground">{completingSession.modalityCode}</strong></div>

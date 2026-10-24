@@ -128,7 +128,7 @@ function LoginForm() {
         </Alert>
       ) : null}
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off" data-lpignore="true" data-1p-ignore="true">
         {/* 1. Email */}
         <div className="space-y-1.5">
           <Label htmlFor="login-email">
@@ -139,7 +139,12 @@ function LoginForm() {
             <Input
               id="login-email"
               type="email"
-              autoComplete="email"
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck={false}
+              data-lpignore="true"
+              data-1p-ignore="true"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder={t.emailPlaceholder}
@@ -167,7 +172,12 @@ function LoginForm() {
             <Input
               id="login-password"
               type={showPassword ? 'text' : 'password'}
-              autoComplete="current-password"
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck={false}
+              data-lpignore="true"
+              data-1p-ignore="true"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder={t.passwordPlaceholder}

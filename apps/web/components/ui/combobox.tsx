@@ -69,6 +69,12 @@ export function Combobox({
               <Search className="size-3.5 text-muted-foreground mr-1.5 shrink-0" />
               <input
                 type="text"
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="off"
+                spellCheck={false}
+                data-lpignore="true"
+                data-1p-ignore="true"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder={searchPlaceholder}
