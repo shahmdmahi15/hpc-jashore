@@ -177,9 +177,9 @@ export function PatientIntakeFormModal({
 
         bpSystolic: bpSystolic ? parseInt(bpSystolic, 10) : undefined,
         bpDiastolic: bpDiastolic ? parseInt(bpDiastolic, 10) : undefined,
-        bloodSugar: bloodSugar ? parseFloat(bloodSugar) : undefined,
+        bloodSugar: bloodSugar.trim() || undefined,
         hasDiabetes: hasDiabetes ? 1 : 0,
-        weightKg: weightKg ? parseFloat(weightKg) : undefined,
+        weightKg: weightKg.trim() || undefined,
         chiefComplaint: chiefComplaint.trim(),
         problemDuration: problemDuration.trim() || undefined,
 

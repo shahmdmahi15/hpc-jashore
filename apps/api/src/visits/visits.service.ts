@@ -1374,6 +1374,45 @@ export class VisitsService {
       .where(eq(therapySessions.status, 'in_progress'))
       .limit(8);
 
+    const callingTherapies = await this.db
+      .select({
+        visitId: visits.id,
+        tokenNumber: visits.tokenNumber,
+        patientNameEn: patients.nameEn,
+        patientNameBn: patients.nameBn,
+        roomNumber: rooms.roomNumber,
+        roomName: rooms.name,
+        updatedAt: visits.updatedAt,
+      })
+      .from(visits)
+      .innerJoin(patients, eq(visits.patientId, patients.id))
+      .leftJoin(rooms, eq(visits.roomId, rooms.id))
+      .where(
+        and(
+          eq(visits.visitDate, today),
+          eq(visits.status, 'calling' as any),
+        ),
+      )
+      .orderBy(desc(visits.updatedAt));
+
+    const therapyNowServing = [
+      ...callingTherapies.map((c) => ({
+        sessionId: c.visitId,
+        visitId: c.visitId,
+        tokenNumber: c.tokenNumber,
+        patientNameEn: c.patientNameEn,
+        patientNameBn: c.patientNameBn || c.patientNameEn,
+        modalityCode: 'PHYSIO',
+        modalityNameEn: 'Physiotherapy & Rehab',
+        modalityNameBn: 'ফিজিওথেরাপি ও পুনর্বাসন',
+        bedName: c.roomName || (c.roomNumber ? `Room ${c.roomNumber}` : 'Therapy Hall'),
+        roomName: c.roomName || (c.roomNumber ? `Room ${c.roomNumber}` : 'Therapy Hall'),
+        startedAt: c.updatedAt,
+        status: 'calling',
+      })),
+      ...activeTherapies,
+    ];
+
     const waitingTherapies = await this.db
       .select({
         visitId: visits.id,
@@ -1418,7 +1457,7 @@ export class VisitsService {
         waiting: waitingConsultation,
       },
       therapyQueue: {
-        nowServing: activeTherapies,
+        nowServing: therapyNowServing,
         waiting: waitingTherapies,
       },
       bulletinNotices: [

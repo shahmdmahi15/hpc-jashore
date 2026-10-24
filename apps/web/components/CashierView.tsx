@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { cn } from '../lib/utils';
 import { toast } from 'sonner';
 import { PatientTimelineModal } from './patient/PatientTimelineModal';
+import { TherapyQueueManagementTab } from './therapy/TherapyQueueManagementTab';
 import {
   FileText,
   Clock,
@@ -28,6 +29,7 @@ import {
   Loader2,
   Eye,
   CheckCircle2,
+  PhoneCall,
 } from 'lucide-react';
 
 export interface CashierProps {
@@ -36,7 +38,7 @@ export interface CashierProps {
 
 export default function CashierView({ session: propSession }: CashierProps = {}) {
   const session = propSession || getSession();
-  const [mobileTab, setMobileTab] = useState<'billing' | 'ledger'>('billing');
+  const [mobileTab, setMobileTab] = useState<'billing' | 'ledger' | 'therapy_queue'>('billing');
   const [bills, setBills] = useState<any[]>([]);
   const [dues, setDues] = useState<any[]>([]);
   const [patients, setPatients] = useState<any[]>([]);
@@ -439,36 +441,55 @@ export default function CashierView({ session: propSession }: CashierProps = {})
         </CardContent>
       </Card>
 
-      {/* Mobile Tab Switcher (<lg screens: smartphones, small tablets) */}
-      <div className="flex lg:hidden rounded-xl border border-border bg-card p-1 shadow-xs">
+      {/* Workstation Tab Switcher */}
+      <div className="flex flex-wrap items-center gap-1.5 rounded-2xl border border-border bg-card p-1.5 shadow-xs max-w-xl">
         <button
           type="button"
           onClick={() => setMobileTab('billing')}
           className={cn(
-            'flex-1 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all',
+            'flex-1 py-2 px-3 text-xs sm:text-sm font-semibold rounded-xl transition-all flex items-center justify-center gap-1.5',
             mobileTab === 'billing'
               ? 'bg-emerald-600 text-white shadow-xs'
-              : 'text-muted-foreground hover:text-foreground'
+              : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
           )}
         >
-          💳 New Bill Generator
+          <CreditCard className="size-4" />
+          <span>বিলিং ও রিসেপশন রোগী</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setMobileTab('therapy_queue')}
+          className={cn(
+            'flex-1 py-2 px-3 text-xs sm:text-sm font-semibold rounded-xl transition-all flex items-center justify-center gap-1.5',
+            mobileTab === 'therapy_queue'
+              ? 'bg-emerald-600 text-white shadow-xs'
+              : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+          )}
+        >
+          <PhoneCall className="size-4 text-emerald-400" />
+          <span>থেরাপি কিউ</span>
         </button>
         <button
           type="button"
           onClick={() => setMobileTab('ledger')}
           className={cn(
-            'flex-1 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all',
+            'flex-1 py-2 px-3 text-xs sm:text-sm font-semibold rounded-xl transition-all flex items-center justify-center gap-1.5',
             mobileTab === 'ledger'
               ? 'bg-emerald-600 text-white shadow-xs'
-              : 'text-muted-foreground hover:text-foreground'
+              : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
           )}
         >
-          🧾 Invoices &amp; Dues ({bills.length})
+          <FileText className="size-4" />
+          <span>ইনভয়েস লেজার ({bills.length})</span>
         </button>
       </div>
 
-      {/* Bill Generator & Payment Ledger Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      {mobileTab === 'therapy_queue' ? (
+        <TherapyQueueManagementTab />
+      ) : (
+        <>
+          {/* Bill Generator & Payment Ledger Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left Column: Bill Generator */}
         <div
           className={cn(
@@ -774,6 +795,8 @@ export default function CashierView({ session: propSession }: CashierProps = {})
           </Card>
         </div>
       </div>
+      </>
+      )}
 
       {/* Open Drawer Dialog */}
       <Dialog open={showOpenDrawerModal} onOpenChange={setShowOpenDrawerModal}>

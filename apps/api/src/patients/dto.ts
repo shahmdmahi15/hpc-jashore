@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  IsBoolean,
   IsEmail,
   IsIn,
   IsInt,
@@ -252,8 +253,7 @@ export class CreateIntakeFormDto {
 
   @ApiPropertyOptional({ description: 'Blood Sugar' })
   @IsOptional()
-  @IsString()
-  bloodSugar?: string;
+  bloodSugar?: string | number;
 
   @ApiPropertyOptional({ description: 'Has Diabetes (0: No, 1: Yes)' })
   @IsOptional()
@@ -262,8 +262,7 @@ export class CreateIntakeFormDto {
 
   @ApiPropertyOptional({ description: 'Weight in kg' })
   @IsOptional()
-  @IsString()
-  weightKg?: string;
+  weightKg?: string | number;
 
   @ApiPropertyOptional({ description: 'Chief complaint' })
   @IsOptional()
@@ -340,6 +339,7 @@ export class CreateIntakeFormDto {
 
   @ApiPropertyOptional({ description: 'Forward to cashier immediately (default true)' })
   @IsOptional()
+  @IsBoolean()
   forwardToCashier?: boolean;
 }
 

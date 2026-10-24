@@ -31,7 +31,9 @@ import {
   Building2,
   Radio,
   Eye,
+  PhoneCall,
 } from 'lucide-react';
+import { TherapyQueueManagementTab } from '../therapy/TherapyQueueManagementTab';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -128,7 +130,7 @@ export function CheckInWorkstationView() {
 
   const [data, setData] = useState<CheckInOverviewResult | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'checkin_form' | 'today_bookings' | 'live_queue' | 'recent_checkins'>('checkin_form');
+  const [activeTab, setActiveTab] = useState<'checkin_form' | 'today_bookings' | 'live_queue' | 'recent_checkins' | 'therapy_queue'>('checkin_form');
   const [todayBookingFilter, setTodayBookingFilter] = useState<'pending' | 'attended' | 'all'>('pending');
 
   // Search & Selection State
@@ -721,6 +723,13 @@ export function CheckInWorkstationView() {
             >
               <Clock className="w-3.5 h-3.5" />
               <span>{isBn ? 'সাম্প্রতিক চেক-ইন' : 'Recent Check-ins'}</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="therapy_queue"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg"
+            >
+              <PhoneCall className="w-3.5 h-3.5 text-emerald-500" />
+              <span>{isBn ? 'থেরাপি কিউ ও ডাকুন' : 'Therapy Queue & Call'}</span>
             </TabsTrigger>
           </TabsList>
 
@@ -1550,6 +1559,13 @@ export function CheckInWorkstationView() {
               </div>
             )}
           </Card>
+        </TabsContent>
+
+        {/* ============================================================== */}
+        {/* TAB 5: THERAPY QUEUE & CALLING                                 */}
+        {/* ============================================================== */}
+        <TabsContent value="therapy_queue" className="mt-4 focus-visible:outline-none space-y-3">
+          <TherapyQueueManagementTab />
         </TabsContent>
       </Tabs>
 

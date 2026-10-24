@@ -39,6 +39,7 @@ import {
 import { PatientTimelineModal } from './patient/PatientTimelineModal';
 import { PainAssessmentFormModal } from './patient/PainAssessmentFormModal';
 import { PatientFilesListModal } from './patient/PatientFilesListModal';
+import { TherapyQueueManagementTab } from './therapy/TherapyQueueManagementTab';
 import {
   Volume2,
   PhoneCall,
@@ -111,6 +112,7 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
   // Print modal state
   const [printData, setPrintData] = useState<any>(null);
   const [mobileTab, setMobileTab] = useState<'queue' | 'consultation'>('queue');
+  const [doctorMainTab, setDoctorMainTab] = useState<'chamber' | 'therapy_queue'>('chamber');
 
   // Intake Form & Calling Action States
   const [activeIntakeForm, setActiveIntakeForm] = useState<any>(null);
@@ -437,8 +439,42 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
   };
 
   return (
-    <div className="w-full">
-      {/* Mobile & Small Tablet Adaptive Segmented Control */}
+    <div className="w-full space-y-4">
+      {/* Top Workstation Navigation Switcher */}
+      <div className="flex items-center gap-2 p-1.5 rounded-2xl bg-card/80 border border-border/80 shadow-xs max-w-md">
+        <Button
+          type="button"
+          variant={doctorMainTab === 'chamber' ? 'default' : 'ghost'}
+          size="sm"
+          onClick={() => setDoctorMainTab('chamber')}
+          className={cn(
+            'flex-1 text-xs font-bold rounded-xl h-9 gap-1.5',
+            doctorMainTab === 'chamber' && 'bg-emerald-600 text-white hover:bg-emerald-600/90 shadow-sm'
+          )}
+        >
+          <Stethoscope className="size-4" />
+          <span>কনসালটেশন চেম্বার</span>
+        </Button>
+        <Button
+          type="button"
+          variant={doctorMainTab === 'therapy_queue' ? 'default' : 'ghost'}
+          size="sm"
+          onClick={() => setDoctorMainTab('therapy_queue')}
+          className={cn(
+            'flex-1 text-xs font-bold rounded-xl h-9 gap-1.5',
+            doctorMainTab === 'therapy_queue' && 'bg-emerald-600 text-white hover:bg-emerald-600/90 shadow-sm'
+          )}
+        >
+          <PhoneCall className="size-4 text-emerald-400" />
+          <span>থেরাপি কিউ</span>
+        </Button>
+      </div>
+
+      {doctorMainTab === 'therapy_queue' ? (
+        <TherapyQueueManagementTab />
+      ) : (
+        <>
+          {/* Mobile & Small Tablet Adaptive Segmented Control */}
       <div className="flex lg:hidden items-center gap-2 mb-4 p-1 rounded-xl bg-card border border-border shadow-2xs">
         <Button
           type="button"
@@ -1174,6 +1210,8 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
           setIsNewAssessmentModalOpen(true);
         }}
       />
+        </>
+      )}
     </div>
   );
 }

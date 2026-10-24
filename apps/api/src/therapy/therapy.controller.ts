@@ -16,11 +16,15 @@ import { CurrentUser, type RequestUser } from '../rbac/current-user.decorator';
 import { Roles } from '../rbac/roles.decorator';
 import { RolesGuard } from '../rbac/roles.guard';
 import {
+  CallTherapyPatientDto,
+  CancelTherapyCallDto,
   CompleteSessionDto,
   CreateBedDto,
   CreateMachineDto,
   CreatePackageDto,
+  MarkInTherapyDto,
   PurchasePackageDto,
+  RecallTherapyPatientDto,
   StartSessionDto,
 } from './dto';
 import { TherapyService } from './therapy.service';
@@ -74,6 +78,58 @@ export class TherapyController {
   @Get('sessions/today')
   getTodaySessions(@Query('therapistStaffId') therapistStaffId?: string) {
     return this.therapy.getTodaySessions(therapistStaffId);
+  }
+
+  @Get('queue')
+  @Roles('admin', 'doctor', 'cashier', 'receptionist', 'handler')
+  getQueue() {
+    return this.therapy.getQueue();
+  }
+
+  @Get('rooms')
+  @Roles('admin', 'doctor', 'cashier', 'receptionist', 'handler')
+  getRooms() {
+    return this.therapy.getRooms();
+  }
+
+  @Post('call-patient')
+  @Roles('admin', 'doctor', 'cashier', 'receptionist', 'handler')
+  callPatient(
+    @CurrentUser() user: RequestUser,
+    @Body() dto: CallTherapyPatientDto,
+    @Req() req: Request,
+  ) {
+    return this.therapy.callPatient({ sub: user.sub, role: user.role }, dto, this.meta(req));
+  }
+
+  @Post('mark-in-therapy')
+  @Roles('admin', 'doctor', 'cashier', 'receptionist', 'handler')
+  markInTherapy(
+    @CurrentUser() user: RequestUser,
+    @Body() dto: MarkInTherapyDto,
+    @Req() req: Request,
+  ) {
+    return this.therapy.markInTherapy({ sub: user.sub, role: user.role }, dto, this.meta(req));
+  }
+
+  @Post('recall-patient')
+  @Roles('admin', 'doctor', 'cashier', 'receptionist', 'handler')
+  recallPatient(
+    @CurrentUser() user: RequestUser,
+    @Body() dto: RecallTherapyPatientDto,
+    @Req() req: Request,
+  ) {
+    return this.therapy.recallPatient({ sub: user.sub, role: user.role }, dto, this.meta(req));
+  }
+
+  @Post('cancel-call')
+  @Roles('admin', 'doctor', 'cashier', 'receptionist', 'handler')
+  cancelCall(
+    @CurrentUser() user: RequestUser,
+    @Body() dto: CancelTherapyCallDto,
+    @Req() req: Request,
+  ) {
+    return this.therapy.cancelCall({ sub: user.sub, role: user.role }, dto, this.meta(req));
   }
 
   @Get('occupancy')

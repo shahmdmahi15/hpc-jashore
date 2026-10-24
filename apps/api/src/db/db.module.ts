@@ -562,12 +562,59 @@ export type Db = BetterSQLite3Database<typeof schema>;
 
           // Ensure consultation_bookings table
           try {
+            // Check if consultation_bookings has legacy FK referencing staff
+            try {
+              const consultFks = sqlite.prepare("PRAGMA foreign_key_list(consultation_bookings)").all() as Array<{ table: string }>;
+              if (consultFks.some((f) => f.table === 'staff')) {
+                sqlite.exec(`
+                  PRAGMA foreign_keys = OFF;
+                  CREATE TABLE IF NOT EXISTS _migrated_consultation_bookings (
+                    id TEXT PRIMARY KEY,
+                    booking_number TEXT NOT NULL UNIQUE,
+                    patient_id TEXT NOT NULL REFERENCES patients(id),
+                    doctor_id TEXT NOT NULL,
+                    booking_date TEXT NOT NULL,
+                    slot_time TEXT NOT NULL,
+                    told_time TEXT,
+                    visit_type TEXT NOT NULL DEFAULT 'new_consultation',
+                    fee_paisa INTEGER NOT NULL DEFAULT 50000,
+                    serial_number INTEGER,
+                    status TEXT NOT NULL DEFAULT 'booked',
+                    checked_in_at TEXT,
+                    punctuality_status TEXT,
+                    delay_minutes INTEGER,
+                    in_queue_at TEXT,
+                    queued_by TEXT REFERENCES users(id),
+                    serial_id TEXT REFERENCES serials(id),
+                    visit_id TEXT REFERENCES visits(id),
+                    cancelled_at TEXT,
+                    cancelled_by TEXT REFERENCES users(id),
+                    cancellation_reason TEXT,
+                    notes TEXT,
+                    booked_by TEXT REFERENCES users(id),
+                    deleted_at TEXT,
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                  );
+                  INSERT OR IGNORE INTO _migrated_consultation_bookings SELECT * FROM consultation_bookings;
+                  DROP TABLE consultation_bookings;
+                  ALTER TABLE _migrated_consultation_bookings RENAME TO consultation_bookings;
+                  CREATE INDEX IF NOT EXISTS idx_consultation_bookings_doc_date ON consultation_bookings(doctor_id, booking_date);
+                  CREATE INDEX IF NOT EXISTS idx_consultation_bookings_patient ON consultation_bookings(patient_id);
+                  CREATE INDEX IF NOT EXISTS idx_consultation_bookings_status ON consultation_bookings(status);
+                  PRAGMA foreign_keys = ON;
+                `);
+              }
+            } catch (migErr) {
+              console.warn('Consultation bookings migration note:', migErr);
+            }
+
             sqlite.exec(`
               CREATE TABLE IF NOT EXISTS consultation_bookings (
                 id TEXT PRIMARY KEY,
                 booking_number TEXT NOT NULL UNIQUE,
                 patient_id TEXT NOT NULL REFERENCES patients(id),
-                doctor_id TEXT NOT NULL REFERENCES staff(id),
+                doctor_id TEXT NOT NULL,
                 booking_date TEXT NOT NULL,
                 slot_time TEXT NOT NULL,
                 told_time TEXT,
@@ -617,13 +664,73 @@ export type Db = BetterSQLite3Database<typeof schema>;
 
           // Ensure patient_intake_forms and patient_timeline_events tables
           try {
+            // Check if patient_intake_forms has legacy FK referencing staff
+            try {
+              const intakeFks = sqlite.prepare("PRAGMA foreign_key_list(patient_intake_forms)").all() as Array<{ table: string }>;
+              if (intakeFks.some((f) => f.table === 'staff')) {
+                sqlite.exec(`
+                  PRAGMA foreign_keys = OFF;
+                  CREATE TABLE IF NOT EXISTS _migrated_intake (
+                    id TEXT PRIMARY KEY,
+                    patient_id TEXT NOT NULL REFERENCES patients(id),
+                    visit_id TEXT,
+                    consultation_booking_id TEXT,
+                    doctor_id TEXT,
+                    receptionist_id TEXT,
+                    receptionist_name TEXT,
+                    date TEXT NOT NULL,
+                    name TEXT NOT NULL,
+                    age_years INTEGER,
+                    phone TEXT NOT NULL,
+                    gender TEXT NOT NULL DEFAULT 'male',
+                    occupation TEXT,
+                    address TEXT,
+                    bp_systolic INTEGER,
+                    bp_diastolic INTEGER,
+                    blood_sugar TEXT,
+                    has_diabetes INTEGER NOT NULL DEFAULT 0,
+                    weight_kg TEXT,
+                    chief_complaint TEXT,
+                    problem_duration TEXT,
+                    seen_doctor_before INTEGER NOT NULL DEFAULT 0,
+                    previous_doctor_details TEXT,
+                    has_previous_reports INTEGER NOT NULL DEFAULT 0,
+                    previous_report_names TEXT,
+                    takes_regular_medication INTEGER NOT NULL DEFAULT 0,
+                    regular_medication_details TEXT,
+                    has_drug_allergies INTEGER NOT NULL DEFAULT 0,
+                    drug_allergy_details TEXT,
+                    referral_source TEXT,
+                    referral_other_details TEXT,
+                    special_notes TEXT,
+                    status TEXT NOT NULL DEFAULT 'submitted',
+                    forwarded_to_cashier_at TEXT,
+                    billed_at TEXT,
+                    queued_at TEXT,
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                  );
+                  INSERT OR IGNORE INTO _migrated_intake SELECT * FROM patient_intake_forms;
+                  DROP TABLE patient_intake_forms;
+                  ALTER TABLE _migrated_intake RENAME TO patient_intake_forms;
+                  CREATE INDEX IF NOT EXISTS idx_patient_intake_forms_patient ON patient_intake_forms(patient_id);
+                  CREATE INDEX IF NOT EXISTS idx_patient_intake_forms_date ON patient_intake_forms(date);
+                  CREATE INDEX IF NOT EXISTS idx_patient_intake_forms_status ON patient_intake_forms(status);
+                  CREATE INDEX IF NOT EXISTS idx_patient_intake_forms_doctor ON patient_intake_forms(doctor_id);
+                  PRAGMA foreign_keys = ON;
+                `);
+              }
+            } catch (migErr) {
+              console.warn('Intake table migration note:', migErr);
+            }
+
             sqlite.exec(`
               CREATE TABLE IF NOT EXISTS patient_intake_forms (
                 id TEXT PRIMARY KEY,
                 patient_id TEXT NOT NULL REFERENCES patients(id),
                 visit_id TEXT REFERENCES visits(id),
                 consultation_booking_id TEXT,
-                doctor_id TEXT REFERENCES staff(id),
+                doctor_id TEXT,
                 receptionist_id TEXT REFERENCES users(id),
                 receptionist_name TEXT,
                 date TEXT NOT NULL,

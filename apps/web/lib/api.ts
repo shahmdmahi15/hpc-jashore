@@ -298,6 +298,16 @@ export const api = {
       apiFetch<any>(`/clinical/prescriptions/${visitId}`),
   },
   therapy: {
+    getQueue: () => apiFetch<{ waiting: any[]; nowServing: any[]; activeSessions: any[] }>('/therapy/queue'),
+    getRooms: () => apiFetch<any[]>('/therapy/rooms'),
+    callPatient: (data: any) =>
+      apiFetch<any>('/therapy/call-patient', { method: 'POST', body: JSON.stringify(data) }),
+    markInTherapy: (data: any) =>
+      apiFetch<any>('/therapy/mark-in-therapy', { method: 'POST', body: JSON.stringify(data) }),
+    recallPatient: (data: any) =>
+      apiFetch<any>('/therapy/recall-patient', { method: 'POST', body: JSON.stringify(data) }),
+    cancelCall: (data: any) =>
+      apiFetch<any>('/therapy/cancel-call', { method: 'POST', body: JSON.stringify(data) }),
     getBeds: () => apiFetch<any[]>('/therapy/beds'),
     getMachines: () => apiFetch<any[]>('/therapy/machines'),
     getActiveSessions: () => apiFetch<any[]>('/therapy/sessions/active'),

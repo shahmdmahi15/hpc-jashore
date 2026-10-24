@@ -337,9 +337,7 @@ export const consultationBookings = sqliteTable('consultation_bookings', {
   patientId: text('patient_id')
     .notNull()
     .references(() => patients.id),
-  doctorId: text('doctor_id')
-    .notNull()
-    .references(() => staff.id),
+  doctorId: text('doctor_id').notNull(),
   bookingDate: text('booking_date').notNull(),
   slotTime: text('slot_time').notNull(),
   toldTime: text('told_time'),
@@ -437,9 +435,7 @@ export const appointments = sqliteTable('appointments', {
   patientId: text('patient_id')
     .notNull()
     .references(() => patients.id),
-  doctorId: text('doctor_id')
-    .notNull()
-    .references(() => staff.id),
+  doctorId: text('doctor_id').notNull(),
   slotTime: text('slot_time').notNull(),
   status: text('status')
     .notNull()
@@ -451,9 +447,7 @@ export const appointments = sqliteTable('appointments', {
 
 export const serials = sqliteTable('serials', {
   id: text('id').primaryKey(),
-  doctorId: text('doctor_id')
-    .notNull()
-    .references(() => staff.id),
+  doctorId: text('doctor_id').notNull(),
   date: text('date').notNull(),
   serialNumber: integer('serial_number').notNull(),
   visitId: text('visit_id')
@@ -481,9 +475,7 @@ export const consultations = sqliteTable('consultations', {
   patientId: text('patient_id')
     .notNull()
     .references(() => patients.id),
-  doctorId: text('doctor_id')
-    .notNull()
-    .references(() => staff.id),
+  doctorId: text('doctor_id').notNull(),
   chiefComplaints: text('chief_complaints'),
   history: text('history'),
   vitalsJson: text('vitals_json'),
@@ -504,9 +496,7 @@ export const prescriptions = sqliteTable('prescriptions', {
   patientId: text('patient_id')
     .notNull()
     .references(() => patients.id),
-  doctorId: text('doctor_id')
-    .notNull()
-    .references(() => staff.id),
+  doctorId: text('doctor_id').notNull(),
   advice: text('advice'),
   ...timestamps,
 });
@@ -549,9 +539,7 @@ export const therapyPlans = sqliteTable('therapy_plans', {
   patientId: text('patient_id')
     .notNull()
     .references(() => patients.id),
-  doctorId: text('doctor_id')
-    .notNull()
-    .references(() => staff.id),
+  doctorId: text('doctor_id').notNull(),
   modalityCode: text('modality_code')
     .notNull()
     .references(() => modalities.code),

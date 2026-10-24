@@ -13,6 +13,7 @@ import { TherapySlotConfigView } from '../../components/admin/TherapySlotConfigV
 import { ConsultationConfigView } from '../../components/admin/ConsultationConfigView';
 import { TherapySlotBookingView } from '../../components/therapy/TherapySlotBookingView';
 import { ExtraSlotManagementView } from '../../components/therapy/ExtraSlotManagementView';
+import { TherapyQueueManagementTab } from '../../components/therapy/TherapyQueueManagementTab';
 import { PatientManagementView } from '../../components/patient/PatientManagementView';
 import { CheckInWorkstationView } from '../../components/checkin/CheckInWorkstationView';
 import { CheckoutWorkstationView } from '../../components/checkout/CheckoutWorkstationView';
@@ -38,6 +39,7 @@ import {
   ClipboardList,
   FileSpreadsheet,
   Megaphone,
+  PhoneCall,
 } from 'lucide-react';
 
 const ADMIN_ROW1_TABS = [
@@ -187,6 +189,14 @@ const ADMIN_ROW2_TABS = [
     icon: Clock,
     descriptionEn: 'Live therapy hall occupancy, machine allocation, and patient session schedules.',
     descriptionBn: 'থেরাপি হলের সময়সূচী, মেশিন বরাদ্দ ও রোগীর চলমান সেশন মনিটরিং।',
+  },
+  {
+    id: 'therapy_queue',
+    titleEn: 'Therapy Queue & Calling',
+    titleBn: 'থেরাপি কিউ ও ডাকুন',
+    icon: PhoneCall,
+    descriptionEn: 'Live therapy waiting queue, room/bed assignment, audio chime announcements, and session control.',
+    descriptionBn: 'লাইভ থেরাপি অপেক্ষমাণ তালিকা, রুম/বেড বরাদ্দ, টিভি ও অডিও কলিং ঘোষণা এবং সেশন পরিচালনা।',
   },
   {
     id: 'extra_slot',
@@ -343,11 +353,15 @@ export default function AdminPage() {
               <TherapySlotBookingView />
             </TabsContent>
 
+            <TabsContent value="therapy_queue" className="mt-4 focus-visible:outline-none">
+              <TherapyQueueManagementTab />
+            </TabsContent>
+
             <TabsContent value="extra_slot" className="mt-4 focus-visible:outline-none">
               <ExtraSlotManagementView />
             </TabsContent>
 
-            {ADMIN_ROW2_TABS.filter((t) => t.id !== 'checkin' && t.id !== 'checkout' && t.id !== 'consultation_serial' && t.id !== 'therapy_slot' && t.id !== 'patients' && t.id !== 'extra_slot').map((tab) => (
+            {ADMIN_ROW2_TABS.filter((t) => t.id !== 'checkin' && t.id !== 'checkout' && t.id !== 'consultation_serial' && t.id !== 'therapy_slot' && t.id !== 'therapy_queue' && t.id !== 'patients' && t.id !== 'extra_slot').map((tab) => (
               <TabsContent key={tab.id} value={tab.id} className="mt-4 focus-visible:outline-none">
                 <WorkstationTabPlaceholder
                   titleEn={tab.titleEn}

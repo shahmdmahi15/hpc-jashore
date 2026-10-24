@@ -13,6 +13,7 @@ import { Badge } from './ui/badge';
 import { Slider } from './ui/slider';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { cn } from '../lib/utils';
+import { TherapyQueueManagementTab } from './therapy/TherapyQueueManagementTab';
 
 export interface TherapyHallProps {
   session?: UserSession | null;
@@ -20,7 +21,7 @@ export interface TherapyHallProps {
 
 export default function TherapyHallView({ session: propSession }: TherapyHallProps = {}) {
   const session = propSession || getSession();
-  const [mobileTab, setMobileTab] = useState<'beds' | 'sessions' | 'packages'>('beds');
+  const [mobileTab, setMobileTab] = useState<'queue' | 'beds' | 'sessions' | 'packages'>('queue');
   const [beds, setBeds] = useState<any[]>([]);
   const [machines, setMachines] = useState<any[]>([]);
   const [activeSessions, setActiveSessions] = useState<any[]>([]);
@@ -141,16 +142,28 @@ export default function TherapyHallView({ session: propSession }: TherapyHallPro
         </div>
       </div>
 
-      {/* Mobile Tab Switcher (<lg screens: smartphones, small tablets) */}
-      <div className="flex lg:hidden rounded-xl border border-border bg-card p-1 shadow-xs">
+      {/* Tab Switcher */}
+      <div className="flex flex-wrap items-center gap-1.5 rounded-2xl border border-border bg-card p-1.5 shadow-xs max-w-2xl">
+        <button
+          type="button"
+          onClick={() => setMobileTab('queue')}
+          className={cn(
+            'flex-1 py-2 px-3 text-xs sm:text-sm font-semibold rounded-xl transition-all flex items-center justify-center gap-1.5',
+            mobileTab === 'queue'
+              ? 'bg-emerald-600 text-white shadow-xs'
+              : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+          )}
+        >
+          ⚡ থেরাপি কিউ ও কল
+        </button>
         <button
           type="button"
           onClick={() => setMobileTab('beds')}
           className={cn(
-            'flex-1 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all',
+            'flex-1 py-2 px-3 text-xs sm:text-sm font-semibold rounded-xl transition-all flex items-center justify-center gap-1.5',
             mobileTab === 'beds'
               ? 'bg-emerald-600 text-white shadow-xs'
-              : 'text-muted-foreground hover:text-foreground'
+              : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
           )}
         >
           🛏️ Beds ({beds.length})
@@ -159,10 +172,10 @@ export default function TherapyHallView({ session: propSession }: TherapyHallPro
           type="button"
           onClick={() => setMobileTab('sessions')}
           className={cn(
-            'flex-1 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all',
+            'flex-1 py-2 px-3 text-xs sm:text-sm font-semibold rounded-xl transition-all flex items-center justify-center gap-1.5',
             mobileTab === 'sessions'
               ? 'bg-emerald-600 text-white shadow-xs'
-              : 'text-muted-foreground hover:text-foreground'
+              : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
           )}
         >
           ⏱️ Sessions ({activeSessions.length})
@@ -171,17 +184,21 @@ export default function TherapyHallView({ session: propSession }: TherapyHallPro
           type="button"
           onClick={() => setMobileTab('packages')}
           className={cn(
-            'flex-1 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all',
+            'flex-1 py-2 px-3 text-xs sm:text-sm font-semibold rounded-xl transition-all flex items-center justify-center gap-1.5',
             mobileTab === 'packages'
               ? 'bg-emerald-600 text-white shadow-xs'
-              : 'text-muted-foreground hover:text-foreground'
+              : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
           )}
         >
           📦 Packages ({packages.length})
         </button>
       </div>
 
-      {/* Bed Matrix Grid */}
+      {mobileTab === 'queue' ? (
+        <TherapyQueueManagementTab />
+      ) : (
+        <>
+          {/* Bed Matrix Grid */}
       <div className={cn(mobileTab !== 'beds' && 'hidden lg:block')}>
         <Card className="border border-border bg-card shadow-sm">
           <CardHeader className="pb-3">
@@ -383,6 +400,8 @@ export default function TherapyHallView({ session: propSession }: TherapyHallPro
           </CardContent>
         </Card>
       </div>
+      </>
+      )}
 
       {/* Start Session Dialog */}
       <Dialog open={showStartModal} onOpenChange={setShowStartModal}>

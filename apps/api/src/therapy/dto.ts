@@ -147,3 +147,115 @@ export class PurchasePackageDto {
   @IsString()
   billId?: string;
 }
+
+export class CallTherapyPatientDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  visitId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  patientId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  bookingId?: string;
+
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  roomId!: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  roomName?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  roomNumber?: string | number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  modalityCode?: string;
+}
+
+export class MarkInTherapyDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  visitId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  patientId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  bookingId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  roomId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  roomName?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  modalityCode?: string;
+}
+
+export class RecallTherapyPatientDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  visitId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  patientId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  bookingId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  roomId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  roomName?: string;
+}
+
+export class CancelTherapyCallDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  visitId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  patientId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  bookingId?: string;
+}

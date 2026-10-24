@@ -60,7 +60,8 @@ data class ConsultationPatient(
     val patientNameBn: String? = null,
     val doctorName: String = "",
     val chamber: String = "Chamber 1",
-    val priority: String = "regular"
+    val priority: String = "regular",
+    val isTherapy: Boolean = false
 )
 
 data class TherapyPatient(
@@ -1023,11 +1024,42 @@ class MainActivity : ComponentActivity() {
                         patientNameBn = if (obj.has("patientNameBn") && !obj.isNull("patientNameBn")) obj.getString("patientNameBn") else null,
                         doctorName = obj.optString("doctorNameEn", "Doctor"),
                         chamber = chamberStr,
-                        priority = obj.optString("priority", "regular")
+                        priority = obj.optString("priority", "regular"),
+                        isTherapy = false
                     )
                 }
 
                 val therapyObj = json.optJSONObject("therapyQueue")
+
+                // Check active called patient in therapy nowServing if no consultation called
+                if (calledPatient == null) {
+                    val thNowServing = therapyObj?.optJSONArray("nowServing")
+                    if (thNowServing != null && thNowServing.length() > 0) {
+                        for (i in 0 until thNowServing.length()) {
+                            val obj = thNowServing.getJSONObject(i)
+                            if (obj.optString("status") == "calling") {
+                                val roomStr = if (obj.has("roomName") && !obj.isNull("roomName")) {
+                                    obj.getString("roomName")
+                                } else if (obj.has("bedName") && !obj.isNull("bedName")) {
+                                    obj.getString("bedName")
+                                } else {
+                                    "Therapy Room 1"
+                                }
+                                calledPatient = ConsultationPatient(
+                                    serialNumber = obj.optInt("tokenNumber", 1),
+                                    tokenNumber = obj.optInt("tokenNumber", 1),
+                                    patientNameEn = obj.optString("patientNameEn", "Patient"),
+                                    patientNameBn = if (obj.has("patientNameBn") && !obj.isNull("patientNameBn")) obj.getString("patientNameBn") else null,
+                                    doctorName = "",
+                                    chamber = roomStr,
+                                    priority = obj.optString("priority", "regular"),
+                                    isTherapy = true
+                                )
+                                break
+                            }
+                        }
+                    }
+                }
                 val thArr = therapyObj?.optJSONArray("waiting") ?: JSONArray()
                 val thList = mutableListOf<TherapyPatient>()
                 for (i in 0 until thArr.length()) {
@@ -1072,10 +1104,17 @@ class MainActivity : ComponentActivity() {
         val patientNameEn = patient.patientNameEn
         val chamber = patient.chamber
 
-        val chamberDigits = chamber.replace(Regex("[^0-9]"), "").ifBlank { "1" }
+        val banglaText: String
+        val englishText: String
 
-        val banglaText = "ডাঃ $doctorName, রোগী $patientNameBn-কে রুম নম্বর $chamberDigits-এ ডাকছেন।"
-        val englishText = "Dr. $doctorName is calling patient $patientNameEn to room number $chamberDigits."
+        if (patient.isTherapy) {
+            banglaText = "থেরাপির জন্য রোগী $patientNameBn কে $chamber এ আসার জন্য অনুরোধ করা হচ্ছে।"
+            englishText = "Patient $patientNameEn, please proceed to $chamber for therapy."
+        } else {
+            val chamberDigits = chamber.replace(Regex("[^0-9]"), "").ifBlank { "1" }
+            banglaText = "ডাঃ $doctorName, রোগী $patientNameBn-কে রুম নম্বর $chamberDigits-এ ডাকছেন।"
+            englishText = "Dr. $doctorName is calling patient $patientNameEn to room number $chamberDigits."
+        }
 
         try {
             textToSpeech?.stop()
@@ -1489,7 +1528,11 @@ fun CallingAlertOverlay(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = if (patient.doctorName.isNotBlank()) "ডাঃ ${patient.doctorName}" else "ডাক্তার কনসাল্টেশন চেম্বার",
+                        text = if (patient.isTherapy) {
+                            if (isBn) "ফিজিওথেরাপি ও পুনর্বাসন" else "PHYSIOTHERAPY & REHAB"
+                        } else {
+                            if (patient.doctorName.isNotBlank()) "ডাঃ ${patient.doctorName}" else "ডাক্তার কনসাল্টেশন চেম্বার"
+                        },
                         color = Color(0xFFD1FAE5),
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
