@@ -7,12 +7,14 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { api, getRoleHomeRoute } from '../../../lib/api';
 import {
   AlertCircle,
+  Clock,
   Eye,
   EyeOff,
   KeyRound,
   Loader2,
   Lock,
   Mail,
+  ShieldAlert,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '../../../components/ui/button';
@@ -76,9 +78,38 @@ function LoginForm() {
     }
   };
 
+  const isPendingApproval = errorMsg.toLowerCase().includes('pending administrator approval') || errorMsg.includes('অনুমোদনের অপেক্ষায়');
+  const isRejected = errorMsg.toLowerCase().includes('rejected by the administrator') || errorMsg.includes('প্রত্যাখ্যাত');
+
   return (
     <>
-      {errorMsg && (
+      {errorMsg && isPendingApproval ? (
+        <Alert className="mb-4 border-amber-500/40 bg-amber-500/10 text-amber-200">
+          <Clock className="size-4 text-amber-400 mt-0.5" />
+          <AlertDescription className="space-y-1">
+            <div className="font-semibold text-amber-300">
+              {language === 'bn' ? 'অ্যাডমিন অনুমোদনের অপেক্ষায় রয়েছে' : 'Awaiting Administrator Approval'}
+            </div>
+            <div className="text-xs text-amber-200/90 leading-relaxed">
+              {language === 'bn'
+                ? 'আপনার অ্যাকাউন্টটি তৈরি হয়েছে, কিন্তু সেন্টারে প্রবেশের পূর্বে অ্যাডমিনের অনুমোদন প্রয়োজন। অ্যাডমিন অনুমোদন প্রদান করার পর আপনি লগইন করতে পারবেন।'
+                : 'Your account was created, but requires administrative approval before you can sign in. Please wait for an administrator to approve your account or contact center management.'}
+            </div>
+          </AlertDescription>
+        </Alert>
+      ) : errorMsg && isRejected ? (
+        <Alert variant="destructive" className="mb-4 border-rose-500/40 bg-rose-500/10 text-rose-200">
+          <ShieldAlert className="size-4 text-rose-400 mt-0.5" />
+          <AlertDescription className="space-y-1">
+            <div className="font-semibold text-rose-300">
+              {language === 'bn' ? 'অ্যাকাউন্ট প্রত্যাখ্যাত হয়েছে' : 'Account Application Rejected'}
+            </div>
+            <div className="text-xs text-rose-200/90 leading-relaxed">
+              {errorMsg}
+            </div>
+          </AlertDescription>
+        </Alert>
+      ) : errorMsg ? (
         <Alert variant="destructive" className="mb-4">
           <AlertCircle className="size-4" />
           <AlertDescription className="space-y-1">
@@ -95,7 +126,7 @@ function LoginForm() {
             )}
           </AlertDescription>
         </Alert>
-      )}
+      ) : null}
 
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* 1. Email */}

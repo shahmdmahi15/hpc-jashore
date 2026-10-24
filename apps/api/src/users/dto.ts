@@ -49,6 +49,14 @@ export class CreateUserDto {
   @IsOptional()
   @IsString()
   chamberRoomId?: string | null;
+
+  @IsOptional()
+  @IsBoolean()
+  isApproved?: boolean;
+
+  @IsOptional()
+  @IsIn(['pending', 'approved', 'rejected'])
+  approvalStatus?: 'pending' | 'approved' | 'rejected';
 }
 
 export class UpdateUserDto {
@@ -102,4 +110,22 @@ export class UpdateUserDto {
   @IsOptional()
   @IsString()
   chamberRoomId?: string | null;
+
+  @IsOptional()
+  @IsBoolean()
+  isApproved?: boolean;
+
+  @IsOptional()
+  @IsIn(['pending', 'approved', 'rejected'])
+  approvalStatus?: 'pending' | 'approved' | 'rejected';
+
+  @IsOptional()
+  @IsString()
+  rejectionReason?: string;
+}
+
+export class RejectUserDto {
+  @IsOptional()
+  @IsString()
+  reason?: string;
 }

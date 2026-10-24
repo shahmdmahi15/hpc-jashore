@@ -40,6 +40,11 @@ export const users = sqliteTable('users', {
   followUpFeePaisa: integer('follow_up_fee_paisa').notNull().default(0),
   reportFeePaisa: integer('report_fee_paisa').notNull().default(0),
   chamberRoomId: text('chamber_room_id'),
+  isApproved: integer('is_approved').notNull().default(0),
+  approvalStatus: text('approval_status').notNull().default('pending'), // 'pending' | 'approved' | 'rejected'
+  approvedAt: text('approved_at'),
+  approvedBy: text('approved_by'),
+  rejectionReason: text('rejection_reason'),
   ...timestamps,
 });
 

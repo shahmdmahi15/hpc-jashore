@@ -5,6 +5,7 @@ import {
   HttpStatus,
   Inject,
   Injectable,
+  Optional,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -15,6 +16,8 @@ import bcrypt from 'bcryptjs';
 import { AuditService } from '../audit/audit.service';
 import { DB, type Db } from '../db/db.module';
 import { MailService } from '../mail/mail.service';
+import { RealtimeService } from '../realtime/realtime.service';
+import { EventsGateway } from '../realtime/events.gateway';
 import {
   actionGrants,
   desks,
@@ -48,6 +51,8 @@ export class AuthService {
     private readonly config: ConfigService,
     private readonly audit: AuditService,
     private readonly mail: MailService,
+    @Optional() private readonly realtime?: RealtimeService,
+    @Optional() private readonly gateway?: EventsGateway,
   ) {}
 
   // --- Personal login ---------------------------------------------------------
@@ -83,6 +88,17 @@ export class AuthService {
     if (user.isActive !== 1) {
       throw new UnauthorizedException(
         'Your email address is not verified. Please check your inbox or click Resend Verification to activate your account.',
+      );
+    }
+    if (user.isApproved !== 1 || user.approvalStatus !== 'approved') {
+      const reasonSuffix = user.rejectionReason ? ` (${user.rejectionReason})` : '';
+      if (user.approvalStatus === 'rejected') {
+        throw new ForbiddenException(
+          `Your account registration was rejected by the administrator${reasonSuffix}. Please contact clinic administration. / আপনার অ্যাকাউন্টটি অ্যাডমিন দ্বারা প্রত্যাখ্যাত হয়েছে।`,
+        );
+      }
+      throw new ForbiddenException(
+        'Your account is pending administrator approval before you can sign in. Please contact clinic administration. / আপনার অ্যাকাউন্টটি অ্যাডমিন অনুমোদনের অপেক্ষায় রয়েছে। অনুমোদন পাওয়ার পর লগইন করতে পারবেন।',
       );
     }
 
@@ -148,6 +164,8 @@ export class AuthService {
       displayName: user.displayName,
       staffId,
       mustChangePassword: user.mustChangePassword === 1,
+      isApproved: user.isApproved === 1,
+      approvalStatus: user.approvalStatus ?? 'approved',
     };
   }
 
@@ -175,6 +193,9 @@ export class AuthService {
     const user = rows[0];
     if (!user || user.isActive !== 1) {
       throw new UnauthorizedException('Account unavailable');
+    }
+    if (user.isApproved !== 1 || user.approvalStatus !== 'approved') {
+      throw new ForbiddenException('Account pending approval or access revoked');
     }
     const staffRow = (
       await this.db.select().from(staff).where(eq(staff.userId, user.id))
@@ -225,6 +246,9 @@ export class AuthService {
     const user = userRows[0];
     if (!user || user.isActive !== 1) {
       throw new UnauthorizedException('Account unavailable');
+    }
+    if (user.isApproved !== 1 || user.approvalStatus !== 'approved') {
+      throw new ForbiddenException('Account pending approval or access revoked');
     }
     const staffRow = (
       await this.db.select().from(staff).where(eq(staff.userId, user.id))
@@ -360,6 +384,12 @@ export class AuthService {
     const member = staffRows[0];
     if (!member || member.isActive !== 1) {
       throw new BadRequestException('Unknown or inactive staff');
+    }
+    if (member.userId) {
+      const [u] = await this.db.select().from(users).where(eq(users.id, member.userId));
+      if (u && (u.isApproved !== 1 || u.approvalStatus !== 'approved')) {
+        throw new ForbiddenException('Staff account is pending administrator approval / অ্যাডমিন অনুমোদনের অপেক্ষায় রয়েছে');
+      }
     }
 
     // Idempotent retry: same key returns a fresh short-lived JWT for the same
@@ -578,6 +608,11 @@ export class AuthService {
       displayName: dto.displayName.trim(),
       isActive: 0, // Unverified until verified via email
       mustChangePassword: 0,
+      isApproved: 0,
+      approvalStatus: 'pending',
+      approvedAt: null,
+      approvedBy: null,
+      rejectionReason: null,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });
@@ -594,6 +629,24 @@ export class AuthService {
         updatedAt: new Date().toISOString(),
       });
     }
+
+    // Trigger realtime notification to admin dashboard
+    this.realtime?.publish('user.registered', {
+      userId,
+      email: normalized,
+      displayName: dto.displayName.trim(),
+      role,
+      isApproved: 0,
+      approvalStatus: 'pending',
+    });
+    this.gateway?.emit('clinic:global', 'user.registered', {
+      userId,
+      email: normalized,
+      displayName: dto.displayName.trim(),
+      role,
+      isApproved: 0,
+      approvalStatus: 'pending',
+    });
 
     // Generate 6-digit verification code
     const code = Math.floor(100000 + Math.random() * 900000).toString();
@@ -735,9 +788,12 @@ export class AuthService {
 
     this.emailVerificationCodes.delete(normalized);
 
+    const isApproved = user?.isApproved === 1;
     return {
       success: true,
-      message: 'Email successfully verified. Your account is active.',
+      message: isApproved
+        ? 'Email successfully verified. Your account is active.'
+        : 'Email successfully verified. Your account is pending administrator approval before login. / ইমেইল যাচাই সম্পন্ন হয়েছে। অ্যাডমিন অনুমোদনের পর আপনি লগইন করতে পারবেন।',
     };
   }
 

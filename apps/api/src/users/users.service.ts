@@ -57,6 +57,133 @@ export class UsersService {
     }));
   }
 
+  async listPending() {
+    const rows = await this.db
+      .select({
+        user: users,
+        chamber: rooms,
+      })
+      .from(users)
+      .leftJoin(rooms, eq(users.chamberRoomId, rooms.id))
+      .where(or(eq(users.isApproved, 0), eq(users.approvalStatus, 'pending')))
+      .orderBy(desc(users.createdAt));
+
+    return rows.map(({ user, chamber }) => ({
+      ...sanitize(user),
+      chamberRoom: chamber
+        ? {
+            id: chamber.id,
+            roomNumber: chamber.roomNumber,
+            name: chamber.name,
+            type: chamber.type,
+            status: chamber.status,
+          }
+        : null,
+      chamberName: chamber?.name ?? null,
+      chamberRoomNumber: chamber?.roomNumber ?? null,
+    }));
+  }
+
+  async approve(
+    actor: { sub: string; role: string },
+    id: string,
+    meta: { ip?: string | null; requestId?: string | null },
+  ) {
+    const before = await this.get(id);
+    const now = new Date().toISOString();
+
+    await this.db
+      .update(users)
+      .set({
+        isApproved: 1,
+        approvalStatus: 'approved',
+        approvedAt: now,
+        approvedBy: actor.sub,
+        rejectionReason: null,
+        isActive: 1,
+        updatedAt: now,
+      })
+      .where(eq(users.id, id));
+
+    // Also activate staff row if exists
+    await this.db
+      .update(staff)
+      .set({ isActive: 1, updatedAt: now })
+      .where(or(eq(staff.userId, id), eq(staff.id, id)));
+
+    const after = await this.get(id);
+
+    this.realtime.publish('user.approved', { userId: id, approvedBy: actor.sub, approvedAt: now, user: after });
+    this.gateway?.emit('clinic:global', 'user.approved', { userId: id, approvedBy: actor.sub, user: after });
+
+    await this.audit.log({
+      actorUserId: actor.sub,
+      actorRole: actor.role,
+      action: 'users.approve',
+      entity: 'users',
+      entityId: id,
+      before,
+      after,
+      ip: meta.ip,
+      requestId: meta.requestId,
+    });
+
+    return { ok: true, message: 'User approved successfully / ব্যবহারকারী সফলভাবে অনুমোদিত হয়েছে', user: after };
+  }
+
+  async reject(
+    actor: { sub: string; role: string },
+    id: string,
+    reason: string | undefined,
+    meta: { ip?: string | null; requestId?: string | null },
+  ) {
+    const before = await this.get(id);
+    const now = new Date().toISOString();
+    const rejectionReason = reason?.trim() || 'Account registration rejected by administrator';
+
+    await this.db
+      .update(users)
+      .set({
+        isApproved: 0,
+        approvalStatus: 'rejected',
+        rejectionReason,
+        isActive: 0,
+        updatedAt: now,
+      })
+      .where(eq(users.id, id));
+
+    // Deactivate staff row if exists
+    await this.db
+      .update(staff)
+      .set({ isActive: 0, updatedAt: now })
+      .where(or(eq(staff.userId, id), eq(staff.id, id)));
+
+    // Revoke any active sessions immediately
+    await this.db
+      .update(refreshSessions)
+      .set({ revokedAt: now })
+      .where(eq(refreshSessions.userId, id));
+
+    const after = await this.get(id);
+
+    this.realtime.publish('user.rejected', { userId: id, reason: rejectionReason, rejectedBy: actor.sub });
+    this.gateway?.emit('clinic:global', 'user.rejected', { userId: id, reason: rejectionReason });
+
+    await this.audit.log({
+      actorUserId: actor.sub,
+      actorRole: actor.role,
+      action: 'users.reject',
+      entity: 'users',
+      entityId: id,
+      before,
+      after,
+      ip: meta.ip,
+      requestId: meta.requestId,
+    });
+
+    return { ok: true, message: 'User registration rejected / ব্যবহারকারীর আবেদন বাতিল করা হয়েছে', user: after };
+  }
+
   async create(actor: { sub: string; role: string }, dto: CreateUserDto, meta: { ip?: string | null; requestId?: string | null }) {
     const email = dto.email.trim().toLowerCase();
     const existing = await this.db.select().from(users).where(eq(users.email, email));
@@ -76,6 +203,11 @@ export class UsersService {
         ? dto.reportFeeTaka * 100
         : (dto.reportFeePaisa ?? 0);
 
+    const isApproved = dto.isApproved !== undefined ? (dto.isApproved ? 1 : 0) : 0;
+    const approvalStatus = dto.approvalStatus || (isApproved === 1 ? 'approved' : 'pending');
+    const approvedAt = isApproved === 1 ? now : null;
+    const approvedBy = isApproved === 1 ? actor.sub : null;
+
     const row = {
       id: randomUUID(),
       email,
@@ -89,6 +221,11 @@ export class UsersService {
       followUpFeePaisa,
       reportFeePaisa,
       chamberRoomId: dto.chamberRoomId?.trim() || null,
+      isApproved,
+      approvalStatus,
+      approvedAt,
+      approvedBy,
+      rejectionReason: null,
       createdAt: now,
       updatedAt: now,
     };
@@ -188,6 +325,27 @@ export class UsersService {
     }
     if (dto.chamberRoomId !== undefined) {
       patch.chamberRoomId = dto.chamberRoomId ? dto.chamberRoomId.trim() : null;
+    }
+    if (dto.isApproved !== undefined) {
+      patch.isApproved = dto.isApproved ? 1 : 0;
+      if (dto.isApproved) {
+        patch.approvalStatus = 'approved';
+        patch.approvedAt = now;
+        patch.approvedBy = actor.sub;
+      } else {
+        patch.approvalStatus = 'pending';
+      }
+    }
+    if (dto.approvalStatus !== undefined) {
+      patch.approvalStatus = dto.approvalStatus;
+      patch.isApproved = dto.approvalStatus === 'approved' ? 1 : 0;
+      if (dto.approvalStatus === 'approved') {
+        patch.approvedAt = now;
+        patch.approvedBy = actor.sub;
+      }
+    }
+    if (dto.rejectionReason !== undefined) {
+      patch.rejectionReason = dto.rejectionReason;
     }
 
     await this.db.update(users).set(patch).where(eq(users.id, id));

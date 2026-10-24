@@ -6,7 +6,7 @@ import { CurrentUser, type RequestUser } from '../rbac/current-user.decorator';
 import { Roles } from '../rbac/roles.decorator';
 import { RolesGuard } from '../rbac/roles.guard';
 import { JwtAccessAuthGuard } from '../auth/jwt.guard';
-import { CreateUserDto, UpdateUserDto } from './dto';
+import { CreateUserDto, RejectUserDto, UpdateUserDto } from './dto';
 import { UsersService } from './users.service';
 
 @ApiTags('users')
@@ -29,6 +29,11 @@ export class UsersController {
     return this.users.list();
   }
 
+  @Get('pending')
+  listPending() {
+    return this.users.listPending();
+  }
+
   @Post()
   create(@CurrentUser() user: RequestUser, @Body() dto: CreateUserDto, @Req() req: Request) {
     return this.users.create({ sub: user.sub, role: user.role }, dto, this.meta(req));
@@ -42,6 +47,16 @@ export class UsersController {
   @Delete('sessions/:id')
   revokeSession(@CurrentUser() user: RequestUser, @Param('id') sessionId: string, @Req() req: Request) {
     return this.users.revokeSession({ sub: user.sub, role: user.role }, sessionId, this.meta(req));
+  }
+
+  @Post(':id/approve')
+  approve(@CurrentUser() user: RequestUser, @Param('id') id: string, @Req() req: Request) {
+    return this.users.approve({ sub: user.sub, role: user.role }, id, this.meta(req));
+  }
+
+  @Post(':id/reject')
+  reject(@CurrentUser() user: RequestUser, @Param('id') id: string, @Body() dto: RejectUserDto, @Req() req: Request) {
+    return this.users.reject({ sub: user.sub, role: user.role }, id, dto.reason, this.meta(req));
   }
 
   @Get(':id')

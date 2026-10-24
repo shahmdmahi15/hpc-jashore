@@ -11,6 +11,24 @@ export interface UserRecord {
   phone?: string | null;
   isActive: number;
   mustChangePassword: number;
+  consultationFeeTaka?: number;
+  followUpFeeTaka?: number;
+  reportFeeTaka?: number;
+  chamberRoomId?: string | null;
+  chamberRoom?: {
+    id: string;
+    roomNumber: string;
+    name: string;
+    type: string;
+    status: string;
+  } | null;
+  chamberName?: string | null;
+  chamberRoomNumber?: string | null;
+  isApproved?: number;
+  approvalStatus?: 'pending' | 'approved' | 'rejected';
+  approvedAt?: string | null;
+  approvedBy?: string | null;
+  rejectionReason?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -96,6 +114,43 @@ export async function deleteUserAction(id: string): Promise<{ success: boolean; 
     return { success: true };
   } catch (err: any) {
     return { success: false, error: err?.message || 'Failed to delete user' };
+  }
+}
+
+export async function listPendingUsersAction(): Promise<{ success: boolean; data?: UserRecord[]; error?: string }> {
+  try {
+    const data = await serverFetch<UserRecord[]>('/users/pending');
+    return { success: true, data };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Failed to list pending users' };
+  }
+}
+
+export async function approveUserAction(id: string): Promise<{ success: boolean; data?: any; error?: string }> {
+  try {
+    const data = await serverFetch<any>(`/users/${id}/approve`, {
+      method: 'POST',
+    });
+    revalidatePath('/admin');
+    return { success: true, data };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Failed to approve user' };
+  }
+}
+
+export async function rejectUserAction(
+  id: string,
+  reason?: string,
+): Promise<{ success: boolean; data?: any; error?: string }> {
+  try {
+    const data = await serverFetch<any>(`/users/${id}/reject`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    });
+    revalidatePath('/admin');
+    return { success: true, data };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Failed to reject user' };
   }
 }
 

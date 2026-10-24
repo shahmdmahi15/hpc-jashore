@@ -545,6 +545,21 @@ export type Db = BetterSQLite3Database<typeof schema>;
             if (!userColNames.has('chamber_room_id')) {
               sqlite.exec("ALTER TABLE users ADD COLUMN chamber_room_id TEXT");
             }
+            if (!userColNames.has('is_approved')) {
+              sqlite.exec("ALTER TABLE users ADD COLUMN is_approved INTEGER NOT NULL DEFAULT 1");
+            }
+            if (!userColNames.has('approval_status')) {
+              sqlite.exec("ALTER TABLE users ADD COLUMN approval_status TEXT NOT NULL DEFAULT 'approved'");
+            }
+            if (!userColNames.has('approved_at')) {
+              sqlite.exec("ALTER TABLE users ADD COLUMN approved_at TEXT");
+            }
+            if (!userColNames.has('approved_by')) {
+              sqlite.exec("ALTER TABLE users ADD COLUMN approved_by TEXT");
+            }
+            if (!userColNames.has('rejection_reason')) {
+              sqlite.exec("ALTER TABLE users ADD COLUMN rejection_reason TEXT");
+            }
 
             // Sync existing staff fee and chamber data to users table for doctors
             sqlite.exec(`

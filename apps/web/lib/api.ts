@@ -390,6 +390,11 @@ export const api = {
   },
   users: {
     list: () => apiFetch<any[]>('/users'),
+    listPending: () => apiFetch<any[]>('/users/pending'),
+    approve: (id: string) =>
+      apiFetch<any>(`/users/${id}/approve`, { method: 'POST' }),
+    reject: (id: string, reason?: string) =>
+      apiFetch<any>(`/users/${id}/reject`, { method: 'POST', body: JSON.stringify({ reason }) }),
   },
   updates: {
     check: (platform: string, versionCode?: number, versionName?: string) => {

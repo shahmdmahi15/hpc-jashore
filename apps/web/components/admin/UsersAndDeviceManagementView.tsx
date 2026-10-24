@@ -31,6 +31,9 @@ import {
   Moon,
   Globe,
   Zap,
+  UserCheck,
+  UserX,
+  AlertTriangle,
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
@@ -66,6 +69,9 @@ import { toast } from 'sonner';
 import { useLanguage } from '../../lib/i18n';
 import {
   listUsersAction,
+  listPendingUsersAction,
+  approveUserAction,
+  rejectUserAction,
   createUserAction,
   updateUserAction,
   toggleUserStatusAction,
@@ -126,7 +132,7 @@ export default function UsersAndDeviceManagementView() {
   const isBn = language === 'bn';
   const [isPending, startTransition] = useTransition();
 
-  const [activeSubTab, setActiveSubTab] = useState<'users' | 'tvs' | 'sessions'>('users');
+  const [activeSubTab, setActiveSubTab] = useState<'users' | 'approvals' | 'tvs' | 'sessions'>('users');
 
   // Data states
   const [users, setUsers] = useState<UserRecord[]>([]);
@@ -142,6 +148,9 @@ export default function UsersAndDeviceManagementView() {
   const [isCreateUserOpen, setIsCreateUserOpen] = useState(false);
   const [isEditUserOpen, setIsEditUserOpen] = useState(false);
   const [isPairTvOpen, setIsPairTvOpen] = useState(false);
+  const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
+  const [rejectingUser, setRejectingUser] = useState<UserRecord | null>(null);
+  const [rejectionReason, setRejectionReason] = useState('');
 
   // Selected for edit
   const [selectedUser, setSelectedUser] = useState<UserRecord | null>(null);
@@ -229,6 +238,54 @@ export default function UsersAndDeviceManagementView() {
       });
     }
   });
+
+  // Computed Pending Approvals
+  const pendingUsers = users.filter((u) => u.isApproved === 0 || u.approvalStatus === 'pending');
+
+  // Handle Approve User
+  const handleApproveUser = async (u: UserRecord) => {
+    startTransition(async () => {
+      const res = await approveUserAction(u.id);
+      if (res.success) {
+        toast.success(
+          isBn
+            ? `${u.displayName} এর অ্যাকাউন্ট সফলভাবে অনুমোদিত হয়েছে!`
+            : `${u.displayName}'s account approved successfully!`,
+        );
+        const uRes = await listUsersAction();
+        if (uRes.success && uRes.data) setUsers(uRes.data);
+      } else {
+        toast.error(res.error || (isBn ? 'অনুমোদন ব্যর্থ হয়েছে' : 'Failed to approve user'));
+      }
+    });
+  };
+
+  const handleOpenReject = (u: UserRecord) => {
+    setRejectingUser(u);
+    setRejectionReason('');
+    setIsRejectDialogOpen(true);
+  };
+
+  const handleConfirmReject = async () => {
+    if (!rejectingUser) return;
+    startTransition(async () => {
+      const res = await rejectUserAction(rejectingUser.id, rejectionReason);
+      if (res.success) {
+        toast.success(
+          isBn
+            ? `${rejectingUser.displayName}-এর রেজিস্ট্রেশন প্রত্যাখ্যান করা হয়েছে`
+            : `Registration for ${rejectingUser.displayName} rejected`,
+        );
+        setIsRejectDialogOpen(false);
+        setRejectingUser(null);
+        setRejectionReason('');
+        const uRes = await listUsersAction();
+        if (uRes.success && uRes.data) setUsers(uRes.data);
+      } else {
+        toast.error(res.error || (isBn ? 'প্রত্যাখ্যান ব্যর্থ হয়েছে' : 'Failed to reject user'));
+      }
+    });
+  };
 
   // Filtered users
   const filteredUsers = users.filter((u) => {
@@ -554,6 +611,23 @@ export default function UsersAndDeviceManagementView() {
           </TabsTrigger>
 
           <TabsTrigger
+            value="approvals"
+            className="flex items-center gap-2 px-3.5 py-2 text-xs sm:text-sm font-semibold rounded-lg data-[state=active]:bg-background data-[state=active]:text-amber-600 dark:data-[state=active]:text-amber-400 data-[state=active]:shadow-xs transition-all cursor-pointer touch-manipulation"
+          >
+            <Clock className="w-4 h-4 text-amber-500" />
+            <span>{isBn ? 'অপেক্ষমাণ অনুমোদন' : 'Pending Approvals'}</span>
+            {pendingUsers.length > 0 ? (
+              <Badge className="ml-1 text-[11px] px-1.5 py-0 h-5 bg-amber-500 text-black font-bold animate-pulse">
+                {pendingUsers.length}
+              </Badge>
+            ) : (
+              <Badge variant="secondary" className="ml-1 text-[11px] px-1.5 py-0 h-5">
+                0
+              </Badge>
+            )}
+          </TabsTrigger>
+
+          <TabsTrigger
             value="tvs"
             className="flex items-center gap-2 px-3.5 py-2 text-xs sm:text-sm font-semibold rounded-lg data-[state=active]:bg-background data-[state=active]:text-emerald-600 dark:data-[state=active]:text-emerald-400 data-[state=active]:shadow-xs transition-all cursor-pointer touch-manipulation"
           >
@@ -658,6 +732,7 @@ export default function UsersAndDeviceManagementView() {
                       <TableHead className="w-[280px]">{isBn ? 'ব্যবহারকারী' : 'User'}</TableHead>
                       <TableHead>{isBn ? 'পদবী (Role)' : 'Role'}</TableHead>
                       <TableHead>{isBn ? 'ফোন / হোয়াটসঅ্যাপ' : 'Phone / WhatsApp'}</TableHead>
+                      <TableHead>{isBn ? 'অনুমোদন' : 'Approval'}</TableHead>
                       <TableHead>{isBn ? 'স্ট্যাটাস' : 'Status'}</TableHead>
                       <TableHead className="text-right">{isBn ? 'অ্যাকশন' : 'Actions'}</TableHead>
                     </TableRow>
@@ -667,6 +742,8 @@ export default function UsersAndDeviceManagementView() {
                       const cfg = ROLE_CONFIG[u.role as PermittedRole] || ROLE_CONFIG.receptionist;
                       const Icon = cfg.icon;
                       const isActive = u.isActive === 1;
+                      const isPendingApprove = u.isApproved === 0 || u.approvalStatus === 'pending';
+                      const isRejectedApprove = u.approvalStatus === 'rejected';
 
                       return (
                         <TableRow key={u.id} className="hover:bg-muted/40 border-border/60">
@@ -701,6 +778,35 @@ export default function UsersAndDeviceManagementView() {
                           </TableCell>
 
                           <TableCell>
+                            {isPendingApprove ? (
+                              <Badge
+                                variant="outline"
+                                className="text-[11px] font-bold px-2 py-0.5 gap-1 border border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400 animate-pulse"
+                              >
+                                <Clock className="w-3 h-3 text-amber-500" />
+                                <span>{isBn ? 'অপেক্ষমাণ' : 'Pending'}</span>
+                              </Badge>
+                            ) : isRejectedApprove ? (
+                              <Badge
+                                variant="outline"
+                                className="text-[11px] font-bold px-2 py-0.5 gap-1 border border-rose-500/30 bg-rose-500/10 text-rose-600 dark:text-rose-400"
+                                title={u.rejectionReason || ''}
+                              >
+                                <XCircle className="w-3 h-3 text-rose-500" />
+                                <span>{isBn ? 'প্রত্যাখ্যাত' : 'Rejected'}</span>
+                              </Badge>
+                            ) : (
+                              <Badge
+                                variant="outline"
+                                className="text-[11px] font-bold px-2 py-0.5 gap-1 border border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                              >
+                                <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                                <span>{isBn ? 'অনুমোদিত' : 'Approved'}</span>
+                              </Badge>
+                            )}
+                          </TableCell>
+
+                          <TableCell>
                             <div className="flex items-center gap-2">
                               <Switch
                                 checked={isActive}
@@ -719,15 +825,30 @@ export default function UsersAndDeviceManagementView() {
                           </TableCell>
 
                           <TableCell className="text-right">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => openEditModal(u)}
-                              className="h-8 px-2.5 rounded-lg border-border/80 hover:border-emerald-500/40 text-xs font-semibold gap-1 cursor-pointer"
-                            >
-                              <Edit2 className="w-3 h-3" />
-                              <span>{isBn ? 'সম্পাদনা' : 'Edit'}</span>
-                            </Button>
+                            <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                              {isPendingApprove && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  disabled={isPending}
+                                  onClick={() => handleApproveUser(u)}
+                                  className="h-8 px-2.5 rounded-lg border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500 hover:text-white text-xs font-bold gap-1 cursor-pointer"
+                                  title={isBn ? 'অ্যাকাউন্ট অনুমোদন করুন' : 'Approve user account'}
+                                >
+                                  <UserCheck className="w-3.5 h-3.5" />
+                                  <span className="hidden sm:inline">{isBn ? 'অনুমোদন' : 'Approve'}</span>
+                                </Button>
+                              )}
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => openEditModal(u)}
+                                className="h-8 px-2.5 rounded-lg border-border/80 hover:border-emerald-500/40 text-xs font-semibold gap-1 cursor-pointer"
+                              >
+                                <Edit2 className="w-3 h-3" />
+                                <span>{isBn ? 'সম্পাদনা' : 'Edit'}</span>
+                              </Button>
+                            </div>
                           </TableCell>
                         </TableRow>
                       );
@@ -737,6 +858,132 @@ export default function UsersAndDeviceManagementView() {
               </div>
             )}
           </Card>
+        </TabsContent>
+
+        {/* ========================================================================= */}
+        {/* SUB-TAB: PENDING APPROVALS */}
+        {/* ========================================================================= */}
+        <TabsContent value="approvals" className="space-y-5 focus-visible:outline-none">
+          {/* Header Description */}
+          <Card className="p-4 sm:p-5 rounded-2xl border border-amber-500/30 bg-amber-500/5 shadow-2xs">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <Clock className="w-5 h-5 text-amber-500 animate-pulse" />
+                  <h3 className="text-sm sm:text-base font-bold text-foreground">
+                    {isBn ? 'নতুন ব্যবহারকারী অনুমোদন নিয়ন্ত্রণ' : 'Pending Staff Approvals Control'}
+                  </h3>
+                </div>
+                <p className="text-xs text-muted-foreground max-w-3xl leading-relaxed">
+                  {isBn
+                    ? 'যেকোনো নতুন ব্যবহারকারী নিবন্ধন বা তৈরি হলে তা প্রথমে অ্যাডমিন অনুমোদনের অপেক্ষায় থাকবে। আপনি অনুমোদন প্রদান না করা পর্যন্ত সংশ্লিষ্ট ব্যক্তি কোনো ওয়ার্কস্টেশনে লগইন করতে পারবে না।'
+                    : 'Whenever new staff register or are created, their accounts remain in pending state. Users cannot log into workstations until approved by an administrator here.'}
+                </p>
+              </div>
+
+              <Badge
+                variant="outline"
+                className="text-xs px-3 py-1 font-bold border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400 gap-1.5"
+              >
+                <Clock className="w-3.5 h-3.5" />
+                <span>
+                  {isBn ? `${pendingUsers.length} টি অপেক্ষমাণ` : `${pendingUsers.length} Pending`}
+                </span>
+              </Badge>
+            </div>
+          </Card>
+
+          {/* Pending Users Grid */}
+          {pendingUsers.length === 0 ? (
+            <Card className="p-12 text-center rounded-2xl border border-border/80 bg-card/60">
+              <CheckCircle2 className="w-12 h-12 mx-auto text-emerald-500/60 mb-3" />
+              <p className="text-base font-bold text-foreground">
+                {isBn ? 'কোনো অপেক্ষমাণ অনুমোদন নেই' : 'No Pending Approvals'}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1 max-w-md mx-auto">
+                {isBn
+                  ? 'সকল ব্যবহারকারী সফলভাবে অনুমোদিত। নতুন কোনো স্টাফ নিবন্ধন করলে এই তালিকায় দেখা যাবে।'
+                  : 'All staff accounts have been processed. Any new registration will appear here for your review.'}
+              </p>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {pendingUsers.map((u) => {
+                const cfg = ROLE_CONFIG[u.role as PermittedRole] || ROLE_CONFIG.receptionist;
+                const Icon = cfg.icon;
+
+                return (
+                  <Card
+                    key={u.id}
+                    className="p-4 sm:p-5 rounded-2xl border-2 border-amber-500/30 bg-card/80 backdrop-blur-md shadow-md hover:border-amber-500/50 transition-all flex flex-col justify-between gap-4"
+                  >
+                    <div className="space-y-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-11 h-11 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center font-black text-amber-600 dark:text-amber-400 text-sm shrink-0">
+                            {u.displayName.slice(0, 2).toUpperCase()}
+                          </div>
+                          <div className="min-w-0">
+                            <h4 className="text-sm font-bold text-foreground truncate">{u.displayName}</h4>
+                            <p className="text-xs text-muted-foreground truncate">{u.email}</p>
+                          </div>
+                        </div>
+
+                        <Badge
+                          variant="outline"
+                          className={`text-[11px] font-bold px-2 py-0.5 gap-1 shrink-0 border ${cfg.color}`}
+                        >
+                          <Icon className="w-3 h-3" />
+                          <span>{isBn ? cfg.labelBn : cfg.labelEn}</span>
+                        </Badge>
+                      </div>
+
+                      <div className="space-y-1.5 pt-2 border-t border-border/60 text-xs">
+                        {u.phone && (
+                          <div className="flex items-center justify-between text-muted-foreground">
+                            <span>{isBn ? 'ফোন / হোয়াটসঅ্যাপ:' : 'Phone:'}</span>
+                            <span className="font-mono font-bold text-foreground">{u.phone}</span>
+                          </div>
+                        )}
+                        <div className="flex items-center justify-between text-muted-foreground">
+                          <span>{isBn ? 'নিবন্ধনের সময়:' : 'Registered At:'}</span>
+                          <span className="font-medium text-foreground">
+                            {new Date(u.createdAt).toLocaleString(isBn ? 'bn-BD' : 'en-US', {
+                              dateStyle: 'medium',
+                              timeStyle: 'short',
+                            })}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 pt-2">
+                      <Button
+                        size="sm"
+                        disabled={isPending}
+                        onClick={() => handleOpenReject(u)}
+                        variant="outline"
+                        className="h-9 rounded-xl border-rose-500/40 text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 hover:border-rose-500/60 font-bold text-xs gap-1.5 cursor-pointer touch-manipulation active:scale-95"
+                      >
+                        <UserX className="w-3.5 h-3.5" />
+                        <span>{isBn ? 'প্রত্যাখ্যান' : 'Reject'}</span>
+                      </Button>
+
+                      <Button
+                        size="sm"
+                        disabled={isPending}
+                        onClick={() => handleApproveUser(u)}
+                        className="h-9 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs gap-1.5 shadow-md shadow-emerald-500/20 cursor-pointer touch-manipulation active:scale-95"
+                      >
+                        <UserCheck className="w-3.5 h-3.5" />
+                        <span>{isBn ? 'অনুমোদন করুন' : 'Approve'}</span>
+                      </Button>
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
         </TabsContent>
 
         {/* ========================================================================= */}
@@ -1469,6 +1716,67 @@ export default function UsersAndDeviceManagementView() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reject User Dialog */}
+      <Dialog open={isRejectDialogOpen} onOpenChange={setIsRejectDialogOpen}>
+        <DialogContent className="max-w-md bg-card/95 backdrop-blur-xl border-border/80 shadow-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-rose-500 font-bold">
+              <UserX className="w-5 h-5" />
+              <span>{isBn ? 'ব্যবহারকারীর রেজিস্ট্রেশন প্রত্যাখ্যান' : 'Reject User Registration'}</span>
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              {isBn
+                ? `আপনি কি নিশ্চিতভাবে "${rejectingUser?.displayName}" (${rejectingUser?.email})-এর অ্যাকাউন্ট আবেদন প্রত্যাখ্যান করতে চান?`
+                : `Are you sure you want to reject the registration for "${rejectingUser?.displayName}" (${rejectingUser?.email})?`}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 py-3">
+            <Label className="text-xs font-semibold">
+              {isBn ? 'প্রত্যাখ্যানের কারণ (ঐচ্ছিক)' : 'Rejection Reason (Optional)'}
+            </Label>
+            <Input
+              value={rejectionReason}
+              onChange={(e) => setRejectionReason(e.target.value)}
+              placeholder={
+                isBn
+                  ? 'যেমন: অননুমোদিত ব্যক্তি / তথ্যের অমিল'
+                  : 'e.g. Unverified identity / Not authorized'
+              }
+              className="h-10 text-xs sm:text-sm rounded-xl"
+            />
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsRejectDialogOpen(false)}
+              className="rounded-xl h-9 text-xs"
+            >
+              {isBn ? 'বাতিল' : 'Cancel'}
+            </Button>
+            <Button
+              type="button"
+              disabled={isPending}
+              onClick={handleConfirmReject}
+              className="rounded-xl h-9 bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs gap-1.5 cursor-pointer touch-manipulation active:scale-95"
+            >
+              <UserX className="w-3.5 h-3.5" />
+              <span>
+                {isPending
+                  ? isBn
+                    ? 'প্রত্যাখ্যান হচ্ছে...'
+                    : 'Rejecting...'
+                  : isBn
+                  ? 'প্রত্যাখ্যান নিশ্চিত করুন'
+                  : 'Confirm Rejection'}
+              </span>
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
