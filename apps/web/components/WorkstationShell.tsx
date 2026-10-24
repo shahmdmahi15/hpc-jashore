@@ -67,7 +67,10 @@ export function WorkstationShell({
           onTabChange={() => {}}
         />
 
-        <main className="flex-1 w-full max-w-[1720px] mx-auto p-2.5 sm:p-5 md:p-6 pb-20 md:pb-6 transition-all duration-300">
+        <main
+          className="flex-1 w-full max-w-[1720px] mx-auto p-2.5 sm:p-5 md:p-6 pb-24 md:pb-6 transition-all duration-300"
+          style={{ paddingBottom: 'max(6rem, calc(env(safe-area-inset-bottom, 0px) + 5rem))' }}
+        >
           {children(session)}
         </main>
 
@@ -75,7 +78,7 @@ export function WorkstationShell({
         <nav
           aria-label="Mobile Navigation"
           className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-card/95 backdrop-blur-xl border-t border-border/80 shadow-lg px-2 pt-1.5 pb-safe flex items-center justify-around"
-          style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}
+          style={{ paddingBottom: 'max(0.75rem, calc(env(safe-area-inset-bottom, 0px) + 0.5rem))' }}
         >
           {mobileNavItems.map((item) => {
             const Icon = item.icon;

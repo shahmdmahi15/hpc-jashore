@@ -89,6 +89,12 @@ export class UpdateDoctorConfigDto {
   @MaxLength(160)
   fullName?: string;
 
+  @ApiPropertyOptional({ description: 'Doctor display name alias' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(160)
+  displayName?: string;
+
   @ApiPropertyOptional({ description: 'Contact phone / WhatsApp' })
   @IsOptional()
   @IsString()
@@ -197,6 +203,12 @@ export class CreateDoctorDto {
   @IsNotEmpty()
   @MaxLength(160)
   fullName!: string;
+
+  @ApiPropertyOptional({ description: 'Doctor display name alias' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(160)
+  displayName?: string;
 
   @ApiPropertyOptional({ description: 'Doctor user login email' })
   @IsOptional()

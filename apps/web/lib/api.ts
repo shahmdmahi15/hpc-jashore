@@ -373,6 +373,8 @@ export const api = {
   },
   staff: {
     list: () => apiFetch<any[]>('/staff'),
+    listDoctors: () => apiFetch<any[]>('/staff/doctors'),
+    getDoctor: (id: string) => apiFetch<any>(`/staff/doctors/${id}`),
     punch: (data: any) =>
       apiFetch<any>('/staff/attendance', { method: 'POST', body: JSON.stringify(data) }),
   },

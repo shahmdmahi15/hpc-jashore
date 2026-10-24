@@ -22,7 +22,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { api, UserSession } from '@/lib/api';
+import { api, getSession, UserSession } from '@/lib/api';
 import { toast } from 'sonner';
 import {
   FileText,
@@ -116,14 +116,27 @@ export function PatientIntakeFormModal({
     if (!open) return;
     let active = true;
     setLoadingDoctors(true);
-    api.users
-      .list()
-      .then((users: any[]) => {
+    const session = getSession();
+    api.staff
+      .listDoctors()
+      .then((docs: any[]) => {
         if (!active) return;
-        const docs = (users || []).filter((u: any) => u.role === 'doctor' && u.isActive !== false);
-        setDoctors(docs);
-        if (docs.length > 0 && !selectedDoctorId) {
-          setSelectedDoctorId(docs[0].id);
+        const validDocs = (docs || []).filter((u: any) => u.isActive !== false);
+        setDoctors(validDocs);
+
+        // If logged-in user is a doctor, auto-select them
+        if (session?.role === 'doctor') {
+          const myDoc = validDocs.find(
+            (d: any) => d.id === session.userId || d.userId === session.userId || d.staffId === session.staffId,
+          );
+          if (myDoc) {
+            setSelectedDoctorId(myDoc.id);
+            return;
+          }
+        }
+
+        if (validDocs.length > 0 && !selectedDoctorId) {
+          setSelectedDoctorId(validDocs[0].id);
         }
       })
       .catch((err: any) => {
@@ -547,17 +560,23 @@ export function PatientIntakeFormModal({
                       <SelectValue placeholder="ডাক্তার নির্বাচন করুন" />
                     </SelectTrigger>
                     <SelectContent>
-                      {doctors.map((doc) => (
-                        <SelectItem key={doc.id} value={doc.id}>
-                          <div className="flex items-center justify-between w-full gap-3">
-                            <span className="font-semibold">{doc.displayName || doc.email}</span>
-                            <span className="text-[11px] text-muted-foreground">
-                              {doc.chamberRoomId ? `রুম: ${doc.chamberRoomId}` : 'চেম্বার নির্ধারিত'}
-                              {doc.consultationFee ? ` • ফি: ৳${doc.consultationFee}` : ''}
-                            </span>
-                          </div>
-                        </SelectItem>
-                      ))}
+                      {doctors.map((doc) => {
+                        const roomDisplay = doc.chamberRoomNumber
+                          ? `রুম: ${doc.chamberRoomNumber}${doc.chamberName ? ` (${doc.chamberName})` : ''}`
+                          : (doc.chamberName || (doc.chamberRoomId ? 'চেম্বার নির্ধারিত' : 'চেম্বার নির্ধারিত'));
+                        const feeVal = doc.consultationFeeTaka || (doc.consultationFeePaisa ? Math.round(doc.consultationFeePaisa / 100) : doc.consultationFee);
+                        return (
+                          <SelectItem key={doc.id} value={doc.id}>
+                            <div className="flex items-center justify-between w-full gap-3">
+                              <span className="font-semibold">{doc.displayName || doc.fullName || doc.email}</span>
+                              <span className="text-[11px] text-muted-foreground">
+                                {roomDisplay}
+                                {feeVal ? ` • ফি: ৳${feeVal}` : ''}
+                              </span>
+                            </div>
+                          </SelectItem>
+                        );
+                      })}
                     </SelectContent>
                   </Select>
                 )}
@@ -580,7 +599,10 @@ export function PatientIntakeFormModal({
         </div>
 
         {/* Action Buttons */}
-        <div className="sticky bottom-0 z-10 bg-card/90 backdrop-blur-md px-6 py-4 border-t border-border/80 flex flex-wrap items-center justify-between gap-3">
+        <div
+          className="sticky bottom-0 z-10 bg-card/95 backdrop-blur-md px-6 py-4 border-t border-border/80 flex flex-wrap items-center justify-between gap-3"
+          style={{ paddingBottom: 'max(1rem, calc(env(safe-area-inset-bottom) + 0.75rem))' }}
+        >
           <Button
             type="button"
             variant="ghost"

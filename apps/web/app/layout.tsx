@@ -158,7 +158,16 @@ export default function RootLayout({
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem storageKey="hpc-theme">
           <LanguageProvider>
             {children}
-            <Toaster position="top-right" richColors />
+            <Toaster
+              position="top-center"
+              richColors
+              offset="max(1.25rem, calc(env(safe-area-inset-top, 0px) + 0.75rem))"
+              toastOptions={{
+                style: {
+                  marginTop: 'max(0.5rem, env(safe-area-inset-top, 0px))',
+                },
+              }}
+            />
           </LanguageProvider>
         </ThemeProvider>
       </body>

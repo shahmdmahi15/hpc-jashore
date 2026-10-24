@@ -1532,7 +1532,7 @@ export class VisitsService {
         doctor: b.doctor ? { id: b.doctor.id, fullName: b.doctor.fullName } : null,
       })),
       liveTherapyQueue,
-      recentCheckIns: todayVisits.slice(0, 30).map((v) => ({
+      recentCheckIns: todayVisits.map((v) => ({
         ...v.visit,
         patient: v.patient,
         doctor: v.doctor ? { id: v.doctor.id, fullName: v.doctor.fullName } : null,

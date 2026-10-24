@@ -26,6 +26,10 @@ import {
   HelpCircle,
   Filter,
   Trash2,
+  MapPin,
+  Building2,
+  Radio,
+  Eye,
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
@@ -155,6 +159,94 @@ export function CheckInWorkstationView() {
     time: string;
   } | null>(null);
 
+  // Live checked-in patients list filters
+  const [liveSearchQuery, setLiveSearchQuery] = useState('');
+  const [liveLocationFilter, setLiveLocationFilter] = useState<
+    'all' | 'waiting' | 'reception' | 'cashier' | 'doctor' | 'therapy' | 'completed'
+  >('all');
+
+  const getLocationDisplay = (locationRaw?: string | null, status?: string) => {
+    const loc = (locationRaw || '').toLowerCase();
+    const st = (status || '').toLowerCase();
+
+    if (st === 'completed' || st === 'checked_out') {
+      return {
+        label: isBn ? 'সেবা সম্পন্ন / প্রস্থান' : 'Service Completed / Departed',
+        category: 'completed' as const,
+        color: 'bg-zinc-500/15 text-zinc-600 dark:text-zinc-400 border-zinc-500/30',
+        dotColor: 'bg-zinc-400',
+        icon: CheckCircle2,
+      };
+    }
+    if (loc.includes('reception')) {
+      return {
+        label: isBn ? 'রিসেপশন ডেস্ক' : 'Reception Desk',
+        category: 'reception' as const,
+        color: 'bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/40',
+        dotColor: 'bg-sky-500',
+        icon: Building2,
+      };
+    }
+    if (loc.includes('cashier') || loc.includes('cash') || loc.includes('billing')) {
+      return {
+        label: isBn ? 'ক্যাশ ও বিলিং কাউন্টার' : 'Cashier Counter',
+        category: 'cashier' as const,
+        color: 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/40',
+        dotColor: 'bg-amber-500',
+        icon: Sparkles,
+      };
+    }
+    if (loc.includes('doctor') || loc.includes('chamber') || loc.includes('consultation') || st === 'in_consultation') {
+      return {
+        label: isBn ? 'ডাক্তার চেম্বার' : 'Doctor Chamber',
+        category: 'doctor' as const,
+        color: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/40',
+        dotColor: 'bg-emerald-500',
+        icon: Stethoscope,
+      };
+    }
+    if (loc.includes('therapy') || loc.includes('hall') || st === 'in_therapy') {
+      return {
+        label: isBn ? 'ফিজিওথেরাপী ও রিহ্যাব হল' : 'Therapy & Rehab Hall',
+        category: 'therapy' as const,
+        color: 'bg-teal-500/15 text-teal-700 dark:text-teal-300 border-teal-500/40',
+        dotColor: 'bg-teal-500',
+        icon: Activity,
+      };
+    }
+    return {
+      label: isBn ? 'ওয়েটিং রুম / লবি' : 'Waiting Room / Lobby',
+      category: 'waiting' as const,
+      color: 'bg-purple-500/15 text-purple-700 dark:text-purple-300 border-purple-500/40',
+      dotColor: 'bg-purple-500',
+      icon: Clock,
+    };
+  };
+
+  const filteredCheckedInPatients = useMemo(() => {
+    const list = data?.recentCheckIns || [];
+    return list.filter((v) => {
+      const pName = (
+        isBn ? v.patient?.nameBn || v.patient?.nameEn : v.patient?.nameEn || v.patient?.nameBn || ''
+      ).toLowerCase();
+      const mrn = (v.patient?.mrn || '').toLowerCase();
+      const phone = (v.patient?.phone || '').toLowerCase();
+      const token = String(v.tokenNumber);
+      const searchMatch =
+        !liveSearchQuery.trim() ||
+        pName.includes(liveSearchQuery.toLowerCase().trim()) ||
+        mrn.includes(liveSearchQuery.toLowerCase().trim()) ||
+        phone.includes(liveSearchQuery.toLowerCase().trim()) ||
+        token.includes(liveSearchQuery.trim());
+
+      if (!searchMatch) return false;
+
+      if (liveLocationFilter === 'all') return true;
+      const locInfo = getLocationDisplay(v.currentLocation, v.status);
+      return locInfo.category === liveLocationFilter;
+    });
+  }, [data?.recentCheckIns, liveSearchQuery, liveLocationFilter, isBn]);
+
   const [isPending, startTransition] = useTransition();
 
   // Load initial data
@@ -185,9 +277,14 @@ export function CheckInWorkstationView() {
       event.type === 'therapy.booking.approved' ||
       event.type === 'therapy.booking.rejected' ||
       event.type === 'visit.checked_in' ||
+      event.type === 'visit.updated' ||
       event.type === 'therapy.queue.updated' ||
       event.type === 'consultation.booking.cancelled' ||
-      event.type === 'consultation.booking.created'
+      event.type === 'consultation.booking.created' ||
+      event.type === 'consultation.queue.updated' ||
+      event.type === 'consultation.called' ||
+      event.type === 'consultation.completed' ||
+      event.type === 'intake.created'
     ) {
       loadData();
     }
@@ -1302,7 +1399,7 @@ export function CheckInWorkstationView() {
                                 setSlipModalData({
                                   tokenNumber: v.tokenNumber,
                                   patientName: isBn ? v.patient?.nameBn || v.patient?.nameEn : v.patient?.nameEn,
-                                  mrn: v.patient?.mrn,
+                                  mrn: v.patient?.mrn || '',
                                   destination: v.currentLocation,
                                   toldTime: v.toldTime,
                                   punctualityStatus: v.punctualityStatus,
@@ -1327,6 +1424,326 @@ export function CheckInWorkstationView() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* ============================================================== */}
+      {/* LIVE CHECKED-IN PATIENTS & REALTIME LOCATIONS SECTION          */}
+      {/* ============================================================== */}
+      <div className="mt-8 space-y-4">
+        <Card className="p-4 sm:p-6 rounded-2xl border border-emerald-500/30 bg-gradient-to-b from-card to-card/90 shadow-md">
+          {/* Header Row */}
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-4 border-b border-border/60">
+            <div>
+              <div className="flex flex-wrap items-center gap-2.5">
+                <span className="relative flex h-3 w-3">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                </span>
+                <h2 className="text-base sm:text-lg font-bold tracking-tight text-foreground flex items-center gap-2">
+                  <span>
+                    {isBn
+                      ? 'আজকের সকল উপস্থিত রোগী ও রিয়েলটাইম অবস্থান'
+                      : 'Live Checked-in Patients & Current Locations'}
+                  </span>
+                </h2>
+                <Badge
+                  variant="outline"
+                  className="text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400 border-emerald-500/40 bg-emerald-500/5"
+                >
+                  {toBnNum(data?.recentCheckIns?.length || 0)} {isBn ? 'জন উপস্থিত' : 'Checked In'}
+                </Badge>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {isBn
+                  ? 'রিয়েলটাইম সিঙ্ক চালু • হাসপাতালে সেবা নিতে আগত প্রতিটি রোগীর বর্তমান অবস্থান ও অগ্রগতি'
+                  : 'Realtime Sync Active • Current patient locations and live workflow progress across clinic'}
+              </p>
+            </div>
+
+            {/* Search Input */}
+            <div className="w-full md:w-72">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  type="text"
+                  placeholder={
+                    isBn
+                      ? 'নাম, ফোন, MRN বা টোকেন নম্বর...'
+                      : 'Search by name, phone, MRN or token...'
+                  }
+                  value={liveSearchQuery}
+                  onChange={(e) => setLiveSearchQuery(e.target.value)}
+                  className="pl-8 text-xs h-9 bg-background/80"
+                />
+                {liveSearchQuery && (
+                  <button
+                    onClick={() => setLiveSearchQuery('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs"
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Location Filter Pills */}
+          <div className="flex flex-wrap items-center gap-1.5 pt-1">
+            <Button
+              type="button"
+              variant={liveLocationFilter === 'all' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setLiveLocationFilter('all')}
+              className="h-7 text-xs rounded-lg px-2.5"
+            >
+              <span>{isBn ? 'সকল' : 'All'}</span>
+              <span className="ml-1 opacity-80 font-mono text-[10px]">
+                ({toBnNum(data?.recentCheckIns?.length || 0)})
+              </span>
+            </Button>
+            <Button
+              type="button"
+              variant={liveLocationFilter === 'waiting' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setLiveLocationFilter('waiting')}
+              className="h-7 text-xs rounded-lg px-2.5"
+            >
+              <Clock className="w-3 h-3 mr-1 text-purple-500" />
+              <span>{isBn ? 'ওয়েটিং রুম' : 'Waiting Room'}</span>
+              <span className="ml-1 opacity-80 font-mono text-[10px]">
+                (
+                {toBnNum(
+                  (data?.recentCheckIns || []).filter(
+                    (v) => getLocationDisplay(v.currentLocation, v.status).category === 'waiting',
+                  ).length,
+                )}
+                )
+              </span>
+            </Button>
+            <Button
+              type="button"
+              variant={liveLocationFilter === 'doctor' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setLiveLocationFilter('doctor')}
+              className="h-7 text-xs rounded-lg px-2.5"
+            >
+              <Stethoscope className="w-3 h-3 mr-1 text-emerald-500" />
+              <span>{isBn ? 'ডাক্তার চেম্বার' : 'Doctor Chamber'}</span>
+              <span className="ml-1 opacity-80 font-mono text-[10px]">
+                (
+                {toBnNum(
+                  (data?.recentCheckIns || []).filter(
+                    (v) => getLocationDisplay(v.currentLocation, v.status).category === 'doctor',
+                  ).length,
+                )}
+                )
+              </span>
+            </Button>
+            <Button
+              type="button"
+              variant={liveLocationFilter === 'therapy' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setLiveLocationFilter('therapy')}
+              className="h-7 text-xs rounded-lg px-2.5"
+            >
+              <Activity className="w-3 h-3 mr-1 text-teal-500" />
+              <span>{isBn ? 'থেরাপি হল' : 'Therapy Hall'}</span>
+              <span className="ml-1 opacity-80 font-mono text-[10px]">
+                (
+                {toBnNum(
+                  (data?.recentCheckIns || []).filter(
+                    (v) => getLocationDisplay(v.currentLocation, v.status).category === 'therapy',
+                  ).length,
+                )}
+                )
+              </span>
+            </Button>
+            <Button
+              type="button"
+              variant={liveLocationFilter === 'cashier' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setLiveLocationFilter('cashier')}
+              className="h-7 text-xs rounded-lg px-2.5"
+            >
+              <Sparkles className="w-3 h-3 mr-1 text-amber-500" />
+              <span>{isBn ? 'ক্যাশ কাউন্টার' : 'Cashier'}</span>
+              <span className="ml-1 opacity-80 font-mono text-[10px]">
+                (
+                {toBnNum(
+                  (data?.recentCheckIns || []).filter(
+                    (v) => getLocationDisplay(v.currentLocation, v.status).category === 'cashier',
+                  ).length,
+                )}
+                )
+              </span>
+            </Button>
+            <Button
+              type="button"
+              variant={liveLocationFilter === 'reception' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setLiveLocationFilter('reception')}
+              className="h-7 text-xs rounded-lg px-2.5"
+            >
+              <Building2 className="w-3 h-3 mr-1 text-sky-500" />
+              <span>{isBn ? 'রিসেপশন' : 'Reception'}</span>
+              <span className="ml-1 opacity-80 font-mono text-[10px]">
+                (
+                {toBnNum(
+                  (data?.recentCheckIns || []).filter(
+                    (v) => getLocationDisplay(v.currentLocation, v.status).category === 'reception',
+                  ).length,
+                )}
+                )
+              </span>
+            </Button>
+            <Button
+              type="button"
+              variant={liveLocationFilter === 'completed' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setLiveLocationFilter('completed')}
+              className="h-7 text-xs rounded-lg px-2.5"
+            >
+              <CheckCircle2 className="w-3 h-3 mr-1 text-zinc-500" />
+              <span>{isBn ? 'সেবা সম্পন্ন' : 'Completed'}</span>
+              <span className="ml-1 opacity-80 font-mono text-[10px]">
+                (
+                {toBnNum(
+                  (data?.recentCheckIns || []).filter(
+                    (v) => getLocationDisplay(v.currentLocation, v.status).category === 'completed',
+                  ).length,
+                )}
+                )
+              </span>
+            </Button>
+          </div>
+
+          {/* Cards Grid */}
+          {filteredCheckedInPatients.length === 0 ? (
+            <div className="text-center py-10 px-4 rounded-xl border border-dashed border-border/80 bg-background/50">
+              <UserCheck className="size-8 mx-auto text-muted-foreground/60 mb-2" />
+              <p className="text-xs font-semibold text-foreground">
+                {liveSearchQuery || liveLocationFilter !== 'all'
+                  ? isBn
+                    ? 'ফিল্টারের সাথে মেলে এমন কোনো রোগী পাওয়া যায়নি'
+                    : 'No patients match the selected filter'
+                  : isBn
+                  ? 'আজকে এখনো কোনো রোগী উপস্থিত বা চেক-ইন হননি'
+                  : 'No patients checked in yet today'}
+              </p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                {isBn
+                  ? 'রোগী আগমন করলে উপরে ১-ক্লিকে চেক-ইন সম্পন্ন করুন'
+                  : 'Use the check-in form above to check in arriving patients'}
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+              {filteredCheckedInPatients.map((v) => {
+                const locInfo = getLocationDisplay(v.currentLocation, v.status);
+                const LocIcon = locInfo.icon;
+                const patientName =
+                  (isBn
+                    ? v.patient?.nameBn || v.patient?.nameEn
+                    : v.patient?.nameEn || v.patient?.nameBn) || 'Patient';
+
+                return (
+                  <div
+                    key={v.id}
+                    className="group rounded-xl border border-border/80 hover:border-emerald-500/50 bg-background/90 hover:bg-card/90 transition-all p-3.5 flex flex-col justify-between shadow-xs gap-3"
+                  >
+                    {/* Top Row: Token & Current Location Badge */}
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] uppercase font-bold text-muted-foreground">টোকেন</span>
+                        <span className="font-mono font-black text-emerald-600 dark:text-emerald-400 text-base px-2 py-0.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                          #{toBnNum(v.tokenNumber)}
+                        </span>
+                      </div>
+
+                      <div
+                        className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md border text-[11px] font-semibold ${locInfo.color}`}
+                      >
+                        <span className={`w-1.5 h-1.5 rounded-full ${locInfo.dotColor} animate-pulse`} />
+                        <LocIcon className="w-3 h-3" />
+                        <span className="truncate max-w-[120px]">{locInfo.label}</span>
+                      </div>
+                    </div>
+
+                    {/* Middle: Patient Info */}
+                    <div className="space-y-1">
+                      <div className="font-bold text-sm text-foreground truncate group-hover:text-emerald-500 transition-colors">
+                        {patientName}
+                      </div>
+                      <div className="text-[11px] font-mono text-muted-foreground flex items-center gap-1.5">
+                        <span>{v.patient?.mrn}</span>
+                        <span>•</span>
+                        <span>{v.patient?.phone}</span>
+                      </div>
+
+                      {v.doctor && (
+                        <div className="text-[11px] text-emerald-600 dark:text-emerald-400 flex items-center gap-1 pt-0.5">
+                          <Stethoscope className="w-3 h-3 shrink-0" />
+                          <span className="truncate">{v.doctor.fullName}</span>
+                        </div>
+                      )}
+
+                      <div className="flex items-center gap-2 pt-1">
+                        {renderPunctualityBadge(v.punctualityStatus, v.delayMinutes, v.toldTime)}
+                        <span className="text-[10px] font-mono text-muted-foreground">
+                          {new Date(v.checkedInAt).toLocaleTimeString([], {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Bottom Actions */}
+                    <div className="flex items-center justify-between gap-2 pt-2 border-t border-border/50 text-[11px]">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          setTimelinePatient({
+                            id: v.patientId || v.patient?.id,
+                            name: patientName,
+                          });
+                          setIsTimelineOpen(true);
+                        }}
+                        className="h-7 px-2 text-[11px] gap-1 text-muted-foreground hover:text-foreground"
+                      >
+                        <Clock className="w-3 h-3 text-emerald-500" />
+                        <span>{isBn ? 'টাইমলাইন' : 'Timeline'}</span>
+                      </Button>
+
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() =>
+                          setSlipModalData({
+                            tokenNumber: v.tokenNumber,
+                            patientName: patientName,
+                            mrn: v.patient?.mrn || '',
+                            destination: v.currentLocation,
+                            toldTime: v.toldTime,
+                            punctualityStatus: v.punctualityStatus,
+                            delayMinutes: v.delayMinutes,
+                            date: v.visitDate,
+                            time: v.checkedInAt,
+                          })
+                        }
+                        className="h-7 px-2 text-[11px] gap-1 hover:border-emerald-500/50"
+                      >
+                        <Printer className="w-3 h-3" />
+                        <span>{isBn ? 'স্লিপ' : 'Slip'}</span>
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </Card>
+      </div>
 
       {/* QUICK PATIENT CREATION DIALOG */}
       <CreatePatientDialog

@@ -396,7 +396,7 @@ export const visits = sqliteTable('visits', {
   patientId: text('patient_id')
     .notNull()
     .references(() => patients.id),
-  doctorId: text('doctor_id').references(() => staff.id),
+  doctorId: text('doctor_id'),
   tokenNumber: integer('token_number').notNull(),
   visitDate: text('visit_date').notNull(),
   status: text('status')
@@ -930,7 +930,7 @@ export const patientIntakeForms = sqliteTable('patient_intake_forms', {
     .references(() => patients.id),
   visitId: text('visit_id').references(() => visits.id),
   consultationBookingId: text('consultation_booking_id'),
-  doctorId: text('doctor_id').references(() => staff.id),
+  doctorId: text('doctor_id'),
   receptionistId: text('receptionist_id').references(() => users.id),
   receptionistName: text('receptionist_name'),
   date: text('date').notNull(),

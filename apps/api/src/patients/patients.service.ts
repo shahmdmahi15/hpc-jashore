@@ -630,13 +630,15 @@ export class PatientsService {
         patient: patients,
         visit: visits,
         doctor: staff,
+        user: users,
         chamber: rooms,
       })
       .from(patientIntakeForms)
       .innerJoin(patients, eq(patientIntakeForms.patientId, patients.id))
       .leftJoin(visits, eq(patientIntakeForms.visitId, visits.id))
-      .leftJoin(staff, eq(patientIntakeForms.doctorId, staff.id))
-      .leftJoin(rooms, eq(staff.chamberRoomId, rooms.id))
+      .leftJoin(staff, or(eq(patientIntakeForms.doctorId, staff.id), eq(patientIntakeForms.doctorId, staff.userId)))
+      .leftJoin(users, or(eq(patientIntakeForms.doctorId, users.id), eq(staff.userId, users.id)))
+      .leftJoin(rooms, or(eq(staff.chamberRoomId, rooms.id), eq(users.chamberRoomId, rooms.id)))
       .where(whereClause)
       .orderBy(desc(patientIntakeForms.createdAt));
 
@@ -644,11 +646,11 @@ export class PatientsService {
       ...r.form,
       patient: r.patient,
       tokenNumber: r.visit?.tokenNumber,
-      doctor: r.doctor
+      doctor: (r.doctor || r.user)
         ? {
-            id: r.doctor.id,
-            fullName: r.doctor.fullName,
-            phone: r.doctor.phone,
+            id: r.user?.id || r.doctor?.id,
+            fullName: r.user?.displayName || r.doctor?.fullName || 'Doctor',
+            phone: r.user?.phone || r.doctor?.phone,
             chamber: r.chamber ? `Room ${r.chamber.roomNumber} (${r.chamber.name})` : 'Chamber 1',
             chamberRoomNumber: r.chamber?.roomNumber,
           }
@@ -663,13 +665,15 @@ export class PatientsService {
         patient: patients,
         visit: visits,
         doctor: staff,
+        user: users,
         chamber: rooms,
       })
       .from(patientIntakeForms)
       .innerJoin(patients, eq(patientIntakeForms.patientId, patients.id))
       .leftJoin(visits, eq(patientIntakeForms.visitId, visits.id))
-      .leftJoin(staff, eq(patientIntakeForms.doctorId, staff.id))
-      .leftJoin(rooms, eq(staff.chamberRoomId, rooms.id))
+      .leftJoin(staff, or(eq(patientIntakeForms.doctorId, staff.id), eq(patientIntakeForms.doctorId, staff.userId)))
+      .leftJoin(users, or(eq(patientIntakeForms.doctorId, users.id), eq(staff.userId, users.id)))
+      .leftJoin(rooms, or(eq(staff.chamberRoomId, rooms.id), eq(users.chamberRoomId, rooms.id)))
       .where(eq(patientIntakeForms.id, id));
 
     const item = rows[0];
@@ -679,11 +683,11 @@ export class PatientsService {
       ...item.form,
       patient: item.patient,
       tokenNumber: item.visit?.tokenNumber,
-      doctor: item.doctor
+      doctor: (item.doctor || item.user)
         ? {
-            id: item.doctor.id,
-            fullName: item.doctor.fullName,
-            phone: item.doctor.phone,
+            id: item.user?.id || item.doctor?.id,
+            fullName: item.user?.displayName || item.doctor?.fullName || 'Doctor',
+            phone: item.user?.phone || item.doctor?.phone,
             chamber: item.chamber ? `Room ${item.chamber.roomNumber} (${item.chamber.name})` : 'Chamber 1',
             chamberRoomNumber: item.chamber?.roomNumber,
           }
@@ -750,21 +754,57 @@ export class PatientsService {
 
     const doctorRows = await this.db
       .select({
-        staff: staff,
         user: users,
+        staff: staff,
         chamber: rooms,
       })
-      .from(staff)
-      .leftJoin(users, eq(staff.userId, users.id))
-      .leftJoin(rooms, eq(staff.chamberRoomId, rooms.id))
-      .where(or(eq(staff.id, effectiveDoctorId), eq(staff.userId, effectiveDoctorId)));
+      .from(users)
+      .leftJoin(staff, eq(staff.userId, users.id))
+      .leftJoin(rooms, or(eq(users.chamberRoomId, rooms.id), eq(staff.chamberRoomId, rooms.id)))
+      .where(or(eq(users.id, effectiveDoctorId), eq(staff.id, effectiveDoctorId)));
 
-    const docItem = doctorRows[0];
-    if (!docItem) throw new NotFoundException('Doctor not found');
+    let docItem = doctorRows[0];
+    if (!docItem) {
+      const fallbackStaff = await this.db
+        .select({
+          staff: staff,
+          user: users,
+          chamber: rooms,
+        })
+        .from(staff)
+        .leftJoin(users, eq(staff.userId, users.id))
+        .leftJoin(rooms, eq(staff.chamberRoomId, rooms.id))
+        .where(eq(staff.id, effectiveDoctorId));
+      if (!fallbackStaff[0]) throw new NotFoundException('Doctor not found');
+      docItem = fallbackStaff[0] as any;
+    }
 
-    const doctorName = docItem.user?.displayName || docItem.staff.fullName;
+    const doctorName = docItem.user?.displayName || docItem.staff?.fullName || 'Doctor';
     const chamberNumber = docItem.chamber?.roomNumber || '101';
     const chamberName = docItem.chamber?.name || `Chamber ${chamberNumber}`;
+
+    let doctorStaffId = docItem.staff?.id;
+    if (!doctorStaffId && docItem.user) {
+      const existing = await this.db.select().from(staff).where(eq(staff.userId, docItem.user.id)).limit(1);
+      if (existing.length > 0) {
+        doctorStaffId = existing[0].id;
+      } else {
+        doctorStaffId = randomUUID();
+        await this.db.insert(staff).values({
+          id: doctorStaffId,
+          userId: docItem.user.id,
+          fullName: docItem.user.displayName,
+          role: 'doctor',
+          consultationFeePaisa: docItem.user.consultationFeePaisa ?? 50000,
+          chamberRoomId: docItem.user.chamberRoomId,
+          createdAt: now,
+          updatedAt: now,
+        });
+      }
+    }
+    if (!doctorStaffId) {
+      doctorStaffId = effectiveDoctorId;
+    }
 
     // 2. Resolve Consultation Fee & Payment
     const feeTaka = dto.feeTaka !== undefined
@@ -841,14 +881,14 @@ export class PatientsService {
     const priorSerials = await this.db
       .select()
       .from(serials)
-      .where(and(eq(serials.doctorId, docItem.staff.id), eq(serials.date, today)));
+      .where(and(eq(serials.doctorId, doctorStaffId), eq(serials.date, today)));
 
     const nextSerialNum = priorSerials.length + 1;
     const serialId = randomUUID();
 
     await this.db.insert(serials).values({
       id: serialId,
-      doctorId: docItem.staff.id,
+      doctorId: doctorStaffId,
       date: today,
       serialNumber: nextSerialNum,
       visitId,
@@ -869,7 +909,7 @@ export class PatientsService {
       id: bookingId,
       bookingNumber,
       patientId: intake.patientId,
-      doctorId: docItem.staff.id,
+      doctorId: doctorStaffId,
       bookingDate: today,
       slotTime: 'Walk-in',
       visitType: 'new_consultation',
@@ -891,7 +931,7 @@ export class PatientsService {
       .update(visits)
       .set({
         status: 'checked_in',
-        doctorId: docItem.staff.id,
+        doctorId: doctorStaffId,
         consultationBookingId: bookingId,
         currentLocation: 'Waiting Room',
         updatedAt: now,
@@ -903,7 +943,7 @@ export class PatientsService {
       .update(patientIntakeForms)
       .set({
         status: 'in_queue',
-        doctorId: docItem.staff.id,
+        doctorId: doctorStaffId,
         visitId,
         consultationBookingId: bookingId,
         billedAt: now,
@@ -953,7 +993,7 @@ export class PatientsService {
       serialId,
       tokenNumber,
       serialNumber: nextSerialNum,
-      doctorId: docItem.staff.id,
+      doctorId: doctorStaffId,
       doctorName,
       chamberNumber,
       chamberName,
@@ -963,10 +1003,10 @@ export class PatientsService {
 
     // Emit realtime events to TV and all connected workstations
     this.gateway?.emit('clinic:global', 'intake.queued', payload);
-    this.gateway?.emit('clinic:global', 'queue.updated', { doctorId: docItem.staff.id });
+    this.gateway?.emit('clinic:global', 'queue.updated', { doctorId: doctorStaffId });
     this.gateway?.emit('clinic:global', 'serial.created', payload);
     this.realtime?.publish('intake.queued', payload);
-    this.realtime?.publish('queue.updated', { doctorId: docItem.staff.id });
+    this.realtime?.publish('queue.updated', { doctorId: doctorStaffId });
 
     return payload;
   }

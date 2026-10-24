@@ -239,7 +239,8 @@ export class StaffService {
     const userPatch: Partial<typeof users.$inferInsert> = {
       updatedAt: now,
     };
-    if (dto.fullName !== undefined) userPatch.displayName = dto.fullName.trim();
+    const nameToUse = (dto.displayName || dto.fullName)?.trim();
+    if (nameToUse !== undefined) userPatch.displayName = nameToUse;
     if (dto.phone !== undefined) userPatch.phone = dto.phone.trim();
     if (consultationFeePaisa !== undefined) userPatch.consultationFeePaisa = consultationFeePaisa;
     if (followUpFeePaisa !== undefined) userPatch.followUpFeePaisa = followUpFeePaisa;
@@ -347,7 +348,7 @@ export class StaffService {
           .update(users)
           .set({
             role: 'doctor',
-            displayName: dto.fullName?.trim() || existingUser[0].displayName,
+            displayName: (dto.displayName || dto.fullName)?.trim() || existingUser[0].displayName,
             phone: dto.phone?.trim() || existingUser[0].phone,
             consultationFeePaisa,
             followUpFeePaisa,
@@ -367,7 +368,7 @@ export class StaffService {
           .update(users)
           .set({
             role: 'doctor',
-            displayName: dto.fullName.trim(),
+            displayName: (dto.displayName || dto.fullName).trim(),
             phone: dto.phone?.trim() ?? existingUser[0].phone,
             consultationFeePaisa,
             followUpFeePaisa,
@@ -384,7 +385,7 @@ export class StaffService {
           email,
           passwordHash: await bcrypt.hash(password, 10),
           role: 'doctor',
-          displayName: dto.fullName.trim(),
+          displayName: (dto.displayName || dto.fullName).trim(),
           phone: dto.phone?.trim() ?? null,
           consultationFeePaisa,
           followUpFeePaisa,

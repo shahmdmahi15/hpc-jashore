@@ -11,8 +11,13 @@ const Toaster = ({ ...props }: ToasterProps) => {
   return (
     <Sonner
       theme={theme as ToasterProps['theme']}
+      position="top-center"
+      offset="max(1.25rem, calc(env(safe-area-inset-top, 0px) + 0.75rem))"
       className="toaster group"
       toastOptions={{
+        style: {
+          marginTop: 'max(0.5rem, env(safe-area-inset-top, 0px))',
+        },
         classNames: {
           toast:
             'group toast group-[.toaster]:bg-background group-[.toaster]:text-foreground group-[.toaster]:border-border group-[.toaster]:shadow-lg',
