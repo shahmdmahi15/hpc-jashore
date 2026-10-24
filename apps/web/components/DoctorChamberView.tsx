@@ -497,11 +497,23 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
                           : 'border-border bg-card hover:bg-muted/50'
                       )}
                     >
-                      <div className="flex justify-between items-center">
-                        <span className="font-extrabold text-base text-emerald-600 dark:text-emerald-400">
-                          #{s.serialNumber} · {s.tokenNumber || `T-${s.serialNumber}`}
-                        </span>
-                        <Badge variant={isCurrent ? 'default' : 'outline'} className="text-xs">
+                      <div className="flex justify-between items-center gap-2">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="font-extrabold text-base text-emerald-600 dark:text-emerald-400">
+                            #{s.serialNumber} · {s.tokenNumber || `T-${s.serialNumber}`}
+                          </span>
+                          {s.priority === 'emergency' && (
+                            <Badge variant="destructive" className="text-[10px] uppercase font-bold animate-pulse px-1.5 py-0.5 bg-rose-500 text-white">
+                              🚨 Emergency
+                            </Badge>
+                          )}
+                          {s.priority === 'vip' && (
+                            <Badge className="text-[10px] uppercase font-bold bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/40 px-1.5 py-0.5">
+                              ⭐ VIP
+                            </Badge>
+                          )}
+                        </div>
+                        <Badge variant={isCurrent ? 'default' : 'outline'} className="text-xs shrink-0">
                           {s.status}
                         </Badge>
                       </div>
@@ -539,6 +551,16 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
                 </div>
 
                 <div className="flex gap-2 items-center flex-wrap">
+                  {activeSerial?.priority === 'emergency' && (
+                    <Badge variant="destructive" className="font-bold uppercase animate-pulse bg-rose-500 text-white">
+                      🚨 Emergency
+                    </Badge>
+                  )}
+                  {activeSerial?.priority === 'vip' && (
+                    <Badge className="font-bold uppercase bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/40">
+                      ⭐ VIP
+                    </Badge>
+                  )}
                   <Badge variant="outline" className="border-emerald-500/30 text-emerald-600 dark:text-emerald-400 font-semibold">
                     Blood: {activeSerial?.patient?.bloodGroup || 'B+'}
                   </Badge>

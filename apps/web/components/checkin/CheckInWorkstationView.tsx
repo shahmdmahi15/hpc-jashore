@@ -9,6 +9,7 @@ import {
   Clock,
   Calendar,
   AlertCircle,
+  AlertTriangle,
   CheckCircle2,
   RefreshCw,
   Printer,
@@ -368,6 +369,20 @@ export function CheckInWorkstationView() {
     return calculatePunctuality(timeToEvaluate, new Date());
   }, [customToldTime, matchedBooking]);
 
+  // Check if the selected patient already has an active visit today (cannot re-check in until checkout!)
+  const activeExistingVisit = useMemo(() => {
+    if (!selectedPatient || !data?.recentCheckIns) return null;
+    return (
+      data.recentCheckIns.find(
+        (v) =>
+          (v.patientId === selectedPatient.id || v.patient?.id === selectedPatient.id) &&
+          v.status !== 'checked_out' &&
+          v.status !== 'completed' &&
+          v.status !== 'cancelled',
+      ) || null
+    );
+  }, [selectedPatient, data?.recentCheckIns]);
+
   // Handle Cancel Booking directly from Check-In view with instant optimistic UI update
   const handleCancelBooking = async (bookingId: string) => {
     if (
@@ -412,6 +427,23 @@ export function CheckInWorkstationView() {
     const pId = targetPatientId || selectedPatient?.id;
     if (!pId) {
       toast.error(isBn ? 'অনুগ্রহ করে রোগী নির্বাচন করুন' : 'Please select a patient first');
+      return;
+    }
+
+    // Guard: Prevent re-checkin until previous visit is checked out
+    const existingActive = (data?.recentCheckIns || []).find(
+      (v) =>
+        (v.patientId === pId || v.patient?.id === pId) &&
+        v.status !== 'checked_out' &&
+        v.status !== 'completed' &&
+        v.status !== 'cancelled',
+    );
+    if (existingActive) {
+      toast.error(
+        isBn
+          ? `এই রোগী ইতিমধ্যে আজ চেক-ইন আছেন (টোকেন #${toBnNum(existingActive.tokenNumber)})। পুনরায় চেক-ইন করার পূর্বে আগের ভিজিট চেক-আউট সম্পন্ন করতে হবে।`
+          : `Patient is already checked in (Token #${existingActive.tokenNumber}). Must checkout previous visit before re-checking in.`,
+      );
       return;
     }
 
@@ -468,6 +500,41 @@ export function CheckInWorkstationView() {
     });
   };
 
+  // Format minutes into human-readable hours and minutes (e.g. 4h 32m instead of 272m)
+  const formatMinutes = (mins: number) => {
+    const abs = Math.abs(mins);
+    if (abs < 60) {
+      return isBn ? `${toBnNum(abs)} মি.` : `${abs}m`;
+    }
+    const h = Math.floor(abs / 60);
+    const m = abs % 60;
+    if (m === 0) {
+      return isBn ? `${toBnNum(h)} ঘণ্টা` : `${h}h`;
+    }
+    return isBn ? `${toBnNum(h)} ঘণ্টা ${toBnNum(m)} মি.` : `${h}h ${m}m`;
+  };
+
+  // Helper renderer for priority badge with high-contrast colors for internal dashboard
+  const renderPriorityBadge = (p?: string | null) => {
+    if (p === 'emergency') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/40 animate-pulse shadow-xs">
+          <Flame className="w-3 h-3 text-rose-500 shrink-0" />
+          <span>{isBn ? 'জরুরি' : 'Emergency'}</span>
+        </span>
+      );
+    }
+    if (p === 'vip') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/40 shadow-xs">
+          <Sparkles className="w-3 h-3 text-amber-500 shrink-0" />
+          <span>{isBn ? 'ভিআইপি' : 'VIP'}</span>
+        </span>
+      );
+    }
+    return null;
+  };
+
   // Helper renderer for punctuality badge
   const renderPunctualityBadge = (
     status?: PunctualityStatus | null,
@@ -485,14 +552,16 @@ export function CheckInWorkstationView() {
 
     if (status === 'on_time') {
       const delay = delayMinutes ?? 0;
-      const text =
-        delay <= 0
-          ? isBn
-            ? `🟢 যথাসময়ে (${toBnNum(Math.abs(delay))} মি. আগে)`
-            : `🟢 On Time (${Math.abs(delay)}m early)`
-          : isBn
-          ? `🟢 যথাসময়ে (+${toBnNum(delay)} মি.)`
-          : `🟢 On Time (+${delay}m)`;
+      let text = isBn ? '🟢 যথাসময়ে' : '🟢 On Time';
+      if (delay < -5) {
+        text = isBn
+          ? `🟢 যথাসময়ে (${formatMinutes(delay)} আগে)`
+          : `🟢 On Time (${formatMinutes(delay)} early)`;
+      } else if (delay > 0) {
+        text = isBn
+          ? `🟢 যথাসময়ে (+${formatMinutes(delay)})`
+          : `🟢 On Time (+${formatMinutes(delay)})`;
+      }
       return (
         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[10px] sm:text-xs font-mono font-bold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
           <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
@@ -503,7 +572,7 @@ export function CheckInWorkstationView() {
 
     if (status === 'moderate_delay') {
       const delay = delayMinutes ?? 0;
-      const text = isBn ? `🟡 মাঝারি দেরি (+${toBnNum(delay)} মি.)` : `🟡 Late (+${delay}m)`;
+      const text = isBn ? `🟡 মাঝারি দেরি (+${formatMinutes(delay)})` : `🟡 Late (+${formatMinutes(delay)})`;
       return (
         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[10px] sm:text-xs font-mono font-bold bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30">
           <span className="w-2 h-2 rounded-full bg-amber-500"></span>
@@ -514,7 +583,7 @@ export function CheckInWorkstationView() {
 
     if (status === 'critical_delay') {
       const delay = delayMinutes ?? 0;
-      const text = isBn ? `🔴 অতিরিক্ত বিলম্ব (+${toBnNum(delay)} মি.)` : `🔴 Severe Delay (+${delay}m)`;
+      const text = isBn ? `🔴 অতিরিক্ত বিলম্ব (+${formatMinutes(delay)})` : `🔴 Severe Delay (+${formatMinutes(delay)})`;
       return (
         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[10px] sm:text-xs font-mono font-bold bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30 animate-pulse">
           <span className="w-2 h-2 rounded-full bg-rose-500"></span>
@@ -1006,15 +1075,46 @@ export function CheckInWorkstationView() {
 
               {/* Submit Button */}
               <div className="pt-2">
+                {activeExistingVisit && (
+                  <div className="mb-3 p-3 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300 text-xs flex items-start gap-2.5">
+                    <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
+                    <div className="space-y-1">
+                      <div className="font-bold flex items-center gap-1.5">
+                        <span>{isBn ? 'এই রোগী ইতিমধ্যে চেক-ইন আছেন' : 'Patient Already Checked In'}</span>
+                        <span className="font-mono px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-800 dark:text-amber-200">
+                          #{toBnNum(activeExistingVisit.tokenNumber)}
+                        </span>
+                      </div>
+                      <div className="text-[11px] leading-relaxed">
+                        {isBn
+                          ? `বর্তমান অবস্থান: ${getLocationDisplay(activeExistingVisit.currentLocation, activeExistingVisit.status).label} • বর্তমান ভিজিট সম্পন্ন বা চেক-আউট না করা পর্যন্ত পুনরায় চেক-ইন করা যাবে না।`
+                          : `Current Location: ${getLocationDisplay(activeExistingVisit.currentLocation, activeExistingVisit.status).label} • Must checkout or complete active visit before re-checking in.`}
+                      </div>
+                    </div>
+                  </div>
+                )}
                 <Button
                   onClick={() => handlePerformCheckIn()}
-                  disabled={!selectedPatient || isPending}
-                  className="w-full h-11 text-sm font-bold bg-emerald-600 hover:bg-emerald-700 text-white gap-2 shadow-sm cursor-pointer active:scale-95 transition-all"
+                  disabled={!selectedPatient || isPending || Boolean(activeExistingVisit)}
+                  className={`w-full h-11 text-sm font-bold gap-2 shadow-sm transition-all ${
+                    activeExistingVisit
+                      ? 'bg-muted text-muted-foreground cursor-not-allowed opacity-75'
+                      : 'bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer active:scale-95'
+                  }`}
                 >
                   {isPending ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
                       <span>{isBn ? 'চেক-ইন প্রক্রিয়াধীন...' : 'Processing Check-in...'}</span>
+                    </>
+                  ) : activeExistingVisit ? (
+                    <>
+                      <AlertTriangle className="w-4 h-4" />
+                      <span>
+                        {isBn
+                          ? `ইতিমধ্যে চেক-ইন আছেন (টোকেন #${toBnNum(activeExistingVisit.tokenNumber)})`
+                          : `Already Checked In (Token #${activeExistingVisit.tokenNumber})`}
+                      </span>
                     </>
                   ) : (
                     <>
@@ -1128,6 +1228,14 @@ export function CheckInWorkstationView() {
                 {displayedTodayBookings.map((b) => {
                   const isAttended = b.status === 'attended';
                   const liveForecast = !isAttended && b.toldTime ? calculatePunctuality(b.toldTime, new Date()) : null;
+                  const existingActiveVisit = (data?.recentCheckIns || []).find(
+                    (v) =>
+                      (v.patientId === b.patientId || v.patient?.id === b.patientId) &&
+                      v.status !== 'checked_out' &&
+                      v.status !== 'completed' &&
+                      v.status !== 'cancelled',
+                  );
+                  const isPatientCheckedIn = Boolean(existingActiveVisit);
 
                   return (
                     <div
@@ -1135,6 +1243,8 @@ export function CheckInWorkstationView() {
                       className={`p-3.5 rounded-xl border transition-all flex flex-col justify-between space-y-3 ${
                         isAttended
                           ? 'border-border/40 bg-muted/20 opacity-80'
+                          : isPatientCheckedIn
+                          ? 'border-amber-500/40 bg-amber-500/5 shadow-2xs'
                           : 'border-border/60 bg-card hover:border-emerald-500/50 shadow-2xs'
                       }`}
                     >
@@ -1146,6 +1256,10 @@ export function CheckInWorkstationView() {
                           {isAttended ? (
                             <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 text-[10px]">
                               {isBn ? 'উপস্থিত' : 'Attended'}
+                            </Badge>
+                          ) : isPatientCheckedIn ? (
+                            <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/40 text-[10px] font-mono">
+                              {isBn ? `ইতিমধ্যে চেক-ইন #${toBnNum(existingActiveVisit?.tokenNumber ?? '')}` : `Checked In #${existingActiveVisit?.tokenNumber}`}
                             </Badge>
                           ) : (
                             <Badge variant="outline" className="text-[10px] text-amber-600 border-amber-500/40">
@@ -1186,15 +1300,26 @@ export function CheckInWorkstationView() {
                       {/* 1-click Check-In Button + Cancel Button */}
                       {!isAttended && (
                         <div className="flex items-center gap-2 pt-1">
-                          <Button
-                            size="sm"
-                            onClick={() => handlePerformCheckIn(b.patientId, b.id, b.toldTime || undefined)}
-                            disabled={isPending}
-                            className="flex-1 h-8 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 cursor-pointer active:scale-95"
-                          >
-                            <UserCheck className="w-3.5 h-3.5" />
-                            <span>{isBn ? 'এখনই চেক-ইন করুন' : 'Check In Now'}</span>
-                          </Button>
+                          {isPatientCheckedIn ? (
+                            <div className="flex-1 h-8 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-300 text-xs font-semibold flex items-center justify-center gap-1.5 px-2">
+                              <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                              <span className="truncate">
+                                {isBn
+                                  ? `ইতিমধ্যে চেক-ইন আছেন (টোকেন #${toBnNum(existingActiveVisit?.tokenNumber ?? '')})`
+                                  : `Already Checked In (#${existingActiveVisit?.tokenNumber})`}
+                              </span>
+                            </div>
+                          ) : (
+                            <Button
+                              size="sm"
+                              onClick={() => handlePerformCheckIn(b.patientId, b.id, b.toldTime || undefined)}
+                              disabled={isPending}
+                              className="flex-1 h-8 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 cursor-pointer active:scale-95"
+                            >
+                              <UserCheck className="w-3.5 h-3.5" />
+                              <span>{isBn ? 'এখনই চেক-ইন করুন' : 'Check In Now'}</span>
+                            </Button>
+                          )}
                           <Button
                             type="button"
                             size="sm"
@@ -1347,7 +1472,10 @@ export function CheckInWorkstationView() {
                     {data?.recentCheckIns.map((v) => (
                       <tr key={v.id} className="hover:bg-muted/20 transition-colors">
                         <td className="py-2.5 px-3 font-mono font-black text-emerald-600 dark:text-emerald-400 text-sm">
-                          #{toBnNum(v.tokenNumber)}
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span>#{toBnNum(v.tokenNumber)}</span>
+                            {renderPriorityBadge(v.priority)}
+                          </div>
                         </td>
                         <td className="py-2.5 px-3">
                           <div className="font-bold text-foreground">
@@ -1652,11 +1780,14 @@ export function CheckInWorkstationView() {
                   >
                     {/* Top Row: Token & Current Location Badge */}
                     <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-[10px] uppercase font-bold text-muted-foreground">টোকেন</span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-[10px] uppercase font-bold text-muted-foreground">
+                          {isBn ? 'টোকেন' : 'Token'}
+                        </span>
                         <span className="font-mono font-black text-emerald-600 dark:text-emerald-400 text-base px-2 py-0.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
                           #{toBnNum(v.tokenNumber)}
                         </span>
+                        {renderPriorityBadge(v.priority)}
                       </div>
 
                       <div

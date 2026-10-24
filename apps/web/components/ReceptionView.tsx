@@ -330,9 +330,21 @@ export default function ReceptionView() {
                       {todayVisits.map((v) => (
                         <tr key={v.id} className="hover:bg-muted/30 transition-colors">
                           <td className="p-3">
-                            <span className="font-extrabold text-emerald-600 text-sm sm:text-base">
-                              #{v.tokenNumber}
-                            </span>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="font-extrabold text-emerald-600 text-sm sm:text-base">
+                                #{v.tokenNumber}
+                              </span>
+                              {v.priority === 'emergency' && (
+                                <Badge variant="destructive" className="text-[10px] uppercase font-bold animate-pulse px-1.5 py-0.5 bg-rose-500 text-white">
+                                  🚨 Emergency
+                                </Badge>
+                              )}
+                              {v.priority === 'vip' && (
+                                <Badge className="text-[10px] uppercase font-bold bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/40 px-1.5 py-0.5">
+                                  ⭐ VIP
+                                </Badge>
+                              )}
+                            </div>
                           </td>
                           <td className="p-3">
                             <div className="font-bold text-foreground">{v.patient?.nameEn}</div>

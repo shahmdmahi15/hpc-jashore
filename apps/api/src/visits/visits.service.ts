@@ -135,9 +135,29 @@ export class VisitsService {
     if (!patient) throw new NotFoundException('Patient not found');
 
     const year = new Date().getFullYear();
-    const tokenNumber = await this.nextTokenNumber(year);
     const today = todayDateString();
     const now = new Date().toISOString();
+
+    // Strict requirement: When a patient is already checked in, they cannot be re-checked in until checkout!
+    const activeVisit = await this.db
+      .select()
+      .from(visits)
+      .where(
+        and(
+          eq(visits.patientId, patient.id),
+          eq(visits.visitDate, today),
+          sql`${visits.status} NOT IN ('checked_out', 'completed', 'cancelled')`,
+        ),
+      )
+      .limit(1);
+
+    if (activeVisit.length > 0) {
+      throw new BadRequestException(
+        `এই রোগী ইতিমধ্যে আজ চেক-ইন আছেন (টোকেন #${activeVisit[0].tokenNumber})। পুনরায় চেক-ইন করার পূর্বে আগের ভিজিটটি চেক-আউট সম্পন্ন করতে হবে। (Patient is already checked in with Token #${activeVisit[0].tokenNumber}. Must checkout before re-checking in.)`,
+      );
+    }
+
+    const tokenNumber = await this.nextTokenNumber(year);
 
     // Find if there is an active therapy slot booking for this patient today
     let activeBooking = null;
