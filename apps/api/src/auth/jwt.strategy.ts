@@ -1,15 +1,16 @@
-import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
+import { ForbiddenException, Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { eq } from 'drizzle-orm';
 import { DB, type Db } from '../db/db.module';
-import { refreshSessions, users } from '../db/schema';
+import { refreshSessions, staff, users } from '../db/schema';
 import type { RequestUser } from '../rbac/current-user.decorator';
 
-// Validates 30-day session tokens: { sub, email, role, staffId, sid, type:'access' }.
-// Enforces server-based stateful validation: checks database for active status, non-revoked session,
+// Validates stateful session tokens: { sid, type:'access' }.
+// Enforces 100% server-based stateful validation: checks database for active session,
+// retrieves user record & role directly from DB in real-time,
 // and auto-revokes if client fingerprint or User-Agent is mismatched.
 @Injectable()
 export class AccessStrategy extends PassportStrategy(Strategy, 'jwt-access') {
@@ -26,66 +27,76 @@ export class AccessStrategy extends PassportStrategy(Strategy, 'jwt-access') {
   }
 
   async validate(req: any, payload: Record<string, unknown>): Promise<RequestUser> {
-    if (payload.type !== 'access' || typeof payload.sub !== 'string') {
-      throw new UnauthorizedException('Invalid access token');
+    if (payload.type !== 'access' || typeof payload.sid !== 'string') {
+      throw new UnauthorizedException('Invalid access token: missing session token');
     }
 
-    // Stateful Session verification: If sid (session id) is present, verify session is active in DB
-    if (typeof payload.sid === 'string' && payload.sid) {
-      const [session] = await this.db
-        .select()
-        .from(refreshSessions)
-        .where(eq(refreshSessions.id, payload.sid));
+    const sid = payload.sid;
 
-      if (!session) {
-        throw new UnauthorizedException('Login session not found in database');
-      }
+    // Fully server-based stateful validation:
+    // 1. Session exists in database and is not revoked or expired
+    const [session] = await this.db
+      .select()
+      .from(refreshSessions)
+      .where(eq(refreshSessions.id, sid));
 
-      if (session.revokedAt !== null) {
-        throw new UnauthorizedException('Login session has been revoked by an administrator');
-      }
-
-      if (new Date(session.expiresAt).getTime() < Date.now()) {
-        throw new UnauthorizedException('Login session has expired');
-      }
-
-      // Security Check: Fingerprint & User-Agent verification.
-      // Auto-revokes session immediately upon hijacking attempt / tampering.
-      const incomingUa = (req?.headers?.['user-agent'] as string | undefined)?.trim();
-      const incomingFingerprint = (
-        (req?.headers?.['x-client-fingerprint'] as string | undefined) ||
-        (req?.headers?.['x-fingerprint'] as string | undefined)
-      )?.trim();
-
-      if (session.userAgent && incomingUa && session.userAgent !== incomingUa) {
-        await this.db
-          .update(refreshSessions)
-          .set({ revokedAt: new Date().toISOString() })
-          .where(eq(refreshSessions.id, session.id));
-        throw new UnauthorizedException('Security Alert: Session automatically revoked due to User-Agent mismatch');
-      }
-
-      if (session.fingerprint && incomingFingerprint && session.fingerprint !== incomingFingerprint) {
-        await this.db
-          .update(refreshSessions)
-          .set({ revokedAt: new Date().toISOString() })
-          .where(eq(refreshSessions.id, session.id));
-        throw new UnauthorizedException('Security Alert: Session automatically revoked due to device fingerprint mismatch');
-      }
+    if (!session) {
+      throw new UnauthorizedException('Login session not found in database or has been deleted');
     }
 
-    // Server-based Stateful Verification: Verify user exists and is active in DB
-    const [user] = await this.db.select().from(users).where(eq(users.id, payload.sub));
+    if (session.revokedAt !== null) {
+      throw new UnauthorizedException('Login session has been revoked');
+    }
+
+    if (new Date(session.expiresAt).getTime() < Date.now()) {
+      throw new UnauthorizedException('Login session has expired');
+    }
+
+    // 2. Anti-hijacking security checks
+    const incomingUa = (req?.headers?.['user-agent'] as string | undefined)?.trim();
+    const incomingFingerprint = (
+      (req?.headers?.['x-client-fingerprint'] as string | undefined) ||
+      (req?.headers?.['x-fingerprint'] as string | undefined)
+    )?.trim();
+
+    if (session.userAgent && incomingUa && session.userAgent !== incomingUa) {
+      await this.db
+        .update(refreshSessions)
+        .set({ revokedAt: new Date().toISOString() })
+        .where(eq(refreshSessions.id, session.id));
+      throw new UnauthorizedException('Security Alert: Session automatically revoked due to User-Agent mismatch');
+    }
+
+    if (session.fingerprint && incomingFingerprint && session.fingerprint !== incomingFingerprint) {
+      await this.db
+        .update(refreshSessions)
+        .set({ revokedAt: new Date().toISOString() })
+        .where(eq(refreshSessions.id, session.id));
+      throw new UnauthorizedException('Security Alert: Session automatically revoked due to device fingerprint mismatch');
+    }
+
+    // 3. User verification dynamically from database
+    const [user] = await this.db.select().from(users).where(eq(users.id, session.userId));
     if (!user || user.isActive !== 1) {
       throw new UnauthorizedException('User account has been deactivated, revoked, or no longer exists');
     }
 
+    if (user.isApproved !== 1 || user.approvalStatus !== 'approved') {
+      throw new ForbiddenException('User account is pending administrator approval or has been revoked');
+    }
+
+    // 4. Staff verification dynamically from database
+    const [staffRow] = await this.db
+      .select()
+      .from(staff)
+      .where(eq(staff.userId, user.id));
+
     return {
       sub: user.id,
       email: user.email,
-      role: user.role,
-      staffId:
-        typeof payload.staffId === 'string' ? payload.staffId : null,
+      role: user.role, // Live, realtime role from database! Instant reflection!
+      staffId: staffRow?.id ?? null,
+      sid: session.id,
     };
   }
 }

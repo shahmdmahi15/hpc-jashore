@@ -185,6 +185,16 @@ export default function UsersAndDeviceManagementView() {
     language: 'bn' as 'bn' | 'en',
   });
 
+  // State - Edit Paired / Pending TV
+  const [editingTv, setEditingTv] = useState<TvDeviceRecord | null>(null);
+  const [editTvForm, setEditTvForm] = useState({
+    deviceName: '',
+    location: '',
+    department: 'ALL' as 'ALL' | 'CONSULTATION' | 'THERAPY',
+    theme: 'dark' as 'dark' | 'light',
+    language: 'bn' as 'bn' | 'en',
+  });
+
   // Load all initial data
   const loadData = async () => {
     setLoading(true);
@@ -207,13 +217,6 @@ export default function UsersAndDeviceManagementView() {
 
   useEffect(() => {
     loadData();
-    const interval = setInterval(() => {
-      // Background poll to keep online status indicator updated
-      listTvDevicesAction().then((tvRes) => {
-        if (tvRes.success && tvRes.data) setTvDevices(tvRes.data);
-      });
-    }, 10000);
-    return () => clearInterval(interval);
   }, []);
 
   useRealtime((event) => {
@@ -419,6 +422,64 @@ export default function UsersAndDeviceManagementView() {
         });
       } else {
         toast.error(res.error || (isBn ? 'টিভি পেয়ারিং ব্যর্থ হয়েছে' : 'Failed to pair TV device'));
+      }
+    });
+  };
+
+  // Direct Pair for pending TV
+  const handleDirectPairPendingTv = async (tv: TvDeviceRecord) => {
+    startTransition(async () => {
+      const res = await pairTvDeviceAction({
+        pairingCode: tv.pairingCode.trim().toUpperCase(),
+        deviceName: tv.deviceName || `TV Display ${tv.pairingCode}`,
+        location: tv.location || undefined,
+        department: tv.department || 'ALL',
+        theme: tv.theme || 'dark',
+        language: tv.language || 'bn',
+      });
+      if (res.success && res.data) {
+        toast.success(isBn ? 'টিভি স্ক্রিন সফলভাবে পেয়ার ও সক্রিয় হয়েছে!' : 'TV display paired and activated!');
+        setTvDevices((prev) => prev.map((item) => (item.id === res.data!.id ? res.data! : item)));
+      } else {
+        toast.error(res.error || (isBn ? 'টিভি পেয়ারিং ব্যর্থ হয়েছে' : 'Failed to pair TV device'));
+      }
+    });
+  };
+
+  // Open Edit TV modal
+  const handleOpenEditTv = (tv: TvDeviceRecord) => {
+    setEditingTv(tv);
+    setEditTvForm({
+      deviceName: tv.deviceName || '',
+      location: tv.location || '',
+      department: tv.department || 'ALL',
+      theme: tv.theme || 'dark',
+      language: tv.language || 'bn',
+    });
+  };
+
+  // Save Edit TV
+  const handleSaveEditTv = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingTv) return;
+    if (!editTvForm.deviceName.trim()) {
+      toast.error(isBn ? 'স্ক্রিনের নাম আবশ্যক' : 'Screen name is required');
+      return;
+    }
+    startTransition(async () => {
+      const res = await updateTvDeviceAction(editingTv.id, {
+        deviceName: editTvForm.deviceName.trim(),
+        location: editTvForm.location.trim() || undefined,
+        department: editTvForm.department,
+        theme: editTvForm.theme,
+        language: editTvForm.language,
+      });
+      if (res.success && res.data) {
+        toast.success(isBn ? 'টিভি স্ক্রিনের তথ্য সফলভাবে সংরক্ষিত হয়েছে' : 'TV screen updated successfully');
+        setTvDevices((prev) => prev.map((item) => (item.id === res.data!.id ? res.data! : item)));
+        setEditingTv(null);
+      } else {
+        toast.error(res.error || (isBn ? 'টিভি তথ্য আপডেট ব্যর্থ হয়েছে' : 'Failed to update TV device'));
       }
     });
   };
@@ -1210,7 +1271,33 @@ export default function UsersAndDeviceManagementView() {
                       </div>
 
                       {/* Action Buttons */}
-                      <div className="flex items-center justify-end gap-1.5 pt-1">
+                      <div className="flex flex-wrap items-center justify-end gap-1.5 pt-1">
+                        {!isPaired && tv.status === 'pending' && (
+                          <Button
+                            variant="default"
+                            size="sm"
+                            onClick={() => handleDirectPairPendingTv(tv)}
+                            disabled={isPending}
+                            className="h-8 px-3 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-xs cursor-pointer"
+                            title={isBn ? 'এই স্ক্রিনটি পেয়ার ও সক্রিয় করুন' : 'Pair and activate this TV screen'}
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
+                            <span>{isBn ? 'পেয়ার করুন' : 'Pair Now'}</span>
+                          </Button>
+                        )}
+
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleOpenEditTv(tv)}
+                          disabled={isPending}
+                          className="h-8 px-2.5 rounded-lg text-xs font-semibold text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10 cursor-pointer"
+                          title={isBn ? 'স্ক্রিনের নাম ও অবস্থান সম্পাদনা করুন' : 'Edit screen name and location'}
+                        >
+                          <Edit2 className="w-3.5 h-3.5 mr-1" />
+                          <span>{isBn ? 'সম্পাদনা' : 'Edit'}</span>
+                        </Button>
+
                         {isPaired && (
                           <Button
                             variant={tv.forceUpdate === 1 ? 'default' : 'outline'}
@@ -1713,6 +1800,134 @@ export default function UsersAndDeviceManagementView() {
                 className="rounded-xl h-9 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs"
               >
                 {isPending ? (isBn ? 'পেয়ারিং হচ্ছে...' : 'Pairing...') : isBn ? 'টিভি সংযোগ করুন' : 'Pair & Activate'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* ========================================================================= */}
+      {/* MODAL 4: EDIT TV SCREEN (NAME & LOCATION) */}
+      {/* ========================================================================= */}
+      <Dialog open={Boolean(editingTv)} onOpenChange={(open) => !open && setEditingTv(null)}>
+        <DialogContent className="sm:max-w-[480px] rounded-2xl bg-card/95 backdrop-blur-xl border-border/80 shadow-2xl">
+          <form onSubmit={handleSaveEditTv} autoComplete="off" data-lpignore="true" data-1p-ignore="true">
+            <DialogHeader>
+              <DialogTitle className="text-lg font-bold flex items-center gap-2 text-foreground">
+                <Tv className="w-5 h-5 text-emerald-500" />
+                <span>{isBn ? 'টিভি স্ক্রিন তথ্য সম্পাদনা' : 'Edit TV Screen Details'}</span>
+              </DialogTitle>
+              <DialogDescription className="text-xs text-muted-foreground">
+                {isBn
+                  ? `স্ক্রিনের নাম ও অবস্থান পরিবর্তন করুন (পেয়ারিং কোড: ${editingTv?.pairingCode})`
+                  : `Update display name and physical location (Pairing Code: ${editingTv?.pairingCode})`}
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 py-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold text-muted-foreground">
+                  {isBn ? 'পেয়ারিং কোড' : 'Pairing Code'}
+                </Label>
+                <div className="px-3 py-2 rounded-xl bg-muted/50 border border-border/60 font-mono font-bold text-sm text-foreground">
+                  {editingTv?.pairingCode}
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold">{isBn ? 'ডিসপ্লে বা টিভির নাম' : 'Device Name'} *</Label>
+                <Input
+                  required
+                  placeholder={isBn ? 'যেমন: মেইন ওয়েটিং লাউঞ্জ টিভি' : 'e.g. Main Waiting Lounge TV'}
+                  value={editTvForm.deviceName}
+                  onChange={(e) => setEditTvForm({ ...editTvForm, deviceName: e.target.value })}
+                  className="rounded-xl h-10 text-xs sm:text-sm"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold">{isBn ? 'শারীরিক অবস্থান / রুম' : 'Physical Location / Room'}</Label>
+                <Input
+                  placeholder={isBn ? 'যেমন: নিচতলা ওয়েটিং হল / রুম ১০১ এর সামনে' : 'e.g. Ground Floor Waiting Hall / Near Room 101'}
+                  value={editTvForm.location}
+                  onChange={(e) => setEditTvForm({ ...editTvForm, location: e.target.value })}
+                  className="rounded-xl h-10 text-xs sm:text-sm"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-bold">{isBn ? 'কিউ বিভাগ' : 'Department'}</Label>
+                  <Select
+                    value={editTvForm.department}
+                    onValueChange={(val: 'ALL' | 'CONSULTATION' | 'THERAPY') =>
+                      setEditTvForm({ ...editTvForm, department: val })
+                    }
+                  >
+                    <SelectTrigger className="h-10 text-xs rounded-xl">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-popover/95 backdrop-blur-md border-border/80 shadow-xl">
+                      <SelectItem value="ALL">{isBn ? 'উভয় কিউ' : 'Both'}</SelectItem>
+                      <SelectItem value="CONSULTATION">{isBn ? 'ডাক্তার' : 'Doctor'}</SelectItem>
+                      <SelectItem value="THERAPY">{isBn ? 'থেরাপি' : 'Therapy'}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-bold">{isBn ? 'থিম' : 'Theme'}</Label>
+                  <Select
+                    value={editTvForm.theme}
+                    onValueChange={(val: 'dark' | 'light') =>
+                      setEditTvForm({ ...editTvForm, theme: val })
+                    }
+                  >
+                    <SelectTrigger className="h-10 text-xs rounded-xl">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-popover/95 backdrop-blur-md border-border/80 shadow-xl">
+                      <SelectItem value="dark">🌙 Dark</SelectItem>
+                      <SelectItem value="light">☀️ Light</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-bold">{isBn ? 'ভাষা' : 'Language'}</Label>
+                  <Select
+                    value={editTvForm.language}
+                    onValueChange={(val: 'bn' | 'en') =>
+                      setEditTvForm({ ...editTvForm, language: val })
+                    }
+                  >
+                    <SelectTrigger className="h-10 text-xs rounded-xl">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-popover/95 backdrop-blur-md border-border/80 shadow-xl">
+                      <SelectItem value="bn">🇧🇩 বাংলা</SelectItem>
+                      <SelectItem value="en">🇬🇧 English</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setEditingTv(null)}
+                className="rounded-xl h-9 text-xs"
+              >
+                {isBn ? 'বাতিল' : 'Cancel'}
+              </Button>
+              <Button
+                type="submit"
+                disabled={isPending}
+                className="rounded-xl h-9 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs"
+              >
+                {isPending ? (isBn ? 'সংরক্ষণ হচ্ছে...' : 'Saving...') : isBn ? 'পরিবর্তন সংরক্ষণ করুন' : 'Save Changes'}
               </Button>
             </DialogFooter>
           </form>

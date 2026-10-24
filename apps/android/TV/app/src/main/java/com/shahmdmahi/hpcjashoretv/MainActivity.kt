@@ -167,154 +167,165 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            // Unpaired flow: register with server and poll status
-            LaunchedEffect(pairingCode, isPaired) {
-                if (!isPaired) {
+            // -----------------------------------------------------------------
+            // Pure Real-Time Streaming Flow (Zero Polling)
+            // -----------------------------------------------------------------
+
+            // Registration on boot
+            LaunchedEffect(pairingCode) {
+                withContext(Dispatchers.IO) {
+                    registerTvWithServer(pairingCode, "0.1.39")
+                }
+            }
+
+            // Real-Time Persistent SSE Event Stream (for instant pairing, queue & call updates)
+            LaunchedEffect(pairingCode) {
+                while (isActive) {
                     withContext(Dispatchers.IO) {
-                        registerTvWithServer(pairingCode, "0.1.32")
-                    }
-                    while (!isPaired && isActive) {
-                        withContext(Dispatchers.IO) {
-                            checkTvPairingStatus(pairingCode) { status, name, dept, token, theme, lang ->
-                                if (status == "paired") {
-                                    val wantsDark = (theme?.lowercase() != "light")
-                                    val resolvedLang = if (lang == "en") "en" else "bn"
-                                    prefs.edit()
-                                        .putBoolean("is_paired", true)
-                                        .putString("device_name", name ?: "TV Display")
-                                        .putString("assigned_department", dept ?: "ALL")
-                                        .putString("secret_token", token ?: "")
-                                        .putBoolean("is_dark_theme", wantsDark)
-                                        .putString("language", resolvedLang)
-                                        .apply()
-                                    launch(Dispatchers.Main) {
-                                        deviceName = name ?: "TV Display"
-                                        assignedDepartment = dept ?: "ALL"
+                        streamTvRealtimeEvents(pairingCode) { type, payload ->
+                            if (type == "tv:paired") {
+                                val wantsDark = (payload.optString("theme", "dark").lowercase() != "light")
+                                val resolvedLang = if (payload.optString("language", "bn") == "en") "en" else "bn"
+                                val name = payload.optString("deviceName", "TV Display")
+                                val dept = payload.optString("department", "ALL")
+                                val token = payload.optString("secretToken", "")
+                                prefs.edit()
+                                    .putBoolean("is_paired", true)
+                                    .putString("device_name", name)
+                                    .putString("assigned_department", dept)
+                                    .putString("secret_token", token)
+                                    .putBoolean("is_dark_theme", wantsDark)
+                                    .putString("language", resolvedLang)
+                                    .apply()
+                                deviceName = name
+                                assignedDepartment = dept
+                                isDarkTheme = wantsDark
+                                currentLanguage = resolvedLang
+                                isPaired = true
+
+                                // Fetch initial queue & bulletins upon pairing
+                                fetchQueueSnapshot { docWait, thWait, calledPat ->
+                                    waitingDoctorList = docWait
+                                    waitingTherapyList = thWait
+                                    if (calledPat != null && calledPat.serialNumber != lastCalledSerial) {
+                                        lastCalledSerial = calledPat.serialNumber
+                                        activeCallAlert = calledPat
+                                        speakChamberCall(calledPat)
+                                    }
+                                }
+                                fetchTvBulletins { bulletins ->
+                                    liveBulletins = bulletins
+                                }
+                            } else if (type == "tv:revoked" || type == "tv:deleted") {
+                                prefs.edit().putBoolean("is_paired", false).apply()
+                                isPaired = false
+                            } else if (type == "tv:updated") {
+                                val newName = payload.optString("deviceName", "")
+                                val newDept = payload.optString("department", "")
+                                val newTheme = payload.optString("theme", "")
+                                val newLang = payload.optString("language", "")
+                                if (newName.isNotEmpty() && newName != deviceName) {
+                                    deviceName = newName
+                                    prefs.edit().putString("device_name", deviceName).apply()
+                                }
+                                if (newDept.isNotEmpty() && newDept != assignedDepartment) {
+                                    assignedDepartment = newDept
+                                    prefs.edit().putString("assigned_department", assignedDepartment).apply()
+                                }
+                                if (newTheme.isNotEmpty()) {
+                                    val wantsDark = (newTheme.lowercase() != "light")
+                                    if (wantsDark != isDarkTheme) {
                                         isDarkTheme = wantsDark
-                                        currentLanguage = resolvedLang
-                                        isPaired = true
+                                        prefs.edit().putBoolean("is_dark_theme", isDarkTheme).apply()
+                                    }
+                                }
+                                if (newLang.isNotEmpty()) {
+                                    val resolved = if (newLang == "en") "en" else "bn"
+                                    if (resolved != currentLanguage) {
+                                        currentLanguage = resolved
+                                        prefs.edit().putString("language", currentLanguage).apply()
+                                    }
+                                }
+                            } else if (type.startsWith("queue.") || type.startsWith("visit.") ||
+                                       type.startsWith("consultation.") || type.startsWith("therapy.") ||
+                                       type.startsWith("serial.") || type.startsWith("call.")) {
+                                if (isPaired) {
+                                    fetchQueueSnapshot { docWait, thWait, calledPat ->
+                                        waitingDoctorList = docWait
+                                        waitingTherapyList = thWait
+                                        if (calledPat != null) {
+                                            if (calledPat.serialNumber != lastCalledSerial) {
+                                                lastCalledSerial = calledPat.serialNumber
+                                                activeCallAlert = calledPat
+                                                speakChamberCall(calledPat)
+                                            }
+                                        } else {
+                                            if (activeCallAlert != null) {
+                                                activeCallAlert = null
+                                                try { textToSpeech?.stop() } catch (_: Exception) {}
+                                            }
+                                        }
+                                    }
+                                }
+                            } else if (type.startsWith("bulletin.")) {
+                                if (isPaired) {
+                                    fetchTvBulletins { bulletins ->
+                                        liveBulletins = bulletins
                                     }
                                 }
                             }
                         }
-                        delay(1500)
+                    }
+                    delay(2000)
+                }
+            }
+
+            // Initial Snapshot Fetch Upon Paired Activation
+            LaunchedEffect(isPaired) {
+                if (isPaired) {
+                    withContext(Dispatchers.IO) {
+                        fetchQueueSnapshot { docWait, thWait, calledPat ->
+                            waitingDoctorList = docWait
+                            waitingTherapyList = thWait
+                            if (calledPat != null && calledPat.serialNumber != lastCalledSerial) {
+                                lastCalledSerial = calledPat.serialNumber
+                                activeCallAlert = calledPat
+                                speakChamberCall(calledPat)
+                            }
+                        }
+                        fetchTvBulletins { bulletins ->
+                            liveBulletins = bulletins
+                        }
                     }
                 }
             }
 
-            // Paired flow: Heartbeat check, bulletins & queue snapshot polling
+            // Dedicated Robust Heartbeat Loop (every 20 seconds, zero busy polling)
             LaunchedEffect(pairingCode, isPaired) {
                 if (isPaired) {
-                    var pollCounter = 0
                     while (isPaired && isActive) {
-                        // 1. Heartbeat check with instant revocation, department, theme, language, and force-update checks
-                        var shouldRevoke = false
-                        var newDept: String? = null
-                        var newName: String? = null
-                        var newTheme: String? = null
-                        var newLang: String? = null
-                        var shouldForceUpdate = false
-
                         withContext(Dispatchers.IO) {
-                            sendTvHeartbeat(pairingCode, "0.1.32") { isOk, status, dept, name, theme, lang, forceUpdate ->
+                            sendTvHeartbeat(pairingCode, "0.1.39") { isOk, status, dept, name, theme, lang, forceUpdate ->
                                 if (!isOk || status == "revoked" || status == "unregistered") {
-                                    shouldRevoke = true
+                                    launch(Dispatchers.Main) {
+                                        prefs.edit().putBoolean("is_paired", false).apply()
+                                        isPaired = false
+                                    }
                                 } else {
                                     if (forceUpdate) {
-                                        shouldForceUpdate = true
-                                    }
-                                    if (!dept.isNullOrBlank() && dept != assignedDepartment) {
-                                        newDept = dept
-                                    }
-                                    if (!name.isNullOrBlank() && name != deviceName) {
-                                        newName = name
-                                    }
-                                    if (!theme.isNullOrBlank()) {
-                                        val wantsDark = (theme.lowercase() == "dark")
-                                        if (wantsDark != isDarkTheme) {
-                                            newTheme = theme.lowercase()
-                                        }
-                                    }
-                                    if (!lang.isNullOrBlank() && (lang == "bn" || lang == "en") && lang != currentLanguage) {
-                                        newLang = lang
-                                    }
-                                }
-                            }
-                        }
-
-                        if (shouldRevoke) {
-                            withContext(Dispatchers.Main) {
-                                prefs.edit().putBoolean("is_paired", false).apply()
-                                isPaired = false
-                            }
-                            break
-                        }
-
-                        if (shouldForceUpdate) {
-                            withContext(Dispatchers.IO) {
-                                checkSelfUpdate { hasUpdate, latestVer, apkUrl, _ ->
-                                    if (apkUrl != null) {
-                                        updateNotice = "Force Updating to v$latestVer..."
-                                        downloadAndInstallApk(apkUrl)
-                                    }
-                                }
-                            }
-                        }
-
-                        if (newDept != null || newName != null || newTheme != null || newLang != null) {
-                            withContext(Dispatchers.Main) {
-                                if (newDept != null) {
-                                    assignedDepartment = newDept!!
-                                    prefs.edit().putString("assigned_department", assignedDepartment).apply()
-                                }
-                                if (newName != null) {
-                                    deviceName = newName!!
-                                    prefs.edit().putString("device_name", deviceName).apply()
-                                }
-                                if (newTheme != null) {
-                                    isDarkTheme = (newTheme == "dark")
-                                    prefs.edit().putBoolean("is_dark_theme", isDarkTheme).apply()
-                                }
-                                if (newLang != null) {
-                                    currentLanguage = newLang!!
-                                    prefs.edit().putString("language", currentLanguage).apply()
-                                }
-                            }
-                        }
-
-                        // 2. Queue Snapshot
-                        if (isPaired) {
-                            withContext(Dispatchers.IO) {
-                                fetchQueueSnapshot { docWait, thWait, calledPat ->
-                                    waitingDoctorList = docWait
-                                    waitingTherapyList = thWait
-                                    if (calledPat != null) {
-                                        if (calledPat.serialNumber != lastCalledSerial) {
-                                            lastCalledSerial = calledPat.serialNumber
-                                            activeCallAlert = calledPat
-                                            speakChamberCall(calledPat)
-                                        }
-                                    } else {
-                                        if (activeCallAlert != null) {
-                                            activeCallAlert = null
-                                            try { textToSpeech?.stop() } catch (_: Exception) {}
+                                        checkSelfUpdate { hasUpdate, latestVer, apkUrl, _ ->
+                                            if (apkUrl != null) {
+                                                launch(Dispatchers.Main) {
+                                                    updateNotice = "Force Updating to v$latestVer..."
+                                                }
+                                                downloadAndInstallApk(apkUrl)
+                                            }
                                         }
                                     }
                                 }
                             }
                         }
-
-                        // 3. Bulletins (every ~10 seconds)
-                        if (isPaired && (pollCounter % 5 == 0)) {
-                            withContext(Dispatchers.IO) {
-                                fetchTvBulletins { bulletins ->
-                                    liveBulletins = bulletins
-                                }
-                            }
-                        }
-                        pollCounter++
-
-                        delay(1500)
+                        delay(20000)
                     }
                 }
             }
@@ -875,6 +886,58 @@ class MainActivity : ComponentActivity() {
         } catch (_: Exception) {}
     }
 
+    private fun streamTvRealtimeEvents(
+        pairingCode: String,
+        onEvent: (type: String, payload: JSONObject) -> Unit
+    ) {
+        var conn: HttpURLConnection? = null
+        try {
+            val url = URL("https://hpc.toufiquzzaman.com/api/sse/feed?pairingCode=$pairingCode")
+            conn = url.openConnection() as HttpURLConnection
+            conn.setRequestProperty("Accept", "text/event-stream")
+            conn.setRequestProperty("Cache-Control", "no-cache")
+            conn.connectTimeout = 10000
+            conn.readTimeout = 60000
+            conn.doInput = true
+            conn.connect()
+
+            if (conn.responseCode == 200) {
+                val reader = conn.inputStream.bufferedReader()
+                var currentEvent = "message"
+                val dataBuffer = StringBuilder()
+
+                while (true) {
+                    val line = reader.readLine() ?: break
+                    if (line.startsWith("event:")) {
+                        currentEvent = line.substring(6).trim()
+                    } else if (line.startsWith("data:")) {
+                        val d = line.substring(5).trim()
+                        if (dataBuffer.isNotEmpty()) dataBuffer.append("\n")
+                        dataBuffer.append(d)
+                    } else if (line.isEmpty()) {
+                        if (dataBuffer.isNotEmpty()) {
+                            val rawData = dataBuffer.toString()
+                            dataBuffer.setLength(0)
+                            try {
+                                val json = JSONObject(rawData)
+                                val type = json.optString("type", currentEvent)
+                                val payload = json.optJSONObject("payload") ?: json
+                                android.os.Handler(android.os.Looper.getMainLooper()).post {
+                                    onEvent(type, payload)
+                                }
+                            } catch (_: Exception) {}
+                        }
+                        currentEvent = "message"
+                    }
+                }
+            }
+        } catch (_: Exception) {
+            // Stream disconnected or error
+        } finally {
+            try { conn?.disconnect() } catch (_: Exception) {}
+        }
+    }
+
     private fun checkTvPairingStatus(
         pairingCode: String,
         onStatus: (status: String, deviceName: String?, department: String?, secretToken: String?, theme: String?, language: String?) -> Unit
@@ -1424,7 +1487,7 @@ fun TvPairingScreen(
 
         // 3. Footer
         Text(
-            text = "Health & Pain Care Center · Jashore • Hardware Station ID: $pairingCode • Version 0.1.32",
+            text = "Health & Pain Care Center · Jashore • Hardware Station ID: $pairingCode • Version 0.1.39",
             color = textMutedColor,
             fontSize = 11.sp,
             fontFamily = FontFamily.Monospace

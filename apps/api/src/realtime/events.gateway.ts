@@ -13,10 +13,10 @@ import { Server, Socket } from 'socket.io';
 import { Inject } from '@nestjs/common';
 import { and, eq } from 'drizzle-orm';
 import { DB, type Db } from '../db/db.module';
-import { shifts } from '../db/schema';
+import { refreshSessions, shifts, staff, users } from '../db/schema';
 
 // Socket.IO gateway: slim events only ({ id, ...refs }); clients refetch REST.
-// Rooms: clinic:global, role:{role}, doctor:{staffId}, room:{deskRoomId}, patient:{mrn}.
+// Rooms: clinic:global, role:{role}, user:{userId}, tv:{pairingCode}, doctor:{staffId}, room:{deskRoomId}.
 @WebSocketGateway({ cors: { origin: true, credentials: true }, path: '/socket.io' })
 export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
@@ -34,7 +34,7 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
       const payload = await this.jwt.verifyAsync<Record<string, unknown>>(token, {
         secret: this.config.getOrThrow<string>('jwt.accessSecret'),
       });
-      if (payload.type !== 'access') return null;
+      if (payload.type !== 'access' || typeof payload.sid !== 'string') return null;
       return payload;
     } catch {
       return null;
@@ -45,16 +45,61 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const token =
       (client.handshake.auth?.token as string | undefined) ??
       (client.handshake.query?.token as string | undefined);
+    const pairingCode =
+      (client.handshake.auth?.pairingCode as string | undefined) ??
+      (client.handshake.query?.pairingCode as string | undefined);
+
+    // Support TV screen connections directly via pairing code
+    if (pairingCode && typeof pairingCode === 'string') {
+      const normalizedCode = pairingCode.trim().toUpperCase();
+      await client.join('clinic:global');
+      await client.join(`tv:${normalizedCode}`);
+      client.emit('connected', { tv: normalizedCode, rooms: Array.from(client.rooms) });
+      return;
+    }
+
     const payload = await this.verify(token);
-    if (!payload) {
+    if (!payload || typeof payload.sid !== 'string') {
       client.disconnect(true);
       return;
     }
-    const role = String(payload.role ?? '');
-    const staffId = typeof payload.staffId === 'string' ? payload.staffId : null;
-    client.data.user = { sub: payload.sub, role, staffId };
+
+    // Stateful DB Session verification
+    const [session] = await this.db
+      .select()
+      .from(refreshSessions)
+      .where(eq(refreshSessions.id, payload.sid));
+
+    if (!session || session.revokedAt !== null || new Date(session.expiresAt).getTime() < Date.now()) {
+      client.disconnect(true);
+      return;
+    }
+
+    // Stateful DB User verification
+    const [user] = await this.db
+      .select()
+      .from(users)
+      .where(eq(users.id, session.userId));
+
+    if (!user || user.isActive !== 1 || user.isApproved !== 1 || user.approvalStatus !== 'approved') {
+      client.disconnect(true);
+      return;
+    }
+
+    const [staffRow] = await this.db
+      .select()
+      .from(staff)
+      .where(eq(staff.userId, user.id));
+
+    const role = user.role;
+    const staffId = staffRow?.id ?? null;
+    client.data.user = { sub: user.id, email: user.email, role, staffId, sid: session.id };
+
     await client.join('clinic:global');
     await client.join(`role:${role}`);
+    await client.join(`user:${user.id}`);
+    await client.join(`session:${session.id}`);
+
     if (staffId) {
       await client.join(`doctor:${staffId}`);
       const activeShifts = await this.db
@@ -64,7 +109,11 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
       const deskId = activeShifts[0]?.deskId;
       if (deskId) await client.join(`room:${deskId}`);
     }
-    client.emit('connected', { rooms: Array.from(client.rooms) });
+
+    client.emit('connected', {
+      user: { id: user.id, role, email: user.email },
+      rooms: Array.from(client.rooms),
+    });
   }
 
   handleDisconnect(_client: Socket) {

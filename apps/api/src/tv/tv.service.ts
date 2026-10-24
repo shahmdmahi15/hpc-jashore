@@ -1,10 +1,11 @@
-import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { desc, eq } from 'drizzle-orm';
 import { AuditService } from '../audit/audit.service';
 import { DB, type Db } from '../db/db.module';
 import { bulletins, tvDevices } from '../db/schema';
 import { RealtimeService } from '../realtime/realtime.service';
+import { EventsGateway } from '../realtime/events.gateway';
 import type { HeartbeatTvDto, PairTvDto, RegisterTvDto, UpdateTvDto } from './dto';
 
 @Injectable()
@@ -13,6 +14,7 @@ export class TvService {
     @Inject(DB) private readonly db: Db,
     private readonly audit: AuditService,
     private readonly realtime: RealtimeService,
+    @Optional() private readonly gateway?: EventsGateway,
   ) {}
 
   private normalizeCode(code: string): string {
@@ -68,6 +70,19 @@ export class TvService {
     };
 
     await this.db.insert(tvDevices).values(newRecord);
+
+    this.realtime.publish('tv:registered', {
+      id: newId,
+      pairingCode: code,
+      deviceName: newRecord.deviceName,
+      status: 'pending',
+    });
+    this.gateway?.emit('clinic:global', 'tv:registered', {
+      id: newId,
+      pairingCode: code,
+      deviceName: newRecord.deviceName,
+      status: 'pending',
+    });
 
     return {
       id: newId,
@@ -152,6 +167,20 @@ export class TvService {
         updatedAt: now,
       })
       .where(eq(tvDevices.id, row.id));
+
+    // Emit live heartbeat event for zero-latency online indicators
+    this.realtime.publish('tv:heartbeat', {
+      id: row.id,
+      pairingCode: row.pairingCode,
+      deviceName: row.deviceName,
+      isOnline: true,
+      lastSeenAt: now,
+    });
+    this.gateway?.emit('clinic:global', 'tv:heartbeat', {
+      id: row.id,
+      pairingCode: row.pairingCode,
+      isOnline: true,
+    });
 
     return {
       id: row.id,
@@ -247,7 +276,7 @@ export class TvService {
       requestId: meta.requestId,
     });
 
-    this.realtime.publish('tv:paired', {
+    const pairPayload = {
       id: targetId!,
       pairingCode: code,
       deviceName: dto.deviceName,
@@ -255,7 +284,12 @@ export class TvService {
       theme: updated?.theme || 'dark',
       language: updated?.language || 'bn',
       status: 'paired',
-    });
+      secretToken: token,
+    };
+
+    this.realtime.publish('tv:paired', pairPayload);
+    this.gateway?.emit('clinic:global', 'tv:paired', pairPayload);
+    this.gateway?.emit(`tv:${code}`, 'tv:paired', pairPayload);
 
     return {
       ...updated,
@@ -299,7 +333,20 @@ export class TvService {
       requestId: meta.requestId,
     });
 
-    this.realtime.publish('tv:updated', { id, device: updated });
+    const updatePayload = {
+      id,
+      pairingCode: existing.pairingCode,
+      device: updated,
+      deviceName: updated.deviceName,
+      department: updated.department,
+      theme: updated.theme,
+      language: updated.language,
+      location: updated.location,
+    };
+
+    this.realtime.publish('tv:updated', updatePayload);
+    this.gateway?.emit('clinic:global', 'tv:updated', updatePayload);
+    this.gateway?.emit(`tv:${existing.pairingCode}`, 'tv:updated', updatePayload);
 
     return updated;
   }
@@ -336,7 +383,10 @@ export class TvService {
       requestId: meta.requestId,
     });
 
-    this.realtime.publish('tv:revoked', { id, pairingCode: existing.pairingCode });
+    const revokePayload = { id, pairingCode: existing.pairingCode, status: 'revoked' };
+    this.realtime.publish('tv:revoked', revokePayload);
+    this.gateway?.emit('clinic:global', 'tv:revoked', revokePayload);
+    this.gateway?.emit(`tv:${existing.pairingCode}`, 'tv:revoked', revokePayload);
 
     return { ok: true, status: 'revoked' };
   }
@@ -365,7 +415,10 @@ export class TvService {
       requestId: meta.requestId,
     });
 
-    this.realtime.publish('tv:deleted', { id, pairingCode: existing.pairingCode });
+    const deletePayload = { id, pairingCode: existing.pairingCode, status: 'deleted' };
+    this.realtime.publish('tv:deleted', deletePayload);
+    this.gateway?.emit('clinic:global', 'tv:deleted', deletePayload);
+    this.gateway?.emit(`tv:${existing.pairingCode}`, 'tv:deleted', deletePayload);
 
     return { ok: true };
   }

@@ -1,6 +1,6 @@
 {
   "name": "@hpc/web",
-  "version": "0.1.38",
+  "version": "0.1.39",
   "private": true,
   "description": "HPC Jashore — Next.js PWA (App Router, all roles, installable)",
   "scripts": {

@@ -103,7 +103,9 @@ export class AuthController {
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   async logout(@Body() dto: LogoutDto, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
-    const raw = (req.cookies?.hpc_refresh as string | undefined) ?? dto.refreshToken;
+    const authHeader = req.headers.authorization;
+    const bearer = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : undefined;
+    const raw = (req.cookies?.hpc_refresh as string | undefined) ?? dto.refreshToken ?? bearer;
     const out = await this.auth.logout(raw, reqMeta(req));
     refreshCookie(res, null);
     return out;

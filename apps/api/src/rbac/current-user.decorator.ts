@@ -5,6 +5,7 @@ export interface RequestUser {
   email: string;
   role: string;
   staffId: string | null;
+  sid?: string | null;
 }
 
 // Reads req.user set by JwtAuthGuard (passport 'jwt-access').

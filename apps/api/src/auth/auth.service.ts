@@ -114,13 +114,7 @@ export class AuthService {
         expiresIn: this.config.get<number>('jwt.refreshTtlSeconds'),
       },
     );
-    const accessToken = await this.accessTokenFor(
-      user.id,
-      user.email,
-      user.role as Role,
-      staffRow?.id ?? null,
-      sid,
-    );
+    const accessToken = await this.accessTokenFor(sid);
     const expiresAt = new Date(
       Date.now() + this.config.get<number>('jwt.refreshTtlSeconds')! * 1000,
     ).toISOString();
@@ -169,15 +163,9 @@ export class AuthService {
     };
   }
 
-  private accessTokenFor(
-    sub: string,
-    email: string,
-    role: Role,
-    staffId: string | null,
-    sid?: string | null,
-  ) {
+  private accessTokenFor(sid: string) {
     return this.jwt.signAsync(
-      { sub, email, role, staffId, sid: sid ?? null, type: 'access' },
+      { sid, type: 'access' },
       {
         secret: this.config.getOrThrow<string>('jwt.accessSecret'),
         expiresIn: this.config.get<number>('jwt.accessTtlSeconds'),
@@ -281,13 +269,7 @@ export class AuthService {
       rotatedFromId: sid,
     });
     return {
-      accessToken: await this.accessTokenFor(
-        user.id,
-        user.email,
-        user.role as Role,
-        staffRow?.id ?? null,
-        nextSid,
-      ),
+      accessToken: await this.accessTokenFor(nextSid),
       refreshToken: nextRefresh,
       user: this.publicUser(user, staffRow?.id ?? null),
     };
@@ -295,12 +277,25 @@ export class AuthService {
 
   async logout(raw: string | undefined, meta: ReqMeta) {
     if (!raw) return { ok: true };
-    const sid = ((this.jwt.decode(raw) ?? {}) as { sid?: string }).sid;
+    let sid: string | undefined;
+    try {
+      const decoded = this.jwt.decode(raw) as { sid?: string } | null;
+      if (decoded?.sid) sid = decoded.sid;
+      else if (typeof raw === 'string' && raw.length < 100) sid = raw;
+    } catch {
+      sid = raw;
+    }
     if (!sid) return { ok: true };
+
+    // Fully delete session from database on logout for true server-side stateful revocation
     await this.db
-      .update(refreshSessions)
-      .set({ revokedAt: new Date().toISOString() })
+      .delete(refreshSessions)
       .where(eq(refreshSessions.id, sid));
+
+    // Realtime notification of revoked session
+    this.realtime?.publish('session.deleted', { sid });
+    this.gateway?.emit('clinic:global', 'session.deleted', { sid });
+
     await this.audit.log({
       action: 'auth.logout',
       entity: 'refresh_sessions',
@@ -341,10 +336,15 @@ export class AuthService {
     if (actor.role !== 'admin' && session.userId !== actor.sub) {
       throw new ForbiddenException('Cannot revoke another user session');
     }
+
+    // Fully delete session from database for stateful server revocation
     await this.db
-      .update(refreshSessions)
-      .set({ revokedAt: new Date().toISOString() })
+      .delete(refreshSessions)
       .where(eq(refreshSessions.id, sessionId));
+
+    this.realtime?.publish('session.deleted', { sid: sessionId, userId: session.userId });
+    this.gateway?.emit('clinic:global', 'session.deleted', { sid: sessionId, userId: session.userId });
+
     await this.audit.log({
       actorUserId: actor.sub,
       actorRole: actor.role,
