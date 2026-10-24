@@ -23,6 +23,8 @@ import {
   CreateIntakeFormDto,
   AdmitToQueueDto,
   CreateTimelineEventDto,
+  CreateAssessmentFileDto,
+  UpdateAssessmentFileDto,
 } from './dto';
 import { PatientsService } from './patients.service';
 
@@ -144,6 +146,36 @@ export class PatientsController {
       actorId: user.sub,
       actorRole: user.role,
     });
+  }
+
+  @Get('assessment-files/:fileId')
+  getAssessmentFile(@Param('fileId') fileId: string) {
+    return this.patients.getAssessmentFile(fileId);
+  }
+
+  @Patch('assessment-files/:fileId')
+  @Roles('admin', 'doctor', 'receptionist', 'handler')
+  updateAssessmentFile(
+    @CurrentUser() user: RequestUser,
+    @Param('fileId') fileId: string,
+    @Body() dto: UpdateAssessmentFileDto,
+  ) {
+    return this.patients.updateAssessmentFile(fileId, dto, user);
+  }
+
+  @Get(':id/assessment-files')
+  listAssessmentFiles(@Param('id') patientId: string) {
+    return this.patients.listAssessmentFiles(patientId);
+  }
+
+  @Post(':id/assessment-files')
+  @Roles('admin', 'doctor', 'receptionist', 'handler')
+  createAssessmentFile(
+    @CurrentUser() user: RequestUser,
+    @Param('id') patientId: string,
+    @Body() dto: CreateAssessmentFileDto,
+  ) {
+    return this.patients.createAssessmentFile(patientId, dto, user);
   }
 
   @Get(':id')

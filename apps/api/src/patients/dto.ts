@@ -410,3 +410,236 @@ export class CreateTimelineEventDto {
   @IsOptional()
   metadataJson?: string;
 }
+
+export class CreateAssessmentFileDto {
+  @ApiPropertyOptional({ description: 'Target doctor user ID' })
+  @IsOptional()
+  @IsString()
+  doctorId?: string;
+
+  @ApiPropertyOptional({ description: 'Target doctor name' })
+  @IsOptional()
+  @IsString()
+  doctorName?: string;
+
+  @ApiPropertyOptional({ description: 'Associated visit ID' })
+  @IsOptional()
+  @IsString()
+  visitId?: string;
+
+  @ApiPropertyOptional({ description: 'Assessment date YYYY-MM-DD' })
+  @IsOptional()
+  @IsString()
+  assessmentDate?: string;
+
+  // Demographics
+  @ApiProperty({ description: 'Patient Name' })
+  @IsString()
+  @IsNotEmpty()
+  name!: string;
+
+  @ApiPropertyOptional({ description: 'Age' })
+  @IsOptional()
+  @IsString()
+  age?: string;
+
+  @ApiPropertyOptional({ description: 'Gender' })
+  @IsOptional()
+  @IsString()
+  gender?: string;
+
+  @ApiPropertyOptional({ description: 'ID No / MRN' })
+  @IsOptional()
+  @IsString()
+  idNo?: string;
+
+  @ApiPropertyOptional({ description: 'Occupation' })
+  @IsOptional()
+  @IsString()
+  occupation?: string;
+
+  @ApiPropertyOptional({ description: 'Address' })
+  @IsOptional()
+  @IsString()
+  address?: string;
+
+  @ApiPropertyOptional({ description: 'Mobile Phone' })
+  @IsOptional()
+  @IsString()
+  mobile?: string;
+
+  // Section 2: Pain Details
+  @ApiPropertyOptional({ description: 'Pain areas JSON array string or array' })
+  @IsOptional()
+  painAreas?: any;
+
+  @ApiPropertyOptional({ description: 'Pain areas others text' })
+  @IsOptional()
+  @IsString()
+  painAreaOthers?: string;
+
+  @ApiPropertyOptional({ description: 'Side: Right, Left, Both' })
+  @IsOptional()
+  @IsString()
+  side?: string;
+
+  @ApiPropertyOptional({ description: 'Duration' })
+  @IsOptional()
+  @IsString()
+  duration?: string;
+
+  @ApiPropertyOptional({ description: 'Pain types JSON array string or array' })
+  @IsOptional()
+  painTypes?: any;
+
+  // Section 3: Pain Scale
+  @ApiPropertyOptional({ description: 'VAS Score 0 to 10' })
+  @IsOptional()
+  @IsInt()
+  vasScore?: number;
+
+  @ApiPropertyOptional({ description: 'Pain increases with' })
+  @IsOptional()
+  painIncreasesWith?: any;
+
+  @ApiPropertyOptional({ description: 'Pain reduces with' })
+  @IsOptional()
+  painReducesWith?: any;
+
+  // Section 4: History
+  @ApiPropertyOptional({ description: 'Injury / Accident: yes, no' })
+  @IsOptional()
+  @IsString()
+  injuryAccident?: string;
+
+  @ApiPropertyOptional({ description: 'Injury details' })
+  @IsOptional()
+  @IsString()
+  injuryDetails?: string;
+
+  @ApiPropertyOptional({ description: 'Posture advice / habits: yes, no' })
+  @IsOptional()
+  @IsString()
+  postureAdvice?: string;
+
+  @ApiPropertyOptional({ description: 'Posture habits' })
+  @IsOptional()
+  @IsString()
+  postureHabits?: string;
+
+  @ApiPropertyOptional({ description: 'Surgery history: yes, no' })
+  @IsOptional()
+  @IsString()
+  surgeryHistory?: string;
+
+  @ApiPropertyOptional({ description: 'Surgery details' })
+  @IsOptional()
+  @IsString()
+  surgeryDetails?: string;
+
+  @ApiPropertyOptional({ description: 'Previous treatment' })
+  @IsOptional()
+  previousTreatment?: any;
+
+  @ApiPropertyOptional({ description: 'Previous treatment details' })
+  @IsOptional()
+  @IsString()
+  previousTreatmentDetails?: string;
+
+  // Section 5: Functional Limitation
+  @ApiPropertyOptional({ description: 'Functional limitations' })
+  @IsOptional()
+  functionalLimitations?: any;
+
+  @ApiPropertyOptional({ description: 'Functional notes' })
+  @IsOptional()
+  @IsString()
+  functionalNotes?: string;
+
+  // Section 6: Physical Examination
+  @ApiPropertyOptional({ description: 'ROM: Normal, Restricted' })
+  @IsOptional()
+  @IsString()
+  rom?: string;
+
+  @ApiPropertyOptional({ description: 'Muscle spasm: yes, no' })
+  @IsOptional()
+  @IsString()
+  muscleSpasm?: string;
+
+  @ApiPropertyOptional({ description: 'Tenderness: yes, no' })
+  @IsOptional()
+  @IsString()
+  tenderness?: string;
+
+  @ApiPropertyOptional({ description: 'Swelling: yes, no' })
+  @IsOptional()
+  @IsString()
+  swelling?: string;
+
+  @ApiPropertyOptional({ description: 'Physical exam notes' })
+  @IsOptional()
+  @IsString()
+  physicalExamNotes?: string;
+
+  // Section 7: Physiotherapy Diagnosis
+  @ApiPropertyOptional({ description: 'Physiotherapy Diagnosis' })
+  @IsOptional()
+  @IsString()
+  diagnosis?: string;
+
+  // Section 8: Treatment Plan
+  @ApiPropertyOptional({ description: 'Treatment plans' })
+  @IsOptional()
+  treatmentPlans?: any;
+
+  @ApiPropertyOptional({ description: 'Treatment plan notes' })
+  @IsOptional()
+  @IsString()
+  treatmentPlanNotes?: string;
+
+  @ApiPropertyOptional({ description: 'Prescribed sessions count' })
+  @IsOptional()
+  @IsInt()
+  prescribedSessions?: number;
+
+  // Section 9: Home Advice
+  @ApiPropertyOptional({ description: 'Exercise explained: yes, no' })
+  @IsOptional()
+  @IsString()
+  exerciseExplained?: string;
+
+  @ApiPropertyOptional({ description: 'Home posture advice: yes, no' })
+  @IsOptional()
+  @IsString()
+  homePostureAdvice?: string;
+
+  @ApiPropertyOptional({ description: 'Home advice notes' })
+  @IsOptional()
+  @IsString()
+  homeAdviceNotes?: string;
+
+  // Follow-up & Progress
+  @ApiPropertyOptional({ description: 'Pain scale after treatment (VAS 0-10)' })
+  @IsOptional()
+  @IsInt()
+  painScaleAfterTreatment?: number;
+
+  @ApiPropertyOptional({ description: 'Improvement notes' })
+  @IsOptional()
+  @IsString()
+  improvement?: string;
+
+  @ApiPropertyOptional({ description: 'Therapist signature' })
+  @IsOptional()
+  @IsString()
+  therapistSignature?: string;
+
+  @ApiPropertyOptional({ description: 'Status: active, completed, archived' })
+  @IsOptional()
+  @IsString()
+  status?: string;
+}
+
+export class UpdateAssessmentFileDto extends CreateAssessmentFileDto {}
+

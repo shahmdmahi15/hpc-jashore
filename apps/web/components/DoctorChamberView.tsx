@@ -37,6 +37,8 @@ import {
   DialogFooter,
 } from './ui/dialog';
 import { PatientTimelineModal } from './patient/PatientTimelineModal';
+import { PainAssessmentFormModal } from './patient/PainAssessmentFormModal';
+import { PatientFilesListModal } from './patient/PatientFilesListModal';
 import {
   Volume2,
   PhoneCall,
@@ -51,6 +53,9 @@ import {
   Stethoscope,
   Eye,
   UserCheck,
+  FolderOpen,
+  FilePlus,
+  Plus,
 } from 'lucide-react';
 
 export interface DoctorChamberProps {
@@ -113,6 +118,11 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
   const [isTimelineModalOpen, setIsTimelineModalOpen] = useState(false);
   const [callingActionLoading, setCallingActionLoading] = useState(false);
 
+  // Assessment Files State
+  const [assessmentFilesCount, setAssessmentFilesCount] = useState<number>(0);
+  const [isFilesListModalOpen, setIsFilesListModalOpen] = useState(false);
+  const [isNewAssessmentModalOpen, setIsNewAssessmentModalOpen] = useState(false);
+
   const doctorId = session?.staffId || '';
 
   const loadQueue = async () => {
@@ -154,7 +164,78 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
     ) {
       loadQueue();
     }
+    if (event.type.startsWith('patient.assessment_')) {
+      loadAssessmentFilesCount();
+    }
   });
+
+  const loadAssessmentFilesCount = async () => {
+    if (!activeSerial?.patientId) {
+      setAssessmentFilesCount(0);
+      return;
+    }
+    try {
+      const files = await api.patients.listAssessmentFiles(activeSerial.patientId);
+      setAssessmentFilesCount(Array.isArray(files) ? files.length : 0);
+    } catch {
+      setAssessmentFilesCount(0);
+    }
+  };
+
+  useEffect(() => {
+    loadAssessmentFilesCount();
+  }, [activeSerial?.patientId]);
+
+  const handleAssessmentFileSaved = (file: any) => {
+    loadAssessmentFilesCount();
+    if (file?.diagnosis) {
+      setDiagnosis(file.diagnosis);
+    }
+    if (typeof file?.vasScore === 'number') {
+      setPainScore(file.vasScore);
+    }
+    if (file?.homeAdviceNotes && !advice) {
+      setAdvice(file.homeAdviceNotes);
+    }
+    if (Array.isArray(file?.treatmentPlans) && file.treatmentPlans.length > 0) {
+      const updated = [...prescribedMods];
+      for (const tp of file.treatmentPlans) {
+        if (tp.includes('IFT') && !updated.some((m) => m.modalityCode === 'IFT')) {
+          updated.push({
+            modalityCode: 'IFT',
+            modalityName: 'Interferential Therapy (IFT)',
+            sessionsPrescribed: file.prescribedSessions || 10,
+            frequency: 'daily',
+          });
+        }
+        if (tp.includes('Ultrasound') && !updated.some((m) => m.modalityCode === 'UST')) {
+          updated.push({
+            modalityCode: 'UST',
+            modalityName: 'Ultrasound Therapy (UST)',
+            sessionsPrescribed: file.prescribedSessions || 10,
+            frequency: 'daily',
+          });
+        }
+        if (tp.includes('Hot pack') && !updated.some((m) => m.modalityCode === 'HOT_PACK')) {
+          updated.push({
+            modalityCode: 'HOT_PACK',
+            modalityName: 'Moist Heat Pack (Hot Pack)',
+            sessionsPrescribed: file.prescribedSessions || 10,
+            frequency: 'daily',
+          });
+        }
+        if (tp.includes('TENS') && !updated.some((m) => m.modalityCode === 'TENS')) {
+          updated.push({
+            modalityCode: 'TENS',
+            modalityName: 'TENS Therapy',
+            sessionsPrescribed: file.prescribedSessions || 10,
+            frequency: 'daily',
+          });
+        }
+      }
+      setPrescribedMods(updated);
+    }
+  };
 
   useEffect(() => {
     loadQueue();
@@ -457,7 +538,7 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
                   </div>
                 </div>
 
-                <div className="flex gap-2 items-center">
+                <div className="flex gap-2 items-center flex-wrap">
                   <Badge variant="outline" className="border-emerald-500/30 text-emerald-600 dark:text-emerald-400 font-semibold">
                     Blood: {activeSerial?.patient?.bloodGroup || 'B+'}
                   </Badge>
@@ -466,6 +547,26 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
                       ⚠️ {activeSerial.patient.allergies}
                     </Badge>
                   )}
+                  {/* Assessment Files Actions */}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsFilesListModalOpen(true)}
+                    className="h-8 text-xs gap-1.5 border-purple-500/40 text-purple-600 dark:text-purple-400 hover:bg-purple-500/10 active:scale-95 cursor-pointer font-bold"
+                  >
+                    <FolderOpen className="size-3.5" />
+                    <span>Old Files (পুরাতন ফাইল) {assessmentFilesCount > 0 ? `(${assessmentFilesCount})` : ''}</span>
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => setIsNewAssessmentModalOpen(true)}
+                    className="h-8 text-xs gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold shadow-sm shadow-emerald-500/20 active:scale-95 cursor-pointer"
+                  >
+                    <FilePlus className="size-3.5" />
+                    <span>New File (নতুন ফাইল)</span>
+                  </Button>
                 </div>
               </div>
             </CardContent>
@@ -579,17 +680,38 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
                       রোগীকে ওয়েটিং কিউ স্ক্রিন থেকে সরানো হয়েছে
                     </span>
                   </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleRecall}
-                    disabled={callingActionLoading}
-                    className="h-8 text-xs border-amber-500/40 text-amber-600 dark:text-amber-400 gap-1.5"
-                  >
-                    <PhoneCall className="size-3.5" />
-                    <span>প্রয়োজনে পুনরায় ডাকুন</span>
-                  </Button>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => setIsNewAssessmentModalOpen(true)}
+                      className="h-8 text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-bold gap-1.5 shadow-sm active:scale-95 cursor-pointer"
+                    >
+                      <FilePlus className="size-3.5" />
+                      <span>নতুন ফাইল পূরণ করুন</span>
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsFilesListModalOpen(true)}
+                      className="h-8 text-xs border-purple-500/40 text-purple-600 dark:text-purple-400 hover:bg-purple-500/10 gap-1.5 active:scale-95 cursor-pointer"
+                    >
+                      <FolderOpen className="size-3.5" />
+                      <span>পুরাতন ফাইল ({assessmentFilesCount})</span>
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleRecall}
+                      disabled={callingActionLoading}
+                      className="h-8 text-xs border-amber-500/40 text-amber-600 dark:text-amber-400 gap-1.5"
+                    >
+                      <PhoneCall className="size-3.5" />
+                      <span>প্রয়োজনে পুনরায় ডাকুন</span>
+                    </Button>
+                  </div>
                 </div>
               )}
 
@@ -1000,6 +1122,35 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
         onOpenChange={setIsTimelineModalOpen}
         patientId={activeSerial?.patientId}
         patientName={activeSerial?.patient?.nameBn || activeSerial?.patient?.nameEn}
+      />
+
+      {/* PAIN ASSESSMENT FORM MODAL (CREATE NEW) */}
+      <PainAssessmentFormModal
+        open={isNewAssessmentModalOpen}
+        onOpenChange={setIsNewAssessmentModalOpen}
+        patient={activeSerial?.patient}
+        doctorId={session?.staffId || session?.userId}
+        doctorName={session?.displayName}
+        visitId={activeSerial?.visitId || activeSerial?.id}
+        currentUser={session}
+        existingFile={null}
+        onSuccess={handleAssessmentFileSaved}
+      />
+
+      {/* PATIENT OLD FILES LIST MODAL */}
+      <PatientFilesListModal
+        open={isFilesListModalOpen}
+        onOpenChange={setIsFilesListModalOpen}
+        patient={activeSerial?.patient}
+        doctorId={session?.staffId || session?.userId}
+        doctorName={session?.displayName}
+        visitId={activeSerial?.visitId || activeSerial?.id}
+        currentUser={session}
+        onFileSelected={handleAssessmentFileSaved}
+        onCreateNew={() => {
+          setIsFilesListModalOpen(false);
+          setIsNewAssessmentModalOpen(true);
+        }}
       />
     </div>
   );

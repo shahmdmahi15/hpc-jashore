@@ -17,6 +17,7 @@ import {
   consultationBookings,
   dues,
   packageCredits,
+  patientAssessmentFiles,
   patientIntakeForms,
   patients,
   patientTimelineEvents,
@@ -36,6 +37,8 @@ import type {
   CreateIntakeFormDto,
   AdmitToQueueDto,
   CreateTimelineEventDto,
+  CreateAssessmentFileDto,
+  UpdateAssessmentFileDto,
 } from './dto';
 
 @Injectable()
@@ -967,4 +970,291 @@ export class PatientsService {
 
     return payload;
   }
+
+  // --- Assessment Files (Clinical Assessment Sheet) ---
+
+  async createAssessmentFile(patientId: string, dto: CreateAssessmentFileDto, actor?: any) {
+    const patient = this.db.select().from(patients).where(eq(patients.id, patientId)).get();
+    if (!patient) {
+      throw new NotFoundException(`Patient #${patientId} not found`);
+    }
+
+    const fullYear = new Date().getFullYear();
+    const fileNumber = nextAssessmentFileNumber(this.db, fullYear);
+    const id = randomUUID();
+    const now = new Date().toISOString();
+    const assessmentDate = dto.assessmentDate || now.split('T')[0];
+
+    // Snapshot doctor details if available
+    let doctorName = dto.doctorName;
+    if (!doctorName && dto.doctorId) {
+      const docUser = this.db.select().from(users).where(eq(users.id, dto.doctorId)).get();
+      if (docUser) {
+        doctorName = docUser.displayName;
+      } else {
+        const docStaff = this.db.select().from(staff).where(eq(staff.id, dto.doctorId)).get();
+        if (docStaff) {
+          doctorName = docStaff.fullName;
+        }
+      }
+    }
+    if (!doctorName && actor) {
+      doctorName = actor.displayName || actor.nameEn || actor.email || 'Doctor';
+    }
+
+    const newRecord = {
+      id,
+      fileNumber,
+      patientId,
+      doctorId: dto.doctorId || actor?.sub || null,
+      doctorName: doctorName || null,
+      visitId: dto.visitId || null,
+      assessmentDate,
+      name: dto.name || patient.nameEn,
+      age: dto.age ? String(dto.age) : (patient.ageYears ? String(patient.ageYears) : null),
+      gender: dto.gender || patient.gender,
+      idNo: dto.idNo || patient.mrn,
+      occupation: dto.occupation || patient.occupation || null,
+      address: dto.address || patient.address || null,
+      mobile: dto.mobile || patient.phone || null,
+
+      painAreas: safeJsonStringify(dto.painAreas),
+      painAreaOthers: dto.painAreaOthers || null,
+      side: dto.side || null,
+      duration: dto.duration || null,
+      painTypes: safeJsonStringify(dto.painTypes),
+
+      vasScore: typeof dto.vasScore === 'number' ? dto.vasScore : 0,
+      painIncreasesWith: safeJsonStringify(dto.painIncreasesWith),
+      painReducesWith: safeJsonStringify(dto.painReducesWith),
+
+      injuryAccident: dto.injuryAccident || 'no',
+      injuryDetails: dto.injuryDetails || null,
+      postureAdvice: dto.postureAdvice || 'no',
+      postureHabits: dto.postureHabits || null,
+      surgeryHistory: dto.surgeryHistory || 'no',
+      surgeryDetails: dto.surgeryDetails || null,
+      previousTreatment: safeJsonStringify(dto.previousTreatment),
+      previousTreatmentDetails: dto.previousTreatmentDetails || null,
+
+      functionalLimitations: safeJsonStringify(dto.functionalLimitations),
+      functionalNotes: dto.functionalNotes || null,
+
+      rom: dto.rom || 'Normal',
+      muscleSpasm: dto.muscleSpasm || 'no',
+      tenderness: dto.tenderness || 'no',
+      swelling: dto.swelling || 'no',
+      physicalExamNotes: dto.physicalExamNotes || null,
+
+      diagnosis: dto.diagnosis || null,
+
+      treatmentPlans: safeJsonStringify(dto.treatmentPlans),
+      treatmentPlanNotes: dto.treatmentPlanNotes || null,
+      prescribedSessions: typeof dto.prescribedSessions === 'number' ? dto.prescribedSessions : null,
+
+      exerciseExplained: dto.exerciseExplained || 'no',
+      homePostureAdvice: dto.homePostureAdvice || 'no',
+      homeAdviceNotes: dto.homeAdviceNotes || null,
+
+      painScaleAfterTreatment: typeof dto.painScaleAfterTreatment === 'number' ? dto.painScaleAfterTreatment : null,
+      improvement: dto.improvement || null,
+      therapistSignature: dto.therapistSignature || (doctorName || null),
+      status: dto.status || 'active',
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    this.db.insert(patientAssessmentFiles).values(newRecord).run();
+
+    // Add Timeline Event
+    await this.addPatientTimelineEvent({
+      patientId,
+      visitId: dto.visitId || null,
+      step: 'assessment_file_created',
+      titleEn: 'Assessment File Created',
+      titleBn: 'অ্যাসেসমেন্ট ফাইল তৈরি',
+      descriptionEn: `Physiotherapy assessment file #${fileNumber} created by Dr. ${doctorName || 'Doctor'} (VAS: ${dto.vasScore ?? 0}/10, Diagnosis: ${dto.diagnosis || 'None'})`,
+      descriptionBn: `ফিজিওথেরাপি অ্যাসেসমেন্ট ফাইল #${fileNumber} তৈরি করা হয়েছে (ডা. ${doctorName || 'ডাক্তার'}, VAS: ${dto.vasScore ?? 0}/10)।`,
+      actorId: actor?.sub || null,
+      actorRole: actor?.role || 'doctor',
+      actorName: doctorName || null,
+      date: assessmentDate,
+    });
+
+    const payload = formatAssessmentFile(newRecord);
+    this.gateway?.emit('clinic:global', 'patient.assessment_created', { patientId, fileId: id, fileNumber, payload });
+    this.realtime?.publish('patient.assessment_created', { patientId, fileId: id, fileNumber, payload });
+
+    return payload;
+  }
+
+  async listAssessmentFiles(patientId: string) {
+    const records = this.db
+      .select()
+      .from(patientAssessmentFiles)
+      .where(eq(patientAssessmentFiles.patientId, patientId))
+      .orderBy(desc(patientAssessmentFiles.createdAt))
+      .all();
+
+    return records.map(formatAssessmentFile);
+  }
+
+  async getAssessmentFile(fileId: string) {
+    const record = this.db
+      .select()
+      .from(patientAssessmentFiles)
+      .where(or(eq(patientAssessmentFiles.id, fileId), eq(patientAssessmentFiles.fileNumber, fileId)))
+      .get();
+
+    if (!record) {
+      throw new NotFoundException(`Assessment file #${fileId} not found`);
+    }
+
+    return formatAssessmentFile(record);
+  }
+
+  async updateAssessmentFile(fileId: string, dto: UpdateAssessmentFileDto, actor?: any) {
+    const existing = this.db
+      .select()
+      .from(patientAssessmentFiles)
+      .where(or(eq(patientAssessmentFiles.id, fileId), eq(patientAssessmentFiles.fileNumber, fileId)))
+      .get();
+
+    if (!existing) {
+      throw new NotFoundException(`Assessment file #${fileId} not found`);
+    }
+
+    const now = new Date().toISOString();
+    const updateData: Record<string, any> = { updatedAt: now };
+
+    if (dto.assessmentDate !== undefined) updateData.assessmentDate = dto.assessmentDate;
+    if (dto.name !== undefined) updateData.name = dto.name;
+    if (dto.age !== undefined) updateData.age = dto.age ? String(dto.age) : null;
+    if (dto.gender !== undefined) updateData.gender = dto.gender;
+    if (dto.idNo !== undefined) updateData.idNo = dto.idNo;
+    if (dto.occupation !== undefined) updateData.occupation = dto.occupation;
+    if (dto.address !== undefined) updateData.address = dto.address;
+    if (dto.mobile !== undefined) updateData.mobile = dto.mobile;
+
+    if (dto.painAreas !== undefined) updateData.painAreas = safeJsonStringify(dto.painAreas);
+    if (dto.painAreaOthers !== undefined) updateData.painAreaOthers = dto.painAreaOthers;
+    if (dto.side !== undefined) updateData.side = dto.side;
+    if (dto.duration !== undefined) updateData.duration = dto.duration;
+    if (dto.painTypes !== undefined) updateData.painTypes = safeJsonStringify(dto.painTypes);
+
+    if (dto.vasScore !== undefined) updateData.vasScore = dto.vasScore;
+    if (dto.painIncreasesWith !== undefined) updateData.painIncreasesWith = safeJsonStringify(dto.painIncreasesWith);
+    if (dto.painReducesWith !== undefined) updateData.painReducesWith = safeJsonStringify(dto.painReducesWith);
+
+    if (dto.injuryAccident !== undefined) updateData.injuryAccident = dto.injuryAccident;
+    if (dto.injuryDetails !== undefined) updateData.injuryDetails = dto.injuryDetails;
+    if (dto.postureAdvice !== undefined) updateData.postureAdvice = dto.postureAdvice;
+    if (dto.postureHabits !== undefined) updateData.postureHabits = dto.postureHabits;
+    if (dto.surgeryHistory !== undefined) updateData.surgeryHistory = dto.surgeryHistory;
+    if (dto.surgeryDetails !== undefined) updateData.surgeryDetails = dto.surgeryDetails;
+    if (dto.previousTreatment !== undefined) updateData.previousTreatment = safeJsonStringify(dto.previousTreatment);
+    if (dto.previousTreatmentDetails !== undefined) updateData.previousTreatmentDetails = dto.previousTreatmentDetails;
+
+    if (dto.functionalLimitations !== undefined) updateData.functionalLimitations = safeJsonStringify(dto.functionalLimitations);
+    if (dto.functionalNotes !== undefined) updateData.functionalNotes = dto.functionalNotes;
+
+    if (dto.rom !== undefined) updateData.rom = dto.rom;
+    if (dto.muscleSpasm !== undefined) updateData.muscleSpasm = dto.muscleSpasm;
+    if (dto.tenderness !== undefined) updateData.tenderness = dto.tenderness;
+    if (dto.swelling !== undefined) updateData.swelling = dto.swelling;
+    if (dto.physicalExamNotes !== undefined) updateData.physicalExamNotes = dto.physicalExamNotes;
+
+    if (dto.diagnosis !== undefined) updateData.diagnosis = dto.diagnosis;
+
+    if (dto.treatmentPlans !== undefined) updateData.treatmentPlans = safeJsonStringify(dto.treatmentPlans);
+    if (dto.treatmentPlanNotes !== undefined) updateData.treatmentPlanNotes = dto.treatmentPlanNotes;
+    if (dto.prescribedSessions !== undefined) updateData.prescribedSessions = dto.prescribedSessions;
+
+    if (dto.exerciseExplained !== undefined) updateData.exerciseExplained = dto.exerciseExplained;
+    if (dto.homePostureAdvice !== undefined) updateData.homePostureAdvice = dto.homePostureAdvice;
+    if (dto.homeAdviceNotes !== undefined) updateData.homeAdviceNotes = dto.homeAdviceNotes;
+
+    if (dto.painScaleAfterTreatment !== undefined) updateData.painScaleAfterTreatment = dto.painScaleAfterTreatment;
+    if (dto.improvement !== undefined) updateData.improvement = dto.improvement;
+    if (dto.therapistSignature !== undefined) updateData.therapistSignature = dto.therapistSignature;
+    if (dto.status !== undefined) updateData.status = dto.status;
+
+    this.db.update(patientAssessmentFiles).set(updateData).where(eq(patientAssessmentFiles.id, existing.id)).run();
+
+    const updated = this.db.select().from(patientAssessmentFiles).where(eq(patientAssessmentFiles.id, existing.id)).get();
+    const payload = formatAssessmentFile(updated);
+
+    if (dto.painScaleAfterTreatment !== undefined || dto.improvement !== undefined) {
+      await this.addPatientTimelineEvent({
+        patientId: existing.patientId,
+        visitId: existing.visitId,
+        step: 'assessment_file_updated',
+        titleEn: 'Assessment Follow-up Updated',
+        titleBn: 'অ্যাসেসমেন্ট ফলো-আপ আপডেট',
+        descriptionEn: `Progress updated for file #${existing.fileNumber} (Post-treatment VAS: ${dto.painScaleAfterTreatment ?? existing.painScaleAfterTreatment ?? 'N/A'}/10)`,
+        descriptionBn: `ফাইল #${existing.fileNumber}-এর অগ্রগতি ও ফলো-আপ আপডেট করা হয়েছে।`,
+        actorId: actor?.sub || null,
+        actorRole: actor?.role || 'doctor',
+        actorName: actor?.displayName || null,
+        date: existing.assessmentDate,
+      });
+    }
+
+    this.gateway?.emit('clinic:global', 'patient.assessment_updated', { patientId: existing.patientId, fileId: existing.id, fileNumber: existing.fileNumber, payload });
+    this.realtime?.publish('patient.assessment_updated', { patientId: existing.patientId, fileId: existing.id, fileNumber: existing.fileNumber, payload });
+
+    return payload;
+  }
+}
+
+// Helper utilities for Assessment Files serialization & sequencing
+function safeJsonParse<T>(val: unknown, fallback: T): T {
+  if (!val) return fallback;
+  if (typeof val !== 'string') return val as T;
+  try {
+    return JSON.parse(val) as T;
+  } catch {
+    return fallback;
+  }
+}
+
+function safeJsonStringify(val: unknown): string | null {
+  if (val === undefined || val === null) return null;
+  if (typeof val === 'string') return val;
+  try {
+    return JSON.stringify(val);
+  } catch {
+    return null;
+  }
+}
+
+function formatAssessmentFile(record: any) {
+  if (!record) return null;
+  return {
+    ...record,
+    painAreas: safeJsonParse<string[]>(record.painAreas, []),
+    painTypes: safeJsonParse<string[]>(record.painTypes, []),
+    painIncreasesWith: safeJsonParse<string[]>(record.painIncreasesWith, []),
+    painReducesWith: safeJsonParse<string[]>(record.painReducesWith, []),
+    previousTreatment: safeJsonParse<string[]>(record.previousTreatment, []),
+    functionalLimitations: safeJsonParse<string[]>(record.functionalLimitations, []),
+    treatmentPlans: safeJsonParse<string[]>(record.treatmentPlans, []),
+  };
+}
+
+function nextAssessmentFileNumber(db: Db, fullYear = new Date().getFullYear()): string {
+  return db.transaction((tx) => {
+    const where = and(
+      eq(sequences.scope, 'assessment_file'),
+      eq(sequences.year, fullYear),
+    );
+    const existing = tx.select().from(sequences).where(where).get();
+    let next = (existing?.lastValue ?? 0) + 1;
+    if (existing) {
+      tx.update(sequences).set({ lastValue: next }).where(where).run();
+    } else {
+      tx.insert(sequences).values({ scope: 'assessment_file', year: fullYear, lastValue: next }).run();
+    }
+    return `PAF-${fullYear}-${String(next).padStart(5, '0')}`;
+  });
 }

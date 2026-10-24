@@ -998,5 +998,69 @@ export const patientTimelineEvents = sqliteTable('patient_timeline_events', {
   date: text('date').notNull(),
 });
 
+export const patientAssessmentFiles = sqliteTable('patient_assessment_files', {
+  id: text('id').primaryKey(),
+  fileNumber: text('file_number').notNull().unique(),
+  patientId: text('patient_id')
+    .notNull()
+    .references(() => patients.id),
+  doctorId: text('doctor_id'),
+  doctorName: text('doctor_name'),
+  visitId: text('visit_id'),
+  assessmentDate: text('assessment_date').notNull(),
+  // Demographics snapshot
+  name: text('name').notNull(),
+  age: text('age'),
+  gender: text('gender'),
+  idNo: text('id_no'),
+  occupation: text('occupation'),
+  address: text('address'),
+  mobile: text('mobile'),
+  // Section 2: Pain Details
+  painAreas: text('pain_areas'), // JSON array: ["Neck","Shoulder","Back","Knee","Heel","Others"]
+  painAreaOthers: text('pain_area_others'),
+  side: text('side'), // Right | Left | Both
+  duration: text('duration'),
+  painTypes: text('pain_types'), // JSON array: ["Sharp","Dull","Burning","Radiating"]
+  // Section 3: Pain Scale
+  vasScore: integer('vas_score').notNull().default(0), // 0-10
+  painIncreasesWith: text('pain_increases_with'), // JSON array: ["Movement","Sitting","Standing","Walking"]
+  painReducesWith: text('pain_reduces_with'), // JSON array: ["Rest","Medicine","Heat"]
+  // Section 4: History
+  injuryAccident: text('injury_accident').default('no'), // yes | no
+  injuryDetails: text('injury_details'),
+  postureAdvice: text('posture_advice').default('no'), // yes | no
+  postureHabits: text('posture_habits'),
+  surgeryHistory: text('surgery_history').default('no'), // yes | no
+  surgeryDetails: text('surgery_details'),
+  previousTreatment: text('previous_treatment'), // JSON array: ["Medicine","Physiotherapy"]
+  previousTreatmentDetails: text('previous_treatment_details'),
+  // Section 5: Functional Limitation
+  functionalLimitations: text('functional_limitations'), // JSON array: ["Bending","Sitting","Standing","Walking","Lifting"]
+  functionalNotes: text('functional_notes'),
+  // Section 6: Physical Examination
+  rom: text('rom').default('Normal'), // Normal | Restricted
+  muscleSpasm: text('muscle_spasm').default('no'), // yes | no
+  tenderness: text('tenderness').default('no'), // yes | no
+  swelling: text('swelling').default('no'), // yes | no
+  physicalExamNotes: text('physical_exam_notes'),
+  // Section 7: Physiotherapy Diagnosis
+  diagnosis: text('diagnosis'),
+  // Section 8: Treatment Plan
+  treatmentPlans: text('treatment_plans'), // JSON array: ["Hot pack","IFT / TENS","Ultrasound","Stretching","Strengthening","Posture correction"]
+  treatmentPlanNotes: text('treatment_plan_notes'),
+  prescribedSessions: integer('prescribed_sessions'),
+  // Section 9: Home Advice
+  exerciseExplained: text('exercise_explained').default('no'), // yes | no
+  homePostureAdvice: text('home_posture_advice').default('no'), // yes | no
+  homeAdviceNotes: text('home_advice_notes'),
+  // Follow-up & Progress
+  painScaleAfterTreatment: integer('pain_scale_after_treatment'), // 0-10
+  improvement: text('improvement'),
+  therapistSignature: text('therapist_signature'),
+  status: text('status').notNull().default('active'),
+  ...timestamps,
+});
+
 // Keeps the sqlite import used; WAL/foreign-keys are set in DbModule.
 export const pragmaCheck = sql`select 1`;

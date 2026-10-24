@@ -683,9 +683,65 @@ export type Db = BetterSQLite3Database<typeof schema>;
               );
               CREATE INDEX IF NOT EXISTS idx_patient_timeline_patient_date ON patient_timeline_events(patient_id, date);
               CREATE INDEX IF NOT EXISTS idx_patient_timeline_occurred ON patient_timeline_events(occurred_at);
+
+              CREATE TABLE IF NOT EXISTS patient_assessment_files (
+                id TEXT PRIMARY KEY,
+                file_number TEXT NOT NULL UNIQUE,
+                patient_id TEXT NOT NULL REFERENCES patients(id),
+                doctor_id TEXT,
+                doctor_name TEXT,
+                visit_id TEXT,
+                assessment_date TEXT NOT NULL,
+                name TEXT NOT NULL,
+                age TEXT,
+                gender TEXT,
+                id_no TEXT,
+                occupation TEXT,
+                address TEXT,
+                mobile TEXT,
+                pain_areas TEXT,
+                pain_area_others TEXT,
+                side TEXT,
+                duration TEXT,
+                pain_types TEXT,
+                vas_score INTEGER NOT NULL DEFAULT 0,
+                pain_increases_with TEXT,
+                pain_reduces_with TEXT,
+                injury_accident TEXT DEFAULT 'no',
+                injury_details TEXT,
+                posture_advice TEXT DEFAULT 'no',
+                posture_habits TEXT,
+                surgery_history TEXT DEFAULT 'no',
+                surgery_details TEXT,
+                previous_treatment TEXT,
+                previous_treatment_details TEXT,
+                functional_limitations TEXT,
+                functional_notes TEXT,
+                rom TEXT DEFAULT 'Normal',
+                muscle_spasm TEXT DEFAULT 'no',
+                tenderness TEXT DEFAULT 'no',
+                swelling TEXT DEFAULT 'no',
+                physical_exam_notes TEXT,
+                diagnosis TEXT,
+                treatment_plans TEXT,
+                treatment_plan_notes TEXT,
+                prescribed_sessions INTEGER,
+                exercise_explained TEXT DEFAULT 'no',
+                home_posture_advice TEXT DEFAULT 'no',
+                home_advice_notes TEXT,
+                pain_scale_after_treatment INTEGER,
+                improvement TEXT,
+                therapist_signature TEXT,
+                status TEXT NOT NULL DEFAULT 'active',
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+              );
+              CREATE INDEX IF NOT EXISTS idx_assessment_files_patient ON patient_assessment_files(patient_id);
+              CREATE INDEX IF NOT EXISTS idx_assessment_files_date ON patient_assessment_files(assessment_date);
+              CREATE INDEX IF NOT EXISTS idx_assessment_files_doctor ON patient_assessment_files(doctor_id);
             `);
           } catch (intakeErr) {
-            console.error('Error creating patient intake and timeline tables:', intakeErr);
+            console.error('Error creating patient assessment, intake, and timeline tables:', intakeErr);
           }
         } catch {
           // Idempotent column safety

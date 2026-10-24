@@ -2,13 +2,10 @@ name: Android TV Release
 
 on:
   push:
-    branches:
-      - main
-    paths:
-      - 'apps/android/**'
-      - '.github/workflows/android-tv-release.yml'
     tags:
       - 'v*'
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       version:

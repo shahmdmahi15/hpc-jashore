@@ -238,6 +238,20 @@ export const api = {
         method: 'POST',
         body: JSON.stringify(data),
       }),
+    createAssessmentFile: (patientId: string, data: any) =>
+      apiFetch<any>(`/patients/${patientId}/assessment-files`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+    listAssessmentFiles: (patientId: string) =>
+      apiFetch<any[]>(`/patients/${patientId}/assessment-files`),
+    getAssessmentFile: (fileId: string) =>
+      apiFetch<any>(`/patients/assessment-files/${fileId}`),
+    updateAssessmentFile: (fileId: string, data: any) =>
+      apiFetch<any>(`/patients/assessment-files/${fileId}`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      }),
   },
   visits: {
     getToday: () => apiFetch<any[]>('/visits/today'),
