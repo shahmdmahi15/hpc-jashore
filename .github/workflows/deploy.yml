@@ -106,7 +106,16 @@ jobs:
 
             echo "⚡ Building Web with Next.js Turbopack on Lightsail (single worker for low-memory stability)..."
             rm -f apps/web/.next/lock || true
+
+            # Preserve previous static chunks in backup to merge with new build
+            mkdir -p /tmp/next_static_backup
+            cp -r apps/web/.next/static/* /tmp/next_static_backup/ 2>/dev/null || true
+
             NEXT_CPU_NUM=1 NODE_OPTIONS="--max-old-space-size=1536" pnpm --filter @hpc/web build
+
+            # Merge previous static chunks so clients holding cached HTML never get 404 on CSS or JS
+            cp -n -r /tmp/next_static_backup/* apps/web/.next/static/ 2>/dev/null || true
+            rm -rf /tmp/next_static_backup
 
             echo "🔄 Executing Zero-Downtime PM2 Rolling Reload..."
             # 1. Reload API and verify health before touching web

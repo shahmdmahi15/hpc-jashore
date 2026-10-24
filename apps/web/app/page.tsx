@@ -103,7 +103,7 @@ export default function LandingPage() {
       {/* TOP NAVIGATION BAR                                            */}
       {/* ============================================================== */}
       <header
-        className="sticky top-0 z-50 backdrop-blur-xl bg-card/85 border-b border-border/80 px-2.5 sm:px-8 py-2 sm:py-3 flex items-center justify-between transition-colors duration-300 shadow-xs"
+        className="sticky top-0 z-50 backdrop-blur-xl bg-card/85 border-b border-border/80 px-2 sm:px-8 py-2 sm:py-3 flex items-center justify-between transition-colors duration-300 shadow-xs flex-nowrap"
         style={{
           paddingTop: 'max(0.75rem, env(safe-area-inset-top))',
           paddingLeft: 'max(0.75rem, env(safe-area-inset-left))',
@@ -111,7 +111,7 @@ export default function LandingPage() {
         }}
       >
         {/* Brand */}
-        <Link href="/" className="flex items-center gap-2 sm:gap-3 group shrink-0">
+        <Link href="/" className="flex items-center gap-1.5 sm:gap-3 group shrink-0">
           <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-white p-1 shadow-md flex items-center justify-center overflow-hidden border border-zinc-200 dark:border-zinc-800 transition-transform group-hover:scale-105 shrink-0">
             <Image
               src="/hpclogo-transparent.png"
@@ -136,7 +136,7 @@ export default function LandingPage() {
         </Link>
 
         {/* Navbar Items: TV, Dashboard / Login, Logout, and Switchers */}
-        <nav className="flex items-center gap-1 sm:gap-2">
+        <nav className="flex items-center gap-1 sm:gap-2 flex-nowrap shrink-0">
           {/* Smart TV Queue */}
           <Link href="/tv">
             <Button
@@ -161,7 +161,7 @@ export default function LandingPage() {
                   title={roleLabel}
                 >
                   <RoleIcon className="size-3.5 sm:size-4 shrink-0" />
-                  <span className="hidden xs:inline">{roleLabel}</span>
+                  <span className="hidden sm:inline">{roleLabel}</span>
                 </Button>
               </Link>
 

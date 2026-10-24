@@ -119,7 +119,38 @@ export default function RootLayout({
         <script
           // Register service worker for offline PWA resilience and force update check
           dangerouslySetInnerHTML={{
-            __html: `if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').then(function(reg){reg.update();}).catch(function(){});});}`,
+            __html: `
+              if('serviceWorker' in navigator){
+                window.addEventListener('load',function(){
+                  navigator.serviceWorker.register('/sw.js').then(function(reg){
+                    reg.update();
+                  }).catch(function(){});
+                });
+              }
+              // Auto-recover from mid-deployment Next.js chunk mismatches
+              window.addEventListener('error', function(e) {
+                if (e.target && (e.target.tagName === 'LINK' || e.target.tagName === 'SCRIPT')) {
+                  var url = e.target.src || e.target.href || '';
+                  if (url.indexOf('/_next/static/') !== -1) {
+                    if (!sessionStorage.getItem('hpc_chunk_retry')) {
+                      sessionStorage.setItem('hpc_chunk_retry', '1');
+                      if ('caches' in window) {
+                        caches.keys().then(function(keys){
+                          return Promise.all(keys.map(function(k){ return caches.delete(k); }));
+                        }).then(function(){
+                          window.location.reload();
+                        });
+                      } else {
+                        window.location.reload();
+                      }
+                    }
+                  }
+                }
+              }, true);
+              window.addEventListener('load', function(){
+                setTimeout(function(){ sessionStorage.removeItem('hpc_chunk_retry'); }, 3000);
+              });
+            `,
           }}
         />
       </head>
