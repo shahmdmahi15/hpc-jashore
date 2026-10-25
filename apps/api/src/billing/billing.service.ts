@@ -64,25 +64,41 @@ export class BillingService {
   }
 
   private async resolveStaffId(staffIdOrUserId: string): Promise<string> {
+    let resolvedId = staffIdOrUserId;
     const directUser = await this.db
       .select({ id: users.id })
       .from(users)
       .where(eq(users.id, staffIdOrUserId));
-    if (directUser[0]) return directUser[0].id;
+    if (directUser[0]) {
+      resolvedId = directUser[0].id;
+    } else {
+      const anyCashier = await this.db
+        .select({ id: users.id })
+        .from(users)
+        .where(and(eq(users.role, 'cashier'), eq(users.isActive, 1)))
+        .limit(1);
+      if (anyCashier[0]) {
+        resolvedId = anyCashier[0].id;
+      } else {
+        const anyUser = await this.db
+          .select({ id: users.id })
+          .from(users)
+          .where(eq(users.isActive, 1))
+          .limit(1);
+        resolvedId = anyUser[0]?.id ?? staffIdOrUserId;
+      }
+    }
 
-    const anyCashier = await this.db
-      .select({ id: users.id })
-      .from(users)
-      .where(and(eq(users.role, 'cashier'), eq(users.isActive, 1)))
-      .limit(1);
-    if (anyCashier[0]) return anyCashier[0].id;
+    // Crucial: ensure that if any table still has a legacy FK to staff(id), this resolvedId exists in staff
+    try {
+      this.db.run(
+        sql`INSERT OR REPLACE INTO staff (id, user_id, full_name, role, phone, is_active, created_at, updated_at)
+            SELECT u.id, u.id, COALESCE(u.display_name, u.email, 'Staff Member'), u.role, COALESCE(u.phone, ''), COALESCE(u.is_active, 1), COALESCE(u.created_at, CURRENT_TIMESTAMP), CURRENT_TIMESTAMP
+            FROM users u WHERE u.id = ${resolvedId}`,
+      );
+    } catch {}
 
-    const anyUser = await this.db
-      .select({ id: users.id })
-      .from(users)
-      .where(eq(users.isActive, 1))
-      .limit(1);
-    return anyUser[0]?.id ?? staffIdOrUserId;
+    return resolvedId;
   }
 
   private async resolveDeskId(deskId?: string): Promise<string> {
@@ -114,13 +130,16 @@ export class BillingService {
     // Fallback: auto-create the desk so foreign keys never fail
     const targetId = deskId || 'cashier-1';
     try {
-      await this.db.insert(desks).values({
-        id: targetId,
-        code: targetId === 'reception-1' ? 'REC-01' : 'CSH-01',
-        type: targetId.startsWith('rec') ? 'reception' : 'cashier',
-        name: targetId === 'reception-1' ? 'Reception Counter 1' : 'Cash Counter 1',
-        isActive: 1,
-      });
+      this.db.run(
+        sql`INSERT OR IGNORE INTO desks (id, code, type, name, is_active)
+            VALUES (
+              ${targetId},
+              ${targetId === 'reception-1' ? 'REC-01' : (targetId === 'cashier-1' ? 'CSH-01' : targetId.toUpperCase())},
+              ${targetId.startsWith('rec') ? 'reception' : 'cashier'},
+              ${targetId === 'reception-1' ? 'Reception Counter 1' : 'Cash Counter 1'},
+              1
+            )`,
+      );
       return targetId;
     } catch {
       return targetId;

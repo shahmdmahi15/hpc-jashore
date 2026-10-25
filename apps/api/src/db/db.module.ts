@@ -124,6 +124,139 @@ export type Db = BetterSQLite3Database<typeof schema>;
             console.error('Error ensuring operational desks:', deskErr);
           }
 
+          // Ensure staff table exists and always mirrors users table so legacy foreign keys to staff never fail
+          try {
+            sqlite.exec(`
+              CREATE TABLE IF NOT EXISTS staff (
+                id TEXT PRIMARY KEY,
+                user_id TEXT,
+                full_name TEXT NOT NULL,
+                role TEXT NOT NULL,
+                phone TEXT,
+                specialization TEXT,
+                fee_override_paisa INTEGER,
+                is_active INTEGER NOT NULL DEFAULT 1,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+              );
+            `);
+
+            // Mirror all users into staff where id = user.id and user_id = user.id
+            sqlite.exec(`
+              INSERT OR REPLACE INTO staff (id, user_id, full_name, role, phone, is_active, created_at, updated_at)
+              SELECT 
+                u.id, 
+                u.id, 
+                COALESCE(u.display_name, u.email, 'Staff Member'), 
+                u.role, 
+                COALESCE(u.phone, ''), 
+                COALESCE(u.is_active, 1), 
+                COALESCE(u.created_at, CURRENT_TIMESTAMP), 
+                COALESCE(u.updated_at, CURRENT_TIMESTAMP)
+              FROM users u;
+            `);
+
+            // Maintain continuous mirror sync via SQLite triggers
+            sqlite.exec(`
+              CREATE TRIGGER IF NOT EXISTS trg_sync_users_to_staff_insert
+              AFTER INSERT ON users
+              BEGIN
+                INSERT OR REPLACE INTO staff (id, user_id, full_name, role, phone, is_active, created_at, updated_at)
+                VALUES (
+                  NEW.id,
+                  NEW.id,
+                  COALESCE(NEW.display_name, NEW.email, 'Staff Member'),
+                  NEW.role,
+                  COALESCE(NEW.phone, ''),
+                  COALESCE(NEW.is_active, 1),
+                  COALESCE(NEW.created_at, CURRENT_TIMESTAMP),
+                  COALESCE(NEW.updated_at, CURRENT_TIMESTAMP)
+                );
+              END;
+
+              CREATE TRIGGER IF NOT EXISTS trg_sync_users_to_staff_update
+              AFTER UPDATE ON users
+              BEGIN
+                INSERT OR REPLACE INTO staff (id, user_id, full_name, role, phone, is_active, created_at, updated_at)
+                VALUES (
+                  NEW.id,
+                  NEW.id,
+                  COALESCE(NEW.display_name, NEW.email, 'Staff Member'),
+                  NEW.role,
+                  COALESCE(NEW.phone, ''),
+                  COALESCE(NEW.is_active, 1),
+                  COALESCE(NEW.created_at, CURRENT_TIMESTAMP),
+                  COALESCE(NEW.updated_at, CURRENT_TIMESTAMP)
+                );
+              END;
+            `);
+          } catch (staffSyncErr) {
+            console.error('Error ensuring staff mirror table:', staffSyncErr);
+          }
+
+          // Migrate cash_drawers table FK to reference users(id) instead of staff(id)
+          try {
+            const cdFkList = sqlite.prepare("PRAGMA foreign_key_list(cash_drawers)").all() as Array<{ table: string; from: string }>;
+            const cdReferencesStaff = cdFkList.some((fk) => fk.table === 'staff');
+            if (cdReferencesStaff) {
+              sqlite.exec("PRAGMA foreign_keys = OFF;");
+              sqlite.exec(`
+                CREATE TABLE IF NOT EXISTS _cash_drawers_migrated (
+                  id TEXT PRIMARY KEY NOT NULL,
+                  cashier_staff_id TEXT NOT NULL REFERENCES users(id),
+                  desk_id TEXT NOT NULL REFERENCES desks(id),
+                  shift_id TEXT REFERENCES shifts(id),
+                  opened_at TEXT NOT NULL,
+                  closed_at TEXT,
+                  opening_cash_paisa INTEGER NOT NULL,
+                  closing_cash_actual_paisa INTEGER,
+                  closing_cash_expected_paisa INTEGER,
+                  variance_paisa INTEGER,
+                  variance_reason TEXT,
+                  status TEXT NOT NULL DEFAULT 'open',
+                  closed_by_admin_id TEXT REFERENCES users(id),
+                  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                );
+              `);
+              sqlite.exec("INSERT OR IGNORE INTO _cash_drawers_migrated SELECT * FROM cash_drawers;");
+              sqlite.exec("DROP TABLE cash_drawers;");
+              sqlite.exec("ALTER TABLE _cash_drawers_migrated RENAME TO cash_drawers;");
+              sqlite.exec("PRAGMA foreign_keys = ON;");
+            }
+          } catch (cdMigrateErr) {
+            console.error('Error migrating cash_drawers FK:', cdMigrateErr);
+            sqlite.exec("PRAGMA foreign_keys = ON;");
+          }
+
+          // Migrate drawer_events table FK to reference users(id) instead of staff(id)
+          try {
+            const deFkList = sqlite.prepare("PRAGMA foreign_key_list(drawer_events)").all() as Array<{ table: string; from: string }>;
+            const deReferencesStaff = deFkList.some((fk) => fk.table === 'staff');
+            if (deReferencesStaff) {
+              sqlite.exec("PRAGMA foreign_keys = OFF;");
+              sqlite.exec(`
+                CREATE TABLE IF NOT EXISTS _drawer_events_migrated (
+                  id TEXT PRIMARY KEY NOT NULL,
+                  drawer_id TEXT NOT NULL REFERENCES cash_drawers(id),
+                  event_type TEXT NOT NULL,
+                  amount_paisa INTEGER NOT NULL,
+                  description TEXT,
+                  staff_id TEXT REFERENCES users(id),
+                  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                );
+              `);
+              sqlite.exec("INSERT OR IGNORE INTO _drawer_events_migrated SELECT * FROM drawer_events;");
+              sqlite.exec("DROP TABLE drawer_events;");
+              sqlite.exec("ALTER TABLE _drawer_events_migrated RENAME TO drawer_events;");
+              sqlite.exec("PRAGMA foreign_keys = ON;");
+            }
+          } catch (deMigrateErr) {
+            console.error('Error migrating drawer_events FK:', deMigrateErr);
+            sqlite.exec("PRAGMA foreign_keys = ON;");
+          }
+
           // Ensure fingerprint column in refresh_sessions
           try {
             const sessionCols = sqlite.prepare("PRAGMA table_info(refresh_sessions)").all() as Array<{ name: string }>;
