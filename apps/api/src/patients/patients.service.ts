@@ -129,6 +129,19 @@ export class PatientsService {
 
     await this.db.insert(patients).values(row);
 
+    // Log registration timeline event
+    await this.addPatientTimelineEvent({
+      patientId: row.id,
+      step: 'registered',
+      titleEn: 'Patient Registered',
+      titleBn: 'নতুন রোগী নিবন্ধন',
+      descriptionEn: `MRN: ${mrn} registered`,
+      descriptionBn: `এমআরএন: ${mrn} সহযোগে নতুন রোগী নিবন্ধন সম্পন্ন হয়েছে।`,
+      actorId: actor.sub,
+      actorRole: actor.role,
+      date: now.slice(0, 10),
+    });
+
     await this.audit.log({
       actorUserId: actor.sub,
       actorRole: actor.role,
@@ -643,11 +656,16 @@ export class PatientsService {
       ...r.form,
       patient: r.patient,
       tokenNumber: r.visit?.tokenNumber,
+      doctorName: r.doctor?.displayName || null,
+      doctorFee: r.doctor?.consultationFeePaisa ? Math.round(r.doctor.consultationFeePaisa / 100) : 500,
+      chamberRoomNumber: r.chamber?.roomNumber || null,
       doctor: r.doctor
         ? {
             id: r.doctor.id,
             fullName: r.doctor.displayName,
             phone: r.doctor.phone,
+            consultationFeePaisa: r.doctor.consultationFeePaisa,
+            consultationFeeTaka: r.doctor.consultationFeePaisa ? Math.round(r.doctor.consultationFeePaisa / 100) : 500,
             chamber: r.chamber ? `Room ${r.chamber.roomNumber} (${r.chamber.name})` : 'Chamber 1',
             chamberRoomNumber: r.chamber?.roomNumber,
           }
@@ -678,11 +696,16 @@ export class PatientsService {
       ...item.form,
       patient: item.patient,
       tokenNumber: item.visit?.tokenNumber,
+      doctorName: item.doctor?.displayName || null,
+      doctorFee: item.doctor?.consultationFeePaisa ? Math.round(item.doctor.consultationFeePaisa / 100) : 500,
+      chamberRoomNumber: item.chamber?.roomNumber || null,
       doctor: item.doctor
         ? {
             id: item.doctor.id,
             fullName: item.doctor.displayName,
             phone: item.doctor.phone,
+            consultationFeePaisa: item.doctor.consultationFeePaisa,
+            consultationFeeTaka: item.doctor.consultationFeePaisa ? Math.round(item.doctor.consultationFeePaisa / 100) : 500,
             chamber: item.chamber ? `Room ${item.chamber.roomNumber} (${item.chamber.name})` : 'Chamber 1',
             chamberRoomNumber: item.chamber?.roomNumber,
           }
@@ -766,11 +789,10 @@ export class PatientsService {
     const chamberName = docItem.chamber?.name || `Chamber ${chamberNumber}`;
     const doctorStaffId = docItem.user.id;
 
-    // 2. Resolve Consultation Fee & Payment
-    const feeTaka = dto.feeTaka !== undefined
-      ? dto.feeTaka
-      : (docItem.user?.consultationFeePaisa ? Math.round(docItem.user.consultationFeePaisa / 100) : 500);
-    const feePaisa = feeTaka * 100;
+    // 2. Resolve Consultation Fee & Payment - strictly FIXED to doctor's consultation fee on users table
+    // Cannot be customized, reduced, or overridden
+    const feePaisa = docItem.user.consultationFeePaisa ?? 50000;
+    const feeTaka = Math.round(feePaisa / 100);
     const paymentMethod = dto.paymentMethod || 'cash';
 
     // 3. Ensure Visit exists
@@ -794,48 +816,63 @@ export class PatientsService {
       });
     }
 
-    // 4. Create Bill & Payment records for Cashier
-    if (feePaisa > 0) {
-      const billId = randomUUID();
-      const billNumber = await this.nextBillNumber(year);
-      await this.db.insert(bills).values({
-        id: billId,
-        billNumber,
-        patientId: intake.patientId,
-        visitId,
-        subtotalPaisa: feePaisa,
-        discountPaisa: 0,
-        totalPaisa: feePaisa,
-        paidPaisa: feePaisa,
-        duePaisa: 0,
-        status: 'posted',
-        paymentMethod,
-        notes: `Consultation fee collected at cashier - Dr. ${doctorName}`,
-        createdAt: now,
-        updatedAt: now,
-      });
+    // 4. Create Bill & Payment records for Cashier - CANNOT be marked as due
+    const billId = randomUUID();
+    const billNumber = await this.nextBillNumber(year);
+    const billItem = {
+      id: randomUUID(),
+      billId,
+      itemType: 'consultation' as const,
+      description: `Doctor Consultation - ${doctorName}`,
+      quantity: 1,
+      unitPricePaisa: feePaisa,
+      discountPaisa: 0,
+      totalPaisa: feePaisa,
+    };
 
-      await this.db.insert(billItems).values({
-        id: randomUUID(),
-        billId,
-        itemType: 'consultation',
-        description: `Doctor Consultation - ${doctorName}`,
-        quantity: 1,
-        unitPricePaisa: feePaisa,
-        discountPaisa: 0,
-        totalPaisa: feePaisa,
-      });
+    const billRow = {
+      id: billId,
+      billNumber,
+      patientId: intake.patientId,
+      visitId,
+      cashierStaffId: actor.sub,
+      subtotalPaisa: feePaisa,
+      discountPaisa: 0,
+      discountApprovedBy: null,
+      totalPaisa: feePaisa,
+      paidPaisa: feePaisa,
+      duePaisa: 0,
+      status: 'posted' as const,
+      paymentMethod,
+      notes: `Consultation fee collected at cashier - Dr. ${doctorName}`,
+      createdAt: now,
+      updatedAt: now,
+    };
 
-      await this.db.insert(payments).values({
-        id: randomUUID(),
-        billId,
-        patientId: intake.patientId,
-        amountPaisa: feePaisa,
-        method: (paymentMethod === 'bkash' || paymentMethod === 'nagad' || paymentMethod === 'rocket' || paymentMethod === 'card' || paymentMethod === 'bank') ? paymentMethod : 'cash',
-        createdAt: now,
-        updatedAt: now,
-      });
-    }
+    await this.db.insert(bills).values(billRow);
+    await this.db.insert(billItems).values(billItem);
+
+    const validMethods = ['cash', 'bkash', 'nagad', 'rocket', 'card', 'bank'] as const;
+    const cleanMethod: 'cash' | 'bkash' | 'nagad' | 'rocket' | 'card' | 'bank' =
+      validMethods.includes(paymentMethod as any) ? (paymentMethod as any) : 'cash';
+
+    const paymentRow = {
+      id: randomUUID(),
+      billId,
+      patientId: intake.patientId,
+      amountPaisa: feePaisa,
+      method: cleanMethod,
+      receivedByStaffId: actor.sub,
+      createdAt: now,
+      updatedAt: now,
+    };
+    await this.db.insert(payments).values(paymentRow);
+
+    const createdBill = {
+      ...billRow,
+      items: [billItem],
+      payments: [paymentRow],
+    };
 
     // 5. Generate Serial Number for this doctor today
     const priorSerials = await this.db
@@ -893,7 +930,8 @@ export class PatientsService {
         status: 'checked_in',
         doctorId: doctorStaffId,
         consultationBookingId: bookingId,
-        currentLocation: 'Waiting Room',
+        priority: dto.priority || 'normal',
+        currentLocation: dto.targetQueue === 'therapy' ? 'Therapy Hall' : 'Waiting Room',
         updatedAt: now,
       })
       .where(eq(visits.id, visitId));
@@ -951,6 +989,8 @@ export class PatientsService {
       visitId,
       bookingId,
       serialId,
+      billId: createdBill.id,
+      billNumber: createdBill.billNumber,
       tokenNumber,
       serialNumber: nextSerialNum,
       doctorId: doctorStaffId,
@@ -959,12 +999,17 @@ export class PatientsService {
       chamberName,
       feeTaka,
       paymentMethod,
+      bill: createdBill,
     };
 
     // Emit realtime events to TV and all connected workstations
     this.gateway?.emit('clinic:global', 'intake.queued', payload);
     this.gateway?.emit('clinic:global', 'queue.updated', { doctorId: doctorStaffId });
     this.gateway?.emit('clinic:global', 'serial.created', payload);
+    this.gateway?.emit('clinic:global', 'visit.updated', { visitId, status: 'checked_in' });
+    if (dto.targetQueue === 'therapy') {
+      this.gateway?.emit('clinic:global', 'therapy.queue_updated', { visitId });
+    }
     this.realtime?.publish('intake.queued', payload);
     this.realtime?.publish('queue.updated', { doctorId: doctorStaffId });
 

@@ -1,7 +1,7 @@
 // apps/web/components/AdminDashboardView.tsx
 'use client';
 
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState } from 'react';
 import { api, UserSession, getSession } from '../lib/api';
 import { useLanguage } from '../lib/i18n';
 import { toast } from 'sonner';
@@ -31,6 +31,7 @@ import {
   Tv,
   ArrowUpRight,
   Filter,
+  PhoneCall,
 } from 'lucide-react';
 
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './ui/card';
@@ -41,16 +42,21 @@ import { Separator } from './ui/separator';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from './ui/dropdown-menu';
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from './ui/breadcrumb';
 import Link from 'next/link';
+import { cn } from '../lib/utils';
+import { AuditLogsTab } from './admin/AuditLogsTab';
+import { TherapyQueueManagementTab } from './therapy/TherapyQueueManagementTab';
 
 export interface AdminDashboardViewProps {
   session?: UserSession | null;
+  initialTab?: 'overview' | 'audit_logs' | 'therapy_queue';
 }
 
-export default function AdminDashboardView({ session: propSession }: AdminDashboardViewProps = {}) {
+export default function AdminDashboardView({ session: propSession, initialTab = 'overview' }: AdminDashboardViewProps = {}) {
   const { t, language } = useLanguage();
   const isBn = language === 'bn';
 
   const [session, setSession] = useState<UserSession | null>(propSession || null);
+  const [activeTab, setActiveTab] = useState<'overview' | 'audit_logs' | 'therapy_queue'>(initialTab);
 
   useEffect(() => {
     if (!session) {
@@ -190,8 +196,60 @@ export default function AdminDashboardView({ session: propSession }: AdminDashbo
         </div>
       </div>
 
-      {/* Executive Stat Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Top Tab Switcher: Overview vs System Audit Logs vs Therapy Queue */}
+      <div className="flex items-center gap-1.5 sm:gap-2 p-1.5 bg-muted/60 border border-border/50 rounded-2xl w-full sm:w-auto self-start overflow-x-auto">
+        <button
+          type="button"
+          onClick={() => setActiveTab('overview')}
+          className={cn(
+            'flex items-center gap-2 px-3.5 py-2 text-xs sm:text-sm font-bold rounded-xl transition-all cursor-pointer whitespace-nowrap',
+            activeTab === 'overview'
+              ? 'bg-background text-emerald-600 dark:text-emerald-400 shadow-xs'
+              : 'text-muted-foreground hover:text-foreground'
+          )}
+        >
+          <BarChart3 className="size-4 shrink-0" />
+          <span>{isBn ? '📊 ওভারভিউ ও দৈনিক অডিট (Overview & Daily KPIs)' : '📊 Overview & Daily KPIs'}</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('audit_logs')}
+          className={cn(
+            'flex items-center gap-2 px-3.5 py-2 text-xs sm:text-sm font-bold rounded-xl transition-all cursor-pointer whitespace-nowrap',
+            activeTab === 'audit_logs'
+              ? 'bg-background text-emerald-600 dark:text-emerald-400 shadow-xs'
+              : 'text-muted-foreground hover:text-foreground'
+          )}
+        >
+          <ShieldCheck className="size-4 shrink-0" />
+          <span>{isBn ? '🛡️ সিস্টেম অডিট লগ (System Audit Logs)' : '🛡️ System Audit Logs'}</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('therapy_queue')}
+          className={cn(
+            'flex items-center gap-2 px-3.5 py-2 text-xs sm:text-sm font-bold rounded-xl transition-all cursor-pointer whitespace-nowrap',
+            activeTab === 'therapy_queue'
+              ? 'bg-background text-emerald-600 dark:text-emerald-400 shadow-xs'
+              : 'text-muted-foreground hover:text-foreground'
+          )}
+        >
+          <PhoneCall className="size-4 shrink-0" />
+          <span>{isBn ? '🚪 থেরাপি কিউ (Therapy Queue)' : '🚪 Therapy Queue'}</span>
+        </button>
+      </div>
+
+      {/* Content Rendering based on Active Dashboard Tab */}
+      {activeTab === 'audit_logs' ? (
+        <AuditLogsTab />
+      ) : activeTab === 'therapy_queue' ? (
+        <TherapyQueueManagementTab />
+      ) : (
+        <>
+          {/* Executive Stat Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* 1. Footfall */}
             <Card className="rounded-2xl border-border bg-card/90 shadow-2xs hover:shadow-md transition-all">
               <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
@@ -415,6 +473,8 @@ export default function AdminDashboardView({ session: propSession }: AdminDashbo
               </div>
             </Card>
           </div>
+        </>
+      )}
     </div>
   );
 }

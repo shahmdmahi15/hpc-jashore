@@ -20,6 +20,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { cn } from '../lib/utils';
 import { toast } from 'sonner';
 import { PatientTimelineModal } from './patient/PatientTimelineModal';
+import { IntakeAssessmentPrintModal } from './patient/IntakeAssessmentPrintModal';
+import InvoicePrintModal from './InvoicePrintModal';
 import { TherapyQueueManagementTab } from './therapy/TherapyQueueManagementTab';
 import {
   FileText,
@@ -36,6 +38,9 @@ import {
   PhoneCall,
   Sparkles,
   Plus,
+  Printer,
+  ShieldCheck,
+  AlertTriangle,
 } from 'lucide-react';
 
 interface PackagePreset {
@@ -127,6 +132,7 @@ export default function CashierView({ session: propSession }: CashierProps = {})
   const [bills, setBills] = useState<any[]>([]);
   const [dues, setDues] = useState<any[]>([]);
   const [patients, setPatients] = useState<any[]>([]);
+  const [staffList, setStaffList] = useState<any[]>([]);
   const [activeDrawer, setActiveDrawer] = useState<any>(null);
   const [loading, setLoading] = useState(false);
 
@@ -134,11 +140,21 @@ export default function CashierView({ session: propSession }: CashierProps = {})
   const [forwardedIntakes, setForwardedIntakes] = useState<any[]>([]);
   const [selectedIntakeForDetail, setSelectedIntakeForDetail] = useState<any>(null);
   const [selectedIntakeForPayment, setSelectedIntakeForPayment] = useState<any>(null);
-  const [feeTakaInput, setFeeTakaInput] = useState<number>(500);
-  const [consultationPaymentMethod, setConsultationPaymentMethod] = useState<'cash' | 'bkash' | 'nagad' | 'card'>('cash');
+  const [selectedIntakePriority, setSelectedIntakePriority] = useState<'normal' | 'emergency' | 'vip'>('normal');
+  const [selectedIntakeTargetQueue, setSelectedIntakeTargetQueue] = useState<'doctor' | 'therapy'>('doctor');
+  const [consultationPaymentMethod, setConsultationPaymentMethod] = useState<'cash' | 'bkash' | 'nagad' | 'rocket' | 'card'>('cash');
+  const [consultationTxnId, setConsultationTxnId] = useState('');
   const [admittingToQueue, setAdmittingToQueue] = useState(false);
+
+  // Modals
   const [isTimelineOpen, setIsTimelineOpen] = useState(false);
   const [timelinePatient, setTimelinePatient] = useState<{ id: string; name?: string } | null>(null);
+  const [intakePrintModalOpen, setIntakePrintModalOpen] = useState(false);
+  const [selectedIntakeForPrint, setSelectedIntakeForPrint] = useState<any>(null);
+
+  // Strict Custom Invoice Print Modal State
+  const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
+  const [invoiceModalData, setInvoiceModalData] = useState<any>(null);
 
   // Cash Drawer Modal
   const [showOpenDrawerModal, setShowOpenDrawerModal] = useState(false);
@@ -166,15 +182,12 @@ export default function CashierView({ session: propSession }: CashierProps = {})
   const [packagePriceTaka, setPackagePriceTaka] = useState<number>(2800);
   const [packageValidityDays, setPackageValidityDays] = useState<number>(30);
 
-  // Printed Receipt
-  const [receiptData, setReceiptData] = useState<any>(null);
-
   const cashierStaffId = session?.staffId || '';
 
   const loadData = async () => {
     try {
       setLoading(true);
-      const [bList, dList, pList, staffList, intakes] = await Promise.all([
+      const [bList, dList, pList, sList, intakes] = await Promise.all([
         api.billing.getBills().catch(() => []),
         api.billing.getDues().catch(() => []),
         api.patients.list().catch(() => []),
@@ -184,20 +197,21 @@ export default function CashierView({ session: propSession }: CashierProps = {})
       setBills(bList || []);
       setDues(dList || []);
       setPatients(pList || []);
+      setStaffList(sList || []);
       setForwardedIntakes(intakes || []);
 
       if (pList && pList.length > 0 && !selectedPatientId) {
         setSelectedPatientId(pList[0].id);
       }
 
-      const cashier = staffList?.find((s: any) => s.userId === session?.userId || s.role === 'cashier');
+      const cashier = sList?.find((s: any) => s.userId === session?.userId || s.role === 'cashier');
       const cid = cashier?.id || cashierStaffId;
       if (cid) {
         const dStatus = await api.billing.getDrawerStatus(cid).catch(() => null);
         setActiveDrawer(dStatus);
       }
     } catch (err: any) {
-      console.error(err);
+      console.error('Failed to load cashier data:', err);
     } finally {
       setLoading(false);
     }
@@ -212,7 +226,8 @@ export default function CashierView({ session: propSession }: CashierProps = {})
       event.type.startsWith('visit.') ||
       event.type.startsWith('consultation.') ||
       event.type.startsWith('patient.') ||
-      event.type.startsWith('intake.')
+      event.type.startsWith('intake.') ||
+      event.type.startsWith('queue.')
     ) {
       loadData();
     }
@@ -264,6 +279,15 @@ export default function CashierView({ session: propSession }: CashierProps = {})
     toast.success(`প্যাকেজ (${packageCount} ${unitLabel}) সফলভাবে বিলে যুক্ত হয়েছে!`);
   };
 
+  // Helper to derive strictly FIXED doctor fee from doctor's consultationFeePaisa
+  const getDoctorFixedFeeTaka = (intake: any) => {
+    if (intake.doctorFee) return intake.doctorFee;
+    const doc = staffList.find((s: any) => s.id === intake.doctorId || s.userId === intake.doctorId);
+    if (doc?.consultationFeeTaka) return doc.consultationFeeTaka;
+    if (doc?.consultationFeePaisa) return Math.round(doc.consultationFeePaisa / 100);
+    return 500;
+  };
+
   const handleCreateBill = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedPatientId) {
@@ -282,7 +306,6 @@ export default function CashierView({ session: propSession }: CashierProps = {})
           description: it.description,
           unitPricePaisa: Math.round(Number(it.unitPriceTaka || 0) * 100),
           quantity: Math.max(1, Math.round(Number(it.quantity || 1))),
-          // Note: totalPaisa is omitted so NestJS class-validator whitelist never rejects it
         })),
         discountPaisa: Math.max(0, Math.round(Number(discountTaka || 0) * 100)),
         paidPaisa: Math.max(0, Math.round(Number(paidTaka || 0) * 100)),
@@ -292,19 +315,33 @@ export default function CashierView({ session: propSession }: CashierProps = {})
 
       const pat = patients.find((p) => p.id === selectedPatientId);
 
-      setReceiptData({
+      // Launch strict HPC Custom Size Invoice Modal
+      setInvoiceModalData({
         billNumber: res.billNumber || `BILL-${Date.now().toString().slice(-6)}`,
         patientName: pat?.nameEn || 'Patient',
+        patientNameBn: pat?.nameBn,
         mrn: pat?.mrn || 'N/A',
-        items: billItems,
+        phone: pat?.phone,
+        ageYears: pat?.ageYears,
+        gender: pat?.gender,
+        cashierName: session?.displayName || 'Cashier Desk',
+        items: billItems.map((it) => ({
+          itemType: it.itemType,
+          description: it.description,
+          unitPriceTaka: it.unitPriceTaka,
+          quantity: it.quantity,
+          totalTaka: it.unitPriceTaka * it.quantity,
+        })),
         subtotalTaka,
         discountTaka,
         totalTaka,
         paidTaka,
         dueTaka,
         paymentMethod,
+        txnId: txnId || undefined,
         createdAt: new Date().toISOString(),
       });
+      setIsInvoiceModalOpen(true);
 
       toast.success(`বিল সফলভাবে তৈরি হয়েছে: ${res.billNumber}`);
       loadData();
@@ -315,19 +352,67 @@ export default function CashierView({ session: propSession }: CashierProps = {})
 
   const openPaymentModal = (intake: any) => {
     setSelectedIntakeForPayment(intake);
-    setFeeTakaInput(intake.doctorFee || 500);
+    setSelectedIntakePriority('normal');
+    setSelectedIntakeTargetQueue('doctor');
     setConsultationPaymentMethod('cash');
+    setConsultationTxnId('');
   };
 
   const handleAdmitToQueue = async () => {
     if (!selectedIntakeForPayment) return;
+    const fixedFee = getDoctorFixedFeeTaka(selectedIntakeForPayment);
+
     try {
       setAdmittingToQueue(true);
-      await api.patients.admitIntakeFormToQueue(selectedIntakeForPayment.id, {
-        feeTaka: feeTakaInput,
+      const res = await api.patients.admitIntakeFormToQueue(selectedIntakeForPayment.id, {
+        feeTaka: fixedFee,
         paymentMethod: consultationPaymentMethod,
+        txnId: consultationTxnId || undefined,
+        priority: selectedIntakePriority,
+        targetQueue: selectedIntakeTargetQueue,
       });
-      toast.success('পেমেন্ট সফল! রোগীকে ডাক্তার কনসালটেশন কিউতে পাঠানো হয়েছে।');
+
+      toast.success(
+        selectedIntakeTargetQueue === 'therapy'
+          ? 'পেমেন্ট সফল! রোগীকে সরাসরি থেরাপি কিউতে পাঠানো হয়েছে।'
+          : 'পেমেন্ট সফল! রোগীকে ডাক্তার কনসালটেশন কিউতে পাঠানো হয়েছে।'
+      );
+
+      // Automatically launch strict HPC Custom Size Invoice Print Modal with full payment
+      const docName = res?.doctorName || selectedIntakeForPayment.doctorName || 'Doctor';
+      const chamber = res?.chamberNumber || selectedIntakeForPayment.chamberRoomNumber || '101';
+
+      setInvoiceModalData({
+        billNumber: res?.billNumber || `BILL-${Date.now().toString().slice(-6)}`,
+        patientName: selectedIntakeForPayment.name,
+        patientNameBn: selectedIntakeForPayment.nameBn,
+        mrn: selectedIntakeForPayment.patient?.mrn || 'N/A',
+        phone: selectedIntakeForPayment.phone,
+        ageYears: selectedIntakeForPayment.ageYears,
+        gender: selectedIntakeForPayment.gender,
+        cashierName: session?.displayName || 'Cashier Desk',
+        items: [
+          {
+            itemType: selectedIntakeTargetQueue === 'therapy' ? 'therapy' : 'consultation',
+            description: selectedIntakeTargetQueue === 'therapy'
+              ? `Rehabilitation & Therapy Session Admission`
+              : `Doctor Consultation - ${docName} (Chamber Room ${chamber})`,
+            unitPriceTaka: fixedFee,
+            quantity: 1,
+            totalTaka: fixedFee,
+          },
+        ],
+        subtotalTaka: fixedFee,
+        discountTaka: 0,
+        totalTaka: fixedFee,
+        paidTaka: fixedFee,
+        dueTaka: 0, // strictly ৳0 due
+        paymentMethod: consultationPaymentMethod,
+        txnId: consultationTxnId || undefined,
+        createdAt: new Date().toISOString(),
+      });
+      setIsInvoiceModalOpen(true);
+
       setSelectedIntakeForPayment(null);
       loadData();
     } catch (err: any) {
@@ -456,7 +541,7 @@ export default function CashierView({ session: propSession }: CashierProps = {})
                 </Badge>
               </div>
               <p className="text-xs text-muted-foreground mt-0.5">
-                রিসেপশনিস্টের পূরণকৃত ফরম যাচাই করুন, ডাক্তার ফি গ্রহণ করুন এবং সরাসরি লাইভ কিউতে পাঠান
+                রিসেপশনিস্টের ইনটেক ফরম যাচাই করুন, ফিক্সড কনসালটেশন ফি গ্রহণ করুন এবং সরাসরি লাইভ কিউতে পাঠান
               </p>
             </div>
           </div>
@@ -483,90 +568,111 @@ export default function CashierView({ session: propSession }: CashierProps = {})
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5">
-              {forwardedIntakes.map((intake) => (
-                <div
-                  key={intake.id}
-                  className="p-4 rounded-xl border border-emerald-500/30 bg-card/80 hover:bg-card shadow-xs transition-all space-y-3"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <div className="font-bold text-sm sm:text-base text-foreground">
-                        {intake.name}
+              {forwardedIntakes.map((intake) => {
+                const fixedFee = getDoctorFixedFeeTaka(intake);
+                const docName = intake.doctorName || intake.doctor?.fullName || 'ডাক্তার নির্ধারিত';
+                const chamberRoom = intake.chamberRoomNumber || intake.doctor?.chamberRoomNumber || 'চেম্বার ১';
+
+                return (
+                  <div
+                    key={intake.id}
+                    className="p-4 rounded-xl border border-emerald-500/30 bg-card/90 hover:bg-card shadow-xs transition-all space-y-3"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <div className="font-bold text-sm sm:text-base text-foreground">
+                          {intake.name}
+                        </div>
+                        <div className="text-xs text-muted-foreground font-mono">
+                          {intake.phone} • {intake.gender === 'female' ? 'মহিলা' : 'পুরুষ'}
+                          {intake.ageYears ? ` • ${intake.ageYears} বছর` : ''}
+                        </div>
+                        <div className="text-[11px] font-mono text-zinc-500 mt-0.5">
+                          MRN: {intake.patient?.mrn || 'N/A'}
+                        </div>
                       </div>
-                      <div className="text-xs text-muted-foreground font-mono">
-                        {intake.phone} • {intake.gender === 'male' ? 'পুরুষ' : 'মহিলা'}
-                        {intake.ageYears ? ` • ${intake.ageYears} বছর` : ''}
+                      <Badge variant="outline" className="border-emerald-500/50 text-emerald-600 dark:text-emerald-400 text-[10px]">
+                        ক্যাশিয়ার অপেক্ষমাণ
+                      </Badge>
+                    </div>
+
+                    {/* Doctor, Chamber & Strictly FIXED Consultation Fee */}
+                    <div className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-xs space-y-1.5">
+                      <div className="flex items-center justify-between font-semibold text-emerald-800 dark:text-emerald-300">
+                        <span className="flex items-center gap-1">
+                          🩺 <strong>{docName}</strong>
+                        </span>
+                        <Badge className="bg-emerald-600 text-white font-mono font-bold text-xs">
+                          ফি: ৳{fixedFee}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                        <span>চেম্বার: রুম {chamberRoom}</span>
+                        <span className="text-emerald-600 dark:text-emerald-400 font-semibold text-[10px]">
+                          ✓ ফিক্সড · বকেয়া নিষিদ্ধ
+                        </span>
                       </div>
                     </div>
-                    <Badge variant="outline" className="border-emerald-500/50 text-emerald-600 dark:text-emerald-400 text-[10px]">
-                      {intake.status === 'forwarded_to_cashier' ? 'ক্যাশিয়ার অপেক্ষমাণ' : intake.status}
-                    </Badge>
-                  </div>
 
-                  {/* Doctor & Chamber */}
-                  <div className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-xs space-y-1">
-                    <div className="flex items-center justify-between font-semibold text-emerald-800 dark:text-emerald-300">
-                      <span>🩺 {intake.doctorName || 'ডাক্তার নির্ধারিত'}</span>
-                      <span className="font-mono font-bold">৳{intake.doctorFee || 500}</span>
+                    {/* Chief complaint & health snippet */}
+                    <div className="text-xs text-muted-foreground space-y-0.5 border-t border-border/50 pt-2">
+                      {intake.chiefComplaint && (
+                        <p className="line-clamp-2">
+                          <strong className="text-foreground">সমস্যা:</strong> {intake.chiefComplaint}
+                        </p>
+                      )}
+                      {(intake.bpSystolic || intake.bloodSugar || intake.hasDiabetes) && (
+                        <div className="text-[11px] flex flex-wrap gap-2 pt-1 font-mono">
+                          {intake.bpSystolic && <span>BP: {intake.bpSystolic}/{intake.bpDiastolic || 80}</span>}
+                          {intake.bloodSugar && <span>Sugar: {intake.bloodSugar}</span>}
+                          {intake.hasDiabetes === 1 && <span className="text-amber-500">ডায়াবেটিস: হ্যাঁ</span>}
+                        </div>
+                      )}
                     </div>
-                    <div className="text-[11px] text-muted-foreground">
-                      {intake.chamberRoomNumber ? `চেম্বার: রুম ${intake.chamberRoomNumber}` : 'চেম্বার নির্ধারিত'}
+
+                    {/* Action buttons: Intake Form (A4), Timeline, and Collect Fee & Queue */}
+                    <div className="flex items-center gap-2 pt-2 border-t border-border/50">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setSelectedIntakeForPrint(intake);
+                          setIntakePrintModalOpen(true);
+                        }}
+                        className="h-8 px-2.5 text-xs gap-1 flex-1 cursor-pointer"
+                        title="ইনটেক ফরম প্রিন্ট (A4 সাইজ)"
+                      >
+                        <Printer className="size-3.5 text-emerald-600" />
+                        <span>ইনটেক ফরম</span>
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setTimelinePatient({ id: intake.patientId, name: intake.name });
+                          setIsTimelineOpen(true);
+                        }}
+                        className="h-8 px-2.5 text-xs gap-1 cursor-pointer"
+                        title="টাইমলাইন"
+                      >
+                        <Clock className="size-3.5 text-muted-foreground" />
+                        <span>টাইমলাইন</span>
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => openPaymentModal(intake)}
+                        className="h-8 px-3 text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white gap-1.5 flex-1 shadow-xs cursor-pointer"
+                      >
+                        <CreditCard className="size-3.5" />
+                        <span>ফি গ্রহণ ও কিউ</span>
+                      </Button>
                     </div>
                   </div>
-
-                  {/* Chief complaint & health snippet */}
-                  <div className="text-xs text-muted-foreground space-y-0.5 border-t border-border/50 pt-2">
-                    {intake.chiefComplaint && (
-                      <p className="line-clamp-2">
-                        <strong className="text-foreground">সমস্যা:</strong> {intake.chiefComplaint}
-                      </p>
-                    )}
-                    {(intake.bpSystolic || intake.bloodSugar || intake.hasDiabetes) && (
-                      <div className="text-[11px] flex flex-wrap gap-2 pt-1 font-mono">
-                        {intake.bpSystolic && <span>BP: {intake.bpSystolic}/{intake.bpDiastolic || 80}</span>}
-                        {intake.bloodSugar && <span>Sugar: {intake.bloodSugar}</span>}
-                        {intake.hasDiabetes === 1 && <span className="text-amber-500">ডায়াবেটিস: হ্যাঁ</span>}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Action buttons */}
-                  <div className="flex items-center gap-2 pt-2 border-t border-border/50">
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setSelectedIntakeForDetail(intake)}
-                      className="h-8 px-2.5 text-xs gap-1 flex-1 cursor-pointer"
-                    >
-                      <Eye className="size-3.5" />
-                      <span>ফরম</span>
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        setTimelinePatient({ id: intake.patientId, name: intake.name });
-                        setIsTimelineOpen(true);
-                      }}
-                      className="h-8 px-2.5 text-xs gap-1 cursor-pointer"
-                      title="টাইমলাইন"
-                    >
-                      <Clock className="size-3.5 text-muted-foreground" />
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      onClick={() => openPaymentModal(intake)}
-                      className="h-8 px-3 text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white gap-1.5 flex-1 shadow-xs cursor-pointer"
-                    >
-                      <CreditCard className="size-3.5" />
-                      <span>ফি ও কিউ</span>
-                    </Button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </CardContent>
@@ -811,28 +917,34 @@ export default function CashierView({ session: propSession }: CashierProps = {})
                             <SelectItem value="cash">Cash (নগদ)</SelectItem>
                             <SelectItem value="bkash">bKash (বিকাশ)</SelectItem>
                             <SelectItem value="nagad">Nagad (নগদ অ্যাপ)</SelectItem>
-                            <SelectItem value="rocket">Rocket</SelectItem>
-                            <SelectItem value="card">POS Card</SelectItem>
+                            <SelectItem value="rocket">Rocket (রকেট)</SelectItem>
+                            <SelectItem value="card">POS Card (কার্ড)</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
 
-                      <Input
-                        label="Amount Paid (৳)"
-                        type="number"
-                        value={paidTaka}
-                        onChange={(e) => setPaidTaka(parseInt(e.target.value) || 0)}
-                      />
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-semibold text-muted-foreground">Amount Paid (৳)</Label>
+                        <Input
+                          type="number"
+                          value={paidTaka}
+                          onChange={(e) => setPaidTaka(parseInt(e.target.value) || 0)}
+                          className="h-9 font-mono"
+                        />
+                      </div>
                     </div>
 
                     {paymentMethod !== 'cash' && (
-                      <Input
-                        label="MFS / Bank Transaction ID"
-                        type="text"
-                        placeholder="e.g. TRX992812"
-                        value={txnId}
-                        onChange={(e) => setTxnId(e.target.value)}
-                      />
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-semibold text-muted-foreground">MFS / Bank Transaction ID</Label>
+                        <Input
+                          type="text"
+                          placeholder="e.g. TRX992812"
+                          value={txnId}
+                          onChange={(e) => setTxnId(e.target.value)}
+                          className="h-9 font-mono"
+                        />
+                      </div>
                     )}
 
                     {dueTaka > 0 && (
@@ -846,7 +958,7 @@ export default function CashierView({ session: propSession }: CashierProps = {})
                       size="lg"
                       className="w-full mt-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 text-sm sm:text-base shadow-sm cursor-pointer"
                     >
-                      🖨️ Settle Bill &amp; Print Thermal Receipt
+                      🖨️ Settle Bill &amp; Print HPC Custom Invoice
                     </Button>
                   </form>
                 </CardContent>
@@ -1285,90 +1397,21 @@ export default function CashierView({ session: propSession }: CashierProps = {})
         </DialogContent>
       </Dialog>
 
-      {/* 80mm Cashier Thermal Receipt Dialog */}
-      {receiptData && (
-        <Dialog open={!!receiptData} onOpenChange={() => setReceiptData(null)}>
-          <DialogContent className="max-w-sm" onClose={() => setReceiptData(null)}>
-            <DialogHeader>
-              <DialogTitle className="text-base font-bold">Cashier Receipt</DialogTitle>
-            </DialogHeader>
+      {/* STRICT HPC CUSTOM SIZE INVOICE PRINT MODAL (5.5" × 8.27") */}
+      <InvoicePrintModal
+        open={isInvoiceModalOpen}
+        onClose={() => setIsInvoiceModalOpen(false)}
+        data={invoiceModalData}
+      />
 
-            <div className="bg-white text-zinc-950 p-4 rounded border border-dashed border-zinc-400 font-mono text-xs text-left mx-auto w-full">
-              <div className="font-bold text-center text-sm">
-                এইচপিসি হেলথ অ্যান্ড পেইন কেয়ার সেন্টার
-              </div>
-              <div className="text-[11px] text-center text-zinc-600">
-                HPC Health &amp; Pain Care Center, Jashore
-              </div>
-              <div className="border-b border-dashed border-zinc-950 my-2" />
-              <div className="font-bold text-center">
-                MONEY RECEIPT · {receiptData.billNumber}
-              </div>
-              <div className="text-[10px] mt-1">
-                Patient: <strong>{receiptData.patientName}</strong> (MRN: {receiptData.mrn})
-              </div>
-              <div className="text-[10px]">
-                Date: {new Date(receiptData.createdAt).toLocaleString()}
-              </div>
+      {/* A4 INTAKE ASSESSMENT PRINT MODAL */}
+      <IntakeAssessmentPrintModal
+        open={intakePrintModalOpen}
+        onClose={() => setIntakePrintModalOpen(false)}
+        intake={selectedIntakeForPrint}
+      />
 
-              <div className="border-b border-dashed border-zinc-950 my-2" />
-
-              <table className="w-full text-[10px]">
-                <tbody>
-                  {receiptData.items.map((it: any, i: number) => (
-                    <tr key={i}>
-                      <td>{it.description} x{it.quantity}</td>
-                      <td className="text-right">৳{it.unitPriceTaka * it.quantity}</td>
-                    </tr>
-                  ))}
-                  <tr>
-                    <td className="border-t border-dashed border-zinc-300 pt-1">Subtotal:</td>
-                    <td className="border-t border-dashed border-zinc-300 pt-1 text-right">৳{receiptData.subtotalTaka}</td>
-                  </tr>
-                  {receiptData.discountTaka > 0 && (
-                    <tr>
-                      <td>Discount:</td>
-                      <td className="text-right">-৳{receiptData.discountTaka}</td>
-                    </tr>
-                  )}
-                  <tr className="font-bold">
-                    <td>Total:</td>
-                    <td className="text-right">৳{receiptData.totalTaka}</td>
-                  </tr>
-                  <tr>
-                    <td>Paid ({receiptData.paymentMethod}):</td>
-                    <td className="text-right">৳{receiptData.paidTaka}</td>
-                  </tr>
-                  {receiptData.dueTaka > 0 && (
-                    <tr className="text-red-600 font-bold">
-                      <td>Due:</td>
-                      <td className="text-right">৳{receiptData.dueTaka}</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-
-              <div className="border-b border-dashed border-zinc-950 my-2" />
-              <div className="text-[10px] text-center text-zinc-600">Thank you for visiting HPC Jashore!</div>
-            </div>
-
-            <div className="flex gap-3 mt-4 pt-2 border-t border-border">
-              <Button
-                type="button"
-                className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold cursor-pointer"
-                onClick={() => window.print()}
-              >
-                🖨️ Print Receipt
-              </Button>
-              <Button type="button" variant="outline" onClick={() => setReceiptData(null)} className="cursor-pointer">
-                Close
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
-
-      {/* MODAL 1: CONSULTATION FEE COLLECTION & QUEUE ADMISSION */}
+      {/* CONSULTATION FEE COLLECTION & QUEUE ADMISSION MODAL */}
       {selectedIntakeForPayment && (
         <Dialog
           open={!!selectedIntakeForPayment}
@@ -1380,7 +1423,7 @@ export default function CashierView({ session: propSession }: CashierProps = {})
             <DialogHeader>
               <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-bold text-xs uppercase tracking-wider">
                 <CreditCard className="size-4" />
-                <span>পরামর্শ ফি গ্রহণ ও কিউতে অন্তর্ভুক্তি</span>
+                <span>পরামর্শ ফি গ্রহণ ও সিরিয়াল অন্তর্ভুক্তি</span>
               </div>
               <DialogTitle className="text-lg font-bold">
                 {selectedIntakeForPayment.name}
@@ -1392,18 +1435,28 @@ export default function CashierView({ session: propSession }: CashierProps = {})
             </DialogHeader>
 
             <div className="space-y-4 py-3 text-xs">
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold">পরামর্শ ফি (Consultation Fee in ৳) *</Label>
-                <Input
-                  type="number"
-                  value={feeTakaInput}
-                  onChange={(e) => setFeeTakaInput(parseInt(e.target.value, 10) || 0)}
-                  placeholder="500"
-                  className="h-9 text-sm font-mono font-bold"
-                />
+              {/* FIXED & NON-CUSTOMIZABLE FEE DISPLAY BADGE */}
+              <div className="p-3.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 flex items-center justify-between">
+                <div>
+                  <div className="text-xs text-muted-foreground font-semibold flex items-center gap-1.5">
+                    <ShieldCheck className="size-3.5 text-emerald-600" />
+                    <span>ডাক্তার কনসালটেশন ফি (নির্দিষ্ট)</span>
+                  </div>
+                  <div className="text-[11px] text-emerald-700 dark:text-emerald-300 font-medium mt-0.5">
+                    বকেয়া নিষিদ্ধ · সম্পূর্ণ পরিশোধ আবশ্যক
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-2xl font-black font-mono text-emerald-700 dark:text-emerald-300">
+                    ৳{getDoctorFixedFeeTaka(selectedIntakeForPayment)}
+                  </div>
+                  <Badge variant="outline" className="border-emerald-500/40 text-[9px] uppercase font-bold text-emerald-700 dark:text-emerald-300">
+                    Fixed Fee
+                  </Badge>
+                </div>
               </div>
 
-              {/* Consultation Payment Method using shadcn/ui Select */}
+              {/* Consultation Payment Method */}
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold text-muted-foreground">পেমেন্ট মেথড (Payment Method) *</Label>
                 <Select
@@ -1417,13 +1470,69 @@ export default function CashierView({ session: propSession }: CashierProps = {})
                     <SelectItem value="cash">Cash (নগদ)</SelectItem>
                     <SelectItem value="bkash">bKash (বিকাশ)</SelectItem>
                     <SelectItem value="nagad">Nagad (নগদ অ্যাপ)</SelectItem>
-                    <SelectItem value="card">POS Card</SelectItem>
+                    <SelectItem value="rocket">Rocket (রকেট)</SelectItem>
+                    <SelectItem value="card">POS Card (কার্ড)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
-              <div className="p-3 rounded-lg border border-emerald-500/20 bg-emerald-500/5 text-muted-foreground text-[11px] leading-relaxed">
-                ℹ️ ফি গ্রহণ নিশ্চিত করামাত্র রোগীকে স্বয়ংক্রিয়ভাবে ডাক্তার কনসালটেশন কিউতে প্রবেশ করানো হবে এবং ওয়েটিং রুমের টিভি স্ক্রিন ও ওয়েবে সিরিয়াল প্রদর্শিত হবে।
+              {/* Digital Txn ID if not cash */}
+              {consultationPaymentMethod !== 'cash' && (
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-muted-foreground">
+                    ট্রানজ্যাকশন আইডি (Transaction ID / POS Slip Ref)
+                  </Label>
+                  <Input
+                    type="text"
+                    placeholder="e.g. TRX-902812"
+                    value={consultationTxnId}
+                    onChange={(e) => setConsultationTxnId(e.target.value)}
+                    className="h-9 font-mono text-xs"
+                  />
+                </div>
+              )}
+
+              {/* Queue Priority Selection */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-muted-foreground">সিরিয়াল অগ্রাধিকার (Priority)</Label>
+                  <Select
+                    value={selectedIntakePriority}
+                    onValueChange={(val: any) => setSelectedIntakePriority(val)}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Priority" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="normal">Normal (সাধারণ)</SelectItem>
+                      <SelectItem value="emergency">Emergency (জরুরি)</SelectItem>
+                      <SelectItem value="vip">VIP (অগ্রাধিকার)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-muted-foreground">গন্তব্য কিউ (Target Queue)</Label>
+                  <Select
+                    value={selectedIntakeTargetQueue}
+                    onValueChange={(val: any) => setSelectedIntakeTargetQueue(val)}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Queue" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="doctor">ডাক্তার চেম্বার (Doctor)</SelectItem>
+                      <SelectItem value="therapy">থেরাপি কিউ (Therapy)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-lg border border-emerald-500/20 bg-emerald-500/5 text-muted-foreground text-[11px] leading-relaxed flex items-start gap-2">
+                <Sparkles className="size-4 shrink-0 text-emerald-600 mt-0.5" />
+                <span>
+                  ফি গ্রহণ নিশ্চিত করামাত্র রোগীকে স্বয়ংক্রিয়ভাবে ডাক্তার বা থেরাপি কিউতে প্রবেশ করানো হবে, ওয়েটিং রুম ও অ্যান্ড্রয়েড টিভিতে সিরিয়াল ভেসে উঠবে এবং সাথে সাথে <strong>HPC সাইজ ইনভয়েস (5.5&quot; × 8.27&quot;)</strong> প্রিন্ট হবে।
+                </span>
               </div>
             </div>
 
@@ -1447,129 +1556,13 @@ export default function CashierView({ session: propSession }: CashierProps = {})
               >
                 {admittingToQueue ? (
                   <>
-                    <Loader2 className="size-3.5 animate-spin" /> সম্পন্ন হচ্ছে...
+                    <Loader2 className="size-3.5 animate-spin" /> ফি আদায় হচ্ছে...
                   </>
                 ) : (
                   <>
-                    <CheckCircle className="size-3.5" /> ফি গ্রহণ ও কিউতে পাঠান
+                    <CheckCircle className="size-3.5" /> ফি গ্রহণ, কিউ ও ইনভয়েস
                   </>
                 )}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
-
-      {/* MODAL 2: INTAKE FORM FULL DETAIL VIEWER */}
-      {selectedIntakeForDetail && (
-        <Dialog
-          open={!!selectedIntakeForDetail}
-          onOpenChange={(open) => {
-            if (!open) setSelectedIntakeForDetail(null);
-          }}
-        >
-          <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto p-5 bg-background border-emerald-500/30" onClose={() => setSelectedIntakeForDetail(null)}>
-            <DialogHeader className="border-b border-border pb-3">
-              <div className="flex items-center gap-2 text-emerald-500 font-bold text-xs uppercase tracking-wider">
-                <FileText className="size-4" />
-                <span>রোগীর প্রাথমিক তথ্য ও রিসেপশন ফরম বিবরণী</span>
-              </div>
-              <DialogTitle className="text-lg font-bold">
-                {selectedIntakeForDetail.name} ({selectedIntakeForDetail.phone})
-              </DialogTitle>
-              <DialogDescription className="text-xs text-muted-foreground">
-                রিসেপশনিস্ট: {selectedIntakeForDetail.receptionistName || 'ডেস্ক'} • অবস্থা: {selectedIntakeForDetail.status}
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="space-y-4 py-3 text-xs">
-              {/* Personal Details */}
-              <div className="p-3 rounded-lg border border-border/70 bg-card/50 space-y-2">
-                <div className="font-semibold text-emerald-500 flex items-center gap-1.5">
-                  <UserCheck className="size-3.5" />
-                  <span>১. ব্যাক্তিগত তথ্য</span>
-                </div>
-                <div className="grid grid-cols-2 gap-2 text-muted-foreground">
-                  <div>নাম: <strong className="text-foreground">{selectedIntakeForDetail.name}</strong></div>
-                  <div>মোবাইল: <strong className="text-foreground font-mono">{selectedIntakeForDetail.phone}</strong></div>
-                  <div>বয়স: <strong className="text-foreground">{selectedIntakeForDetail.ageYears || 'অনির্ধারিত'} বছর</strong></div>
-                  <div>লিঙ্গ: <strong className="text-foreground capitalize">{selectedIntakeForDetail.gender === 'male' ? 'পুরুষ' : 'মহিলা'}</strong></div>
-                  <div>পেশা: <strong className="text-foreground">{selectedIntakeForDetail.occupation || 'উলেখ নেই'}</strong></div>
-                  <div className="col-span-2">ঠিকানা: <strong className="text-foreground">{selectedIntakeForDetail.address || 'উলেখ নেই'}</strong></div>
-                </div>
-              </div>
-
-              {/* Health Info */}
-              <div className="p-3 rounded-lg border border-border/70 bg-card/50 space-y-2">
-                <div className="font-semibold text-rose-500 flex items-center gap-1.5">
-                  <HeartPulse className="size-3.5" />
-                  <span>২. প্রাথমিক স্বাস্থ্য তথ্য</span>
-                </div>
-                <div className="grid grid-cols-2 gap-2 text-muted-foreground">
-                  <div>রক্তচাপ: <strong className="text-foreground font-mono">{selectedIntakeForDetail.bpSystolic ? `${selectedIntakeForDetail.bpSystolic}/${selectedIntakeForDetail.bpDiastolic || 80} mmHg` : 'পরিমাপ করা হয়নি'}</strong></div>
-                  <div>রক্তে শর্করা: <strong className="text-foreground font-mono">{selectedIntakeForDetail.bloodSugar ? `${selectedIntakeForDetail.bloodSugar} mmol/L` : 'পরিমাপ করা হয়নি'}</strong></div>
-                  <div>ডায়াবেটিস: <strong className="text-foreground">{selectedIntakeForDetail.hasDiabetes === 1 ? 'হ্যাঁ (আক্রান্ত)' : 'না'}</strong></div>
-                  <div>ওজন: <strong className="text-foreground font-mono">{selectedIntakeForDetail.weightKg ? `${selectedIntakeForDetail.weightKg} কেজি` : 'পরিমাপ করা হয়নি'}</strong></div>
-                  <div className="col-span-2">প্রধান শারীরিক সমস্যা: <strong className="text-foreground">{selectedIntakeForDetail.chiefComplaint || 'উলেখ নেই'}</strong></div>
-                  {selectedIntakeForDetail.problemDuration && (
-                    <div className="col-span-2">কতদিন ধরে সমস্যা: <strong className="text-foreground">{selectedIntakeForDetail.problemDuration}</strong></div>
-                  )}
-                </div>
-              </div>
-
-              {/* Past History */}
-              <div className="p-3 rounded-lg border border-border/70 bg-card/50 space-y-2">
-                <div className="font-semibold text-amber-500 flex items-center gap-1.5">
-                  <History className="size-3.5" />
-                  <span>৩. পূর্ববর্তী চিকিৎসার বিবরণ</span>
-                </div>
-                <div className="space-y-1 text-muted-foreground">
-                  <div>পূর্বে ডাক্তার দেখিয়েছেন: <strong className="text-foreground">{selectedIntakeForDetail.seenDoctorBefore === 1 ? `হ্যাঁ (${selectedIntakeForDetail.previousDoctorDetails || ''})` : 'না'}</strong></div>
-                  <div>পূর্বের টেস্ট রিপোর্ট: <strong className="text-foreground">{selectedIntakeForDetail.hasPreviousReports === 1 ? `হ্যাঁ (${selectedIntakeForDetail.previousReportNames || ''})` : 'না'}</strong></div>
-                  <div>নিয়মিত ওষুধ সেবন: <strong className="text-foreground">{selectedIntakeForDetail.takesRegularMedication === 1 ? `হ্যাঁ (${selectedIntakeForDetail.regularMedicationDetails || ''})` : 'না'}</strong></div>
-                  <div>ওষুধে এলার্জি: <strong className="text-foreground text-red-400">{selectedIntakeForDetail.hasDrugAllergies === 1 ? `হ্যাঁ (${selectedIntakeForDetail.drugAllergyDetails || ''})` : 'না'}</strong></div>
-                </div>
-              </div>
-
-              {/* Referral & Target Doctor */}
-              <div className="p-3 rounded-lg border border-emerald-500/30 bg-emerald-500/5 space-y-2">
-                <div className="font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
-                  <Stethoscope className="size-3.5" />
-                  <span>৪. রেফারেল ও নির্ধারিত ডাক্তার</span>
-                </div>
-                <div className="grid grid-cols-2 gap-2 text-muted-foreground">
-                  <div>সোর্স: <strong className="text-foreground capitalize">{selectedIntakeForDetail.referralSource || 'অনির্ধারিত'}</strong></div>
-                  <div>নির্ধারিত ডাক্তার: <strong className="text-foreground">{selectedIntakeForDetail.doctorName || 'ডাক্তার'}</strong></div>
-                  <div>চেম্বার রুম: <strong className="text-foreground">{selectedIntakeForDetail.chamberRoomNumber ? `রুম ${selectedIntakeForDetail.chamberRoomNumber}` : 'নির্ধারিত রুম'}</strong></div>
-                  <div>পরামর্শ ফি: <strong className="text-foreground font-mono">৳{selectedIntakeForDetail.doctorFee || 500}</strong></div>
-                  {selectedIntakeForDetail.specialNotes && (
-                    <div className="col-span-2">রিসেপশন মন্তব্য: <strong className="text-foreground">{selectedIntakeForDetail.specialNotes}</strong></div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <DialogFooter className="flex flex-row justify-between gap-2 pt-2 border-t border-border">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setSelectedIntakeForDetail(null)}
-                className="text-xs cursor-pointer"
-              >
-                বন্ধ করুন
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                onClick={() => {
-                  const it = selectedIntakeForDetail;
-                  setSelectedIntakeForDetail(null);
-                  openPaymentModal(it);
-                }}
-                className="text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-bold gap-1.5 cursor-pointer"
-              >
-                <CreditCard className="size-3.5" /> ফি গ্রহণ ও কিউতে পাঠান
               </Button>
             </DialogFooter>
           </DialogContent>

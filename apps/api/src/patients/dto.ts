@@ -368,6 +368,21 @@ export class AdmitToQueueDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @ApiPropertyOptional({ description: 'Transaction ID for mobile/card payment' })
+  @IsOptional()
+  @IsString()
+  txnId?: string;
+
+  @ApiPropertyOptional({ description: 'Priority: normal, emergency, vip' })
+  @IsOptional()
+  @IsString()
+  priority?: 'normal' | 'emergency' | 'vip';
+
+  @ApiPropertyOptional({ description: 'Target queue: doctor or therapy' })
+  @IsOptional()
+  @IsString()
+  targetQueue?: 'doctor' | 'therapy';
 }
 
 export class CreateTimelineEventDto {

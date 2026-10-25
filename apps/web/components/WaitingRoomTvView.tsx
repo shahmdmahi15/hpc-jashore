@@ -318,7 +318,7 @@ export default function WaitingRoomTvView() {
           // Doctor consultation speech
           const doctor = latestCalled.doctorNameEn || latestCalled.doctorName || 'ডাক্তার';
           const chamber = latestCalled.chamberRoomNumber || latestCalled.chamberName || '১';
-          const textBn = `ডাঃ ${doctor}, রোগী ${patientBn}-কে রুম নম্বর ${chamber}-এ ডাকছেন।`;
+          const textBn = `ডাঃ ${doctor}, রোগী ${patientBn} কে ${chamber} নম্বর রুমে ডাকছেন`;
           const utteranceBn = new SpeechSynthesisUtterance(textBn);
           utteranceBn.lang = 'bn-BD';
           utteranceBn.rate = 0.9;
@@ -329,7 +329,7 @@ export default function WaitingRoomTvView() {
 
           utteranceBn.onend = () => {
             setTimeout(() => {
-              const textEn = `Dr. ${doctor} is calling patient ${patientEn} to room number ${chamber}.`;
+              const textEn = `Doctor ${doctor} is calling patient ${patientEn} to room number ${chamber}`;
               const utteranceEn = new SpeechSynthesisUtterance(textEn);
               const enInVoice =
                 voices.find((v) => v.lang === 'en-IN' || v.lang.startsWith('en-IN')) ||
@@ -347,7 +347,7 @@ export default function WaitingRoomTvView() {
           };
 
           utteranceBn.onerror = () => {
-            const textEn = `Dr. ${doctor} is calling patient ${patientEn} to room number ${chamber}.`;
+            const textEn = `Doctor ${doctor} is calling patient ${patientEn} to room number ${chamber}`;
             const utteranceEn = new SpeechSynthesisUtterance(textEn);
             utteranceEn.lang = 'en-IN';
             utteranceEn.rate = 0.92;

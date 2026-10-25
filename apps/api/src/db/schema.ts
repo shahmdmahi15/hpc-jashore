@@ -372,7 +372,7 @@ export const visits = sqliteTable('visits', {
     .default('checked_in'),
   priority: text('priority')
     .notNull()
-    .$type<'normal' | 'emergency' | 'package' | 'follow_up' | 'elderly'>()
+    .$type<'normal' | 'emergency' | 'package' | 'follow_up' | 'elderly' | 'vip'>()
     .default('normal'),
   currentLocation: text('current_location').default('reception'),
   roomId: text('room_id').references(() => rooms.id),

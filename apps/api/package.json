@@ -1,6 +1,6 @@
 {
   "name": "@hpc/api",
-  "version": "0.1.44",
+  "version": "0.1.45",
   "private": true,
   "description": "HPC Jashore — NestJS core API (single writer, realtime source of truth)",
   "scripts": {
@@ -10,6 +10,7 @@
     "lint": "node --max-old-space-size=4096 ./node_modules/typescript/bin/tsc --noEmit",
     "seed": "ts-node -T src/db/seed.ts",
     "test": "ts-node -T src/common/mrn.util.spec.ts",
+    "test:all": "ts-node -T src/common/mrn.util.spec.ts && ts-node -T src/billing/dto.spec.ts && ts-node -T src/therapy/therapy.package.spec.ts",
     "test:mrn": "ts-node -T src/common/mrn.util.spec.ts"
   },
   "dependencies": {

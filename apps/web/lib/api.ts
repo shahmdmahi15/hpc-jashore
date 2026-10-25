@@ -442,4 +442,49 @@ export const api = {
         body: JSON.stringify({ force }),
       }),
   },
+  audit: {
+    query: (params?: {
+      page?: number;
+      limit?: number;
+      actor?: string;
+      entity?: string;
+      action?: string;
+      from?: string;
+      to?: string;
+      search?: string;
+    }) => {
+      const q = new URLSearchParams();
+      if (params?.page) q.append('page', String(params.page));
+      if (params?.limit) q.append('limit', String(params.limit));
+      if (params?.actor) q.append('actor', params.actor);
+      if (params?.entity) q.append('entity', params.entity);
+      if (params?.action) q.append('action', params.action);
+      if (params?.from) q.append('from', params.from);
+      if (params?.to) q.append('to', params.to);
+      if (params?.search) q.append('search', params.search);
+      const str = q.toString();
+      return apiFetch<{
+        items: Array<{
+          id: number;
+          occurredAt: string;
+          actorUserId: string | null;
+          actorRole: string | null;
+          actorDisplayName?: string | null;
+          deskId: string | null;
+          pinStaffId: string | null;
+          action: string;
+          entity: string;
+          entityId: string;
+          beforeJson: string | null;
+          afterJson: string | null;
+          ip: string | null;
+          requestId: string | null;
+        }>;
+        total: number;
+        page: number;
+        limit: number;
+        pages: number;
+      }>(`/audit${str ? `?${str}` : ''}`);
+    },
+  },
 };

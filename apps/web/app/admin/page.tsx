@@ -14,6 +14,7 @@ import { ConsultationConfigView } from '../../components/admin/ConsultationConfi
 import { TherapySlotBookingView } from '../../components/therapy/TherapySlotBookingView';
 import { ExtraSlotManagementView } from '../../components/therapy/ExtraSlotManagementView';
 import { TherapyQueueManagementTab } from '../../components/therapy/TherapyQueueManagementTab';
+import { AuditLogsTab } from '../../components/admin/AuditLogsTab';
 import { PatientManagementView } from '../../components/patient/PatientManagementView';
 import { CheckInWorkstationView } from '../../components/checkin/CheckInWorkstationView';
 import { CheckoutWorkstationView } from '../../components/checkout/CheckoutWorkstationView';
@@ -318,7 +319,11 @@ export default function AdminPage() {
               <TherapySlotConfigView />
             </TabsContent>
 
-            {ADMIN_ROW1_TABS.filter((t) => t.id !== 'overview' && t.id !== 'users_devices' && t.id !== 'bulletins' && t.id !== 'patients_emr' && t.id !== 'room_config' && t.id !== 'therapy_slot_config' && t.id !== 'consultation_serial_config').map((tab) => (
+            <TabsContent value="audit_logs" className="mt-4 focus-visible:outline-none">
+              <AuditLogsTab />
+            </TabsContent>
+
+            {ADMIN_ROW1_TABS.filter((t) => t.id !== 'overview' && t.id !== 'users_devices' && t.id !== 'bulletins' && t.id !== 'patients_emr' && t.id !== 'room_config' && t.id !== 'therapy_slot_config' && t.id !== 'consultation_serial_config' && t.id !== 'audit_logs').map((tab) => (
               <TabsContent key={tab.id} value={tab.id} className="mt-4 focus-visible:outline-none">
                 <WorkstationTabPlaceholder
                   titleEn={tab.titleEn}

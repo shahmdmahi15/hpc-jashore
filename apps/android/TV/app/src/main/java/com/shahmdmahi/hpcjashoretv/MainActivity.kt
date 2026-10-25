@@ -1175,8 +1175,8 @@ class MainActivity : ComponentActivity() {
             englishText = "Patient $patientNameEn, please proceed to $chamber for therapy."
         } else {
             val chamberDigits = chamber.replace(Regex("[^0-9]"), "").ifBlank { "1" }
-            banglaText = "ডাঃ $doctorName, রোগী $patientNameBn-কে রুম নম্বর $chamberDigits-এ ডাকছেন।"
-            englishText = "Dr. $doctorName is calling patient $patientNameEn to room number $chamberDigits."
+            banglaText = "ডাঃ $doctorName, রোগী $patientNameBn কে $chamberDigits নম্বর রুমে ডাকছেন"
+            englishText = "Doctor $doctorName is calling patient $patientNameEn to room number $chamberDigits"
         }
 
         try {
