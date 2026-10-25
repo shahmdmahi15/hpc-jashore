@@ -47,7 +47,12 @@ export default function InvoicePrintModal({
   if (!data) return null;
 
   const handlePrint = () => {
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'visible';
     window.print();
+    setTimeout(() => {
+      document.body.style.overflow = prevOverflow;
+    }, 500);
   };
 
   const formattedDate = data.createdAt
@@ -87,6 +92,9 @@ export default function InvoicePrintModal({
               color: #000000 !important;
               margin: 0 !important;
               padding: 0 !important;
+              overflow: visible !important;
+              height: auto !important;
+              min-height: 0 !important;
               -webkit-print-color-adjust: exact !important;
               print-color-adjust: exact !important;
             }
@@ -101,17 +109,18 @@ export default function InvoicePrintModal({
               position: absolute !important;
               left: 0 !important;
               top: 0 !important;
-              width: 5.5in !important;
-              min-height: 8.27in !important;
+              width: 100% !important;
               max-width: 5.5in !important;
-              margin: 0 auto !important;
-              padding: 6mm 8mm !important;
+              margin: 0 !important;
+              padding: 0 !important;
               background: #ffffff !important;
               color: #000000 !important;
               box-shadow: none !important;
               border: none !important;
               font-size: 10px !important;
               line-height: 1.35 !important;
+              height: auto !important;
+              min-height: 0 !important;
             }
           }
         `}</style>
@@ -142,7 +151,6 @@ export default function InvoicePrintModal({
           className="sheet-invoice-hpc print-hpc-paper bg-white text-zinc-950 p-4 sm:p-5 rounded-xl border border-zinc-300 shadow-md mx-auto my-2 w-full font-sans"
           style={{
             maxWidth: '5.5in',
-            minHeight: '8.27in',
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'space-between',

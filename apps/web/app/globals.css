@@ -521,11 +521,6 @@ select:-webkit-autofill:active {
   margin: 6mm 8mm;
 }
 
-@page thermal {
-  size: 80mm auto;
-  margin: 4mm;
-}
-
 @media print {
   /* Suppress all interactive UI, modals backdrop blur, navbars and buttons */
   body * {
@@ -539,23 +534,53 @@ select:-webkit-autofill:active {
     color: #000000 !important;
     margin: 0 !important;
     padding: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
 
+  /* Strip all dialog / modal overlay / portal / flex containers during print so content is never centered or pushed down */
+  [role="dialog"],
+  [data-radix-portal],
+  div[class*="fixed inset-0"],
+  div[class*="items-center"],
+  div[class*="justify-center"],
+  div[class*="overflow-y-auto"] {
+    position: static !important;
+    display: block !important;
+    transform: none !important;
+    animation: none !important;
+    overflow: visible !important;
+    max-height: none !important;
+    max-width: none !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
   /* Specialized Print Classes mandated by Directives */
   .print-hpc-paper {
-    width: 5.5in !important;
-    min-height: 8.27in !important;
+    width: 100% !important;
     max-width: 5.5in !important;
-    margin: 0 auto !important;
+    height: auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
 
   .print-a4-paper {
-    width: 210mm !important;
-    min-height: 297mm !important;
-    max-width: 210mm !important;
-    margin: 0 auto !important;
+    width: 100% !important;
+    max-width: 190mm !important;
+    height: auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
 
   /* Printable Sheet Visibility */
@@ -566,23 +591,24 @@ select:-webkit-autofill:active {
   .sheet-report,
   .sheet-report *,
   .sheet-report-a4,
-  .sheet-report-a4 *,
-  .sheet-thermal,
-  .sheet-thermal * {
-    visibility: visible;
+  .sheet-report-a4 * {
+    visibility: visible !important;
   }
 
   /* HPC Custom Paper (5.5in x 8.27in / 140mm x 210mm) for Invoices & Receipts */
   .sheet-invoice-hpc {
     page: invoice-hpc;
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 5.5in !important;
-    min-height: 8.27in !important;
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    max-width: 5.5in !important;
+    height: auto !important;
+    min-height: 0 !important;
     background: #ffffff !important;
     color: #000000 !important;
-    padding: 6mm 8mm !important;
+    padding: 0 !important;
+    margin: 0 !important;
     box-shadow: none !important;
     border: none !important;
     font-family: var(--font-poppins, 'Poppins'), 'Hind Siliguri', 'Noto Sans Bengali', system-ui, sans-serif !important;
@@ -592,14 +618,17 @@ select:-webkit-autofill:active {
   .sheet-report,
   .sheet-report-a4 {
     page: report-a4;
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 210mm !important;
-    min-height: 297mm !important;
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    max-width: 190mm !important;
+    height: auto !important;
+    min-height: 0 !important;
     background: #ffffff !important;
     color: #000000 !important;
-    padding: 10mm !important;
+    padding: 0 !important;
+    margin: 0 !important;
     box-shadow: none !important;
     border: none !important;
     font-family: var(--font-poppins, 'Poppins'), 'Hind Siliguri', 'Noto Sans Bengali', system-ui, sans-serif !important;
@@ -608,39 +637,29 @@ select:-webkit-autofill:active {
   /* Prescription Sheet */
   .sheet-prescription {
     page: prescription-a4;
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 210mm;
-    min-height: 297mm;
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    max-width: 190mm !important;
+    height: auto !important;
+    min-height: 0 !important;
     background: #ffffff !important;
     color: #000000 !important;
-    padding: 10mm;
+    padding: 0 !important;
+    margin: 0 !important;
     box-shadow: none !important;
     border: none !important;
   }
 
   .sheet-prescription.print-hpc-paper {
     page: prescription-hpc;
-    width: 5.5in !important;
-    min-height: 8.27in !important;
-    padding: 6mm 8mm !important;
-  }
-
-  /* 80mm Thermal Slip */
-  .sheet-thermal {
-    page: thermal;
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 76mm !important;
-    background: #ffffff !important;
-    color: #000000 !important;
-    padding: 3mm !important;
-    font-family: monospace !important;
-    font-size: 11px !important;
-    box-shadow: none !important;
-    border: none !important;
+    width: 100% !important;
+    max-width: 5.5in !important;
+    height: auto !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
   }
 
   .break-inside-avoid {

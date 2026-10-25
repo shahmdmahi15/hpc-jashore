@@ -141,7 +141,6 @@ export default function CashierView({ session: propSession }: CashierProps = {})
   const [selectedIntakeForDetail, setSelectedIntakeForDetail] = useState<any>(null);
   const [selectedIntakeForPayment, setSelectedIntakeForPayment] = useState<any>(null);
   const [selectedIntakePriority, setSelectedIntakePriority] = useState<'normal' | 'emergency' | 'vip'>('normal');
-  const [selectedIntakeTargetQueue, setSelectedIntakeTargetQueue] = useState<'doctor' | 'therapy'>('doctor');
   const [consultationPaymentMethod, setConsultationPaymentMethod] = useState<'cash' | 'bkash' | 'nagad' | 'rocket' | 'card'>('cash');
   const [consultationTxnId, setConsultationTxnId] = useState('');
   const [admittingToQueue, setAdmittingToQueue] = useState(false);
@@ -353,7 +352,6 @@ export default function CashierView({ session: propSession }: CashierProps = {})
   const openPaymentModal = (intake: any) => {
     setSelectedIntakeForPayment(intake);
     setSelectedIntakePriority('normal');
-    setSelectedIntakeTargetQueue('doctor');
     setConsultationPaymentMethod('cash');
     setConsultationTxnId('');
   };
@@ -369,14 +367,10 @@ export default function CashierView({ session: propSession }: CashierProps = {})
         paymentMethod: consultationPaymentMethod,
         txnId: consultationTxnId || undefined,
         priority: selectedIntakePriority,
-        targetQueue: selectedIntakeTargetQueue,
+        targetQueue: 'doctor',
       });
 
-      toast.success(
-        selectedIntakeTargetQueue === 'therapy'
-          ? 'পেমেন্ট সফল! রোগীকে সরাসরি থেরাপি কিউতে পাঠানো হয়েছে।'
-          : 'পেমেন্ট সফল! রোগীকে ডাক্তার কনসালটেশন কিউতে পাঠানো হয়েছে।'
-      );
+      toast.success('পেমেন্ট সফল! রোগীকে ডাক্তার কনসালটেশন কিউতে পাঠানো হয়েছে।');
 
       // Automatically launch strict HPC Custom Size Invoice Print Modal with full payment
       const docName = res?.doctorName || selectedIntakeForPayment.doctorName || 'Doctor';
@@ -393,10 +387,8 @@ export default function CashierView({ session: propSession }: CashierProps = {})
         cashierName: session?.displayName || 'Cashier Desk',
         items: [
           {
-            itemType: selectedIntakeTargetQueue === 'therapy' ? 'therapy' : 'consultation',
-            description: selectedIntakeTargetQueue === 'therapy'
-              ? `Rehabilitation & Therapy Session Admission`
-              : `Doctor Consultation - ${docName} (Chamber Room ${chamber})`,
+            itemType: 'consultation',
+            description: `Doctor Consultation - ${docName} (Chamber Room ${chamber})`,
             unitPriceTaka: fixedFee,
             quantity: 1,
             totalTaka: fixedFee,
@@ -1493,6 +1485,7 @@ export default function CashierView({ session: propSession }: CashierProps = {})
               )}
 
               {/* Queue Priority Selection */}
+              {/* Queue Priority Selection & Fixed Doctor Consultation Queue */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label className="text-xs font-semibold text-muted-foreground">সিরিয়াল অগ্রাধিকার (Priority)</Label>
@@ -1513,25 +1506,22 @@ export default function CashierView({ session: propSession }: CashierProps = {})
 
                 <div className="space-y-1.5">
                   <Label className="text-xs font-semibold text-muted-foreground">গন্তব্য কিউ (Target Queue)</Label>
-                  <Select
-                    value={selectedIntakeTargetQueue}
-                    onValueChange={(val: any) => setSelectedIntakeTargetQueue(val)}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Queue" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="doctor">ডাক্তার চেম্বার (Doctor)</SelectItem>
-                      <SelectItem value="therapy">থেরাপি কিউ (Therapy)</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <div className="h-9 px-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 flex items-center justify-between text-xs font-bold text-emerald-800 dark:text-emerald-300">
+                    <span className="flex items-center gap-1.5 truncate">
+                      <Stethoscope className="size-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                      <span className="truncate">ডাক্তার চেম্বার কিউ</span>
+                    </span>
+                    <Badge variant="outline" className="text-[10px] font-mono border-emerald-500/40 bg-emerald-500/20 text-emerald-900 dark:text-emerald-200 shrink-0">
+                      রুম {selectedIntakeForPayment.chamberRoomNumber || '—'}
+                    </Badge>
+                  </div>
                 </div>
               </div>
 
               <div className="p-3 rounded-lg border border-emerald-500/20 bg-emerald-500/5 text-muted-foreground text-[11px] leading-relaxed flex items-start gap-2">
                 <Sparkles className="size-4 shrink-0 text-emerald-600 mt-0.5" />
                 <span>
-                  ফি গ্রহণ নিশ্চিত করামাত্র রোগীকে স্বয়ংক্রিয়ভাবে ডাক্তার বা থেরাপি কিউতে প্রবেশ করানো হবে, ওয়েটিং রুম ও অ্যান্ড্রয়েড টিভিতে সিরিয়াল ভেসে উঠবে এবং সাথে সাথে <strong>HPC সাইজ ইনভয়েস (5.5&quot; × 8.27&quot;)</strong> প্রিন্ট হবে।
+                  ফি গ্রহণ নিশ্চিত করামাত্র রোগীকে স্বয়ংক্রিয়ভাবে <strong>ডাক্তার চেম্বার কনসালটেশন কিউতে</strong> পাঠানো হবে, ওয়েটিং রুম ও অ্যান্ড্রয়েড টিভিতে সিরিয়াল ভেসে উঠবে এবং সাথে সাথে <strong>HPC সাইজ ইনভয়েস (5.5&quot; × 8.27&quot;)</strong> প্রিন্ট হবে।
                 </span>
               </div>
             </div>
@@ -1560,7 +1550,7 @@ export default function CashierView({ session: propSession }: CashierProps = {})
                   </>
                 ) : (
                   <>
-                    <CheckCircle className="size-3.5" /> ফি গ্রহণ, কিউ ও ইনভয়েস
+                    <CheckCircle className="size-3.5" /> ফি গ্রহণ, কনসালটেশন কিউ ও ইনভয়েস
                   </>
                 )}
               </Button>
