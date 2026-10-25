@@ -27,7 +27,13 @@ import {
   TableHeader,
   TableRow,
 } from './ui/table';
-import { Select } from './ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from './ui/select';
 import {
   Dialog,
   DialogContent,
@@ -943,18 +949,22 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
                       <TableCell>
                         <Select
                           value={m.frequency}
-                          onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
+                          onValueChange={(val: string) => {
                             setPrescribedMods(
                               prescribedMods.map((it) =>
-                                it.modalityCode === m.modalityCode ? { ...it, frequency: e.target.value } : it,
+                                it.modalityCode === m.modalityCode ? { ...it, frequency: val } : it,
                               ),
                             );
                           }}
-                          className="w-32 h-8 text-xs"
                         >
-                          <option value="daily">Daily</option>
-                          <option value="alternate_days">Alt. Days</option>
-                          <option value="weekly">Weekly</option>
+                          <SelectTrigger className="w-32 h-8 text-xs">
+                            <SelectValue placeholder="Frequency" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="daily">Daily</SelectItem>
+                            <SelectItem value="alternate_days">Alt. Days</SelectItem>
+                            <SelectItem value="weekly">Weekly</SelectItem>
+                          </SelectContent>
                         </Select>
                       </TableCell>
                       <TableCell className="text-right">

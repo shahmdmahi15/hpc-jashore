@@ -566,12 +566,17 @@ export const therapySessions = sqliteTable('therapy_sessions', {
   ...timestamps,
 });
 
+export const PACKAGE_TYPES = ['per_session', 'per_day'] as const;
+export type PackageType = (typeof PACKAGE_TYPES)[number];
+
 export const packages = sqliteTable('packages', {
   id: text('id').primaryKey(),
   nameEn: text('name_en').notNull(),
   nameBn: text('name_bn').notNull(),
-  totalConsultations: integer('total_consultations').notNull().default(1),
+  packageType: text('package_type').notNull().default('per_session').$type<PackageType>(),
+  totalConsultations: integer('total_consultations').notNull().default(9999),
   totalTherapySessions: integer('total_therapy_sessions').notNull().default(10),
+  totalDays: integer('total_days').notNull().default(0),
   validityDays: integer('validity_days').notNull().default(30),
   pricePaisa: integer('price_paisa').notNull(),
   isActive: integer('is_active').notNull().default(1),
@@ -587,8 +592,10 @@ export const packageCredits = sqliteTable('package_credits', {
     .notNull()
     .references(() => packages.id),
   billId: text('bill_id'),
-  remainingConsultations: integer('remaining_consultations').notNull(),
-  remainingSessions: integer('remaining_sessions').notNull(),
+  remainingConsultations: integer('remaining_consultations').notNull().default(9999),
+  remainingSessions: integer('remaining_sessions').notNull().default(0),
+  remainingDays: integer('remaining_days').notNull().default(0),
+  visitedDatesJson: text('visited_dates_json').notNull().default('[]'),
   purchasedAt: text('purchased_at').notNull(),
   expiresAt: text('expires_at').notNull(),
   status: text('status')

@@ -6,7 +6,14 @@ import { api, UserSession, getSession } from '../lib/api';
 import { useRealtime } from '../lib/use-realtime';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
-import { Select } from './ui/select';
+import { Label } from './ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from './ui/select';
 import { Textarea } from './ui/textarea';
 import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
@@ -88,7 +95,7 @@ export default function TherapyHallView({ session: propSession }: TherapyHallPro
       await api.therapy.startSession({
         patientId: selectedPatientId,
         bedId: selectedBedId,
-        machineId: selectedMachineId || undefined,
+        machineId: selectedMachineId && selectedMachineId !== 'none' ? selectedMachineId : undefined,
         modalityCode: selectedModalityCode,
         durationMinutes,
       });
@@ -410,69 +417,112 @@ export default function TherapyHallView({ session: propSession }: TherapyHallPro
             <DialogTitle className="text-lg font-bold">Start Physical Therapy Session</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleStartSession} className="flex flex-col gap-4 mt-2" autoComplete="off" data-lpignore="true" data-1p-ignore="true">
-            <Select
-              label="Select Patient *"
-              value={selectedPatientId}
-              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedPatientId(e.target.value)}
-              required
-            >
-              {patients.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.mrn} · {p.nameEn} ({p.phone})
-                </option>
-              ))}
-            </Select>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-muted-foreground">
+                Select Patient *
+              </Label>
               <Select
-                label="Assign Bed *"
-                value={selectedBedId}
-                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedBedId(e.target.value)}
-                required
+                value={selectedPatientId}
+                onValueChange={setSelectedPatientId}
               >
-                {beds.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.name} ({b.code})
-                  </option>
-                ))}
-              </Select>
-
-              <Select
-                label="Therapy Machine"
-                value={selectedMachineId}
-                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedMachineId(e.target.value)}
-              >
-                <option value="">None / Manual Exercise</option>
-                {machines.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.name} ({m.code})
-                  </option>
-                ))}
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="-- Choose Patient --" />
+                </SelectTrigger>
+                <SelectContent>
+                  {patients.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.mrn} · {p.nameEn} ({p.phone})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
               </Select>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Select
-                label="Modality Code"
-                value={selectedModalityCode}
-                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedModalityCode(e.target.value)}
-              >
-                <option value="IFT">IFT (Interferential Therapy)</option>
-                <option value="UST">UST (Ultrasound Therapy)</option>
-                <option value="SWD">SWD (Shortwave Diathermy)</option>
-                <option value="EXE">EXE (Therapeutic Exercise)</option>
-              </Select>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-muted-foreground">
+                  Assign Bed *
+                </Label>
+                <Select
+                  value={selectedBedId}
+                  onValueChange={setSelectedBedId}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="-- Select Bed --" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {beds.map((b) => (
+                      <SelectItem key={b.id} value={b.id}>
+                        {b.name} ({b.code})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-              <Select
-                label="Duration (Minutes)"
-                value={durationMinutes}
-                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setDurationMinutes(parseInt(e.target.value))}
-              >
-                <option value={10}>10 minutes</option>
-                <option value={15}>15 minutes</option>
-                <option value={20}>20 minutes</option>
-                <option value={30}>30 minutes</option>
-              </Select>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-muted-foreground">
+                  Therapy Machine
+                </Label>
+                <Select
+                  value={selectedMachineId || 'none'}
+                  onValueChange={(val) => setSelectedMachineId(val === 'none' ? '' : val)}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="None / Manual Exercise" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None / Manual Exercise</SelectItem>
+                    {machines.map((m) => (
+                      <SelectItem key={m.id} value={m.id}>
+                        {m.name} ({m.code})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-muted-foreground">
+                  Modality Code
+                </Label>
+                <Select
+                  value={selectedModalityCode}
+                  onValueChange={setSelectedModalityCode}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select Modality" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="IFT">IFT (Interferential Therapy)</SelectItem>
+                    <SelectItem value="UST">UST (Ultrasound Therapy)</SelectItem>
+                    <SelectItem value="SWD">SWD (Shortwave Diathermy)</SelectItem>
+                    <SelectItem value="EXE">EXE (Therapeutic Exercise)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-muted-foreground">
+                  Duration (Minutes)
+                </Label>
+                <Select
+                  value={String(durationMinutes)}
+                  onValueChange={(val) => setDurationMinutes(parseInt(val, 10))}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select Duration" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="10">10 minutes</SelectItem>
+                    <SelectItem value="15">15 minutes</SelectItem>
+                    <SelectItem value="20">20 minutes</SelectItem>
+                    <SelectItem value="30">30 minutes</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <div className="flex gap-3 mt-4 pt-2 border-t border-border">

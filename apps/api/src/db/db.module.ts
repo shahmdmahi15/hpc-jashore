@@ -257,6 +257,113 @@ export type Db = BetterSQLite3Database<typeof schema>;
             sqlite.exec("PRAGMA foreign_keys = ON;");
           }
 
+          // Ensure packages and package_credits schema columns and presets exist idempotently
+          try {
+            const pkgTableCheck = sqlite.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='packages'").get();
+            if (pkgTableCheck) {
+              const pkgCols = sqlite.prepare("PRAGMA table_info(packages)").all() as Array<{ name: string }>;
+              const pkgColNames = new Set(pkgCols.map((c) => c.name));
+              if (!pkgColNames.has('package_type')) {
+                sqlite.exec("ALTER TABLE packages ADD COLUMN package_type TEXT NOT NULL DEFAULT 'per_session'");
+              }
+              if (!pkgColNames.has('total_days')) {
+                sqlite.exec("ALTER TABLE packages ADD COLUMN total_days INTEGER NOT NULL DEFAULT 0");
+              }
+            }
+
+            const pcTableCheck = sqlite.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='package_credits'").get();
+            if (pcTableCheck) {
+              const pcCols = sqlite.prepare("PRAGMA table_info(package_credits)").all() as Array<{ name: string }>;
+              const pcColNames = new Set(pcCols.map((c) => c.name));
+              if (!pcColNames.has('remaining_days')) {
+                sqlite.exec("ALTER TABLE package_credits ADD COLUMN remaining_days INTEGER NOT NULL DEFAULT 0");
+              }
+              if (!pcColNames.has('visited_dates_json')) {
+                sqlite.exec("ALTER TABLE package_credits ADD COLUMN visited_dates_json TEXT NOT NULL DEFAULT '[]'");
+              }
+            }
+
+            // Seed preset packages if empty
+            const pkgCount = sqlite.prepare("SELECT count(*) as count FROM packages").get() as { count: number };
+            if (pkgCount.count === 0) {
+              const presetPackages = [
+                {
+                  id: 'pkg-preset-10-session',
+                  name_en: '10-Session Therapy Package',
+                  name_bn: '১০-সেশন থেরাপি প্যাকেজ',
+                  package_type: 'per_session',
+                  total_consultations: 9999,
+                  total_therapy_sessions: 10,
+                  total_days: 0,
+                  validity_days: 30,
+                  price_paisa: 1000000, // ৳10,000
+                  is_active: 1,
+                },
+                {
+                  id: 'pkg-preset-5-session',
+                  name_en: '5-Session Therapy Package',
+                  name_bn: '৫-সেশন থেরাপি প্যাকেজ',
+                  package_type: 'per_session',
+                  total_consultations: 9999,
+                  total_therapy_sessions: 5,
+                  total_days: 0,
+                  validity_days: 15,
+                  price_paisa: 600000, // ৳6,000
+                  is_active: 1,
+                },
+                {
+                  id: 'pkg-preset-10-day',
+                  name_en: '10-Day Complete Rehab Package',
+                  name_bn: '১০-দিনের পূর্ণাঙ্গ পুনর্বাসন প্যাকেজ',
+                  package_type: 'per_day',
+                  total_consultations: 9999,
+                  total_therapy_sessions: 9999,
+                  total_days: 10,
+                  validity_days: 30,
+                  price_paisa: 1200000, // ৳12,000
+                  is_active: 1,
+                },
+                {
+                  id: 'pkg-preset-15-day',
+                  name_en: '15-Day Complete Rehab Package',
+                  name_bn: '১৫-দিনের পূর্ণাঙ্গ পুনর্বাসন প্যাকেজ',
+                  package_type: 'per_day',
+                  total_consultations: 9999,
+                  total_therapy_sessions: 9999,
+                  total_days: 15,
+                  validity_days: 45,
+                  price_paisa: 1600000, // ৳16,000
+                  is_active: 1,
+                },
+              ];
+
+              const insertPkgStmt = sqlite.prepare(`
+                INSERT OR IGNORE INTO packages (
+                  id, name_en, name_bn, package_type,
+                  total_consultations, total_therapy_sessions, total_days,
+                  validity_days, price_paisa, is_active, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+              `);
+
+              for (const p of presetPackages) {
+                insertPkgStmt.run(
+                  p.id,
+                  p.name_en,
+                  p.name_bn,
+                  p.package_type,
+                  p.total_consultations,
+                  p.total_therapy_sessions,
+                  p.total_days,
+                  p.validity_days,
+                  p.price_paisa,
+                  p.is_active,
+                );
+              }
+            }
+          } catch (pkgErr) {
+            console.error('Error migrating or seeding packages:', pkgErr);
+          }
+
           // Ensure fingerprint column in refresh_sessions
           try {
             const sessionCols = sqlite.prepare("PRAGMA table_info(refresh_sessions)").all() as Array<{ name: string }>;

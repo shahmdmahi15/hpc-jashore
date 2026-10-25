@@ -168,7 +168,7 @@ export class BillingService {
     const itemsToInsert = dto.items.map((item) => {
       const lineSubtotal = item.unitPricePaisa * item.quantity;
       const lineDiscount = item.discountPaisa ?? 0;
-      const lineTotal = Math.max(0, lineSubtotal - lineDiscount);
+      const lineTotal = item.totalPaisa !== undefined ? item.totalPaisa : Math.max(0, lineSubtotal - lineDiscount);
 
       subtotalPaisa += lineSubtotal;
       lineDiscountsPaisa += lineDiscount;
@@ -176,7 +176,7 @@ export class BillingService {
       return {
         id: randomUUID(),
         itemType: item.itemType,
-        itemId: item.itemId ?? null,
+        itemId: item.itemId ?? item.packageId ?? null,
         description: item.description,
         unitPricePaisa: item.unitPricePaisa,
         quantity: item.quantity,

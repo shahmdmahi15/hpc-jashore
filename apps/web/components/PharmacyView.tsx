@@ -5,7 +5,14 @@ import React, { useEffect, useState } from 'react';
 import { api } from '../lib/api';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
-import { Select } from './ui/select';
+import { Label } from './ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from './ui/select';
 import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
@@ -311,18 +318,27 @@ export default function PharmacyView() {
             <DialogTitle className="text-lg font-bold">Record Clinic Expense</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleCreateExpense} className="flex flex-col gap-4 mt-2" autoComplete="off" data-lpignore="true" data-1p-ignore="true">
-            <Select
-              label="Expense Category"
-              value={expCategory}
-              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setExpCategory(e.target.value as any)}
-            >
-              <option value="supplies">Medical Supplies &amp; Linens (চিকিৎসা সামগ্রী)</option>
-              <option value="maintenance">Machine Maintenance (মেশিন মেরামত)</option>
-              <option value="utilities">Utilities &amp; Electricity (বিদ্যুৎ ও বিল)</option>
-              <option value="rent">Premises Rent (ভাড়া)</option>
-              <option value="salary">Staff Salary / Allowance (বেতন)</option>
-              <option value="misc">Miscellaneous (অন্যান্য)</option>
-            </Select>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-muted-foreground">
+                Expense Category
+              </Label>
+              <Select
+                value={expCategory}
+                onValueChange={(val: 'rent' | 'salary' | 'utilities' | 'maintenance' | 'supplies' | 'misc') => setExpCategory(val)}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select Expense Category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="supplies">Medical Supplies &amp; Linens (চিকিৎসা সামগ্রী)</SelectItem>
+                  <SelectItem value="maintenance">Machine Maintenance (মেশিন মেরামত)</SelectItem>
+                  <SelectItem value="utilities">Utilities &amp; Electricity (বিদ্যুৎ ও বিল)</SelectItem>
+                  <SelectItem value="rent">Premises Rent (ভাড়া)</SelectItem>
+                  <SelectItem value="salary">Staff Salary / Allowance (বেতন)</SelectItem>
+                  <SelectItem value="misc">Miscellaneous (অন্যান্য)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
             <Input
               label="Description *"

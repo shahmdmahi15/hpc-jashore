@@ -41,6 +41,22 @@ export class BillItemInputDto {
   @IsInt()
   @Min(0)
   discountPaisa?: number;
+
+  @ApiPropertyOptional({ example: 50000, description: 'Total price in paisa' })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  totalPaisa?: number;
+
+  @ApiPropertyOptional({ description: 'Package ID if purchasing a package' })
+  @IsOptional()
+  @IsString()
+  packageId?: string;
+
+  @ApiPropertyOptional({ description: 'Package model: per_session or per_day' })
+  @IsOptional()
+  @IsString()
+  packageType?: string;
 }
 
 export class CreateBillDto {
@@ -71,6 +87,22 @@ export class CreateBillDto {
   @IsInt()
   @Min(0)
   discountPaisa?: number;
+
+  @ApiPropertyOptional({ example: 50000, description: 'Total price in paisa' })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  totalPaisa?: number;
+
+  @ApiPropertyOptional({ description: 'Package ID if purchasing a package' })
+  @IsOptional()
+  @IsString()
+  packageId?: string;
+
+  @ApiPropertyOptional({ description: 'Package model: per_session or per_day' })
+  @IsOptional()
+  @IsString()
+  packageType?: string;
 
   @ApiPropertyOptional({ example: 0, description: 'Initial paid amount in paisa' })
   @IsOptional()

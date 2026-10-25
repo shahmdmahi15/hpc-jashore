@@ -15,6 +15,8 @@ import {
   consultations,
   dues,
   modalities,
+  packageCredits,
+  packages,
   patientIntakeForms,
   patients,
   patientTimelineEvents,
@@ -319,6 +321,51 @@ export class VisitsService {
           updatedAt: now,
         })
         .where(eq(consultationBookings.id, activeDocBooking.id));
+    }
+
+    // Decrement per_day package credit if active and not already visited today
+    try {
+      const activeCredits = await this.db
+        .select({
+          credit: packageCredits,
+          pkg: packages,
+        })
+        .from(packageCredits)
+        .innerJoin(packages, eq(packageCredits.packageId, packages.id))
+        .where(and(eq(packageCredits.patientId, patient.id), eq(packageCredits.status, 'active')))
+        .orderBy(desc(packageCredits.createdAt))
+        .limit(1);
+
+      if (activeCredits[0]) {
+        const { credit, pkg } = activeCredits[0];
+        if (pkg.packageType === 'per_day') {
+          const todayDhaka = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Dhaka' });
+          let visitedDates: string[] = [];
+          try {
+            visitedDates = JSON.parse(credit.visitedDatesJson || '[]');
+            if (!Array.isArray(visitedDates)) visitedDates = [];
+          } catch {
+            visitedDates = [];
+          }
+
+          if (!visitedDates.includes(todayDhaka)) {
+            visitedDates.push(todayDhaka);
+            const remDays = credit.remainingDays - 1;
+            const isExhausted = remDays <= 0;
+            await this.db
+              .update(packageCredits)
+              .set({
+                remainingDays: Math.max(0, remDays),
+                visitedDatesJson: JSON.stringify(visitedDates),
+                status: isExhausted ? 'exhausted' : 'active',
+                updatedAt: now,
+              })
+              .where(eq(packageCredits.id, credit.id));
+          }
+        }
+      }
+    } catch (creditErr) {
+      console.error('Error processing package credit on checkIn:', creditErr);
     }
 
     // CRITICAL USER DIRECTIVE: Consultation patients do NOT automatically go into serials queue!

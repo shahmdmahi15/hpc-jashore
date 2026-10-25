@@ -497,63 +497,155 @@ select:-webkit-autofill:active {
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
+/* ========================================================================= */
+/* HPC PRINT ARCHITECTURE (HPC Custom 5.5in x 8.27in & Standard A4 Reports)   */
+/* ========================================================================= */
+
+@page invoice-hpc {
+  size: 5.5in 8.27in;
+  margin: 6mm 8mm;
+}
+
+@page report-a4 {
+  size: A4 portrait;
+  margin: 10mm;
+}
+
+@page prescription-a4 {
+  size: A4 portrait;
+  margin: 10mm;
+}
+
+@page prescription-hpc {
+  size: 5.5in 8.27in;
+  margin: 6mm 8mm;
+}
+
 @page thermal {
   size: 80mm auto;
   margin: 4mm;
 }
 
-@page report {
-  size: A4;
-  margin: 15mm;
-}
-
 @media print {
+  /* Suppress all interactive UI, modals backdrop blur, navbars and buttons */
   body * {
     visibility: hidden;
   }
-  .sheet-prescription,
-  .sheet-prescription * {
-    visibility: visible;
-  }
-  .sheet-prescription {
-    page: prescription;
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 5.5in;
-    min-height: 8.27in;
+
+  /* Universal Print Base resets */
+  html,
+  body {
     background: #ffffff !important;
     color: #000000 !important;
-    padding: 8mm;
+    margin: 0 !important;
+    padding: 0 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 
+  /* Specialized Print Classes mandated by Directives */
+  .print-hpc-paper {
+    width: 5.5in !important;
+    min-height: 8.27in !important;
+    max-width: 5.5in !important;
+    margin: 0 auto !important;
+  }
+
+  .print-a4-paper {
+    width: 210mm !important;
+    min-height: 297mm !important;
+    max-width: 210mm !important;
+    margin: 0 auto !important;
+  }
+
+  /* Printable Sheet Visibility */
+  .sheet-invoice-hpc,
+  .sheet-invoice-hpc *,
+  .sheet-prescription,
+  .sheet-prescription *,
+  .sheet-report,
+  .sheet-report *,
+  .sheet-report-a4,
+  .sheet-report-a4 *,
   .sheet-thermal,
   .sheet-thermal * {
     visibility: visible;
   }
+
+  /* HPC Custom Paper (5.5in x 8.27in / 140mm x 210mm) for Invoices & Receipts */
+  .sheet-invoice-hpc {
+    page: invoice-hpc;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 5.5in !important;
+    min-height: 8.27in !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    padding: 6mm 8mm !important;
+    box-shadow: none !important;
+    border: none !important;
+    font-family: var(--font-poppins, 'Poppins'), 'Hind Siliguri', 'Noto Sans Bengali', system-ui, sans-serif !important;
+  }
+
+  /* A4 Standard Reports (Doctor Prescriptions, Intakes, Pain Assessments, Daily Audits) */
+  .sheet-report,
+  .sheet-report-a4 {
+    page: report-a4;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 210mm !important;
+    min-height: 297mm !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    padding: 10mm !important;
+    box-shadow: none !important;
+    border: none !important;
+    font-family: var(--font-poppins, 'Poppins'), 'Hind Siliguri', 'Noto Sans Bengali', system-ui, sans-serif !important;
+  }
+
+  /* Prescription Sheet */
+  .sheet-prescription {
+    page: prescription-a4;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 210mm;
+    min-height: 297mm;
+    background: #ffffff !important;
+    color: #000000 !important;
+    padding: 10mm;
+    box-shadow: none !important;
+    border: none !important;
+  }
+
+  .sheet-prescription.print-hpc-paper {
+    page: prescription-hpc;
+    width: 5.5in !important;
+    min-height: 8.27in !important;
+    padding: 6mm 8mm !important;
+  }
+
+  /* 80mm Thermal Slip */
   .sheet-thermal {
     page: thermal;
     position: absolute;
     left: 0;
     top: 0;
-    width: 76mm;
+    width: 76mm !important;
     background: #ffffff !important;
     color: #000000 !important;
-    padding: 3mm;
-    font-family: monospace;
-    font-size: 12px;
+    padding: 3mm !important;
+    font-family: monospace !important;
+    font-size: 11px !important;
+    box-shadow: none !important;
+    border: none !important;
   }
 
-  .sheet-report,
-  .sheet-report * {
-    visibility: visible;
-  }
-  .sheet-report {
-    page: report;
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
+  .break-inside-avoid {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
   }
 }
 

@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsArray,
+  IsIn,
   IsInt,
   IsNotEmpty,
   IsOptional,
@@ -110,25 +111,45 @@ export class CreatePackageDto {
   @IsString()
   nameBn?: string;
 
-  @ApiProperty({ example: 1 })
+  @ApiPropertyOptional({ enum: ['per_session', 'per_day'], default: 'per_session' })
+  @IsOptional()
+  @IsIn(['per_session', 'per_day'])
+  packageType?: 'per_session' | 'per_day';
+
+  @ApiPropertyOptional({ example: 9999, description: 'Total consultations included' })
+  @IsOptional()
   @IsInt()
   @Min(0)
-  totalConsultations!: number;
+  totalConsultations?: number;
 
-  @ApiProperty({ example: 10 })
+  @ApiPropertyOptional({ example: 10, description: 'Total therapy sessions (for per_session)' })
+  @IsOptional()
   @IsInt()
-  @Min(1)
-  totalTherapySessions!: number;
+  @Min(0)
+  totalTherapySessions?: number;
+
+  @ApiPropertyOptional({ example: 10, description: 'Total days (for per_day)' })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  totalDays?: number;
 
   @ApiProperty({ example: 30 })
   @IsInt()
   @Min(1)
   validityDays!: number;
 
-  @ApiProperty({ example: 500000, description: 'Price in paisa (e.g. 5000 BDT = 500000 paisa)' })
+  @ApiPropertyOptional({ example: 500000, description: 'Price in paisa (e.g. 5000 BDT = 500000 paisa)' })
+  @IsOptional()
   @IsInt()
   @Min(0)
-  pricePaisa!: number;
+  pricePaisa?: number;
+
+  @ApiPropertyOptional({ example: 5000, description: 'Price in BDT (converted to pricePaisa if pricePaisa omitted)' })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  priceBdt?: number;
 }
 
 export class PurchasePackageDto {
@@ -146,6 +167,36 @@ export class PurchasePackageDto {
   @IsOptional()
   @IsString()
   billId?: string;
+
+  @ApiPropertyOptional({ description: 'Custom total days override for per_day packages' })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  customDays?: number;
+
+  @ApiPropertyOptional({ description: 'Custom total sessions override for per_session packages' })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  customSessions?: number;
+
+  @ApiPropertyOptional({ description: 'Custom price in BDT' })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  customPriceBdt?: number;
+
+  @ApiPropertyOptional({ description: 'Custom price in paisa' })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  customPricePaisa?: number;
+
+  @ApiPropertyOptional({ description: 'Custom validity days override' })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  customValidityDays?: number;
 }
 
 export class CallTherapyPatientDto {

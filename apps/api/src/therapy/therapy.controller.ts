@@ -191,4 +191,10 @@ export class TherapyController {
   ) {
     return this.therapy.purchasePackage({ sub: user.sub, role: user.role }, dto, this.meta(req));
   }
+
+  @Get('packages/patient/:patientId')
+  @Roles('admin', 'doctor', 'cashier', 'receptionist', 'handler')
+  getPatientCredits(@Param('patientId') patientId: string) {
+    return this.therapy.getPatientCredits(patientId);
+  }
 }

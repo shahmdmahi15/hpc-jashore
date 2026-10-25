@@ -1,11 +1,15 @@
 // apps/web/components/PrescriptionPrintModal.tsx
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
+import { Button } from './ui/button';
+import { Printer, X, FileText } from 'lucide-react';
 
 interface PrescriptionPrintModalProps {
   prescription: {
     id: string;
+    rxNumber?: string;
     patient: {
       mrn: string;
       nameEn: string;
@@ -13,16 +17,20 @@ interface PrescriptionPrintModalProps {
       ageYears?: number;
       gender: string;
       bloodGroup?: string;
+      phone?: string;
     };
     doctor: {
       name: string;
       specialization?: string;
+      degrees?: string;
+      chamberRoom?: string;
     };
     clinicalNotes?: {
       chiefComplaints?: string;
       diagnosis?: string;
       painScore?: number;
       bp?: string;
+      weight?: string;
     };
     medicines: Array<{
       brandName: string;
@@ -37,6 +45,7 @@ interface PrescriptionPrintModalProps {
       frequency: string;
     }>;
     advice?: string;
+    nextVisitDate?: string;
     createdAt: string;
   } | null;
   onClose: () => void;
@@ -46,190 +55,294 @@ export default function PrescriptionPrintModal({
   prescription,
   onClose,
 }: PrescriptionPrintModalProps) {
+  // Reports default to A4 portrait as mandated by user directives!
+  const [paperFormat, setPaperFormat] = useState<'a4' | 'hpc'>('a4');
+
   if (!prescription) return null;
 
   const handlePrint = () => {
     window.print();
   };
 
-  return (
-    <div className="modal-backdrop">
-      <div className="modal-content" style={{ maxWidth: '640px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
-          <div>
-            <h3 style={{ margin: 0 }}>5.5in × 8.27in Prescription Sheet Preview</h3>
-            <small style={{ color: 'var(--hpc-muted)' }}>Custom Medical Pad Format (140mm × 210mm)</small>
-          </div>
-          <button className="btn btn-secondary btn-sm" onClick={onClose}>✕</button>
-        </div>
+  const rxDate = new Date(prescription.createdAt).toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
 
-        {/* 5.5in x 8.27in Printable Sheet */}
+  return (
+    <Dialog open={!!prescription} onOpenChange={(op) => !op && onClose()}>
+      <DialogContent
+        className="max-w-[780px] max-h-[95vh] overflow-y-auto p-4 sm:p-6 bg-background border-border"
+        onClose={onClose}
+      >
+        <DialogHeader className="pb-3 border-b border-border/60">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <DialogTitle className="text-base sm:text-lg font-bold flex items-center gap-2">
+                <FileText className="size-5 text-emerald-600 dark:text-emerald-400" />
+                <span>ডাক্তার প্রেসক্রিপশন ও ক্লিনিক্যাল রিপোর্ট</span>
+              </DialogTitle>
+              <p className="text-xs text-muted-foreground">
+                প্রেসক্রিপশন নং: <strong className="text-foreground">{prescription.rxNumber || prescription.id}</strong>
+              </p>
+            </div>
+
+            <div className="flex items-center gap-1 p-1 bg-muted/60 rounded-xl border border-border/60">
+              <button
+                type="button"
+                onClick={() => setPaperFormat('a4')}
+                className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${
+                  paperFormat === 'a4'
+                    ? 'bg-emerald-600 text-white shadow-xs'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+                title="A4 Standard Clinical Report"
+              >
+                📑 A4 Report (210mm × 297mm)
+              </button>
+              <button
+                type="button"
+                onClick={() => setPaperFormat('hpc')}
+                className={`px-2.5 py-1 text-xs font-semibold rounded-lg transition-all ${
+                  paperFormat === 'hpc'
+                    ? 'bg-emerald-600 text-white shadow-xs'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+                title="HPC Custom Paper (140mm × 210mm)"
+              >
+                📄 HPC Pad (5.5&quot;×8.27&quot;)
+              </button>
+            </div>
+          </div>
+        </DialogHeader>
+
+        {/* Printable Prescription Body */}
         <div
-          className="sheet-prescription"
+          className={`sheet-prescription ${
+            paperFormat === 'hpc' ? 'print-hpc-paper' : 'print-a4-paper sheet-report-a4'
+          } bg-white text-black p-5 sm:p-7 rounded-xl border border-zinc-300 shadow-md mx-auto my-2 w-full font-sans`}
           style={{
-            background: '#ffffff',
-            color: '#000000',
-            border: '1px solid #ccc',
-            padding: '16px 20px',
-            fontFamily: "'Hind Siliguri', 'Noto Sans Bengali', system-ui, sans-serif",
-            width: '100%',
-            maxWidth: '5.5in',
-            minHeight: '8.27in',
-            margin: '0 auto',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+            minHeight: paperFormat === 'hpc' ? '8.27in' : '297mm',
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'space-between',
           }}
         >
-          {/* Header */}
           <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #059669', paddingBottom: '8px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {/* HPC Official Clinical Letterhead Banner */}
+            <div className="border-b-2 border-emerald-600 pb-3 flex items-start justify-between gap-3">
+              <div className="flex items-start gap-2.5">
                 <img
-                  src="/logo.jpg"
+                  src="/hpclogo-transparent.png"
                   alt="HPC Logo"
-                  style={{ width: '42px', height: '42px', borderRadius: '8px', objectFit: 'cover', border: '1px solid #10b981' }}
+                  className="w-12 h-12 object-contain shrink-0 mt-0.5"
+                  onError={(e) => {
+                    (e.target as HTMLElement).style.display = 'none';
+                  }}
                 />
                 <div>
-                  <h2 style={{ margin: 0, fontSize: '15px', color: '#047857', fontWeight: 800 }}>
-                    এইচপিসি হেলথ অ্যান্ড পেইন কেয়ার সেন্টার
-                  </h2>
-                  <div style={{ fontSize: '11px', fontWeight: 600, color: '#333' }}>
+                  <h1 className="text-base sm:text-lg font-black text-emerald-800 leading-tight">
+                    এইচপিসি হেলথ অ্যান্ড পেইন কেয়ার সেন্টার, যশোর
+                  </h1>
+                  <h2 className="text-xs sm:text-sm font-extrabold text-zinc-800 leading-tight">
                     HPC Health &amp; Pain Care Center, Jashore
-                  </div>
-                  <div style={{ fontSize: '10px', color: '#666' }}>
-                    Mujib Sarak, Jashore · Cell: 01XXXXXXXXX
-                  </div>
+                  </h2>
+                  <p className="text-[10px] text-zinc-600 mt-0.5">
+                    চাঁচরা পুলিশ ফাঁড়ির বিপরীতে, চাঁচরা ডালমিল মোড়, যশোর সদর, যশোর-৭৪০০
+                  </p>
+                  <p className="text-[9.5px] text-zinc-500 font-mono">
+                    হটলাইন / মোবাইল: +৮৮০ ১৫১৫-৬১৫১৮৮ · E-mail: hpcjashore@gmail.com
+                  </p>
                 </div>
               </div>
 
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: '13px', fontWeight: 'bold' }}>
-                  {prescription.doctor.name}
+              {/* Doctor Credentials */}
+              <div className="text-right text-[11px] shrink-0 max-w-[240px]">
+                <div className="font-extrabold text-sm text-zinc-900">
+                  {prescription.doctor.name || 'ডাঃ মোঃ তৌফিক উজ জামান'}
                 </div>
-                <div style={{ fontSize: '10px', color: '#444' }}>
-                  {prescription.doctor.specialization || 'Consultant Physiotherapist'}
+                <div className="text-[10px] text-zinc-700 font-semibold leading-tight">
+                  {prescription.doctor.degrees ||
+                    'BPT (DU), PGD (Acupuncture, China), MDMR (Pain Management, DU), MPH'}
                 </div>
-                <div style={{ fontSize: '10px', color: '#666' }}>
-                  Reg. No: HPC-{prescription.doctor.name.slice(0, 3).toUpperCase()}
+                <div className="text-[9.5px] text-emerald-700 font-bold mt-0.5">
+                  Founder, CEO &amp; Head Doctor
+                </div>
+                <div className="text-[9px] text-zinc-500 font-mono mt-0.5">
+                  Reg. No: HPC-DOC-01
                 </div>
               </div>
             </div>
 
-            {/* Patient Demographics Bar */}
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: '2fr 1fr 1fr 1.5fr',
-                gap: '8px',
-                fontSize: '11px',
-                background: '#f4fbf7',
-                padding: '6px 10px',
-                margin: '8px 0',
-                border: '1px solid #d1fae5',
-                borderRadius: '4px',
-              }}
-            >
-              <div><strong>Patient:</strong> {prescription.patient.nameEn} {prescription.patient.nameBn && `(${prescription.patient.nameBn})`}</div>
-              <div><strong>Age:</strong> {prescription.patient.ageYears ? `${prescription.patient.ageYears} Y` : 'N/A'}</div>
-              <div><strong>Sex:</strong> {prescription.patient.gender}</div>
-              <div style={{ textAlign: 'right' }}><strong>MRN:</strong> {prescription.patient.mrn}</div>
+            {/* Patient Demographics Strip */}
+            <div className="my-2.5 p-2 rounded-lg bg-zinc-100 border border-zinc-200 grid grid-cols-4 gap-2 text-[10.5px]">
+              <div>
+                <span className="text-zinc-500">Patient:</span>{' '}
+                <strong className="text-zinc-900">{prescription.patient.nameEn}</strong>
+                {prescription.patient.nameBn && ` (${prescription.patient.nameBn})`}
+              </div>
+              <div>
+                <span className="text-zinc-500">Age/Sex:</span>{' '}
+                <strong>
+                  {prescription.patient.ageYears ? `${prescription.patient.ageYears}Y` : '-'}{' '}
+                  / {prescription.patient.gender}
+                </strong>
+              </div>
+              <div>
+                <span className="text-zinc-500">MRN:</span>{' '}
+                <strong className="font-mono">{prescription.patient.mrn}</strong>
+              </div>
+              <div className="text-right">
+                <span className="text-zinc-500">Date:</span>{' '}
+                <strong className="font-mono">{rxDate}</strong>
+              </div>
             </div>
 
-            {/* Diagnosis / Complaints */}
-            {prescription.clinicalNotes?.diagnosis && (
-              <div style={{ fontSize: '11px', marginBottom: '8px' }}>
-                <strong>Provisional Diagnosis:</strong> <span style={{ color: '#047857', fontWeight: 'bold' }}>{prescription.clinicalNotes.diagnosis}</span>
-                {prescription.clinicalNotes.painScore !== undefined && (
-                  <span style={{ marginLeft: '12px' }}>[Pain Score: {prescription.clinicalNotes.painScore}/10]</span>
+            {/* Diagnosis & Vitals Banner */}
+            {(prescription.clinicalNotes?.diagnosis || prescription.clinicalNotes?.painScore !== undefined) && (
+              <div className="mb-3 px-2.5 py-1.5 rounded bg-emerald-50/60 border border-emerald-200 flex items-center justify-between text-xs">
+                <div>
+                  <span className="text-zinc-600 font-semibold">Provisional Diagnosis:</span>{' '}
+                  <strong className="text-emerald-800 font-bold">
+                    {prescription.clinicalNotes?.diagnosis || 'Musculoskeletal Pain Disorder'}
+                  </strong>
+                </div>
+                {prescription.clinicalNotes?.painScore !== undefined && (
+                  <div className="font-mono text-[11px] font-bold text-amber-700">
+                    VAS Pain Score: {prescription.clinicalNotes.painScore}/10
+                  </div>
                 )}
               </div>
             )}
 
-            <div style={{ borderBottom: '1px solid #eee', margin: '6px 0' }} />
-
-            {/* Rx Body */}
-            <div style={{ display: 'flex', gap: '16px', minHeight: '3.8in' }}>
-              {/* Left Column: Modalities & Clinical Notes */}
-              <div style={{ width: '38%', borderRight: '1px solid #e5e7eb', paddingRight: '10px', fontSize: '10px' }}>
+            {/* 2-Column Clinical Body: Modalities on Left, Medicines on Right */}
+            <div className="grid grid-cols-12 gap-4 min-h-[380px] pt-1 border-t border-zinc-200">
+              {/* Left Column: Complaints, Therapy Plan & Advice (4.5 Cols) */}
+              <div className="col-span-5 border-r border-zinc-200 pr-3 space-y-3 text-[10.5px]">
                 {prescription.clinicalNotes?.chiefComplaints && (
-                  <div style={{ marginBottom: '10px' }}>
-                    <div style={{ fontWeight: 'bold', color: '#4b5563', textTransform: 'uppercase' }}>Chief Complaints:</div>
-                    <div>{prescription.clinicalNotes.chiefComplaints}</div>
+                  <div>
+                    <h3 className="font-bold text-zinc-700 uppercase tracking-wider text-[10px] mb-1">
+                      Chief Complaints:
+                    </h3>
+                    <p className="text-zinc-800 leading-snug">
+                      {prescription.clinicalNotes.chiefComplaints}
+                    </p>
                   </div>
                 )}
 
-                <div style={{ fontWeight: 'bold', color: '#047857', textTransform: 'uppercase', marginBottom: '4px' }}>
-                  Physiotherapy Plan:
+                {/* Physiotherapy Modality Plan */}
+                <div>
+                  <h3 className="font-extrabold text-emerald-800 uppercase tracking-wider text-[10.5px] mb-1.5 flex items-center gap-1">
+                    <span>⚡ Physiotherapy Plan:</span>
+                  </h3>
+                  {prescription.modalities.length > 0 ? (
+                    <ul className="space-y-1.5 pl-3 list-disc">
+                      {prescription.modalities.map((m, idx) => (
+                        <li key={idx} className="leading-tight">
+                          <strong className="text-zinc-900">{m.modalityName}</strong>
+                          <div className="text-zinc-600 font-mono text-[10px]">
+                            {m.sessionsPrescribed} sessions ({m.frequency})
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-zinc-500 italic">Therapeutic active exercise &amp; mobilization</p>
+                  )}
                 </div>
-                {prescription.modalities.length > 0 ? (
-                  <ul style={{ margin: 0, paddingLeft: '14px' }}>
-                    {prescription.modalities.map((m, idx) => (
-                      <li key={idx} style={{ marginBottom: '4px' }}>
-                        <strong>{m.modalityName}</strong>
-                        <div>{m.sessionsPrescribed} sessions ({m.frequency})</div>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <div style={{ color: '#888' }}>Routine exercise therapy</div>
+
+                {/* Clinical Advice */}
+                {prescription.advice && (
+                  <div className="pt-2 border-t border-zinc-200">
+                    <h3 className="font-bold text-zinc-700 uppercase tracking-wider text-[10px] mb-1">
+                      Advice / উপদেশ:
+                    </h3>
+                    <p className="text-zinc-800 whitespace-pre-line leading-relaxed text-[10px]">
+                      {prescription.advice}
+                    </p>
+                  </div>
                 )}
 
-                {prescription.advice && (
-                  <div style={{ marginTop: '14px' }}>
-                    <div style={{ fontWeight: 'bold', color: '#4b5563', textTransform: 'uppercase' }}>Advice / উপদেশ:</div>
-                    <div style={{ whiteSpace: 'pre-wrap', lineHeight: '1.3' }}>{prescription.advice}</div>
+                {/* Follow-up */}
+                {prescription.nextVisitDate && (
+                  <div className="p-2 rounded bg-sky-50 border border-sky-200 text-sky-900 text-[10px]">
+                    <strong>Next Follow-up:</strong> {prescription.nextVisitDate}
                   </div>
                 )}
               </div>
 
-              {/* Right Column: Rx Medicines */}
-              <div style={{ flex: 1, paddingLeft: '6px' }}>
-                <div style={{ fontSize: '18px', fontWeight: 900, fontFamily: 'serif', color: '#047857', marginBottom: '4px' }}>
+              {/* Right Column: ℞ Medicines (7 Cols) */}
+              <div className="col-span-7 pl-1">
+                <div className="text-3xl font-serif font-black text-emerald-700 leading-none mb-2">
                   ℞
                 </div>
 
-                {prescription.medicines.map((med, idx) => (
-                  <div key={idx} style={{ marginBottom: '8px', fontSize: '11px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <strong>{idx + 1}. {med.brandName}</strong>
-                      <span style={{ color: '#666', fontSize: '10px' }}>({med.duration})</span>
+                <div className="space-y-3">
+                  {prescription.medicines.map((med, idx) => (
+                    <div key={idx} className="pb-2 border-b border-zinc-100 last:border-0 text-xs">
+                      <div className="flex items-baseline justify-between">
+                        <span className="font-extrabold text-zinc-900">
+                          {idx + 1}. {med.brandName}
+                        </span>
+                        <span className="text-[10px] font-mono text-zinc-500">
+                          ({med.duration})
+                        </span>
+                      </div>
+                      <div className="text-[10px] text-zinc-600 font-mono">
+                        {med.genericName}
+                      </div>
+                      <div className="text-emerald-700 font-bold text-xs mt-0.5 flex items-center gap-2">
+                        <span>{med.dosage}</span>
+                        <span className="text-zinc-400 font-normal">|</span>
+                        <span className="text-zinc-700 font-medium text-[11px]">{med.instructions}</span>
+                      </div>
                     </div>
-                    <div style={{ color: '#555', fontSize: '10px' }}>{med.genericName}</div>
-                    <div style={{ color: '#047857', fontWeight: 'bold', marginTop: '1px' }}>
-                      {med.dosage} &nbsp;&mdash;&nbsp; <span>{med.instructions}</span>
-                    </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Footer & Signature */}
-          <div style={{ borderTop: '1px solid #ccc', paddingTop: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', fontSize: '10px' }}>
+          {/* Footer & Doctor Signature */}
+          <div className="pt-4 border-t border-zinc-300 flex items-end justify-between text-[9.5px]">
             <div>
-              Date: {new Date(prescription.createdAt).toLocaleDateString()}
-              <div style={{ color: '#666', fontSize: '9px' }}>Valid for 30 days from date of issue</div>
-            </div>
-            <div style={{ textAlign: 'center', width: '120px' }}>
-              <div style={{ height: '24px' }}></div>
-              <div style={{ borderTop: '1px dashed #333', paddingTop: '2px', fontWeight: 'bold' }}>
-                Doctor&apos;s Signature
+              <div>Valid for 30 days from date of issue</div>
+              <div className="text-zinc-500 text-[8.5px]">
+                জরুরি প্রয়োজনে সেন্টারের হটলাইনে যোগাযোগ করুন: +৮৮০ ১৫১৫-৬১৫১৮৮
               </div>
+            </div>
+
+            <div className="text-center w-40">
+              <div className="h-8"></div>
+              <div className="border-t border-dashed border-zinc-800 pt-1 font-bold text-zinc-800">
+                {prescription.doctor.name || "Doctor's Signature"}
+              </div>
+              <div className="text-[8.5px] text-zinc-500">HPC Health &amp; Pain Care Center</div>
             </div>
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.25rem' }}>
-          <button className="btn" style={{ flex: 1 }} onClick={handlePrint}>
-            🖨️ Print 5.5in × 8.27in Prescription
-          </button>
-          <button className="btn btn-secondary" onClick={onClose}>
-            Close
-          </button>
+        {/* Modal Actions */}
+        <div className="flex items-center justify-between gap-3 pt-3 border-t border-border/60">
+          <Button variant="outline" size="sm" onClick={onClose} className="rounded-xl">
+            বন্ধ করুন (Close)
+          </Button>
+
+          <Button
+            size="sm"
+            onClick={handlePrint}
+            className="rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold gap-1.5 shadow-md shadow-emerald-500/20"
+          >
+            <Printer className="size-4" />
+            <span>
+              {paperFormat === 'a4'
+                ? 'প্রিন্ট A4 প্রেসক্রিপশন (210mm × 297mm)'
+                : 'প্রিন্ট HPC সাইজ প্রেসক্রিপশন (5.5" × 8.27")'}
+            </span>
+          </Button>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -205,20 +205,56 @@ export class TherapyService {
 
     // Decrement package credit if patient holds active package
     const creditRows = await this.db
-      .select()
+      .select({
+        credit: packageCredits,
+        pkg: packages,
+      })
       .from(packageCredits)
+      .innerJoin(packages, eq(packageCredits.packageId, packages.id))
       .where(and(eq(packageCredits.patientId, session.patientId), eq(packageCredits.status, 'active')))
+      .orderBy(desc(packageCredits.createdAt))
       .limit(1);
+
     if (creditRows[0]) {
-      const rem = creditRows[0].remainingSessions - 1;
-      await this.db
-        .update(packageCredits)
-        .set({
-          remainingSessions: rem,
-          status: rem <= 0 ? 'exhausted' : 'active',
-          updatedAt: now,
-        })
-        .where(eq(packageCredits.id, creditRows[0].id));
+      const { credit, pkg } = creditRows[0];
+      const pkgType = pkg.packageType || 'per_session';
+      const todayDhaka = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Dhaka' });
+
+      if (pkgType === 'per_session') {
+        const rem = credit.remainingSessions - 1;
+        const isExhausted = rem <= 0;
+        await this.db
+          .update(packageCredits)
+          .set({
+            remainingSessions: Math.max(0, rem),
+            status: isExhausted ? 'exhausted' : 'active',
+            updatedAt: now,
+          })
+          .where(eq(packageCredits.id, credit.id));
+      } else if (pkgType === 'per_day') {
+        let visitedDates: string[] = [];
+        try {
+          visitedDates = JSON.parse(credit.visitedDatesJson || '[]');
+          if (!Array.isArray(visitedDates)) visitedDates = [];
+        } catch {
+          visitedDates = [];
+        }
+
+        if (!visitedDates.includes(todayDhaka)) {
+          visitedDates.push(todayDhaka);
+          const remDays = credit.remainingDays - 1;
+          const isExhausted = remDays <= 0;
+          await this.db
+            .update(packageCredits)
+            .set({
+              remainingDays: Math.max(0, remDays),
+              visitedDatesJson: JSON.stringify(visitedDates),
+              status: isExhausted ? 'exhausted' : 'active',
+              updatedAt: now,
+            })
+            .where(eq(packageCredits.id, credit.id));
+        }
+      }
     }
 
     const payload = {
@@ -401,14 +437,31 @@ export class TherapyService {
     meta: { ip?: string | null; requestId?: string | null },
   ) {
     const now = new Date().toISOString();
+    const packageType = dto.packageType || 'per_session';
+    const pricePaisa =
+      dto.pricePaisa !== undefined
+        ? dto.pricePaisa
+        : (dto.priceBdt !== undefined ? dto.priceBdt * 100 : 0);
+    const totalConsultations = dto.totalConsultations ?? 9999;
+    const totalTherapySessions =
+      dto.totalTherapySessions !== undefined
+        ? dto.totalTherapySessions
+        : (packageType === 'per_session' ? 10 : 9999);
+    const totalDays =
+      dto.totalDays !== undefined
+        ? dto.totalDays
+        : (packageType === 'per_day' ? 10 : 0);
+
     const row = {
       id: randomUUID(),
       nameEn: dto.nameEn.trim(),
       nameBn: dto.nameBn?.trim() || dto.nameEn.trim(),
-      totalConsultations: dto.totalConsultations,
-      totalTherapySessions: dto.totalTherapySessions,
+      packageType,
+      totalConsultations,
+      totalTherapySessions,
+      totalDays,
       validityDays: dto.validityDays,
-      pricePaisa: dto.pricePaisa,
+      pricePaisa,
       isActive: 1,
       createdAt: now,
       updatedAt: now,
@@ -439,8 +492,26 @@ export class TherapyService {
     const pkg = pkgRows[0];
     if (!pkg) throw new NotFoundException('Package not found');
 
+    const packageType = pkg.packageType || 'per_session';
+    const validityDays = dto.customValidityDays ?? pkg.validityDays ?? 30;
+
+    let remainingDays = 0;
+    let remainingSessions = 0;
+    const remainingConsultations = 9999;
+
+    if (packageType === 'per_day') {
+      const days = dto.customDays ?? (pkg.totalDays > 0 ? pkg.totalDays : 10);
+      remainingDays = days;
+      remainingSessions = 9999;
+    } else {
+      // per_session
+      const sessions = dto.customSessions ?? (pkg.totalTherapySessions > 0 ? pkg.totalTherapySessions : 10);
+      remainingSessions = sessions;
+      remainingDays = 9999;
+    }
+
     const now = new Date();
-    const expiresAt = new Date(now.getTime() + pkg.validityDays * 24 * 60 * 60 * 1000).toISOString();
+    const expiresAt = new Date(now.getTime() + validityDays * 24 * 60 * 60 * 1000).toISOString();
     const creditId = randomUUID();
 
     const row = {
@@ -448,8 +519,10 @@ export class TherapyService {
       patientId: dto.patientId,
       packageId: dto.packageId,
       billId: dto.billId ?? null,
-      remainingConsultations: pkg.totalConsultations,
-      remainingSessions: pkg.totalTherapySessions,
+      remainingConsultations,
+      remainingSessions,
+      remainingDays,
+      visitedDatesJson: '[]',
       purchasedAt: now.toISOString(),
       expiresAt,
       status: 'active' as const,
@@ -464,12 +537,36 @@ export class TherapyService {
       action: 'packages.purchase',
       entity: 'package_credits',
       entityId: creditId,
-      after: row,
+      after: {
+        ...row,
+        customPriceBdt: dto.customPriceBdt,
+        customPricePaisa: dto.customPricePaisa,
+      },
       ip: meta.ip,
       requestId: meta.requestId,
     });
 
-    return row;
+    return { ...row, package: pkg };
+  }
+
+  async getPatientCredits(patientId: string) {
+    const rows = await this.db
+      .select({
+        credit: packageCredits,
+        package: packages,
+      })
+      .from(packageCredits)
+      .innerJoin(packages, eq(packageCredits.packageId, packages.id))
+      .where(eq(packageCredits.patientId, patientId))
+      .orderBy(desc(packageCredits.createdAt));
+
+    return rows.map((r) => ({
+      ...r.credit,
+      package: r.package,
+      packageNameEn: r.package.nameEn,
+      packageNameBn: r.package.nameBn,
+      packageType: r.package.packageType,
+    }));
   }
 
   async getRooms() {

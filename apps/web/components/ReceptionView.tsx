@@ -7,7 +7,14 @@ import ThermalSlipModal from './ThermalSlipModal';
 import QrScannerModal from './QrScannerModal';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
-import { Select } from './ui/select';
+import { Label } from './ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from './ui/select';
 import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
@@ -178,9 +185,9 @@ export default function ReceptionView() {
             <CardContent>
               <form onSubmit={handleCheckIn} className="flex flex-col gap-4" autoComplete="off" data-lpignore="true" data-1p-ignore="true">
                 <div className="flex flex-col gap-2">
-                  <label className="text-xs font-semibold text-muted-foreground">
+                  <Label className="text-xs font-semibold text-muted-foreground">
                     Search / Select Patient:
-                  </label>
+                  </Label>
                   <div className="flex gap-2">
                     <Input
                       type="text"
@@ -199,46 +206,67 @@ export default function ReceptionView() {
                     </Button>
                   </div>
 
-                  <Select
-                    value={selectedPatientId}
-                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedPatientId(e.target.value)}
-                    required
-                  >
-                    <option value="">-- Choose Patient ({filteredPatients.length} found) --</option>
-                    {filteredPatients.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.mrn} · {p.nameEn} ({p.phone}) {p.bloodGroup ? `[${p.bloodGroup}]` : ''}
-                      </option>
-                    ))}
-                  </Select>
+                  <div className="space-y-1.5">
+                    <Select
+                      value={selectedPatientId}
+                      onValueChange={setSelectedPatientId}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder={`-- Choose Patient (${filteredPatients.length} found) --`} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {filteredPatients.map((p) => (
+                          <SelectItem key={p.id} value={p.id}>
+                            {p.mrn} · {p.nameEn} ({p.phone}) {p.bloodGroup ? `[${p.bloodGroup}]` : ''}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <Select
-                    label="Assigning Doctor / Chamber:"
-                    value={selectedDoctorId}
-                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedDoctorId(e.target.value)}
-                    required
-                  >
-                    <option value="">-- Select Doctor --</option>
-                    {doctors.map((d) => (
-                      <option key={d.id} value={d.id}>
-                        {d.fullName} ({d.specialization || d.role})
-                      </option>
-                    ))}
-                  </Select>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold text-muted-foreground">
+                      Assigning Doctor / Chamber:
+                    </Label>
+                    <Select
+                      value={selectedDoctorId}
+                      onValueChange={setSelectedDoctorId}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="-- Select Doctor --" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {doctors.map((d) => (
+                          <SelectItem key={d.id} value={d.id}>
+                            {d.fullName} ({d.specialization || d.role})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-                  <Select
-                    label="Queue Priority:"
-                    value={priority}
-                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setPriority(e.target.value as any)}
-                  >
-                    <option value="normal">Normal (সাধারণ)</option>
-                    <option value="emergency">Emergency (জরুরি)</option>
-                    <option value="package">Package Follow-up (প্যাকেজ)</option>
-                    <option value="elderly">Elderly / Disabled (বয়োজ্যেষ্ঠ)</option>
-                    <option value="follow_up">Follow Up (ফলোআপ)</option>
-                  </Select>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold text-muted-foreground">
+                      Queue Priority:
+                    </Label>
+                    <Select
+                      value={priority}
+                      onValueChange={(val: 'normal' | 'emergency' | 'package' | 'elderly' | 'follow_up') => setPriority(val)}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select priority" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="normal">Normal (সাধারণ)</SelectItem>
+                        <SelectItem value="emergency">Emergency (জরুরি)</SelectItem>
+                        <SelectItem value="package">Package Follow-up (প্যাকেজ)</SelectItem>
+                        <SelectItem value="elderly">Elderly / Disabled (বয়োজ্যেষ্ঠ)</SelectItem>
+                        <SelectItem value="follow_up">Follow Up (ফলোআপ)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
 
                 <Button
