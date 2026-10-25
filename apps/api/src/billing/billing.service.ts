@@ -12,6 +12,7 @@ import {
   billItems,
   bills,
   cashDrawers,
+  desks,
   drawerEvents,
   dues,
   patients,
@@ -82,6 +83,48 @@ export class BillingService {
       .where(eq(users.isActive, 1))
       .limit(1);
     return anyUser[0]?.id ?? staffIdOrUserId;
+  }
+
+  private async resolveDeskId(deskId?: string): Promise<string> {
+    if (deskId) {
+      const existing = await this.db
+        .select({ id: desks.id })
+        .from(desks)
+        .where(eq(desks.id, deskId))
+        .limit(1);
+      if (existing[0]) return existing[0].id;
+    }
+
+    // Look for any active cashier desk
+    const cashierDesk = await this.db
+      .select({ id: desks.id })
+      .from(desks)
+      .where(and(eq(desks.type, 'cashier'), eq(desks.isActive, 1)))
+      .limit(1);
+    if (cashierDesk[0]) return cashierDesk[0].id;
+
+    // Look for any active desk
+    const anyDesk = await this.db
+      .select({ id: desks.id })
+      .from(desks)
+      .where(eq(desks.isActive, 1))
+      .limit(1);
+    if (anyDesk[0]) return anyDesk[0].id;
+
+    // Fallback: auto-create the desk so foreign keys never fail
+    const targetId = deskId || 'cashier-1';
+    try {
+      await this.db.insert(desks).values({
+        id: targetId,
+        code: targetId === 'reception-1' ? 'REC-01' : 'CSH-01',
+        type: targetId.startsWith('rec') ? 'reception' : 'cashier',
+        name: targetId === 'reception-1' ? 'Reception Counter 1' : 'Cash Counter 1',
+        isActive: 1,
+      });
+      return targetId;
+    } catch {
+      return targetId;
+    }
   }
 
   async createBill(
@@ -462,59 +505,68 @@ export class BillingService {
     dto: OpenDrawerDto,
     meta: { ip?: string | null; requestId?: string | null },
   ) {
-    const effectiveCashierId = await this.resolveStaffId(cashierStaffId);
-    const existing = await this.db
-      .select()
-      .from(cashDrawers)
-      .where(and(eq(cashDrawers.cashierStaffId, effectiveCashierId), eq(cashDrawers.status, 'open')));
-    if (existing.length > 0) {
-      throw new BadRequestException('You already have an open drawer shift. Close it first.');
+    try {
+      const effectiveCashierId = await this.resolveStaffId(cashierStaffId);
+      const effectiveDeskId = await this.resolveDeskId(dto.deskId);
+      const existing = await this.db
+        .select()
+        .from(cashDrawers)
+        .where(and(eq(cashDrawers.cashierStaffId, effectiveCashierId), eq(cashDrawers.status, 'open')));
+      if (existing.length > 0) {
+        throw new BadRequestException('You already have an open drawer shift. Close it first.');
+      }
+
+      const now = new Date().toISOString();
+      const drawerId = randomUUID();
+      const row = {
+        id: drawerId,
+        cashierStaffId: effectiveCashierId,
+        deskId: effectiveDeskId,
+        shiftId: null,
+        openedAt: now,
+        closedAt: null,
+        openingCashPaisa: dto.openingCashPaisa,
+        closingCashActualPaisa: null,
+        closingCashExpectedPaisa: null,
+        variancePaisa: null,
+        varianceReason: null,
+        status: 'open' as const,
+        closedByAdminId: null,
+        createdAt: now,
+        updatedAt: now,
+      };
+      await this.db.insert(cashDrawers).values(row);
+
+      await this.db.insert(drawerEvents).values({
+        id: randomUUID(),
+        drawerId,
+        eventType: 'open',
+        amountPaisa: dto.openingCashPaisa,
+        description: 'Opening cash float',
+        staffId: effectiveCashierId,
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      await this.audit.log({
+        actorUserId: actor.sub,
+        actorRole: actor.role,
+        action: 'drawer.open',
+        entity: 'cash_drawers',
+        entityId: drawerId,
+        after: row,
+        ip: meta.ip,
+        requestId: meta.requestId,
+      });
+
+      return row;
+    } catch (err: any) {
+      if (err instanceof BadRequestException || err instanceof NotFoundException) {
+        throw err;
+      }
+      const message = err instanceof Error ? err.message : 'Database error';
+      throw new BadRequestException(`Failed to open cash drawer: ${message}`);
     }
-
-    const now = new Date().toISOString();
-    const drawerId = randomUUID();
-    const row = {
-      id: drawerId,
-      cashierStaffId: effectiveCashierId,
-      deskId: dto.deskId,
-      shiftId: null,
-      openedAt: now,
-      closedAt: null,
-      openingCashPaisa: dto.openingCashPaisa,
-      closingCashActualPaisa: null,
-      closingCashExpectedPaisa: null,
-      variancePaisa: null,
-      varianceReason: null,
-      status: 'open' as const,
-      closedByAdminId: null,
-      createdAt: now,
-      updatedAt: now,
-    };
-    await this.db.insert(cashDrawers).values(row);
-
-    await this.db.insert(drawerEvents).values({
-      id: randomUUID(),
-      drawerId,
-      eventType: 'open',
-      amountPaisa: dto.openingCashPaisa,
-      description: 'Opening cash float',
-      staffId: effectiveCashierId,
-      createdAt: now,
-      updatedAt: now,
-    });
-
-    await this.audit.log({
-      actorUserId: actor.sub,
-      actorRole: actor.role,
-      action: 'drawer.open',
-      entity: 'cash_drawers',
-      entityId: drawerId,
-      after: row,
-      ip: meta.ip,
-      requestId: meta.requestId,
-    });
-
-    return row;
   }
 
   async getCurrentDrawer(cashierStaffId: string) {

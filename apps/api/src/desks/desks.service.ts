@@ -10,8 +10,22 @@ import type { CreateDeskDto, UpdateDeskDto } from './dto';
 export class DesksService {
   constructor(@Inject(DB) private readonly db: Db, private readonly audit: AuditService) {}
 
-  list() {
-    return this.db.select().from(desks);
+  async list() {
+    let rows = await this.db.select().from(desks);
+    if (rows.length === 0) {
+      const defaults = [
+        { id: 'reception-1', code: 'REC-01', type: 'reception' as const, name: 'Reception Counter 1', isActive: 1 },
+        { id: 'cashier-1', code: 'CSH-01', type: 'cashier' as const, name: 'Cash Counter 1', isActive: 1 },
+        { id: 'therapy-1', code: 'THP-01', type: 'therapy' as const, name: 'Therapy Hall 1', isActive: 1 },
+      ];
+      for (const d of defaults) {
+        try {
+          await this.db.insert(desks).values(d);
+        } catch {}
+      }
+      rows = await this.db.select().from(desks);
+    }
+    return rows;
   }
 
   async create(actor: { sub: string; role: string }, dto: CreateDeskDto, meta: { ip?: string | null; requestId?: string | null }) {

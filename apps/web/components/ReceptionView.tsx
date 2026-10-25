@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { CreatePatientDialog } from './patient/CreatePatientDialog';
 import { cn } from '../lib/utils';
 import { TherapyQueueManagementTab } from './therapy/TherapyQueueManagementTab';
+import { toast } from 'sonner';
 
 export default function ReceptionView() {
   const [mobileTab, setMobileTab] = useState<'checkin' | 'queue' | 'therapy_queue'>('checkin');
@@ -64,7 +65,7 @@ export default function ReceptionView() {
   const handleCheckIn = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedPatientId || !selectedDoctorId) {
-      alert('Please select both a Patient and a Doctor');
+      toast.error('অনুগ্রহ করে একজন রোগী ও একজন ডাক্তার নির্বাচন করুন (Please select both a Patient and a Doctor)');
       return;
     }
     try {
@@ -92,7 +93,7 @@ export default function ReceptionView() {
 
       loadData();
     } catch (err: any) {
-      alert(`Check-in failed: ${err.message}`);
+      toast.error(`চেক-ইন ব্যর্থ: ${err.message}`);
     }
   };
 

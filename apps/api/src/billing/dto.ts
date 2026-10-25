@@ -118,10 +118,10 @@ export class VoidBillDto {
 }
 
 export class OpenDrawerDto {
-  @ApiProperty({ description: 'Terminal desk UUID' })
+  @ApiPropertyOptional({ description: 'Terminal desk UUID' })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  deskId!: string;
+  deskId?: string;
 
   @ApiProperty({ example: 500000, description: 'Opening float cash in paisa (e.g. 5000 BDT)' })
   @IsInt()

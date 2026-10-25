@@ -10,6 +10,7 @@ import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { cn } from '../lib/utils';
+import { toast } from 'sonner';
 
 export default function PharmacyView() {
   const [mobileTab, setMobileTab] = useState<'formulary' | 'batches' | 'expenses'>('formulary');
@@ -59,11 +60,11 @@ export default function PharmacyView() {
         amountPaisa: expAmountTaka * 100,
         voucherNumber: expVoucher || undefined,
       });
-      alert('Expense recorded successfully!');
+      toast.success('খরচ সফলভাবে রেকর্ড করা হয়েছে! (Expense recorded successfully)');
       setShowExpenseModal(false);
       loadData();
     } catch (err: any) {
-      alert(`Failed to add expense: ${err.message}`);
+      toast.error(`খরচ যোগ করতে ব্যর্থ: ${err.message}`);
     }
   };
 

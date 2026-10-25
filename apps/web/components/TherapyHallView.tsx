@@ -14,6 +14,7 @@ import { Slider } from './ui/slider';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { cn } from '../lib/utils';
 import { TherapyQueueManagementTab } from './therapy/TherapyQueueManagementTab';
+import { toast } from 'sonner';
 
 export interface TherapyHallProps {
   session?: UserSession | null;
@@ -91,11 +92,11 @@ export default function TherapyHallView({ session: propSession }: TherapyHallPro
         modalityCode: selectedModalityCode,
         durationMinutes,
       });
-      alert('Therapy Session Started!');
+      toast.success('থেরাপি সেশন শুরু হয়েছে! (Therapy Session Started)');
       setShowStartModal(false);
       loadData();
     } catch (err: any) {
-      alert(`Failed to start session: ${err.message}`);
+      toast.error(`সেশন শুরু করতে ব্যর্থ: ${err.message}`);
     }
   };
 
@@ -108,11 +109,11 @@ export default function TherapyHallView({ session: propSession }: TherapyHallPro
         painScoreAfter,
         outcomeNote,
       });
-      alert('Therapy Session Completed & Recorded!');
+      toast.success('থেরাপি সেশন সম্পন্ন ও সংরক্ষিত হয়েছে! (Therapy Session Completed)');
       setCompletingSession(null);
       loadData();
     } catch (err: any) {
-      alert(`Completion failed: ${err.message}`);
+      toast.error(`সেশন সমাপ্ত করতে ব্যর্থ: ${err.message}`);
     }
   };
 
@@ -374,7 +375,7 @@ export default function TherapyHallView({ session: propSession }: TherapyHallPro
                       size="sm"
                       onClick={async () => {
                         if (!selectedPatientId) {
-                          alert('Select a patient in reception first');
+                          toast.error('অনুগ্রহ করে রিসেপশনে আগে একজন রোগী নির্বাচন করুন (Select a patient in reception first)');
                           return;
                         }
                         try {
@@ -383,9 +384,9 @@ export default function TherapyHallView({ session: propSession }: TherapyHallPro
                             packageId: pkg.id,
                             billId: undefined,
                           });
-                          alert(`Package ${pkg.nameEn} assigned to patient!`);
+                          toast.success(`প্যাকেজ ${pkg.nameEn} রোগীকে বরাদ্দ করা হয়েছে!`);
                         } catch (err: any) {
-                          alert(`Purchase error: ${err.message}`);
+                          toast.error(`প্যাকেজ ক্রয় ত্রুটি: ${err.message}`);
                         }
                       }}
                       className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"

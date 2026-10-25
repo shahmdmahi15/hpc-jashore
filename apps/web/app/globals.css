@@ -484,6 +484,19 @@ select:-webkit-autofill:active {
 .pb-safe-or-3 { padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0px)); }
 .px-safe { padding-left: max(0.75rem, env(safe-area-inset-left, 0px)); padding-right: max(0.75rem, env(safe-area-inset-right, 0px)); }
 
+/* SMART TV & TVOS 5% OVERSCAN MARGIN & D-PAD FOCUS ENGINE */
+.tv-overscan {
+  padding: max(1.5rem, 5vh) max(2rem, 5vw);
+}
+
+.tv-focus:focus-visible,
+[data-tv-focus]:focus-visible {
+  outline: none !important;
+  box-shadow: 0 0 0 4px #10b981, 0 0 24px rgba(16, 185, 129, 0.7) !important;
+  transform: scale(1.02);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
 @page thermal {
   size: 80mm auto;
   margin: 4mm;

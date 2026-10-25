@@ -341,6 +341,9 @@ export const api = {
       apiFetch<any>('/billing/payments', { method: 'POST', body: JSON.stringify(data) }),
     getDues: () => apiFetch<any[]>('/billing/dues'),
   },
+  desks: {
+    list: () => apiFetch<any[]>('/desks'),
+  },
   inventory: {
     getMedicines: () => apiFetch<any[]>('/inventory/medicines'),
     getBatches: () => apiFetch<any[]>('/inventory/batches'),

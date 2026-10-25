@@ -101,6 +101,29 @@ export type Db = BetterSQLite3Database<typeof schema>;
             `);
           }
 
+          // Ensure operational clinic desks exist idempotently
+          try {
+            sqlite.exec(`
+              CREATE TABLE IF NOT EXISTS desks (
+                id TEXT PRIMARY KEY,
+                code TEXT NOT NULL UNIQUE,
+                type TEXT NOT NULL,
+                name TEXT NOT NULL,
+                room_id TEXT,
+                is_active INTEGER NOT NULL DEFAULT 1
+              );
+            `);
+            sqlite.exec(`
+              INSERT OR IGNORE INTO desks (id, code, type, name, is_active)
+              VALUES
+                ('reception-1', 'REC-01', 'reception', 'Reception Counter 1', 1),
+                ('cashier-1', 'CSH-01', 'cashier', 'Cash Counter 1', 1),
+                ('therapy-1', 'THP-01', 'therapy', 'Therapy Hall 1', 1);
+            `);
+          } catch (deskErr) {
+            console.error('Error ensuring operational desks:', deskErr);
+          }
+
           // Ensure fingerprint column in refresh_sessions
           try {
             const sessionCols = sqlite.prepare("PRAGMA table_info(refresh_sessions)").all() as Array<{ name: string }>;

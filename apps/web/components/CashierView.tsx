@@ -145,7 +145,7 @@ export default function CashierView({ session: propSession }: CashierProps = {})
   const handleCreateBill = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedPatientId) {
-      alert('Select a patient');
+      toast.error('অনুগ্রহ করে একজন রোগী নির্বাচন করুন (Select a patient)');
       return;
     }
     try {
@@ -180,10 +180,10 @@ export default function CashierView({ session: propSession }: CashierProps = {})
         createdAt: new Date().toISOString(),
       });
 
-      alert(`Bill Created: ${res.billNumber}`);
+      toast.success(`বিল সফলভাবে তৈরি হয়েছে: ${res.billNumber}`);
       loadData();
     } catch (err: any) {
-      alert(`Billing failed: ${err.message}`);
+      toast.error(`বিল তৈরি করতে ব্যর্থ: ${err.message}`);
     }
   };
 
@@ -214,17 +214,22 @@ export default function CashierView({ session: propSession }: CashierProps = {})
   const handleOpenDrawer = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const staffList = await api.staff.list();
-      const cashier = staffList.find((s: any) => s.userId === session?.userId || s.role === 'cashier');
+      let deskId = 'cashier-1';
+      try {
+        const deskList = await api.desks.list();
+        const found = deskList.find((d: any) => d.type === 'cashier') || deskList[0];
+        if (found?.id) deskId = found.id;
+      } catch {}
+
       await api.billing.openDrawer({
-        deskId: 'reception-1',
-        openingCashPaisa: openingCashTaka * 100,
+        deskId,
+        openingCashPaisa: Math.max(0, openingCashTaka) * 100,
       });
-      alert('Cash Drawer Opened for shift!');
+      toast.success('ক্যাশ ড্রয়ার সফলভাবে খোলা হয়েছে! (Cash Drawer Opened for shift)');
       setShowOpenDrawerModal(false);
       loadData();
     } catch (err: any) {
-      alert(`Failed to open drawer: ${err.message}`);
+      toast.error(`ক্যাশ ড্রয়ার খুলতে ব্যর্থ: ${err.message || 'Failed to open drawer'}`);
     }
   };
 
@@ -233,14 +238,14 @@ export default function CashierView({ session: propSession }: CashierProps = {})
     if (!activeDrawer?.drawer?.id) return;
     try {
       const res = await api.billing.closeDrawer(activeDrawer.drawer.id, {
-        closingCashActualPaisa: closingCashActualTaka * 100,
+        closingCashActualPaisa: Math.max(0, closingCashActualTaka) * 100,
         varianceReason: closingReason || undefined,
       });
-      alert(`Shift closed! Variance: ৳${((res.variancePaisa || 0) / 100).toFixed(2)}`);
+      toast.success(`শিফট সমাপ্ত! Variance: ৳${((res.variancePaisa || 0) / 100).toFixed(2)}`);
       setShowCloseDrawerModal(false);
       loadData();
     } catch (err: any) {
-      alert(`Failed to close drawer: ${err.message}`);
+      toast.error(`ড্রয়ার বন্ধ করতে ব্যর্থ: ${err.message || 'Failed to close drawer'}`);
     }
   };
 
@@ -803,23 +808,32 @@ export default function CashierView({ session: propSession }: CashierProps = {})
         <DialogContent className="max-w-md" onClose={() => setShowOpenDrawerModal(false)}>
           <DialogHeader>
             <DialogTitle className="text-lg font-bold">Open Cash Drawer Float</DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Enter the starting cash float for this shift to open the drawer.
+            </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleOpenDrawer} className="flex flex-col gap-4 mt-2" autoComplete="off" data-lpignore="true" data-1p-ignore="true">
-            <Input
-              label="Opening Cash Float (৳)"
-              type="number"
-              value={openingCashTaka}
-              onChange={(e) => setOpeningCashTaka(parseInt(e.target.value) || 0)}
-              required
-            />
-            <div className="flex gap-3 mt-4 pt-2 border-t border-border">
-              <Button type="submit" className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold">
-                Confirm Open Float
-              </Button>
+            <div className="space-y-1.5">
+              <Label htmlFor="opening-cash" className="text-xs font-semibold">
+                Opening Cash Float (৳) *
+              </Label>
+              <Input
+                id="opening-cash"
+                type="number"
+                min="0"
+                value={openingCashTaka}
+                onChange={(e) => setOpeningCashTaka(parseInt(e.target.value) || 0)}
+                required
+              />
+            </div>
+            <DialogFooter className="flex flex-row justify-end gap-3 mt-4 pt-2 border-t border-border">
               <Button type="button" variant="outline" onClick={() => setShowOpenDrawerModal(false)}>
                 Cancel
               </Button>
-            </div>
+              <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold">
+                Confirm Open Float
+              </Button>
+            </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
@@ -829,30 +843,44 @@ export default function CashierView({ session: propSession }: CashierProps = {})
         <DialogContent className="max-w-md" onClose={() => setShowCloseDrawerModal(false)}>
           <DialogHeader>
             <DialogTitle className="text-lg font-bold">Close Shift &amp; Reconcile Drawer</DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Enter the physical cash count in drawer to reconcile and close the shift.
+            </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleCloseDrawer} className="flex flex-col gap-4 mt-2" autoComplete="off" data-lpignore="true" data-1p-ignore="true">
-            <Input
-              label="Physical Cash Count in Drawer (৳)"
-              type="number"
-              value={closingCashActualTaka}
-              onChange={(e) => setClosingCashActualTaka(parseInt(e.target.value) || 0)}
-              required
-            />
-            <Input
-              label="Variance Explanation (If any difference)"
-              type="text"
-              placeholder="e.g. Small change shortage"
-              value={closingReason}
-              onChange={(e) => setClosingReason(e.target.value)}
-            />
-            <div className="flex gap-3 mt-4 pt-2 border-t border-border">
-              <Button type="submit" className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold">
-                Confirm &amp; Close Shift
-              </Button>
+            <div className="space-y-1.5">
+              <Label htmlFor="closing-cash" className="text-xs font-semibold">
+                Physical Cash Count in Drawer (৳) *
+              </Label>
+              <Input
+                id="closing-cash"
+                type="number"
+                min="0"
+                value={closingCashActualTaka}
+                onChange={(e) => setClosingCashActualTaka(parseInt(e.target.value) || 0)}
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="closing-reason" className="text-xs font-semibold">
+                Variance Explanation (If any difference)
+              </Label>
+              <Input
+                id="closing-reason"
+                type="text"
+                placeholder="e.g. Small change shortage"
+                value={closingReason}
+                onChange={(e) => setClosingReason(e.target.value)}
+              />
+            </div>
+            <DialogFooter className="flex flex-row justify-end gap-3 mt-4 pt-2 border-t border-border">
               <Button type="button" variant="outline" onClick={() => setShowCloseDrawerModal(false)}>
                 Cancel
               </Button>
-            </div>
+              <Button type="submit" className="bg-red-600 hover:bg-red-700 text-white font-bold">
+                Confirm &amp; Close Shift
+              </Button>
+            </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
