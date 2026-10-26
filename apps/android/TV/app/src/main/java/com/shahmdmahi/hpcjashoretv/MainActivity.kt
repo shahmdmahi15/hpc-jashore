@@ -1433,21 +1433,42 @@ class MainActivity : ComponentActivity() {
     private fun downloadAndInstallApk(apkUrl: String) {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
-                val url = URL(apkUrl)
-                val conn = url.openConnection() as HttpURLConnection
-                conn.connectTimeout = 10000
-                conn.readTimeout = 10000
-                conn.connect()
+                var currentUrl = apkUrl
+                var connection: HttpURLConnection? = null
+                var redirectCount = 0
 
-                if (conn.responseCode == 200) {
+                // Manually follow HTTP redirects (GitHub releases redirect to AWS S3/Azure Blob CDN)
+                while (redirectCount < 5) {
+                    val url = URL(currentUrl)
+                    connection = url.openConnection() as HttpURLConnection
+                    connection.instanceFollowRedirects = true
+                    connection.connectTimeout = 15000
+                    connection.readTimeout = 15000
+                    connection.connect()
+
+                    val code = connection.responseCode
+                    if (code in 300..399) {
+                        val newLocation = connection.getHeaderField("Location")
+                        if (newLocation != null) {
+                            currentUrl = newLocation
+                            redirectCount++
+                            connection.disconnect()
+                            continue
+                        }
+                    }
+                    break
+                }
+
+                if (connection != null && connection.responseCode == 200) {
                     val apkFile = File(cacheDir, "hpc-jashore-tv-update.apk")
-                    conn.inputStream.use { input ->
+                    connection.inputStream.use { input ->
                         FileOutputStream(apkFile).use { output ->
                             input.copyTo(output)
                         }
                     }
 
                     withContext(Dispatchers.Main) {
+                        updateNotice = null
                         val uri: Uri = FileProvider.getUriForFile(
                             this@MainActivity,
                             "${applicationContext.packageName}.provider",
@@ -1459,8 +1480,16 @@ class MainActivity : ComponentActivity() {
                         }
                         startActivity(installIntent)
                     }
+                } else {
+                    withContext(Dispatchers.Main) {
+                        updateNotice = null
+                    }
                 }
-            } catch (_: Exception) {}
+            } catch (_: Exception) {
+                withContext(Dispatchers.Main) {
+                    updateNotice = null
+                }
+            }
         }
     }
 }
