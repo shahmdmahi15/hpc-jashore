@@ -137,14 +137,9 @@ export function TherapyQueueManagementTab() {
   });
 
   const handleCallPatient = async (patient: TherapyQueueItem) => {
-    const roomId = selectedRooms[patient.visitId] || rooms[0]?.id;
-    if (!roomId) {
-      toast.error('অনুগ্রহ করে একটি থেরাপি রুম/বেড নির্বাচন করুন');
-      return;
-    }
-
+    const roomId = selectedRooms[patient.visitId] || rooms[0]?.id || 'room-therapy-1';
     const roomObj = rooms.find((r) => r.id === roomId);
-    const roomName = roomObj?.name || 'Therapy Room';
+    const roomName = roomObj?.name || (roomObj?.roomNumber ? `রুম ${roomObj.roomNumber}` : 'থেরাপি হল ১');
     const roomNumber = roomObj?.roomNumber || 1;
 
     try {
@@ -158,7 +153,7 @@ export function TherapyQueueManagementTab() {
         modalityCode: patient.modalityCode || 'PHYSIO',
       });
       toast.success(
-        `টোকেন #${String(patient.tokenNumber).padStart(2, '0')} কে ${roomName} এ ডাকা হয়েছে`,
+        `টোকেন #${String(patient.tokenNumber).padStart(2, '0')} কে ${roomName} এ ডাকা হয়েছে! টিভি স্ক্রিনে ঘোষণা পাঠানো হয়েছে।`,
       );
       await fetchData(true);
     } catch (err: any) {
@@ -490,10 +485,10 @@ export function TherapyQueueManagementTab() {
                         size="sm"
                         onClick={() => handleCallPatient(patient)}
                         disabled={callingVisitId === patient.visitId}
-                        className="bg-emerald-500 hover:bg-emerald-400 text-black font-bold h-9 px-4 gap-1.5 whitespace-nowrap"
+                        className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold h-9 px-4 gap-1.5 whitespace-nowrap active:scale-95 shadow-sm shadow-emerald-600/20"
                       >
-                        <PhoneCall className="size-4" />
-                        <span>রুমে ডাকুন</span>
+                        <Volume2 className="size-4 text-white" />
+                        <span>ডাকুন (Call)</span>
                       </Button>
                     </div>
 

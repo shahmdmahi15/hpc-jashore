@@ -181,7 +181,7 @@ export class VisitsService {
           and(
             eq(therapySlotBookings.patientId, patient.id),
             eq(therapySlotBookings.bookingDate, today),
-            sql`${therapySlotBookings.status} IN ('booked', 'confirmed')`,
+            sql`${therapySlotBookings.status} NOT IN ('cancelled')`,
             isNull(therapySlotBookings.deletedAt),
           ),
         )
@@ -264,8 +264,8 @@ export class VisitsService {
       .limit(1);
 
     const firstWaitingRoom = waitingRoomRows[0] ?? null;
-    const initialLocation = firstWaitingRoom?.name || 'Waiting Room';
-    const roomId = firstWaitingRoom?.id ?? null;
+    const initialLocation = hasTherapySlot ? 'therapy_hall' : (firstWaitingRoom?.name || 'Waiting Room');
+    const roomId = hasTherapySlot ? null : (firstWaitingRoom?.id ?? null);
 
     const assignedDoctorId = activeDocBooking?.doctorId ?? dto.doctorId ?? null;
 
@@ -1478,9 +1478,15 @@ export class VisitsService {
           or(
             eq(visits.status, 'in_therapy'),
             and(
-              eq(visits.status, 'checked_in'),
-              sql`${visits.therapyBookingId} IS NOT NULL`,
-              sql`${visits.therapyBookingId} NOT IN (SELECT id FROM therapy_slot_bookings WHERE status = 'cancelled' OR deleted_at IS NOT NULL)`,
+              sql`${visits.status} IN ('checked_in', 'waiting')`,
+              or(
+                and(
+                  sql`${visits.therapyBookingId} IS NOT NULL`,
+                  sql`${visits.therapyBookingId} NOT IN (SELECT id FROM therapy_slot_bookings WHERE status = 'cancelled' OR deleted_at IS NOT NULL)`,
+                ),
+                sql`${visits.currentLocation} IN ('therapy_hall', 'Therapy Hall')`,
+                sql`${visits.patientId} IN (SELECT patient_id FROM therapy_slot_bookings WHERE booking_date = ${today} AND status NOT IN ('cancelled') AND deleted_at IS NULL)`,
+              ),
             ),
           ),
         ),
@@ -1593,9 +1599,15 @@ export class VisitsService {
           or(
             eq(visits.status, 'in_therapy'),
             and(
-              eq(visits.status, 'checked_in'),
-              sql`${visits.therapyBookingId} IS NOT NULL`,
-              sql`${visits.therapyBookingId} NOT IN (SELECT id FROM therapy_slot_bookings WHERE status = 'cancelled' OR deleted_at IS NOT NULL)`,
+              sql`${visits.status} IN ('checked_in', 'waiting')`,
+              or(
+                and(
+                  sql`${visits.therapyBookingId} IS NOT NULL`,
+                  sql`${visits.therapyBookingId} NOT IN (SELECT id FROM therapy_slot_bookings WHERE status = 'cancelled' OR deleted_at IS NOT NULL)`,
+                ),
+                sql`${visits.currentLocation} IN ('therapy_hall', 'Therapy Hall')`,
+                sql`${visits.patientId} IN (SELECT patient_id FROM therapy_slot_bookings WHERE booking_date = ${today} AND status NOT IN ('cancelled') AND deleted_at IS NULL)`,
+              ),
             ),
           ),
         ),

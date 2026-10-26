@@ -463,7 +463,28 @@ export class TherapyService {
   async getQueue() {
     const today = new Date().toISOString().slice(0, 10);
 
-    // 1. Visits for therapy today
+    // 1. All active therapy slot bookings for today
+    const todayBookings = await this.db
+      .select({
+        booking: therapySlotBookings,
+        patient: patients,
+      })
+      .from(therapySlotBookings)
+      .innerJoin(patients, eq(therapySlotBookings.patientId, patients.id))
+      .where(
+        and(
+          eq(therapySlotBookings.bookingDate, today),
+          sql`${therapySlotBookings.status} NOT IN ('cancelled')`,
+          isNull(therapySlotBookings.deletedAt),
+        ),
+      );
+
+    const bookingMapByPatientId = new Map<string, typeof todayBookings[0]>();
+    for (const b of todayBookings) {
+      bookingMapByPatientId.set(b.patient.id, b);
+    }
+
+    // 2. Visits for therapy today
     const therapyVisits = await this.db
       .select({
         visit: visits,
@@ -476,14 +497,33 @@ export class TherapyService {
       .where(eq(visits.visitDate, today))
       .orderBy(desc(visits.createdAt));
 
-    // Filter relevant visits: therapy_hall location or therapy status
+    // Filter relevant visits: therapy_hall location, therapy status, or patient with booked therapy slot today
     const relevantVisits = therapyVisits.filter(
-      ({ visit: v }) =>
+      ({ visit: v, patient: p }) =>
         v.currentLocation === 'therapy_hall' ||
+        v.currentLocation === 'Therapy Hall' ||
         v.status === 'in_therapy' ||
         (v as any).status === 'calling' ||
-        v.therapyBookingId !== null,
+        v.therapyBookingId !== null ||
+        bookingMapByPatientId.has(p.id),
     );
+
+    // Auto-link visits to slot booking if visits.therapyBookingId was null
+    for (const item of relevantVisits) {
+      if (!item.visit.therapyBookingId && bookingMapByPatientId.has(item.patient.id)) {
+        const matchingBooking = bookingMapByPatientId.get(item.patient.id)!;
+        item.booking = matchingBooking.booking;
+        this.db
+          .update(visits)
+          .set({
+            therapyBookingId: matchingBooking.booking.id,
+            currentLocation: 'therapy_hall',
+            updatedAt: new Date().toISOString(),
+          })
+          .where(eq(visits.id, item.visit.id))
+          .catch(() => {});
+      }
+    }
 
     // 2. Active Sessions
     const activeSessions = await this.db
@@ -581,13 +621,16 @@ export class TherapyService {
     const patientRows = await this.db.select().from(patients).where(eq(patients.id, visitRow.patientId));
     const patient = patientRows[0];
 
+    const targetRoomId = dto.roomId || 'therapy-hall-1';
+    const targetRoomName = dto.roomName || 'Therapy Hall 1';
+
     // Update visit status to calling
     await this.db
       .update(visits)
       .set({
         status: 'calling' as any,
         currentLocation: 'therapy_hall',
-        roomId: dto.roomId,
+        roomId: targetRoomId,
         updatedAt: now,
       })
       .where(eq(visits.id, visitRow.id));
@@ -598,7 +641,7 @@ export class TherapyService {
         ?.prepare(
           'UPDATE visits SET status = ?, called_room_id = ?, called_room_name = ?, called_at = ?, updated_at = ? WHERE id = ?',
         )
-        ?.run('calling', dto.roomId, dto.roomName || 'Therapy Room', now, now, visitRow.id);
+        ?.run('calling', targetRoomId, targetRoomName, now, now, visitRow.id);
     } catch {}
 
     const payload = {
@@ -607,10 +650,12 @@ export class TherapyService {
       tokenNumber: visitRow.tokenNumber,
       patientNameEn: patient?.nameEn || 'Patient',
       patientNameBn: patient?.nameBn || patient?.nameEn,
-      roomId: dto.roomId,
-      roomName: dto.roomName || 'Therapy Room 1',
+      roomId: targetRoomId,
+      roomName: targetRoomName,
       roomNumber: dto.roomNumber || 1,
       modality: dto.modalityCode || 'Physiotherapy & Rehab',
+      type: 'therapy',
+      isTherapy: true,
       calledAt: now,
     };
 

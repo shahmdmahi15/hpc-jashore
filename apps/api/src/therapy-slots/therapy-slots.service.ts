@@ -562,6 +562,43 @@ export class TherapySlotsService {
 
     await this.db.insert(therapySlotBookings).values(newBooking);
 
+    // Auto-link to any active visit today so patient immediately appears in therapy queue
+    try {
+      const activeVisits = await this.db
+        .select()
+        .from(visits)
+        .where(
+          and(
+            eq(visits.patientId, dto.patientId),
+            eq(visits.visitDate, dto.bookingDate),
+            sql`${visits.status} != 'checked_out'`,
+          ),
+        );
+      if (activeVisits[0]) {
+        await this.db
+          .update(visits)
+          .set({
+            therapyBookingId: id,
+            currentLocation: 'therapy_hall',
+            updatedAt: now,
+          })
+          .where(eq(visits.id, activeVisits[0].id));
+
+        this.gateway.emit('clinic:global', 'therapy.queue.updated', {
+          visitId: activeVisits[0].id,
+          patientId: dto.patientId,
+          therapyBookingId: id,
+        });
+        this.realtime.publish('therapy.queue.updated', {
+          visitId: activeVisits[0].id,
+          patientId: dto.patientId,
+          therapyBookingId: id,
+        });
+      }
+    } catch (linkErr) {
+      console.warn('Failed to auto-link therapy booking to visit:', linkErr);
+    }
+
     await this.audit.log({
       actorUserId: actor.sub,
       actorRole: actor.role,
