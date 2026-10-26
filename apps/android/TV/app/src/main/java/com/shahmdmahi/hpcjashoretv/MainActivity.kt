@@ -170,7 +170,9 @@ class MainActivity : ComponentActivity() {
                             checkSelfUpdate { hasUpdate, latestVer, apkUrl, forceUpdate ->
                                 if ((hasUpdate || forceUpdate) && apkUrl != null) {
                                     updateNotice = "Updating to v$latestVer..."
-                                    downloadAndInstallApk(apkUrl)
+                                    downloadAndInstallApk(apkUrl) {
+                                        updateNotice = null
+                                    }
                                 }
                             }
                         }
@@ -451,7 +453,9 @@ class MainActivity : ComponentActivity() {
                                                 launch(Dispatchers.Main) {
                                                     updateNotice = "Force Updating to v$latestVer..."
                                                 }
-                                                downloadAndInstallApk(apkUrl)
+                                                downloadAndInstallApk(apkUrl) {
+                                                    updateNotice = null
+                                                }
                                             }
                                         }
                                     }
@@ -1430,7 +1434,7 @@ class MainActivity : ComponentActivity() {
         } catch (_: Exception) {}
     }
 
-    private fun downloadAndInstallApk(apkUrl: String) {
+    private fun downloadAndInstallApk(apkUrl: String, onFinished: (() -> Unit)? = null) {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
                 var currentUrl = apkUrl
@@ -1468,7 +1472,7 @@ class MainActivity : ComponentActivity() {
                     }
 
                     withContext(Dispatchers.Main) {
-                        updateNotice = null
+                        onFinished?.invoke()
                         val uri: Uri = FileProvider.getUriForFile(
                             this@MainActivity,
                             "${applicationContext.packageName}.provider",
@@ -1482,12 +1486,12 @@ class MainActivity : ComponentActivity() {
                     }
                 } else {
                     withContext(Dispatchers.Main) {
-                        updateNotice = null
+                        onFinished?.invoke()
                     }
                 }
             } catch (_: Exception) {
                 withContext(Dispatchers.Main) {
-                    updateNotice = null
+                    onFinished?.invoke()
                 }
             }
         }
