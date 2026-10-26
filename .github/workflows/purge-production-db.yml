@@ -1,0 +1,54 @@
+name: Purge Production Database on Lightsail
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "PURGE" to execute database purge on AWS Lightsail'
+        required: true
+        default: 'PURGE'
+
+concurrency:
+  group: purge-production-db
+  cancel-in-progress: false
+
+jobs:
+  purge-database:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Verify Confirmation Input
+        run: |
+          if [ "${{ github.event.inputs.confirm }}" != "PURGE" ]; then
+            echo "Confirmation mismatch. Input was '${{ github.event.inputs.confirm }}'. Aborting."
+            exit 1
+          fi
+
+      - name: Execute Purge Script on AWS Lightsail
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.HOST_IP }}
+          username: ${{ secrets.HOST_USERNAME }}
+          key: ${{ secrets.HOST_KEY }}
+          port: 22
+          timeout: 5m
+          command_timeout: 10m
+          script_stop: true
+          script: |
+            set -e
+            echo "🚀 [Lightsail] Pulling latest purge script and executing..."
+            cd /var/www/hpc-jashore
+
+            # Export environment paths
+            export PATH="$HOME/.local/share/pnpm:/usr/local/bin:/usr/bin:/bin:$PATH"
+            if [ -f "$HOME/.profile" ]; then . "$HOME/.profile" || true; fi
+            if [ -f "$HOME/.bashrc" ]; then . "$HOME/.bashrc" || true; fi
+            if [ -f "$HOME/.nvm/nvm.sh" ]; then . "$HOME/.nvm/nvm.sh" || true; fi
+
+            git fetch origin main
+            git checkout main
+            git pull origin main
+
+            chmod +x deploy/scripts/purge-production-db.sh
+            bash deploy/scripts/purge-production-db.sh
