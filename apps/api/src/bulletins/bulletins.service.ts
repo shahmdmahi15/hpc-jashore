@@ -1,10 +1,12 @@
 // apps/api/src/bulletins/bulletins.service.ts
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { desc, eq } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 import { AuditService } from '../audit/audit.service';
 import { DB, type Db } from '../db/db.module';
 import { bulletins } from '../db/schema';
+import { RealtimeService } from '../realtime/realtime.service';
+import { EventsGateway } from '../realtime/events.gateway';
 import { CreateBulletinDto, UpdateBulletinDto } from './dto';
 
 @Injectable()
@@ -12,6 +14,8 @@ export class BulletinsService {
   constructor(
     @Inject(DB) private readonly db: Db,
     private readonly audit: AuditService,
+    private readonly realtime: RealtimeService,
+    @Optional() private readonly gateway?: EventsGateway,
   ) {}
 
   async listAll() {
@@ -64,6 +68,14 @@ export class BulletinsService {
       requestId: meta.requestId,
     });
 
+    try {
+      const activeList = await this.listActive();
+      this.realtime.publish('bulletin.created', { bulletin: created, activeBulletins: activeList });
+      this.realtime.publish('tv:bulletins_updated', { activeBulletins: activeList });
+      this.gateway?.emit('clinic:global', 'bulletin.created', { bulletin: created, activeBulletins: activeList });
+      this.gateway?.emit('clinic:global', 'tv:bulletins_updated', { activeBulletins: activeList });
+    } catch (_: any) {}
+
     return created;
   }
 
@@ -111,6 +123,14 @@ export class BulletinsService {
       requestId: meta.requestId,
     });
 
+    try {
+      const activeList = await this.listActive();
+      this.realtime.publish('bulletin.updated', { bulletin: updated, activeBulletins: activeList });
+      this.realtime.publish('tv:bulletins_updated', { activeBulletins: activeList });
+      this.gateway?.emit('clinic:global', 'bulletin.updated', { bulletin: updated, activeBulletins: activeList });
+      this.gateway?.emit('clinic:global', 'tv:bulletins_updated', { activeBulletins: activeList });
+    } catch (_: any) {}
+
     return updated;
   }
 
@@ -140,6 +160,14 @@ export class BulletinsService {
       ip: meta.ip,
       requestId: meta.requestId,
     });
+
+    try {
+      const activeList = await this.listActive();
+      this.realtime.publish('bulletin.deleted', { id, activeBulletins: activeList });
+      this.realtime.publish('tv:bulletins_updated', { activeBulletins: activeList });
+      this.gateway?.emit('clinic:global', 'bulletin.deleted', { id, activeBulletins: activeList });
+      this.gateway?.emit('clinic:global', 'tv:bulletins_updated', { activeBulletins: activeList });
+    } catch (_: any) {}
 
     return { success: true };
   }

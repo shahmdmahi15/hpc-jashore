@@ -219,6 +219,12 @@ export default function UsersAndDeviceManagementView() {
 
   useEffect(() => {
     loadData();
+    const interval = setInterval(() => {
+      listTvDevicesAction().then((tvRes) => {
+        if (tvRes.success && tvRes.data) setTvDevices(tvRes.data);
+      });
+    }, 8000);
+    return () => clearInterval(interval);
   }, []);
 
   useRealtime((event) => {

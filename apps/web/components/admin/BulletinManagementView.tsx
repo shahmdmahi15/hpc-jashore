@@ -41,6 +41,7 @@ import {
 } from '../ui/table';
 import { toast } from 'sonner';
 import { useLanguage } from '../../lib/i18n';
+import { useRealtime } from '../../lib/use-realtime';
 import {
   listBulletinsAction,
   createBulletinAction,
@@ -94,6 +95,12 @@ export default function BulletinManagementView() {
   useEffect(() => {
     loadBulletins();
   }, []);
+
+  useRealtime((event) => {
+    if (event.type.startsWith('bulletin.') || event.type === 'tv:bulletins_updated') {
+      loadBulletins();
+    }
+  });
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();

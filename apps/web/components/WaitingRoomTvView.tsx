@@ -451,6 +451,7 @@ export default function WaitingRoomTvView() {
       event.type.startsWith('visit.') ||
       event.type.startsWith('consultation.') ||
       event.type.startsWith('announcement.') ||
+      event.type.startsWith('bulletin.') ||
       event.type.startsWith('tv:')
     ) {
       const payloadData = (event as any).data || (event as any).payload;

@@ -138,6 +138,27 @@ export class UpdatesService implements OnModuleInit {
     return {
       releases: [
         {
+          version: '0.1.53',
+          notes: 'HPC Jashore v0.1.53 - Instant zero-latency bulletin realtime synchronization, active SSE broadcast, 5s polling safety-net, and admin device live presence.',
+          pub_date: '2026-10-26T17:10:00.000Z',
+          forceUpdate: true,
+          minVersionCode: 54,
+          platforms: {
+            'windows-x86_64': {
+              signature: '',
+              url: 'https://github.com/shahmdmahi15/hpc-jashore/releases/download/v0.1.53/hpc-jashore_0.1.53_x64-setup.exe',
+            },
+            'android': {
+              versionCode: 54,
+              url: 'https://github.com/shahmdmahi15/hpc-jashore/releases/download/v0.1.53/hpc-jashore-mobile.apk',
+            },
+            'android-tv': {
+              versionCode: 54,
+              url: 'https://github.com/shahmdmahi15/hpc-jashore/releases/download/v0.1.53/hpc-jashore-tv.apk',
+            },
+          },
+        },
+        {
           version: '0.1.52',
           notes: 'HPC Jashore v0.1.52 - Universal ViewSonic and Chinese Android TV compatibility with AOSP fallback, cleartext traffic support, and studio dual-voice engine.',
           pub_date: '2026-10-26T16:55:00.000Z',

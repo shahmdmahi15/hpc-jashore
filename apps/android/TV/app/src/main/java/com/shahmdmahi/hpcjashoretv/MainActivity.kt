@@ -386,11 +386,26 @@ class MainActivity : ComponentActivity() {
                                         }
                                     }
                                 }
-                            } else if (type.startsWith("bulletin.")) {
-                                if (isPaired) {
-                                    fetchTvBulletins { bulletins ->
-                                        liveBulletins = bulletins
+                            } else if (type.startsWith("bulletin.") || type == "tv:bulletins_updated" || type == "tv.bulletins_updated") {
+                                val arr = payload.optJSONArray("activeBulletins")
+                                if (arr != null) {
+                                    val list = mutableListOf<TvBulletin>()
+                                    for (i in 0 until arr.length()) {
+                                        val obj = arr.getJSONObject(i)
+                                        list.add(
+                                            TvBulletin(
+                                                id = obj.optString("id", ""),
+                                                title = obj.optString("title", ""),
+                                                contentEn = obj.optString("contentEn", ""),
+                                                contentBn = obj.optString("contentBn", ""),
+                                                isUrgent = obj.optInt("isUrgent", 0) == 1
+                                            )
+                                        )
                                     }
+                                    liveBulletins = list
+                                }
+                                fetchTvBulletins { bulletins ->
+                                    liveBulletins = bulletins
                                 }
                             }
                         }
@@ -444,14 +459,14 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            // Bulletins auto-refresh loop (every 20s)
+            // Bulletins auto-refresh loop (every 5s safety net)
             LaunchedEffect(isPaired) {
                 if (isPaired) {
                     while (isActive && isPaired) {
                         fetchTvBulletins { bulletins ->
                             liveBulletins = bulletins
                         }
-                        delay(20000)
+                        delay(5000)
                     }
                 }
             }
