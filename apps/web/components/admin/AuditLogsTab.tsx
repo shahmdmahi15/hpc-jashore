@@ -103,7 +103,6 @@ const COMMON_ENTITIES = [
   { value: 'serials', labelEn: 'serials (Consultation Queue)', labelBn: 'ডাক্তার সিরিয়াল' },
   { value: 'consultation_bookings', labelEn: 'consultation_bookings', labelBn: 'কনসালটেশন বুকিং' },
   { value: 'rooms', labelEn: 'rooms (Chambers & Rehab Halls)', labelBn: 'চেম্বার ও রিহ্যাব হল' },
-  { value: 'machines', labelEn: 'machines (Therapy Equipment)', labelBn: 'থেরাপি যন্ত্রপাতি' },
   { value: 'bulletins', labelEn: 'bulletins (TV Announcements)', labelBn: 'টিভি বুলেটিন' },
   { value: 'settings', labelEn: 'settings (System Config)', labelBn: 'সিস্টেম কনফিগ' },
 ];

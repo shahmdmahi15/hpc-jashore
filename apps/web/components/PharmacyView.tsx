@@ -20,10 +20,9 @@ import { cn } from '../lib/utils';
 import { toast } from 'sonner';
 
 export default function PharmacyView() {
-  const [mobileTab, setMobileTab] = useState<'formulary' | 'batches' | 'expenses'>('formulary');
+  const [mobileTab, setMobileTab] = useState<'formulary' | 'expenses'>('formulary');
   const [medicines, setMedicines] = useState<any[]>([]);
-  const [batches, setBatches] = useState<any[]>([]);
-  const [alerts, setAlerts] = useState<any>({ lowStockMedicines: [], expiringBatches: [] });
+  const [alerts, setAlerts] = useState<any>({ lowStockMedicines: [] });
   const [expenses, setExpenses] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -37,15 +36,13 @@ export default function PharmacyView() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [m, b, a, exp] = await Promise.all([
+      const [m, a, exp] = await Promise.all([
         api.inventory.getMedicines(),
-        api.inventory.getBatches(),
         api.inventory.getAlerts(),
         api.inventory.getExpenses(),
       ]);
       setMedicines(m || []);
-      setBatches(b || []);
-      setAlerts(a || { lowStockMedicines: [], expiringBatches: [] });
+      setAlerts(a || { lowStockMedicines: [] });
       setExpenses(exp || []);
     } catch (err: any) {
       console.error(err);
@@ -78,7 +75,7 @@ export default function PharmacyView() {
   return (
     <div className="flex flex-col gap-6">
       {/* Alerts Banner */}
-      {(alerts.lowStockMedicines?.length > 0 || alerts.expiringBatches?.length > 0) && (
+      {alerts.lowStockMedicines?.length > 0 && (
         <Card className="border-red-500/30 bg-red-500/5 dark:bg-red-950/20 shadow-xs">
           <CardContent className="p-4 sm:p-5">
             <h3 className="text-sm sm:text-base font-bold text-red-600 flex items-center gap-2 mb-2">
@@ -89,12 +86,6 @@ export default function PharmacyView() {
                 <div key={m.id} className="flex items-center gap-1.5 flex-wrap">
                   <span className="text-red-500 font-semibold">• Low Stock:</span>
                   <strong className="text-foreground">{m.brandName}</strong> ({m.genericName}) — Current stock: <Badge variant="destructive" className="h-5 text-xs">{m.currentStock}</Badge> (Min: {m.minStockAlert})
-                </div>
-              ))}
-              {alerts.expiringBatches?.map((b: any) => (
-                <div key={b.id} className="flex items-center gap-1.5 flex-wrap">
-                  <span className="text-amber-500 font-semibold">• Expiring Batch:</span>
-                  <strong className="text-foreground">{b.batchNumber}</strong> — Expires: {b.expDate} (Stock: {b.quantityInStock})
                 </div>
               ))}
             </div>
@@ -118,18 +109,6 @@ export default function PharmacyView() {
         </button>
         <button
           type="button"
-          onClick={() => setMobileTab('batches')}
-          className={cn(
-            'flex-1 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all',
-            mobileTab === 'batches'
-              ? 'bg-emerald-600 text-white shadow-xs'
-              : 'text-muted-foreground hover:text-foreground'
-          )}
-        >
-          📦 Batches ({batches.length})
-        </button>
-        <button
-          type="button"
           onClick={() => setMobileTab('expenses')}
           className={cn(
             'flex-1 py-2 text-xs sm:text-sm font-semibold rounded-lg transition-all',
@@ -142,12 +121,12 @@ export default function PharmacyView() {
         </button>
       </div>
 
-      {/* Main Grid: Medicines & FIFO Batches */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      {/* Main Grid: Medicines Formulary */}
+      <div className="grid grid-cols-1 gap-6">
         {/* Medicines Catalog */}
         <div
           className={cn(
-            'flex flex-col gap-6 lg:col-span-7 xl:col-span-7',
+            'flex flex-col gap-6',
             mobileTab !== 'formulary' && 'hidden lg:flex'
           )}
         >
@@ -167,7 +146,7 @@ export default function PharmacyView() {
               </Button>
             </CardHeader>
             <CardContent>
-              <div className="max-h-[360px] overflow-y-auto rounded-lg border border-border">
+              <div className="max-h-[420px] overflow-y-auto rounded-lg border border-border">
                 <table className="w-full text-left text-xs sm:text-sm">
                   <thead className="bg-muted/50 sticky top-0 border-b border-border text-muted-foreground font-semibold">
                     <tr>
@@ -176,6 +155,8 @@ export default function PharmacyView() {
                       <th className="p-2.5">Form</th>
                       <th className="p-2.5 hidden sm:table-cell">Strength</th>
                       <th className="p-2.5 hidden md:table-cell">Manufacturer</th>
+                      <th className="p-2.5">Stock</th>
+                      <th className="p-2.5 text-right">MRP (৳)</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
@@ -189,54 +170,14 @@ export default function PharmacyView() {
                           </Badge>
                         </td>
                         <td className="p-2.5 hidden sm:table-cell text-muted-foreground">{m.strength}</td>
-                        <td className="p-2.5 hidden md:table-cell text-muted-foreground">{m.manufacturer}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* FIFO Batches */}
-        <div
-          className={cn(
-            'flex flex-col gap-6 lg:col-span-5 xl:col-span-5',
-            mobileTab !== 'batches' && 'hidden lg:flex'
-          )}
-        >
-          <Card className="border border-border bg-card shadow-sm">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base sm:text-lg font-bold flex items-center gap-2">
-                📦 Batches &amp; Expiry ({batches.length})
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="max-h-[360px] overflow-y-auto rounded-lg border border-border">
-                <table className="w-full text-left text-xs sm:text-sm">
-                  <thead className="bg-muted/50 sticky top-0 border-b border-border text-muted-foreground font-semibold">
-                    <tr>
-                      <th className="p-2.5">Batch #</th>
-                      <th className="p-2.5">MRP (৳)</th>
-                      <th className="p-2.5 hidden sm:table-cell">Exp Date</th>
-                      <th className="p-2.5">Stock</th>
-                      <th className="p-2.5 text-right">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {batches.map((b) => (
-                      <tr key={b.id} className="hover:bg-muted/30 transition-colors">
-                        <td className="p-2.5 font-bold text-foreground">{b.batchNumber}</td>
-                        <td className="p-2.5 font-semibold">৳{(b.mrpPaisa / 100).toFixed(0)}</td>
-                        <td className="p-2.5 hidden sm:table-cell text-muted-foreground">{b.expDate}</td>
-                        <td className="p-2.5 font-bold">{b.quantityInStock}</td>
-                        <td className="p-2.5 text-right">
-                          <Badge
-                            variant={b.quantityInStock > 10 ? 'success' : b.quantityInStock > 0 ? 'warning' : 'destructive'}
-                          >
-                            {b.quantityInStock > 0 ? 'In Stock' : 'Out of Stock'}
+                        <td className="p-2.5 hidden md:table-cell text-muted-foreground">{m.manufacturer || 'N/A'}</td>
+                        <td className="p-2.5 font-bold">
+                          <Badge variant={m.totalStock > (m.minStockAlert ?? 10) ? 'success' : m.totalStock > 0 ? 'warning' : 'destructive'}>
+                            {m.totalStock ?? 0}
                           </Badge>
+                        </td>
+                        <td className="p-2.5 text-right font-semibold">
+                          ৳{((m.mrpPaisa || 0) / 100).toFixed(2)}
                         </td>
                       </tr>
                     ))}

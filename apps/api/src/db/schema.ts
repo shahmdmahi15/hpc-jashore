@@ -56,18 +56,6 @@ export const users = sqliteTable('users', {
   ...timestamps,
 });
 
-export const shifts = sqliteTable('shifts', {
-  id: text('id').primaryKey(),
-  staffId: text('staff_id')
-    .notNull()
-    .references(() => users.id),
-  deskId: text('desk_id'),
-  startsAt: text('starts_at').notNull(),
-  endsAt: text('ends_at'),
-  status: text('status').notNull().default('scheduled'),
-  ...timestamps,
-});
-
 // Long-lived refresh sessions (device list + remote logout + rotation chain).
 export const refreshSessions = sqliteTable('refresh_sessions', {
   id: text('id').primaryKey(),
@@ -507,21 +495,6 @@ export const therapyPlans = sqliteTable('therapy_plans', {
   ...timestamps,
 });
 
-export const machines = sqliteTable('machines', {
-  id: text('id').primaryKey(),
-  roomId: text('room_id').references(() => rooms.id),
-  code: text('code').notNull().unique(),
-  name: text('name').notNull(),
-  modalityCode: text('modality_code').references(() => modalities.code),
-  status: text('status')
-    .notNull()
-    .$type<'available' | 'in_use' | 'maintenance'>()
-    .default('available'),
-  lastServicedAt: text('last_serviced_at'),
-  nextServiceDue: text('next_service_due'),
-  isActive: integer('is_active').notNull().default(1),
-});
-
 export const therapySessions = sqliteTable('therapy_sessions', {
   id: text('id').primaryKey(),
   planId: text('plan_id').references(() => therapyPlans.id),
@@ -530,7 +503,6 @@ export const therapySessions = sqliteTable('therapy_sessions', {
     .references(() => patients.id),
   therapistStaffId: text('therapist_staff_id').references(() => users.id),
   bedId: text('bed_id'),
-  machineId: text('machine_id').references(() => machines.id),
   modalityCode: text('modality_code')
     .notNull()
     .references(() => modalities.code),
@@ -669,7 +641,6 @@ export const cashDrawers = sqliteTable('cash_drawers', {
     .notNull()
     .references(() => users.id),
   deskId: text('desk_id'),
-  shiftId: text('shift_id').references(() => shifts.id),
   openedAt: text('opened_at').notNull(),
   closedAt: text('closed_at'),
   openingCashPaisa: integer('opening_cash_paisa').notNull(),
@@ -706,31 +677,15 @@ export const medicines = sqliteTable('medicines', {
   manufacturer: text('manufacturer'),
   form: text('form').notNull().default('tablet'),
   strength: text('strength'),
+  currentStock: integer('current_stock').notNull().default(0),
+  mrpPaisa: integer('mrp_paisa').notNull().default(0),
   minStockAlert: integer('min_stock_alert').notNull().default(20),
   isActive: integer('is_active').notNull().default(1),
   ...timestamps,
 });
 
-export const batches = sqliteTable('batches', {
-  id: text('id').primaryKey(),
-  medicineId: text('medicine_id')
-    .notNull()
-    .references(() => medicines.id),
-  batchNumber: text('batch_number').notNull(),
-  mfgDate: text('mfg_date'),
-  expDate: text('exp_date').notNull(),
-  purchaseRatePaisa: integer('purchase_rate_paisa').notNull(),
-  mrpPaisa: integer('mrp_paisa').notNull(),
-  quantityInStock: integer('quantity_in_stock').notNull().default(0),
-  isBlocked: integer('is_blocked').notNull().default(0),
-  ...timestamps,
-});
-
 export const stockMoves = sqliteTable('stock_moves', {
   id: text('id').primaryKey(),
-  batchId: text('batch_id')
-    .notNull()
-    .references(() => batches.id),
   medicineId: text('medicine_id')
     .notNull()
     .references(() => medicines.id),
@@ -789,18 +744,6 @@ export const announcements = sqliteTable('announcements', {
   activeUntil: text('active_until'),
   createdBy: text('created_by').references(() => users.id),
   ...timestamps,
-});
-
-export const attendance = sqliteTable('attendance', {
-  id: text('id').primaryKey(),
-  staffId: text('staff_id')
-    .notNull()
-    .references(() => users.id),
-  punchType: text('punch_type').notNull().$type<'in' | 'out'>(),
-  deskId: text('desk_id'),
-  timestamp: text('timestamp').notNull(),
-  ip: text('ip'),
-  note: text('note'),
 });
 
 export const feedback = sqliteTable('feedback', {

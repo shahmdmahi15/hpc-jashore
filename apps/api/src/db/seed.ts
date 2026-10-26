@@ -48,18 +48,14 @@ async function main() {
     'drawer_events',
     'cash_drawers',
     'stock_moves',
-    'batches',
     'medicines',
     'inventory_items',
-    'shifts',
     'refresh_sessions',
     'users',
     'rooms',
-    'machines',
     'sequences',
     'expenses',
     'announcements',
-    'attendance',
   ];
 
   for (const table of tables) {

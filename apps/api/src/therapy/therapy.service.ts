@@ -9,7 +9,6 @@ import { and, desc, eq } from 'drizzle-orm';
 import { AuditService } from '../audit/audit.service';
 import { DB, type Db } from '../db/db.module';
 import {
-  machines,
   modalities,
   packageCredits,
   packages,
@@ -28,7 +27,6 @@ import type {
   CallTherapyPatientDto,
   CancelTherapyCallDto,
   CompleteSessionDto,
-  CreateMachineDto,
   CreatePackageDto,
   MarkInTherapyDto,
   PurchasePackageDto,
@@ -57,17 +55,6 @@ export class TherapyService {
       .where(eq(patients.id, dto.patientId));
     if (!patientRows[0]) throw new NotFoundException('Patient not found');
 
-    // Prevent machine conflict
-    if (dto.machineId) {
-      const activeMachineSession = await this.db
-        .select()
-        .from(therapySessions)
-        .where(and(eq(therapySessions.machineId, dto.machineId), eq(therapySessions.status, 'in_progress')));
-      if (activeMachineSession.length > 0) {
-        throw new BadRequestException('Machine is currently in use by another active session');
-      }
-    }
-
     let effectiveTherapistId = dto.therapistStaffId;
     if (!effectiveTherapistId) {
       const staffRows = await this.db
@@ -94,7 +81,6 @@ export class TherapyService {
       patientId: dto.patientId,
       therapistStaffId: effectiveTherapistId,
       bedId: null,
-      machineId: dto.machineId ?? null,
       modalityCode: dto.modalityCode,
       status: 'in_progress' as const,
       startedAt: now,
@@ -114,7 +100,6 @@ export class TherapyService {
       patientName: patientRows[0].nameEn,
       modalityCode: dto.modalityCode,
       bedId: null,
-      machineId: dto.machineId ?? null,
       therapistStaffId,
       startedAt: now,
     };
@@ -281,12 +266,10 @@ export class TherapyService {
       .select({
         session: therapySessions,
         patient: patients,
-        machine: machines,
         therapist: users,
       })
       .from(therapySessions)
       .innerJoin(patients, eq(therapySessions.patientId, patients.id))
-      .leftJoin(machines, eq(therapySessions.machineId, machines.id))
       .leftJoin(users, eq(therapySessions.therapistStaffId, users.id))
       .orderBy(desc(therapySessions.createdAt));
 
@@ -295,14 +278,13 @@ export class TherapyService {
       patientName: r.patient.nameEn,
       patientMrn: r.patient.mrn,
       bedCode: null,
-      machineCode: r.machine?.code ?? null,
+      machineCode: null,
       therapistName: r.therapist?.displayName ?? 'Therapist',
     }));
   }
 
   async getOccupancy() {
     const allRooms = await this.db.select().from(rooms);
-    const allMachines = await this.db.select().from(machines);
 
     const activeSessions = await this.db
       .select({
@@ -313,62 +295,12 @@ export class TherapyService {
       .innerJoin(patients, eq(therapySessions.patientId, patients.id))
       .where(eq(therapySessions.status, 'in_progress'));
 
-    const machineOccupancy = allMachines.map((m) => {
-      const active = activeSessions.find((s) => s.session.machineId === m.id);
-      return {
-        ...m,
-        isInUse: !!active,
-        patientName: active?.patient.nameEn ?? null,
-        modalityCode: active?.session.modalityCode ?? null,
-      };
-    });
-
     return {
       rooms: allRooms,
       beds: [],
-      machines: machineOccupancy,
+      machines: [],
       totalActiveSessions: activeSessions.length,
     };
-  }
-
-  // --- Machines CRUD ------------------------------------------------
-
-  async listBeds() {
-    return [];
-  }
-
-  async listMachines() {
-    return this.db.select().from(machines);
-  }
-
-  async createMachine(
-    actor: { sub?: string; role?: string },
-    dto: CreateMachineDto,
-    meta: { ip?: string | null; requestId?: string | null },
-  ) {
-    const row = {
-      id: randomUUID(),
-      roomId: dto.roomId ?? null,
-      code: dto.code.trim().toUpperCase(),
-      name: dto.name.trim(),
-      modalityCode: dto.modalityCode ?? null,
-      status: 'available' as const,
-      lastServicedAt: null,
-      nextServiceDue: null,
-      isActive: 1,
-    };
-    await this.db.insert(machines).values(row);
-    await this.audit.log({
-      actorUserId: actor.sub,
-      actorRole: actor.role,
-      action: 'machines.create',
-      entity: 'machines',
-      entityId: row.id,
-      after: row,
-      ip: meta.ip,
-      requestId: meta.requestId,
-    });
-    return row;
   }
 
   // --- Packages CRUD and Credits Ledger ---------------------------------------

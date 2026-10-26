@@ -79,7 +79,6 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
   const [queue, setQueue] = useState<any[]>([]);
   const [activeSerial, setActiveSerial] = useState<any>(null);
   const [medicinesList, setMedicinesList] = useState<any[]>([]);
-  const [modalitiesList, setModalitiesList] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
   // Consultation & Prescription State
@@ -155,12 +154,8 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
         }
       }
 
-      const [meds, mods] = await Promise.all([
-        api.inventory.getMedicines(),
-        api.therapy.getMachines(),
-      ]);
+      const meds = await api.inventory.getMedicines();
       setMedicinesList(meds || []);
-      setModalitiesList(mods || []);
     } catch (err: any) {
       console.error(err);
     } finally {

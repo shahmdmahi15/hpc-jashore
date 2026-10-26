@@ -7,7 +7,6 @@ import {
   dues,
   expenses,
   feedback,
-  machines,
   modalities,
   payments,
   prescriptions,
@@ -60,9 +59,8 @@ export class ReportsService {
       .where(eq(dues.status, 'pending'));
     const totalPendingDuesPaisa = pendingDues.reduce((acc, d) => acc + d.amountPaisa, 0);
 
-    // Active occupancy (therapy sessions vs active machines/capacity)
-    const activeMachines = await this.db.select().from(machines).where(eq(machines.isActive, 1));
-    const totalCapacity = activeMachines.length > 0 ? activeMachines.length : 10;
+    // Active occupancy (therapy sessions vs capacity)
+    const totalCapacity = 10;
     const occupiedCapacity = (
       await this.db
         .select()

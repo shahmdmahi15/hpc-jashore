@@ -44,22 +44,6 @@ export class StaffController {
     return this.staff.list();
   }
 
-  @Post('attendance')
-  @Roles('admin', 'doctor', 'handler', 'cashier', 'receptionist')
-  punch(
-    @CurrentUser() user: RequestUser,
-    @Body() dto: { staffId: string; punchType: 'in' | 'out'; deskId?: string; pin?: string },
-    @Req() req: Request,
-  ) {
-    return this.staff.recordAttendance(
-      dto.staffId,
-      dto.punchType,
-      dto.deskId,
-      dto.pin,
-      this.meta(req).ip ?? undefined,
-    );
-  }
-
   @Post()
   @Roles('admin')
   create(@CurrentUser() user: RequestUser, @Body() dto: CreateStaffDto, @Req() req: Request) {

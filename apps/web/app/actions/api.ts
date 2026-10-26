@@ -325,16 +325,8 @@ export async function createPrescriptionAction(data: any, token?: string) {
 }
 
 // -----------------------------------------------------------------------------
-// Therapy Hall & Machines Server Actions
+// Therapy Hall Server Actions
 // -----------------------------------------------------------------------------
-
-export async function getTherapyBedsAction(_token?: string) {
-  return [];
-}
-
-export async function getTherapyMachinesAction(token?: string) {
-  return serverFetch<any[]>('/therapy/machines', {}, token);
-}
 
 export async function getActiveTherapySessionsAction(token?: string) {
   return serverFetch<any[]>('/therapy/sessions/active', {}, token);
@@ -432,10 +424,6 @@ export async function getMedicinesAction(token?: string) {
   return serverFetch<any[]>('/inventory/medicines', {}, token);
 }
 
-export async function getBatchesAction(token?: string) {
-  return serverFetch<any[]>('/inventory/batches', {}, token);
-}
-
 export async function getAlertsAction(token?: string) {
   return serverFetch<any>('/inventory/alerts', {}, token);
 }
@@ -466,12 +454,4 @@ export async function getReportsDoctorStatsAction(token?: string) {
 
 export async function getStaffListAction(token?: string) {
   return serverFetch<any[]>('/staff', {}, token);
-}
-
-export async function punchAttendanceAction(data: any, token?: string) {
-  return serverFetch<any>(
-    '/staff/attendance',
-    { method: 'POST', body: JSON.stringify(data) },
-    token,
-  );
 }

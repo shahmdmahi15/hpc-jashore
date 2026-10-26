@@ -17,7 +17,6 @@ import {
   CreateExpenseDto,
   CreateMedicineDto,
   DispenseMedicineDto,
-  PurchaseBatchDto,
 } from './dto';
 import { InventoryService } from './inventory.service';
 
@@ -48,17 +47,6 @@ export class InventoryController {
     @Req() req: Request,
   ) {
     return this.inventory.createMedicine({ sub: user.sub, role: user.role }, dto, this.meta(req));
-  }
-
-  @Post('batches/purchase')
-  @Roles('admin', 'cashier')
-  purchaseBatch(
-    @CurrentUser() user: RequestUser,
-    @Body() dto: PurchaseBatchDto,
-    @Req() req: Request,
-  ) {
-    const staffId = user.staffId ?? user.sub;
-    return this.inventory.purchaseBatch({ sub: user.sub, role: user.role }, staffId, dto, this.meta(req));
   }
 
   @Post('medicines/dispense')

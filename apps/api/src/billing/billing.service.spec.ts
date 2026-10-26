@@ -41,22 +41,10 @@ sqlite.exec(`
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   );
 
-  CREATE TABLE shifts (
-    id TEXT PRIMARY KEY,
-    staff_id TEXT NOT NULL REFERENCES users(id),
-    desk_id TEXT,
-    starts_at TEXT NOT NULL,
-    ends_at TEXT,
-    status TEXT NOT NULL DEFAULT 'scheduled',
-    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-  );
-
   CREATE TABLE cash_drawers (
     id TEXT PRIMARY KEY,
     cashier_staff_id TEXT NOT NULL REFERENCES users(id),
     desk_id TEXT,
-    shift_id TEXT REFERENCES shifts(id),
     opened_at TEXT NOT NULL,
     closed_at TEXT,
     opening_cash_paisa INTEGER NOT NULL,

@@ -495,7 +495,6 @@ export class BillingService {
         id: drawerId,
         cashierStaffId: effectiveCashierId,
         deskId: effectiveDeskId,
-        shiftId: null,
         openedAt: now,
         closedAt: null,
         openingCashPaisa: dto.openingCashPaisa,

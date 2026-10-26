@@ -102,18 +102,6 @@ sqlite.exec(`
     updated_at TEXT NOT NULL
   );
 
-  CREATE TABLE machines (
-    id TEXT PRIMARY KEY,
-    room_id TEXT,
-    code TEXT NOT NULL UNIQUE,
-    name TEXT NOT NULL,
-    modality_code TEXT,
-    status TEXT NOT NULL DEFAULT 'available',
-    last_serviced_at TEXT,
-    next_service_due TEXT,
-    is_active INTEGER NOT NULL DEFAULT 1
-  );
-
   CREATE TABLE packages (
     id TEXT PRIMARY KEY,
     name_en TEXT NOT NULL,
@@ -166,7 +154,6 @@ sqlite.exec(`
     patient_id TEXT NOT NULL,
     therapist_staff_id TEXT,
     bed_id TEXT,
-    machine_id TEXT,
     modality_code TEXT NOT NULL,
     status TEXT NOT NULL DEFAULT 'scheduled',
     started_at TEXT,

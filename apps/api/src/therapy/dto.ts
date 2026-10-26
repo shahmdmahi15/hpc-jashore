@@ -31,11 +31,6 @@ export class StartSessionDto {
   @IsString()
   bedId?: string;
 
-  @ApiPropertyOptional({ description: 'Machine UUID if modality requires one' })
-  @IsOptional()
-  @IsString()
-  machineId?: string;
-
   @ApiPropertyOptional({ description: 'Therapist staff UUID' })
   @IsOptional()
   @IsString()
@@ -76,28 +71,6 @@ export class CreateBedDto {
   @IsString()
   @IsNotEmpty()
   name!: string;
-}
-
-export class CreateMachineDto {
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  roomId?: string;
-
-  @ApiProperty({ example: 'IFT-01' })
-  @IsString()
-  @IsNotEmpty()
-  code!: string;
-
-  @ApiProperty({ example: 'BTL 4000 IFT Unit' })
-  @IsString()
-  @IsNotEmpty()
-  name!: string;
-
-  @ApiPropertyOptional({ example: 'IFT' })
-  @IsOptional()
-  @IsString()
-  modalityCode?: string;
 }
 
 export class CreatePackageDto {

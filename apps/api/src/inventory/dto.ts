@@ -39,43 +39,18 @@ export class CreateMedicineDto {
   @IsInt()
   @Min(1)
   minStockAlert?: number;
-}
 
-export class PurchaseBatchDto {
-  @ApiProperty()
-  @IsString()
-  @IsNotEmpty()
-  medicineId!: string;
-
-  @ApiProperty({ example: 'BATCH-2026-X1' })
-  @IsString()
-  @IsNotEmpty()
-  batchNumber!: string;
-
-  @ApiPropertyOptional({ example: '2026-01-01' })
+  @ApiPropertyOptional({ example: 100 })
   @IsOptional()
-  @IsString()
-  mfgDate?: string;
-
-  @ApiProperty({ example: '2028-01-01' })
-  @IsString()
-  @IsNotEmpty()
-  expDate!: string;
-
-  @ApiProperty({ example: 250, description: 'Purchase rate per unit in paisa (e.g. 2.50 BDT)' })
   @IsInt()
   @Min(0)
-  purchaseRatePaisa!: number;
+  currentStock?: number;
 
-  @ApiProperty({ example: 350, description: 'MRP per unit in paisa (e.g. 3.50 BDT)' })
+  @ApiPropertyOptional({ example: 350, description: 'MRP per unit in paisa' })
+  @IsOptional()
   @IsInt()
   @Min(0)
-  mrpPaisa!: number;
-
-  @ApiProperty({ example: 500 })
-  @IsInt()
-  @Min(1)
-  quantity!: number;
+  mrpPaisa?: number;
 }
 
 export class DispenseMedicineDto {

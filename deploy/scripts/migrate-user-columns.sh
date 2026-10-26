@@ -98,6 +98,27 @@ for DB_FILE in "${DB_LOCATIONS[@]}"; do
     sqlite3 "$DB_FILE" "UPDATE users SET is_approved = 1, approval_status = 'approved' WHERE role = 'admin';"
     echo "✅ Admin users marked as approved."
 
+    # 4. Cleanly drop obsolete tables: shifts, attendance, machines, batches
+    echo "🧹 Safely dropping obsolete tables (shifts, attendance, machines, batches)..."
+    sqlite3 "$DB_FILE" "
+      DROP TABLE IF EXISTS shifts;
+      DROP TABLE IF EXISTS attendance;
+      DROP TABLE IF EXISTS machines;
+      DROP TABLE IF EXISTS batches;
+    "
+
+    # 5. Ensure medicines table has current_stock and mrp_paisa
+    echo "💊 Ensuring medicines table has current_stock and mrp_paisa..."
+    MED_COLS=$(sqlite3 "$DB_FILE" "PRAGMA table_info('medicines');" | awk -F'|' '{print $2}')
+    if ! echo "$MED_COLS" | grep -qw "current_stock"; then
+      sqlite3 "$DB_FILE" "ALTER TABLE medicines ADD COLUMN current_stock INTEGER NOT NULL DEFAULT 0;"
+      echo "   [ADDING] Added current_stock to medicines"
+    fi
+    if ! echo "$MED_COLS" | grep -qw "mrp_paisa"; then
+      sqlite3 "$DB_FILE" "ALTER TABLE medicines ADD COLUMN mrp_paisa INTEGER NOT NULL DEFAULT 0;"
+      echo "   [ADDING] Added mrp_paisa to medicines"
+    fi
+
     echo "📊 Current users schema in $DB_FILE:"
     sqlite3 "$DB_FILE" "PRAGMA table_info('users');"
   fi

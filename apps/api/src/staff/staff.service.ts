@@ -10,7 +10,7 @@ import { and, eq, or, sql } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
 import { AuditService } from '../audit/audit.service';
 import { DB, type Db } from '../db/db.module';
-import { attendance, rooms, users } from '../db/schema';
+import { rooms, users } from '../db/schema';
 import { EventsGateway } from '../realtime/events.gateway';
 import { RealtimeService } from '../realtime/realtime.service';
 import type {
@@ -482,26 +482,5 @@ export class StaffService {
       requestId: meta.requestId,
     });
     return after;
-  }
-
-  async recordAttendance(
-    staffId: string,
-    punchType: 'in' | 'out',
-    deskId?: string,
-    pin?: string,
-    ip?: string,
-  ) {
-    await this.get(staffId);
-    const row = {
-      id: randomUUID(),
-      staffId,
-      punchType,
-      deskId: deskId ?? null,
-      timestamp: new Date().toISOString(),
-      ip: ip ?? null,
-      note: pin ? 'Punched at workstation' : null,
-    };
-    await this.db.insert(attendance).values(row);
-    return { success: true, attendanceId: row.id, punchType, timestamp: row.timestamp };
   }
 }

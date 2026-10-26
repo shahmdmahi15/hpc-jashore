@@ -192,7 +192,6 @@ export type Db = BetterSQLite3Database<typeof schema>;
                   id TEXT PRIMARY KEY NOT NULL,
                   cashier_staff_id TEXT NOT NULL REFERENCES users(id),
                   desk_id TEXT,
-                  shift_id TEXT REFERENCES shifts(id),
                   opened_at TEXT NOT NULL,
                   closed_at TEXT,
                   opening_cash_paisa INTEGER NOT NULL,
@@ -1104,11 +1103,27 @@ export type Db = BetterSQLite3Database<typeof schema>;
             console.error('Error creating patient assessment, intake, and timeline tables:', intakeErr);
           }
 
+          // Safely ensure medicines columns exist for simplified direct inventory
+          try {
+            sqlite.exec(`
+              ALTER TABLE medicines ADD COLUMN current_stock INTEGER NOT NULL DEFAULT 0;
+            `);
+          } catch {}
+          try {
+            sqlite.exec(`
+              ALTER TABLE medicines ADD COLUMN mrp_paisa INTEGER NOT NULL DEFAULT 0;
+            `);
+          } catch {}
+
           // Safely clean up removed legacy tables (preserve staff mirror table for legacy foreign keys & triggers)
           try {
             sqlite.exec(`
               DROP TABLE IF EXISTS pin_credentials;
               DROP TABLE IF EXISTS action_grants;
+              DROP TABLE IF EXISTS shifts;
+              DROP TABLE IF EXISTS attendance;
+              DROP TABLE IF EXISTS machines;
+              DROP TABLE IF EXISTS batches;
             `);
           } catch {}
         } catch {

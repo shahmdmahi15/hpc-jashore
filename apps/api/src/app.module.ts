@@ -20,7 +20,6 @@ import { RealtimeModule } from './realtime/realtime.module';
 import { ReportsModule } from './reports/reports.module';
 import { RoomsModule } from './rooms/rooms.module';
 import { SettingsModule } from './settings/settings.module';
-import { ShiftsModule } from './shifts/shifts.module';
 import { StaffModule } from './staff/staff.module';
 import { TherapySlotsModule } from './therapy-slots/therapy-slots.module';
 import { TherapyModule } from './therapy/therapy.module';
@@ -50,7 +49,6 @@ import { VisitsModule } from './visits/visits.module';
     RbacModule,
     UsersModule,
     StaffModule,
-    ShiftsModule,
     CatalogModule,
     SettingsModule,
     RealtimeModule,
