@@ -34,7 +34,8 @@ jobs:
             if [ -f "$HOME/.bashrc" ]; then . "$HOME/.bashrc" || true; fi
             if [ -f "$HOME/.nvm/nvm.sh" ]; then . "$HOME/.nvm/nvm.sh" || true; fi
 
-            git fetch origin main
+            rm -f .git/refs/remotes/origin/*.lock .git/index.lock .git/shallow.lock || true
+            git fetch --prune origin main
             git checkout main
             git reset --hard origin/main
 

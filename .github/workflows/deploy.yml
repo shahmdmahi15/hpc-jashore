@@ -85,7 +85,8 @@ jobs:
             fi
 
             echo "📥 Fetching and pulling latest code..."
-            git fetch origin
+            rm -f .git/refs/remotes/origin/*.lock .git/index.lock .git/shallow.lock || true
+            git fetch --prune origin
             git checkout ${{ github.ref_name }}
             git reset --hard origin/${{ github.ref_name }}
 
