@@ -3,6 +3,8 @@
 
 import { serverFetch } from '../server-api';
 import { revalidatePath } from 'next/cache';
+import type { PatientClinicalStatus } from '../api';
+export type { PatientClinicalStatus } from '../api';
 
 export interface PatientRecord {
   id: string;
@@ -202,5 +204,23 @@ export async function deletePatientAction(id: string): Promise<{
     return { success: true };
   } catch (err: any) {
     return { success: false, error: err?.message || 'Failed to delete patient' };
+  }
+}
+
+export async function getPatientClinicalStatusAction(patientId: string): Promise<{
+  success: boolean;
+  data?: PatientClinicalStatus;
+  error?: string;
+}> {
+  try {
+    const res = await serverFetch<PatientClinicalStatus>(
+      `/patients/${encodeURIComponent(patientId)}/clinical-status`,
+    );
+    return { success: true, data: res };
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err?.message || 'Failed to fetch patient clinical status',
+    };
   }
 }

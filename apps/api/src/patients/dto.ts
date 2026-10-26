@@ -658,3 +658,26 @@ export class CreateAssessmentFileDto {
 
 export class UpdateAssessmentFileDto extends CreateAssessmentFileDto {}
 
+export type PatientType = 'brand_new' | 'old_active' | 'lapsed_reintake';
+
+export interface PatientClinicalStatus {
+  patientId: string;
+  patientType: PatientType;
+  requiresIntake: boolean;
+  isNewPatient: boolean;
+  isLapsed: boolean;
+  lastActivityDate: string | null;
+  daysSinceLastActivity: number | null;
+  intakeCompletedToday: boolean;
+  todayIntakeId: string | null;
+  summaryEn: string;
+  summaryBn: string;
+  hasIntakeHistory?: boolean;
+  hasConsultationHistory?: boolean;
+  hasTherapyHistory?: boolean;
+  totalVisits?: number;
+  totalConsultations?: number;
+  totalTherapySessions?: number;
+}
+
+

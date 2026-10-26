@@ -69,7 +69,12 @@ import {
   type RecentCheckInVisit,
   type PunctualityStatus,
 } from '../../lib/actions/checkin';
-import { searchPatientsAction, type PatientRecord } from '../../lib/actions/patients';
+import {
+  searchPatientsAction,
+  getPatientClinicalStatusAction,
+  type PatientRecord,
+  type PatientClinicalStatus,
+} from '../../lib/actions/patients';
 import { deleteTherapyBookingAction } from '../../lib/actions/therapy-slots';
 import { CreatePatientDialog } from '../patient/CreatePatientDialog';
 import { PatientIntakeFormModal } from '../patient/PatientIntakeFormModal';
@@ -148,6 +153,14 @@ export function CheckInWorkstationView() {
   const [isCreatePatientOpen, setIsCreatePatientOpen] = useState(false);
   const [isIntakeFormOpen, setIsIntakeFormOpen] = useState(false);
   const [isTimelineOpen, setIsTimelineOpen] = useState(false);
+  const [selectedClinicalStatus, setSelectedClinicalStatus] = useState<PatientClinicalStatus | null>(null);
+  const [loadingClinicalStatus, setLoadingClinicalStatus] = useState(false);
+  const [isIntakeWarningOpen, setIsIntakeWarningOpen] = useState(false);
+  const [pendingCheckInParams, setPendingCheckInParams] = useState<{
+    targetPatientId?: string;
+    bookingId?: string;
+    toldTimeOverride?: string;
+  } | null>(null);
   const [timelinePatient, setTimelinePatient] = useState<{ id: string; name?: string } | null>(null);
   const [slipModalData, setSlipModalData] = useState<{
     tokenNumber: number;
@@ -319,6 +332,34 @@ export function CheckInWorkstationView() {
 
     return () => clearTimeout(timer);
   }, [searchQuery]);
+
+  // Load 3-Tier Clinical Recognition Status when patient is selected
+  useEffect(() => {
+    if (!selectedPatient?.id) {
+      setSelectedClinicalStatus(null);
+      return;
+    }
+    let active = true;
+    setLoadingClinicalStatus(true);
+    getPatientClinicalStatusAction(selectedPatient.id)
+      .then((res) => {
+        if (!active) return;
+        if (res.success && res.data) {
+          setSelectedClinicalStatus(res.data);
+        } else {
+          setSelectedClinicalStatus(null);
+        }
+      })
+      .catch(() => {
+        if (active) setSelectedClinicalStatus(null);
+      })
+      .finally(() => {
+        if (active) setLoadingClinicalStatus(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [selectedPatient?.id]);
 
   // Filter out any cancelled or deleted bookings from todayBookings
   const validTodayBookings = useMemo(() => {
@@ -819,19 +860,57 @@ export function CheckInWorkstationView() {
                 </div>
               )}
 
-              {/* Selected Patient Banner */}
+              {/* Selected Patient Banner with 3-Tier Recognition */}
               {selectedPatient ? (
-                <div className="p-3.5 rounded-xl border border-emerald-500/40 bg-emerald-500/10 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-emerald-700 dark:text-emerald-300 flex items-center gap-1.5">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                      {isBn ? 'নির্বাচিত রোগী' : 'Selected Patient'}
-                    </span>
+                <div
+                  className={`p-3.5 rounded-xl border space-y-3 transition-all ${
+                    selectedClinicalStatus?.patientType === 'lapsed_reintake'
+                      ? 'border-amber-500/50 bg-amber-500/10 dark:bg-amber-950/30'
+                      : selectedClinicalStatus?.patientType === 'brand_new'
+                      ? 'border-blue-500/50 bg-blue-500/10 dark:bg-blue-950/30'
+                      : 'border-emerald-500/40 bg-emerald-500/10 dark:bg-emerald-950/30'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold flex items-center gap-1.5">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                        <span className="text-foreground">{isBn ? 'নির্বাচিত রোগী' : 'Selected Patient'}</span>
+                      </span>
+
+                      {/* 3-Tier Patient Recognition Badge */}
+                      {loadingClinicalStatus ? (
+                        <Badge variant="outline" className="text-[10px] animate-pulse">
+                          {isBn ? 'স্ট্যাটাস যাচাই...' : 'Checking status...'}
+                        </Badge>
+                      ) : selectedClinicalStatus?.patientType === 'brand_new' ? (
+                        <Badge className="bg-blue-600 hover:bg-blue-600 text-white font-bold text-[10px] shadow-2xs gap-1">
+                          <span className="size-1.5 rounded-full bg-white animate-ping" />
+                          <span>{isBn ? 'নতুন রোগী' : 'Brand New Patient'}</span>
+                        </Badge>
+                      ) : selectedClinicalStatus?.patientType === 'lapsed_reintake' ? (
+                        <Badge className="bg-amber-600 hover:bg-amber-600 text-white font-bold text-[10px] shadow-2xs gap-1">
+                          <AlertTriangle className="size-3" />
+                          <span>{isBn ? '৩+ মাস নিষ্ক্রিয় (রি-ইনটেক)' : 'Lapsed (>3m Re-Intake)'}</span>
+                        </Badge>
+                      ) : (
+                        <Badge className="bg-emerald-600 hover:bg-emerald-600 text-white font-bold text-[10px] shadow-2xs gap-1">
+                          <Check className="size-3" />
+                          <span>
+                            {selectedClinicalStatus?.daysSinceLastActivity
+                              ? (isBn ? `পুরাতন রোগী (${selectedClinicalStatus.daysSinceLastActivity} দিন পূর্বে)` : `Active (${selectedClinicalStatus.daysSinceLastActivity}d ago)`)
+                              : (isBn ? 'পুরাতন রোগী (নিয়মিত)' : 'Active Patient')}
+                          </span>
+                        </Badge>
+                      )}
+                    </div>
+
                     <Button
                       size="sm"
                       variant="ghost"
                       onClick={() => {
                         setSelectedPatient(null);
+                        setSelectedClinicalStatus(null);
                         setSearchQuery('');
                       }}
                       className="h-6 px-2 text-[10px] text-muted-foreground hover:text-foreground"
@@ -839,9 +918,11 @@ export function CheckInWorkstationView() {
                       {isBn ? 'পরিবর্তন' : 'Clear'}
                     </Button>
                   </div>
+
                   <div className="text-sm font-black text-foreground">
                     {isBn ? selectedPatient.nameBn || selectedPatient.nameEn : selectedPatient.nameEn}
                   </div>
+
                   <div className="text-xs font-mono text-muted-foreground flex flex-wrap items-center gap-x-3 gap-y-1">
                     <span>MRN: <strong className="text-foreground">{selectedPatient.mrn}</strong></span>
                     <span>ফোন: <strong className="text-foreground">{selectedPatient.phone}</strong></span>
@@ -849,16 +930,66 @@ export function CheckInWorkstationView() {
                     {selectedPatient.ageYears && <span>বয়স: <strong className="text-foreground">{toBnNum(selectedPatient.ageYears)}</strong></span>}
                   </div>
 
+                  {/* Recognition Advisory Alerts */}
+                  {selectedClinicalStatus?.patientType === 'brand_new' && (
+                    <div className="p-2.5 rounded-lg border border-blue-500/30 bg-blue-500/15 text-blue-900 dark:text-blue-200 text-xs flex items-start gap-2">
+                      <Sparkles className="size-3.5 text-blue-500 shrink-0 mt-0.5" />
+                      <div className="space-y-0.5">
+                        <p className="font-semibold">
+                          {isBn ? 'নতুন রোগীর প্রাথমিক তথ্য পূরণ আবশ্যক' : 'New Patient Intake Form Required'}
+                        </p>
+                        <p className="text-[11px] opacity-90">
+                          {isBn
+                            ? 'এই রোগীর কোনো পূর্ববর্তী ইনটেক বা কনসালটেশন রেকর্ড নেই। ডাক্তার দেখানোর পূর্বে রিসেপশন ইনটেক ফরম পূরণ করুন।'
+                            : 'Patient has no previous intake or consultation history. Please fill initial intake form.'}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedClinicalStatus?.patientType === 'lapsed_reintake' && (
+                    <div className="p-2.5 rounded-lg border border-amber-500/40 bg-amber-500/15 text-amber-900 dark:text-amber-200 text-xs flex items-start gap-2">
+                      <AlertTriangle className="size-3.5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                      <div className="space-y-0.5">
+                        <p className="font-bold flex items-center gap-1.5">
+                          <span>{isBn ? '৩+ মাস বিরতি — পুনর্বার মূল্যায়ন প্রয়োজন' : '3+ Months Inactivity — Re-Intake Required'}</span>
+                          {selectedClinicalStatus.daysSinceLastActivity && (
+                            <span className="font-mono text-[10px] px-1 rounded bg-amber-500/20">
+                              {selectedClinicalStatus.daysSinceLastActivity} {isBn ? 'দিন' : 'days'}
+                            </span>
+                          )}
+                        </p>
+                        <p className="text-[11px] opacity-90">
+                          {isBn
+                            ? 'রোগী ৩ মাসের অধিক সময় পর সেন্টারে এসেছেন। পূর্বের তথ্য সিস্টেমে সংরক্ষিত আছে—অনুগ্রহ করে আজকের নতুন ভাইটালস ও বর্তমান সমস্যার জন্য পুনর্বার মূল্যায়ন ফরম পূরণ করুন।'
+                            : 'Patient returned after >90 days gap. System demographic data exists; please complete re-intake with today’s vitals.'}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Quick Patient Actions: Intake Form & Timeline */}
-                  <div className="pt-2 flex flex-wrap items-center gap-2 border-t border-emerald-500/20">
+                  <div className="pt-2 flex flex-wrap items-center gap-2 border-t border-border/40">
                     <Button
                       type="button"
                       size="sm"
                       onClick={() => setIsIntakeFormOpen(true)}
-                      className="h-7 px-2.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white gap-1.5 rounded-lg shadow-2xs"
+                      className={`h-7 px-2.5 text-xs font-semibold text-white gap-1.5 rounded-lg shadow-2xs ${
+                        selectedClinicalStatus?.patientType === 'lapsed_reintake'
+                          ? 'bg-amber-600 hover:bg-amber-500'
+                          : selectedClinicalStatus?.patientType === 'brand_new'
+                          ? 'bg-blue-600 hover:bg-blue-500'
+                          : 'bg-emerald-600 hover:bg-emerald-500'
+                      }`}
                     >
                       <Plus className="w-3.5 h-3.5" />
-                      <span>{isBn ? 'রোগীর প্রাথমিক তথ্য ফরম' : 'Patient Intake Form'}</span>
+                      <span>
+                        {selectedClinicalStatus?.patientType === 'lapsed_reintake'
+                          ? (isBn ? '৩+ মাস পর পুনর্বার মূল্যায়ন ফরম' : 'Re-Intake Assessment Form')
+                          : selectedClinicalStatus?.patientType === 'brand_new'
+                          ? (isBn ? 'প্রাথমিক তথ্য ফরম পূরণ করুন' : 'Fill Initial Intake Form')
+                          : (isBn ? 'রোগীর তথ্য ফরম' : 'Patient Intake Form')}
+                      </span>
                     </Button>
                     <Button
                       type="button"
@@ -1971,17 +2102,84 @@ export function CheckInWorkstationView() {
           </DialogContent>
         </Dialog>
       )}
+      {/* INTAKE ASSESSMENT REQUIRED GUARDRAIL WARNING DIALOG */}
+      <Dialog open={isIntakeWarningOpen} onOpenChange={setIsIntakeWarningOpen}>
+        <DialogContent className="max-w-md border-amber-500/40 bg-background/95 backdrop-blur-xl">
+          <DialogHeader>
+            <div className="size-10 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-2">
+              <AlertTriangle className="size-5" />
+            </div>
+            <DialogTitle className="text-base font-bold">
+              {isBn ? 'ইনটেক মূল্যায়ন পূরণ করা আবশ্যক' : 'Clinical Intake Assessment Required'}
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              {selectedClinicalStatus?.patientType === 'lapsed_reintake'
+                ? (isBn
+                    ? 'রোগী দীর্ঘ ৩+ মাস পর এসেছেন। সেন্টারের চিকিৎসা প্রোটোকল অনুযায়ী আজকের বর্তমান শারীরিক অবস্থা ও ভাইটালস মূল্যায়নের জন্য পুনর্বার ইনটেক ফরম পূরণ করা আবশ্যক।'
+                    : 'Patient returned after >90 days gap. Re-intake clinical assessment is required per HPC protocol.')
+                : (isBn
+                    ? 'এই রোগী সম্পূর্ণ নতুন এবং কোনো পূর্ববর্তী ইনটেক রেকর্ড নেই। ডাক্তার দেখানোর পূর্বে রিসেপশন ইনটেক ফরম পূরণ করা আবশ্যক।'
+                    : 'This is a brand new patient with no recorded intake. Please fill the intake assessment before routing to doctor.')}
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter className="flex flex-col sm:flex-row gap-2 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setIsIntakeWarningOpen(false);
+                if (pendingCheckInParams) {
+                  // Direct bypass
+                  const p = pendingCheckInParams;
+                  setPendingCheckInParams(null);
+                  handlePerformCheckIn(p.targetPatientId, p.bookingId, p.toldTimeOverride);
+                }
+              }}
+              className="text-xs text-muted-foreground hover:text-foreground"
+            >
+              {isBn ? 'জরুরি কারণে এখনই চেক-ইন করুন' : 'Emergency Bypass & Check-in'}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => {
+                setIsIntakeWarningOpen(false);
+                setPendingCheckInParams(null);
+                setIsIntakeFormOpen(true);
+              }}
+              className="text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white gap-1.5 shadow-sm shadow-emerald-500/20"
+            >
+              <Plus className="size-3.5" />
+              <span>
+                {selectedClinicalStatus?.patientType === 'lapsed_reintake'
+                  ? (isBn ? 'পুনর্বার মূল্যায়ন ফরম পূরণ করুন' : 'Fill Re-Intake Form')
+                  : (isBn ? 'ইনটেক ফরম পূরণ করুন' : 'Fill Intake Form')}
+              </span>
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* PATIENT INTAKE FORM MODAL */}
       <PatientIntakeFormModal
         open={isIntakeFormOpen}
         onOpenChange={setIsIntakeFormOpen}
         patient={selectedPatient}
+        clinicalStatus={selectedClinicalStatus}
+        isReIntake={selectedClinicalStatus?.patientType === 'lapsed_reintake'}
         onSuccess={() => {
           loadData();
+          if (selectedPatient?.id) {
+            getPatientClinicalStatusAction(selectedPatient.id).then((r) => {
+              if (r.success && r.data) setSelectedClinicalStatus(r.data);
+            });
+          }
           toast.success(
-            isBn
-              ? 'রোগীর প্রাথমিক তথ্য সংরক্ষিত হয়েছে এবং ক্যাশিয়ারের কাছে পাঠানো হয়েছে!'
-              : 'Intake form saved & forwarded to cashier successfully!'
+            selectedClinicalStatus?.patientType === 'lapsed_reintake'
+              ? (isBn ? '৩+ মাস পর পুনর্বার মূল্যায়ন ফরম সংরক্ষিত হয়েছে!' : 'Re-intake form saved successfully!')
+              : (isBn ? 'রোগীর প্রাথমিক তথ্য সংরক্ষিত হয়েছে এবং ক্যাশিয়ারের কাছে পাঠানো হয়েছে!' : 'Intake form saved & forwarded to cashier successfully!')
           );
         }}
       />

@@ -30,6 +30,10 @@ import {
 } from '../db/schema';
 import { EventsGateway } from '../realtime/events.gateway';
 import { RealtimeService } from '../realtime/realtime.service';
+import {
+  getPatientClinicalStatus,
+  type PatientClinicalStatus,
+} from './patient-clinical-status';
 import type {
   CreatePatientDto,
   UpdatePatientDto,
@@ -84,7 +88,14 @@ export class PatientsService {
       .from(patients)
       .where(whereClause);
 
-    return paged(rows, total, page, limit);
+    const rowsWithStatus = await Promise.all(
+      rows.map(async (p) => ({
+        ...p,
+        clinicalStatus: await this.getClinicalStatus(p.id).catch(() => null),
+      })),
+    );
+
+    return paged(rowsWithStatus, total, page, limit);
   }
 
   async create(
@@ -181,12 +192,19 @@ export class PatientsService {
       .from(dues)
       .where(and(eq(dues.patientId, id), eq(dues.status, 'pending')));
 
+    const clinicalStatus = await this.getClinicalStatus(id).catch(() => null);
+
     return {
       ...patient,
       visits: patientVisits,
       activePackageCredits: credits,
       outstandingDues: patientDues,
+      clinicalStatus,
     };
+  }
+
+  async getClinicalStatus(patientId: string): Promise<PatientClinicalStatus> {
+    return getPatientClinicalStatus(this.db, patientId);
   }
 
   async update(

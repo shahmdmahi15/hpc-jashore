@@ -31,6 +31,7 @@ import {
 } from '../db/schema';
 import { EventsGateway } from '../realtime/events.gateway';
 import { RealtimeService } from '../realtime/realtime.service';
+import { getPatientClinicalStatus } from '../patients/patient-clinical-status';
 import type {
   CallSerialDto,
   CheckInDto,
@@ -448,19 +449,27 @@ export class VisitsService {
       .where(eq(visits.visitDate, today))
       .orderBy(desc(visits.createdAt));
 
-    return rows.map((r) => ({
-      ...r.visit,
-      patient: {
-        id: r.patient.id,
-        mrn: r.patient.mrn,
-        nameEn: r.patient.nameEn,
-        nameBn: r.patient.nameBn,
-        phone: r.patient.phone,
-        bloodGroup: r.patient.bloodGroup,
-        allergies: r.patient.allergies,
-      },
-      doctor: r.doctor ? { id: r.doctor.id, fullName: r.doctor.displayName } : null,
-    }));
+    return Promise.all(
+      rows.map(async (r) => {
+        const patientClinicalStatus = await getPatientClinicalStatus(this.db, r.patient.id).catch(() => null);
+        return {
+          ...r.visit,
+          patientClinicalStatus,
+          patient: {
+            id: r.patient.id,
+            mrn: r.patient.mrn,
+            nameEn: r.patient.nameEn,
+            nameBn: r.patient.nameBn,
+            phone: r.patient.phone,
+            bloodGroup: r.patient.bloodGroup,
+            allergies: r.patient.allergies,
+            patientClinicalStatus,
+            clinicalStatus: patientClinicalStatus,
+          },
+          doctor: r.doctor ? { id: r.doctor.id, fullName: r.doctor.displayName } : null,
+        };
+      }),
+    );
   }
 
   async getDoctorQueue(doctorId: string) {
@@ -529,29 +538,38 @@ export class VisitsService {
         .orderBy(serials.serialNumber);
     }
 
-    return rows.map((r) => ({
-      ...r.serial,
-      tokenNumber: r.visit.tokenNumber ?? r.serial.serialNumber,
-      toldTime: r.visit.toldTime,
-      punctualityStatus: r.visit.punctualityStatus,
-      delayMinutes: r.visit.delayMinutes,
-      patient: {
-        id: r.patient.id,
-        mrn: r.patient.mrn,
-        nameEn: r.patient.nameEn,
-        nameBn: r.patient.nameBn,
-        phone: r.patient.phone,
-        ageYears: r.patient.ageYears,
-        gender: r.patient.gender,
-      },
-      priority: r.visit.priority,
-      doctorName: r.doctor?.displayName,
-      doctor: r.doctor ? { id: r.doctor.id, name: r.doctor.displayName } : null,
-      chamber: r.chamber ? { id: r.chamber.id, name: r.chamber.name, roomNumber: r.chamber.roomNumber } : null,
-      chamberRoomNumber: r.chamber?.roomNumber,
-      chamberName: r.chamber?.name,
-      roomNumber: r.chamber?.roomNumber,
-    }));
+    return Promise.all(
+      rows.map(async (r) => {
+        const patientClinicalStatus = await getPatientClinicalStatus(this.db, r.patient.id).catch(() => null);
+        return {
+          ...r.serial,
+          tokenNumber: r.visit.tokenNumber ?? r.serial.serialNumber,
+          toldTime: r.visit.toldTime,
+          punctualityStatus: r.visit.punctualityStatus,
+          delayMinutes: r.visit.delayMinutes,
+          patientClinicalStatus,
+          clinicalStatus: patientClinicalStatus,
+          patient: {
+            id: r.patient.id,
+            mrn: r.patient.mrn,
+            nameEn: r.patient.nameEn,
+            nameBn: r.patient.nameBn,
+            phone: r.patient.phone,
+            ageYears: r.patient.ageYears,
+            gender: r.patient.gender,
+            patientClinicalStatus,
+            clinicalStatus: patientClinicalStatus,
+          },
+          priority: r.visit.priority,
+          doctorName: r.doctor?.displayName,
+          doctor: r.doctor ? { id: r.doctor.id, name: r.doctor.displayName } : null,
+          chamber: r.chamber ? { id: r.chamber.id, name: r.chamber.name, roomNumber: r.chamber.roomNumber } : null,
+          chamberRoomNumber: r.chamber?.roomNumber,
+          chamberName: r.chamber?.name,
+          roomNumber: r.chamber?.roomNumber,
+        };
+      }),
+    );
   }
 
   async callNext(doctorId: string, serialId?: string, dto?: CallSerialDto) {

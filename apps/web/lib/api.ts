@@ -30,6 +30,32 @@ export function getApiBase(): string {
   return 'http://127.0.0.1:4000/api';
 }
 
+export type PatientClinicalType = 'brand_new' | 'old_active' | 'lapsed_reintake';
+
+export interface PatientClinicalStatus {
+  patientId?: string;
+  patientType: PatientClinicalType;
+  isNewPatient: boolean;
+  requiresIntake: boolean;
+  isLapsed: boolean;
+  lastActivityDate: string | null;
+  daysSinceLastActivity: number | null;
+  intakeCompletedToday: boolean;
+  todayIntakeId: string | null;
+  summaryEn?: string;
+  summaryBn?: string;
+  hasIntakeHistory?: boolean;
+  hasConsultationHistory?: boolean;
+  hasTherapyHistory?: boolean;
+  totalVisits?: number;
+  totalConsultations?: number;
+  totalTherapySessions?: number;
+}
+
+export async function getPatientClinicalStatus(patientId: string): Promise<PatientClinicalStatus> {
+  return api.patients.getClinicalStatus(patientId);
+}
+
 export interface UserSession {
   accessToken: string;
   role: 'admin' | 'doctor' | 'handler' | 'cashier' | 'receptionist';
@@ -214,6 +240,10 @@ export const api = {
     create: (data: any) =>
       apiFetch<any>('/patients', { method: 'POST', body: JSON.stringify(data) }),
     getById: (id: string) => apiFetch<any>(`/patients/${id}`),
+    getClinicalStatus: (id: string): Promise<PatientClinicalStatus> =>
+      apiFetch<PatientClinicalStatus>(`/patients/${id}/clinical-status`),
+    getPatientClinicalStatus: (id: string): Promise<PatientClinicalStatus> =>
+      apiFetch<PatientClinicalStatus>(`/patients/${id}/clinical-status`),
     getHistory: (id: string) => apiFetch<any>(`/patients/${id}/history`),
     createIntakeForm: (data: any) =>
       apiFetch<any>('/patients/intake-form', { method: 'POST', body: JSON.stringify(data) }),

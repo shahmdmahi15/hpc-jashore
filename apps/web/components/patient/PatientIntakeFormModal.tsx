@@ -21,7 +21,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { api, getSession, UserSession } from '@/lib/api';
+import { api, getSession, UserSession, type PatientClinicalStatus } from '@/lib/api';
 import { toast } from 'sonner';
 import {
   FileText,
@@ -35,6 +35,9 @@ import {
   CheckCircle2,
   Loader2,
   Printer,
+  RefreshCw,
+  AlertTriangle,
+  Sparkles,
 } from 'lucide-react';
 import {
   IntakeAssessmentPrintModal,
@@ -47,6 +50,8 @@ interface PatientIntakeFormModalProps {
   patient?: any;
   currentUser?: UserSession | null;
   onSuccess?: (intakeForm: any) => void;
+  isReIntake?: boolean;
+  clinicalStatus?: PatientClinicalStatus | null;
 }
 
 export function PatientIntakeFormModal({
@@ -55,11 +60,20 @@ export function PatientIntakeFormModal({
   patient,
   currentUser,
   onSuccess,
+  isReIntake = false,
+  clinicalStatus,
 }: PatientIntakeFormModalProps) {
   const [submitting, setSubmitting] = useState(false);
   const [loadingDoctors, setLoadingDoctors] = useState(false);
   const [doctors, setDoctors] = useState<any[]>([]);
   const [showPrintModal, setShowPrintModal] = useState(false);
+
+  // Determine effective re-intake mode
+  const effectiveIsReIntake = Boolean(
+    isReIntake ||
+    clinicalStatus?.patientType === 'lapsed_reintake' ||
+    clinicalStatus?.isLapsed
+  );
 
   // Section 1: Personal Info
   const [name, setName] = useState('');
@@ -96,7 +110,7 @@ export function PatientIntakeFormModal({
   const [selectedDoctorId, setSelectedDoctorId] = useState('');
   const [specialNotes, setSpecialNotes] = useState('');
 
-  // Sync when patient prop changes
+  // Sync when patient prop changes (Automatic Pre-Population)
   useEffect(() => {
     if (patient) {
       setName(patient.nameBn || patient.nameEn || '');
@@ -105,6 +119,34 @@ export function PatientIntakeFormModal({
       setGender(patient.gender || 'male');
       setOccupation(patient.occupation || '');
       setAddress(patient.address || '');
+
+      // Prepopulate known allergies & chronic conditions
+      if (patient.allergies && patient.allergies.trim()) {
+        setHasDrugAllergies(true);
+        setDrugAllergyDetails(patient.allergies.trim());
+      } else {
+        setHasDrugAllergies(false);
+        setDrugAllergyDetails('');
+      }
+
+      if (patient.chronicConditions && patient.chronicConditions.trim()) {
+        const cond = patient.chronicConditions.toLowerCase();
+        if (cond.includes('diabet') || cond.includes('ডায়াবেটিস')) {
+          setHasDiabetes(true);
+        }
+        if (!takesRegularMedication) {
+          setTakesRegularMedication(true);
+          setRegularMedicationDetails(`পূর্বের রোগ: ${patient.chronicConditions.trim()}`);
+        }
+      }
+
+      // Reset today's vitals for new evaluation
+      setBpSystolic('');
+      setBpDiastolic('');
+      setBloodSugar('');
+      setWeightKg('');
+      setChiefComplaint('');
+      setProblemDuration('');
     } else {
       setName('');
       setPhone('');
@@ -112,6 +154,17 @@ export function PatientIntakeFormModal({
       setGender('male');
       setOccupation('');
       setAddress('');
+      setHasDrugAllergies(false);
+      setDrugAllergyDetails('');
+      setHasDiabetes(false);
+      setTakesRegularMedication(false);
+      setRegularMedicationDetails('');
+      setBpSystolic('');
+      setBpDiastolic('');
+      setBloodSugar('');
+      setWeightKg('');
+      setChiefComplaint('');
+      setProblemDuration('');
     }
   }, [patient, open]);
 
@@ -205,6 +258,7 @@ export function PatientIntakeFormModal({
         receptionistName: currentUser?.displayName || 'Reception Desk',
         specialNotes: specialNotes.trim() || undefined,
         forwardToCashier,
+        isReIntake: effectiveIsReIntake,
       };
 
       const res = await api.patients.createIntakeForm(payload);
@@ -212,18 +266,42 @@ export function PatientIntakeFormModal({
       // Record Timeline Event
       if (patient?.id) {
         try {
+          const stepKey = forwardToCashier
+            ? effectiveIsReIntake
+              ? 're_intake_forwarded_to_cashier'
+              : 'forwarded_to_cashier'
+            : effectiveIsReIntake
+            ? 're_intake_form_submitted'
+            : 'intake_form_submitted';
+
+          const titleEn = effectiveIsReIntake
+            ? forwardToCashier
+              ? 'Re-Intake Form Submitted & Forwarded to Cashier'
+              : 'Re-Intake Clinical Evaluation Completed'
+            : forwardToCashier
+            ? 'Intake Form Submitted & Forwarded to Cashier'
+            : 'Intake Form Recorded';
+
+          const titleBn = effectiveIsReIntake
+            ? forwardToCashier
+              ? '৩+ মাস পর পুনর্বার মূল্যায়ন সম্পন্ন ও ক্যাশিয়ারে পাঠানো হয়েছে'
+              : '৩+ মাস পর পুনর্বার মূল্যায়ন সংরক্ষিত হয়েছে'
+            : forwardToCashier
+            ? 'প্রাথমিক তথ্য পূরণ ও ক্যাশিয়ারের কাছে পাঠানো হয়েছে'
+            : 'রোগীর প্রাথমিক তথ্য সংরক্ষিত হয়েছে';
+
           await api.patients.addTimelineEvent(patient.id, {
-            step: forwardToCashier ? 'forwarded_to_cashier' : 'intake_form_submitted',
-            titleEn: forwardToCashier
-              ? 'Intake Form Submitted & Forwarded to Cashier'
-              : 'Intake Form Recorded',
-            titleBn: forwardToCashier
-              ? 'প্রাথমিক তথ্য পূরণ ও ক্যাশিয়ারের কাছে পাঠানো হয়েছে'
-              : 'রোগীর প্রাথমিক তথ্য সংরক্ষিত হয়েছে',
-            descriptionEn: `Chief complaint: ${chiefComplaint.trim()}${
+            step: stepKey,
+            titleEn,
+            titleBn,
+            descriptionEn: `${
+              effectiveIsReIntake ? '[Re-Intake >3 Months] ' : ''
+            }Chief complaint: ${chiefComplaint.trim()}${
               selectedDoctorId ? '. Target doctor assigned' : ''
             }`,
-            descriptionBn: `প্রধান সমস্যা: ${chiefComplaint.trim()}${
+            descriptionBn: `${
+              effectiveIsReIntake ? '[৩+ মাস পর পুনর্বার মূল্যায়ন] ' : ''
+            }প্রধান সমস্যা: ${chiefComplaint.trim()}${
               selectedDoctorId ? '. ডাক্তার নির্ধারিত করা হয়েছে' : ''
             }`,
             intakeFormId: res?.id || res?.intakeForm?.id,
@@ -234,10 +312,15 @@ export function PatientIntakeFormModal({
       }
 
       toast.success(
-        forwardToCashier
+        effectiveIsReIntake
+          ? forwardToCashier
+            ? 'পুনর্বার মূল্যায়ন সফলভাবে সম্পন্ন ও ক্যাশিয়ারে পাঠানো হয়েছে!'
+            : 'পুনর্বার মূল্যায়ন ফরম সফলভাবে সংরক্ষিত হয়েছে!'
+          : forwardToCashier
           ? 'তথ্য সংরক্ষিত এবং ক্যাশিয়ারের কাছে সফলভাবে পাঠানো হয়েছে!'
           : 'রোগীর প্রাথমিক তথ্য সফলভাবে সংরক্ষিত হয়েছে!'
       );
+
       if (onSuccess) onSuccess(res);
       onOpenChange(false);
     } catch (err: any) {
@@ -276,7 +359,9 @@ export function PatientIntakeFormModal({
       referralSource,
       referralOtherDetails,
       receptionistName: currentUser?.displayName || 'Reception Desk',
-      specialNotes,
+      specialNotes: effectiveIsReIntake
+        ? `[Re-Intake Assessment >3 Months] ${specialNotes || ''}`.trim()
+        : specialNotes,
       doctorId: selectedDoctorId,
       doctorName: docObj?.displayName || docObj?.fullName || 'ডাক্তার কনসালটেশন',
     };
@@ -285,27 +370,63 @@ export function PatientIntakeFormModal({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-4xl max-h-[92vh] overflow-y-auto p-0 gap-0 border-emerald-500/30 bg-background/95 backdrop-blur-xl">
+        <DialogContent className="max-w-4xl max-h-[92vh] overflow-y-auto p-0 gap-0 border-border/80 bg-background/95 backdrop-blur-xl">
           {/* Header matching the paper form format */}
-          <div className="sticky top-0 z-10 bg-card/90 backdrop-blur-md px-6 py-4 border-b border-border/80 flex items-center justify-between">
+          <div
+            className={`sticky top-0 z-10 px-6 py-4 border-b flex items-center justify-between backdrop-blur-md ${
+              effectiveIsReIntake
+                ? 'bg-amber-500/10 dark:bg-amber-950/40 border-amber-500/40'
+                : 'bg-card/90 border-border/80'
+            }`}
+          >
             <div className="flex items-center gap-3">
-              <div className="size-11 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white shadow-md shadow-emerald-500/20">
-                <FileText className="size-6" />
+              <div
+                className={`size-11 rounded-xl flex items-center justify-center text-white shadow-md ${
+                  effectiveIsReIntake
+                    ? 'bg-gradient-to-br from-amber-500 to-orange-600 shadow-amber-500/20'
+                    : 'bg-gradient-to-br from-emerald-500 to-teal-600 shadow-emerald-500/20'
+                }`}
+              >
+                {effectiveIsReIntake ? (
+                  <RefreshCw className="size-6 animate-spin-reverse" />
+                ) : (
+                  <FileText className="size-6" />
+                )}
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="font-bold text-xs uppercase tracking-wider text-emerald-500">
+                  <span
+                    className={`font-bold text-xs uppercase tracking-wider ${
+                      effectiveIsReIntake
+                        ? 'text-amber-600 dark:text-amber-400'
+                        : 'text-emerald-500'
+                    }`}
+                  >
                     HEALTH &amp; PAIN CARE (HPC)
                   </span>
-                  <Badge variant="outline" className="text-[10px] border-emerald-500/40 text-emerald-400">
-                    রিসেপশন ফরম
-                  </Badge>
+                  {effectiveIsReIntake ? (
+                    <Badge className="bg-amber-600 hover:bg-amber-600 text-white font-bold text-[10px] flex items-center gap-1 shadow-2xs">
+                      <AlertTriangle className="size-3" />
+                      <span>৩+ মাস পর পুনর্বার মূল্যায়ন (Re-Intake)</span>
+                    </Badge>
+                  ) : (
+                    <Badge
+                      variant="outline"
+                      className="text-[10px] border-emerald-500/40 text-emerald-600 dark:text-emerald-400 font-semibold"
+                    >
+                      রিসেপশন ফরম
+                    </Badge>
+                  )}
                 </div>
                 <DialogTitle className="text-lg sm:text-xl font-bold tracking-tight">
-                  রোগীর প্রাথমিক তথ্য ও রিসেপশন ফরম
+                  {effectiveIsReIntake
+                    ? '৩+ মাস পর পুনর্বার মূল্যায়ন ফরম (Re-Intake Assessment)'
+                    : 'রোগীর প্রাথমিক তথ্য ও রিসেপশন ফরম'}
                 </DialogTitle>
                 <DialogDescription className="text-xs text-muted-foreground">
-                  নতুন বা আগত রোগীর প্রাথমিক স্বাস্থ্য বিবরণী ও ডাক্তার পরামর্শ এন্ট্রি
+                  {effectiveIsReIntake
+                    ? 'রোগী দীর্ঘ ৩+ মাস পর এসেছেন। পূর্ববর্তী তথ্য সংরক্ষিত আছে। বর্তমান ভাইটালস, বর্তমান প্রধান সমস্যা এবং বিগত ৩ মাসের চিকিৎসা ইতিহাস গ্রহণ করুন।'
+                    : 'নতুন বা আগত রোগীর প্রাথমিক স্বাস্থ্য বিবরণী ও ডাক্তার পরামর্শ এন্ট্রি'}
                 </DialogDescription>
               </div>
             </div>
@@ -315,19 +436,46 @@ export function PatientIntakeFormModal({
               variant="outline"
               size="sm"
               onClick={() => setShowPrintModal(true)}
-              className="text-xs h-8 gap-1.5 border-emerald-500/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10"
+              className="text-xs h-8 gap-1.5 border-border hover:bg-muted/40"
             >
               <Printer className="size-3.5" />
-              প্রিন্ট প্রিভিউ / A4 প্রিন্ট
+              প্রিন্ট প্রিভিউ / A4
             </Button>
           </div>
 
           <div className="p-6 space-y-6">
+            {/* Re-Intake Context Banner */}
+            {effectiveIsReIntake && (
+              <div className="p-3.5 rounded-xl border border-amber-500/40 bg-amber-500/10 dark:bg-amber-950/30 text-amber-900 dark:text-amber-200 text-xs flex items-start gap-3 shadow-2xs">
+                <AlertTriangle className="size-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <div className="font-bold flex items-center gap-1.5">
+                    <span>পুনর্বার মূল্যায়ন প্রোটোকল সক্রিয়</span>
+                    {clinicalStatus?.daysSinceLastActivity && (
+                      <span className="font-mono px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-800 dark:text-amber-300">
+                        {clinicalStatus.daysSinceLastActivity} দিন নিষ্ক্রিয় ছিল
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-[11px] leading-relaxed opacity-90">
+                    পূর্ববর্তী ব্যক্তিগত তথ্য ও পুরনো রোগ নিচে স্বয়ংক্রিয়ভাবে লোড হয়েছে। অনুগ্রহ করে <strong>আজকের বর্তমান ভাইটালস (রক্তচাপ, সুগার, ওজন)</strong> এবং <strong>বিগত ৩ মাসের নতুন লক্ষণ ও ওষুধসমূহ</strong> যত্নসহকারে পূরণ করুন।
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* SECTION 1: Personal Information */}
             <div className="p-4 rounded-xl border border-border/70 bg-card/50 space-y-4">
-              <div className="flex items-center gap-2 text-emerald-500 font-semibold text-sm border-b border-border/50 pb-2">
-                <User className="size-4" />
-                <span>১. ব্যক্তিগত তথ্য (Personal Information)</span>
+              <div className="flex items-center justify-between border-b border-border/50 pb-2">
+                <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-semibold text-sm">
+                  <User className="size-4" />
+                  <span>১. ব্যক্তিগত তথ্য (Personal Information)</span>
+                </div>
+                {effectiveIsReIntake && (
+                  <Badge variant="secondary" className="text-[10px] font-mono text-muted-foreground">
+                    পূর্ববর্তী রেকর্ড থেকে সংগৃহীত
+                  </Badge>
+                )}
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
@@ -399,50 +547,79 @@ export function PatientIntakeFormModal({
               </div>
             </div>
 
-            {/* SECTION 2: Primary Health Info */}
-            <div className="p-4 rounded-xl border border-border/70 bg-card/50 space-y-4">
-              <div className="flex items-center gap-2 text-rose-500 font-semibold text-sm border-b border-border/50 pb-2">
-                <HeartPulse className="size-4" />
-                <span>২. প্রাথমিক স্বাস্থ্য তথ্য (Initial Health Information)</span>
+            {/* SECTION 2: Primary Health Info (Today's Vitals - Primary Focus) */}
+            <div
+              className={`p-4 rounded-xl border space-y-4 transition-all ${
+                effectiveIsReIntake
+                  ? 'border-amber-500/50 bg-amber-500/5 ring-1 ring-amber-500/20'
+                  : 'border-border/70 bg-card/50'
+              }`}
+            >
+              <div className="flex items-center justify-between border-b border-border/50 pb-2">
+                <div className="flex items-center gap-2 text-rose-500 font-semibold text-sm">
+                  <HeartPulse className="size-4" />
+                  <span>
+                    {effectiveIsReIntake
+                      ? '২. আজকের ভাইটালস ও বর্তমান উপসর্গ (Today\'s Vitals & Presenting Complaints) *'
+                      : '২. প্রাথমিক স্বাস্থ্য তথ্য (Initial Health Information)'}
+                  </span>
+                </div>
+                {effectiveIsReIntake && (
+                  <Badge className="bg-amber-600 hover:bg-amber-600 text-white font-bold text-[10px]">
+                    আজকের জন্য পূরণ আবশ্যক
+                  </Badge>
+                )}
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-medium">রক্তচাপ সিস্টোলিক (BP Systolic)</Label>
+                  <Label className="text-xs font-medium flex items-center justify-between">
+                    <span>রক্তচাপ সিস্টোলিক (BP Systolic)</span>
+                    <span className="text-[10px] text-muted-foreground font-mono">mmHg</span>
+                  </Label>
                   <Input
                     type="number"
                     value={bpSystolic}
                     onChange={(e) => setBpSystolic(e.target.value)}
-                    placeholder="120 (mmHg)"
+                    placeholder="120"
                     className="h-9 text-xs font-mono"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-medium">রক্তচাপ ডায়াস্টোলিক (BP Diastolic)</Label>
+                  <Label className="text-xs font-medium flex items-center justify-between">
+                    <span>রক্তচাপ ডায়াস্টোলিক (BP Diastolic)</span>
+                    <span className="text-[10px] text-muted-foreground font-mono">mmHg</span>
+                  </Label>
                   <Input
                     type="number"
                     value={bpDiastolic}
                     onChange={(e) => setBpDiastolic(e.target.value)}
-                    placeholder="80 (mmHg)"
+                    placeholder="80"
                     className="h-9 text-xs font-mono"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-medium">রক্তে শর্করা (Blood Sugar)</Label>
+                  <Label className="text-xs font-medium flex items-center justify-between">
+                    <span>রক্তে শর্করা (Blood Sugar)</span>
+                    <span className="text-[10px] text-muted-foreground font-mono">mmol/L</span>
+                  </Label>
                   <Input
                     type="number"
                     step="0.1"
                     value={bloodSugar}
                     onChange={(e) => setBloodSugar(e.target.value)}
-                    placeholder="যেমন: 6.8 (mmol/L)"
+                    placeholder="যেমন: 6.8"
                     className="h-9 text-xs font-mono"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-medium">ওজন (Weight in KG)</Label>
+                  <Label className="text-xs font-medium flex items-center justify-between">
+                    <span>ওজন (Weight)</span>
+                    <span className="text-[10px] text-muted-foreground font-mono">KG</span>
+                  </Label>
                   <Input
                     type="number"
                     step="0.5"
@@ -457,7 +634,7 @@ export function PatientIntakeFormModal({
                   <div className="space-y-0.5">
                     <Label className="text-xs font-medium">ডায়াবেটিস আছে কি? (Has Diabetes?)</Label>
                     <p className="text-[11px] text-muted-foreground">
-                      রোগী কি ডায়াবেটিসে আক্রান্ত বা ওষুধ নিচ্ছেন?
+                      রোগী কি ডায়াবেটিসে আক্রান্ত বা সুগারের ওষুধ গ্রহণ করছেন?
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
@@ -467,11 +644,22 @@ export function PatientIntakeFormModal({
                 </div>
 
                 <div className="space-y-1.5 sm:col-span-2 lg:col-span-3">
-                  <Label className="text-xs font-medium">প্রধান শারীরিক সমস্যা / উপসর্গ (Chief Complaint) *</Label>
+                  <Label className="text-xs font-medium flex items-center justify-between">
+                    <span>প্রধান শারীরিক সমস্যা / উপসর্গ (Chief Complaint) *</span>
+                    {effectiveIsReIntake && (
+                      <span className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold">
+                        বর্তমান নতুন/চলমান সমস্যা লিখুন
+                      </span>
+                    )}
+                  </Label>
                   <Textarea
                     value={chiefComplaint}
                     onChange={(e) => setChiefComplaint(e.target.value)}
-                    placeholder="যেমন: কোমর ব্যথা পায়ে নেমে যায়, ঘাড় শক্ত হয়ে আছে ও হাত অবশ লাগে..."
+                    placeholder={
+                      effectiveIsReIntake
+                        ? '৩+ মাস পর বর্তমানে কি কি শারীরিক সমস্যা দেখা দিয়েছে (যেমন: কোমর ব্যথা আবার শুরু হয়েছে, ডান পায়ে ঝিঁঝিঁ লাগে...)'
+                        : 'যেমন: কোমর ব্যথা পায়ে নেমে যায়, ঘাড় শক্ত হয়ে আছে ও হাত অবশ লাগে...'
+                    }
                     rows={2}
                     className="text-xs resize-none"
                   />
@@ -482,7 +670,7 @@ export function PatientIntakeFormModal({
                   <Input
                     value={problemDuration}
                     onChange={(e) => setProblemDuration(e.target.value)}
-                    placeholder="যেমন: ৩ মাস / ১৫ দিন"
+                    placeholder={effectiveIsReIntake ? 'যেমন: সাম্প্রতিক ১৫ দিন' : 'যেমন: ৩ মাস / ১৫ দিন'}
                     className="h-9 text-xs"
                   />
                 </div>
@@ -491,16 +679,26 @@ export function PatientIntakeFormModal({
 
             {/* SECTION 3: Past Medical History */}
             <div className="p-4 rounded-xl border border-border/70 bg-card/50 space-y-4">
-              <div className="flex items-center gap-2 text-amber-500 font-semibold text-sm border-b border-border/50 pb-2">
-                <History className="size-4" />
-                <span>৩. পূর্বের চিকিৎসা সংক্রান্ত তথ্য (Past Medical History)</span>
+              <div className="flex items-center justify-between border-b border-border/50 pb-2">
+                <div className="flex items-center gap-2 text-amber-500 font-semibold text-sm">
+                  <History className="size-4" />
+                  <span>
+                    {effectiveIsReIntake
+                      ? '৩. বিগত ৩ মাসের চিকিৎসা ও পরীক্ষা রিপোর্ট (Last 3 Months History)'
+                      : '৩. পূর্বের চিকিৎসা সংক্রান্ত তথ্য (Past Medical History)'}
+                  </span>
+                </div>
               </div>
 
               <div className="space-y-4 text-xs">
                 {/* Previous Doctor */}
                 <div className="p-3 rounded-lg border border-border/40 bg-muted/10 space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="font-medium">আগে কোনো ডাক্তার দেখিয়েছেন কি?</span>
+                    <span className="font-medium">
+                      {effectiveIsReIntake
+                        ? 'বিগত ৩ মাসে অন্য কোনো ডাক্তার দেখিয়েছেন কি?'
+                        : 'আগে কোনো ডাক্তার দেখিয়েছেন কি?'}
+                    </span>
                     <div className="flex items-center gap-2">
                       <span className="text-xs">{seenDoctorBefore ? 'হ্যাঁ' : 'না'}</span>
                       <Switch checked={seenDoctorBefore} onCheckedChange={setSeenDoctorBefore} />
@@ -510,7 +708,7 @@ export function PatientIntakeFormModal({
                     <Input
                       value={previousDoctorDetails}
                       onChange={(e) => setPreviousDoctorDetails(e.target.value)}
-                      placeholder="কোথায় / কার কাছে দেখিয়েছেন বিস্তারিত লিখুন"
+                      placeholder="কোথায় / কোন বিশেষজ্ঞ ডাক্তারকে দেখিয়েছেন বিস্তারিত লিখুন"
                       className="h-8 text-xs bg-background"
                     />
                   )}
@@ -519,7 +717,11 @@ export function PatientIntakeFormModal({
                 {/* Previous Reports */}
                 <div className="p-3 rounded-lg border border-border/40 bg-muted/10 space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="font-medium">আগে কোনো পরীক্ষা / রিপোর্ট আছে কি?</span>
+                    <span className="font-medium">
+                      {effectiveIsReIntake
+                        ? 'বিগত ৩ মাসে নতুন কোনো পরীক্ষা / রিপোর্ট করিয়েছেন কি?'
+                        : 'আগে কোনো পরীক্ষা / রিপোর্ট আছে কি?'}
+                    </span>
                     <div className="flex items-center gap-2">
                       <span className="text-xs">{hasPreviousReports ? 'হ্যাঁ' : 'না'}</span>
                       <Switch checked={hasPreviousReports} onCheckedChange={setHasPreviousReports} />
@@ -538,7 +740,7 @@ export function PatientIntakeFormModal({
                 {/* Regular Medication */}
                 <div className="p-3 rounded-lg border border-border/40 bg-muted/10 space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="font-medium">বর্তমানে কোনো নিয়মিত ওষুধ খান কি?</span>
+                    <span className="font-medium">বর্তমানে নিয়মিত কোনো ওষুধ গ্রহণ করছেন কি?</span>
                     <div className="flex items-center gap-2">
                       <span className="text-xs">{takesRegularMedication ? 'হ্যাঁ' : 'না'}</span>
                       <Switch checked={takesRegularMedication} onCheckedChange={setTakesRegularMedication} />
@@ -557,7 +759,7 @@ export function PatientIntakeFormModal({
                 {/* Drug Allergies */}
                 <div className="p-3 rounded-lg border border-border/40 bg-muted/10 space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="font-medium text-red-400">কোনো ওষুধে অ্যালার্জি আছে কি?</span>
+                    <span className="font-medium text-rose-500">কোনো ওষুধে অ্যালার্জি আছে কি?</span>
                     <div className="flex items-center gap-2">
                       <span className="text-xs">{hasDrugAllergies ? 'হ্যাঁ' : 'না'}</span>
                       <Switch checked={hasDrugAllergies} onCheckedChange={setHasDrugAllergies} />
@@ -568,7 +770,7 @@ export function PatientIntakeFormModal({
                       value={drugAllergyDetails}
                       onChange={(e) => setDrugAllergyDetails(e.target.value)}
                       placeholder="কোন কোন ওষুধে অ্যালার্জি (যেমন: Penicillin, Sulfa, Paracetamol)"
-                      className="h-8 text-xs bg-background border-red-500/40"
+                      className="h-8 text-xs bg-background border-rose-500/40"
                     />
                   )}
                 </div>
@@ -596,12 +798,14 @@ export function PatientIntakeFormModal({
                     onClick={() => setReferralSource(item.id)}
                     className={`p-2.5 rounded-lg border text-left transition-all text-xs font-medium flex items-center justify-between ${
                       referralSource === item.id
-                        ? 'border-emerald-500 bg-emerald-500/10 text-emerald-400 shadow-sm'
+                        ? 'border-emerald-500 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 shadow-xs'
                         : 'border-border/50 hover:bg-muted/30 text-muted-foreground'
                     }`}
                   >
                     <span>{item.label}</span>
-                    {referralSource === item.id && <CheckCircle2 className="size-3.5 text-emerald-500 shrink-0" />}
+                    {referralSource === item.id && (
+                      <CheckCircle2 className="size-3.5 text-emerald-500 shrink-0" />
+                    )}
                   </button>
                 ))}
               </div>
@@ -618,7 +822,7 @@ export function PatientIntakeFormModal({
 
             {/* SECTION 5: Target Doctor & Reception Notes */}
             <div className="p-4 rounded-xl border border-emerald-500/40 bg-emerald-500/5 space-y-4">
-              <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-semibold text-sm border-b border-emerald-500/20 pb-2">
+              <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-semibold text-sm border-emerald-500/20 pb-2">
                 <Stethoscope className="size-4" />
                 <span>৫. রিসেপশন ব্যবহারের জন্য (For Reception Use)</span>
               </div>
@@ -644,7 +848,9 @@ export function PatientIntakeFormModal({
                             : doc.chamberName || 'চেম্বার নির্ধারিত';
                           const feeVal =
                             doc.consultationFeeTaka ||
-                            (doc.consultationFeePaisa ? Math.round(doc.consultationFeePaisa / 100) : doc.consultationFee);
+                            (doc.consultationFeePaisa
+                              ? Math.round(doc.consultationFeePaisa / 100)
+                              : doc.consultationFee);
                           return (
                             <SelectItem key={doc.id} value={doc.id}>
                               <div className="flex items-center justify-between w-full gap-3">
@@ -685,17 +891,16 @@ export function PatientIntakeFormModal({
             className="sticky bottom-0 z-10 bg-card/95 backdrop-blur-md px-6 py-4 border-t border-border/80 flex flex-wrap items-center justify-between gap-3"
             style={{ paddingBottom: 'max(1rem, calc(env(safe-area-inset-bottom) + 0.75rem))' }}
           >
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => onOpenChange(false)}
-              disabled={submitting}
-              className="text-xs"
-            >
-              বাতিল করুন (Close)
-            </Button>
+            <div className="text-xs text-muted-foreground flex items-center gap-1.5">
+              <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span>
+                {effectiveIsReIntake
+                  ? '৩+ মাস পর পুনর্বার মূল্যায়ন মোড সক্রিয়'
+                  : 'সকল আবশ্যক ফিল্ড চিহ্নিত করা হয়েছে'}
+              </span>
+            </div>
 
-            <div className="flex items-center gap-2.5">
+            <div className="flex items-center gap-2">
               <Button
                 type="button"
                 variant="outline"

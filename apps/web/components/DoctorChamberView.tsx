@@ -47,6 +47,7 @@ import { PainAssessmentFormModal } from './patient/PainAssessmentFormModal';
 import { PatientFilesListModal } from './patient/PatientFilesListModal';
 import { PatientPrescriptionsListModal } from './patient/PatientPrescriptionsListModal';
 import { IntakeAssessmentPrintModal } from './patient/IntakeAssessmentPrintModal';
+import { PatientIntakeFormModal } from './patient/PatientIntakeFormModal';
 import { PrescriptionBuilderSection } from './doctor/PrescriptionBuilderSection';
 import { DoctorDispositionModal } from './doctor/DoctorDispositionModal';
 import { TherapyQueueManagementTab } from './therapy/TherapyQueueManagementTab';
@@ -71,10 +72,98 @@ import {
   Send,
   Printer,
   ChevronRight,
+  Sparkles,
+  Copy,
+  Check,
 } from 'lucide-react';
 
 export interface DoctorChamberProps {
   session?: UserSession | null;
+}
+
+export type PatientClinicalStatusType = 'brand_new' | 'old_active' | 'lapsed_reintake';
+
+export interface PatientClinicalStatusInfo {
+  status: PatientClinicalStatusType;
+  lastVisitDays?: number | null;
+  lastVisitDate?: string | null;
+  labelBn: string;
+  labelEn: string;
+}
+
+export function resolvePatientClinicalStatus(
+  item: any,
+  cachedStatus?: PatientClinicalStatusInfo | null
+): PatientClinicalStatusInfo {
+  if (cachedStatus) return cachedStatus;
+
+  const rawStatus =
+    item?.patientClinicalStatus?.patientType ||
+    item?.patientClinicalStatus?.status ||
+    item?.patientClinicalStatus ||
+    item?.clinicalStatus?.patientType ||
+    item?.clinicalStatus?.status ||
+    item?.clinicalStatus ||
+    item?.patient?.patientClinicalStatus?.patientType ||
+    item?.patient?.clinicalStatus?.patientType;
+
+  const rawLastVisitDays =
+    item?.patientClinicalStatus?.daysSinceLastActivity ??
+    item?.clinicalStatus?.daysSinceLastActivity ??
+    item?.patient?.clinicalStatus?.daysSinceLastActivity ??
+    item?.lastVisitDays;
+
+  const rawLastVisitDate =
+    item?.patientClinicalStatus?.lastActivityDate ??
+    item?.clinicalStatus?.lastActivityDate ??
+    item?.patient?.clinicalStatus?.lastActivityDate ??
+    item?.lastVisitDate;
+
+  if (rawStatus === 'brand_new') {
+    return {
+      status: 'brand_new',
+      lastVisitDays: null,
+      lastVisitDate: null,
+      labelBn: 'নতুন রোগী',
+      labelEn: 'New Patient',
+    };
+  }
+
+  if (rawStatus === 'lapsed_reintake') {
+    return {
+      status: 'lapsed_reintake',
+      lastVisitDays: rawLastVisitDays ?? 90,
+      lastVisitDate: rawLastVisitDate,
+      labelBn: 'পুনর্বার মূল্যায়ন (>৩ মাস)',
+      labelEn: 'Re-Evaluation (>3m)',
+    };
+  }
+
+  if (rawStatus === 'old_active') {
+    return {
+      status: 'old_active',
+      lastVisitDays: rawLastVisitDays ?? null,
+      lastVisitDate: rawLastVisitDate,
+      labelBn: rawLastVisitDays ? `ফলো-আপ • ${rawLastVisitDays} দিন` : 'পুরাতন / ফলো-আপ',
+      labelEn: rawLastVisitDays ? `Follow-up • ${rawLastVisitDays}d` : 'Follow-up',
+    };
+  }
+
+  if (item?.priority === 'follow_up' || item?.visitType === 'follow_up') {
+    return {
+      status: 'old_active',
+      lastVisitDays: null,
+      labelBn: 'পুরাতন / ফলো-আপ',
+      labelEn: 'Follow-up',
+    };
+  }
+
+  return {
+    status: 'brand_new',
+    lastVisitDays: null,
+    labelBn: 'নতুন রোগী',
+    labelEn: 'New Patient',
+  };
 }
 
 export default function DoctorChamberView({ session: propSession }: DoctorChamberProps = {}) {
@@ -105,6 +194,8 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
   // Intake Form & Modals States
   const [activeIntakeForm, setActiveIntakeForm] = useState<any>(null);
   const [isIntakePrintModalOpen, setIsIntakePrintModalOpen] = useState(false);
+  const [isCreateIntakeModalOpen, setIsCreateIntakeModalOpen] = useState(false);
+  const [copiedIntake, setCopiedIntake] = useState(false);
   const [selectedIntakePatient, setSelectedIntakePatient] = useState<any>(null);
   const [isTimelineModalOpen, setIsTimelineModalOpen] = useState(false);
   const [callingActionLoading, setCallingActionLoading] = useState(false);
@@ -627,6 +718,98 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
     }
   };
 
+  // 3-Tier Clinical Status Badge Helper
+  const renderPatientClinicalStatusBadge = (itemOrSerial: any, size: 'sm' | 'default' = 'default') => {
+    const info = resolvePatientClinicalStatus(itemOrSerial);
+    if (!info) return null;
+
+    if (info.status === 'brand_new') {
+      return (
+        <Badge
+          variant="outline"
+          className={cn(
+            'font-bold border-sky-500/40 bg-sky-500/10 text-sky-600 dark:text-sky-400 gap-1',
+            size === 'sm' ? 'text-[10px] px-1.5 py-0' : 'text-xs px-2 py-0.5'
+          )}
+        >
+          <Sparkles className={size === 'sm' ? 'size-2.5' : 'size-3.5'} />
+          <span>{info.labelBn}</span>
+        </Badge>
+      );
+    }
+
+    if (info.status === 'lapsed_reintake') {
+      return (
+        <Badge
+          variant="outline"
+          className={cn(
+            'font-bold border-amber-500/50 bg-amber-500/15 text-amber-700 dark:text-amber-300 gap-1',
+            size === 'sm' ? 'text-[10px] px-1.5 py-0' : 'text-xs px-2 py-0.5'
+          )}
+        >
+          <AlertCircle className={size === 'sm' ? 'size-2.5' : 'size-3.5'} />
+          <span>{info.labelBn}</span>
+        </Badge>
+      );
+    }
+
+    // old_active
+    return (
+      <Badge
+        variant="outline"
+        className={cn(
+          'font-semibold border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 gap-1',
+          size === 'sm' ? 'text-[10px] px-1.5 py-0' : 'text-xs px-2 py-0.5'
+        )}
+      >
+        <UserCheck className={size === 'sm' ? 'size-2.5' : 'size-3.5'} />
+        <span>{info.labelBn}</span>
+      </Badge>
+    );
+  };
+
+  // Copy intake assessment & vitals summary to chief complaints
+  const handleCopyIntakeToPrescription = () => {
+    if (!activeIntakeForm) return;
+    const parts: string[] = [];
+    if (activeIntakeForm.chiefComplaint) {
+      parts.push(`অভিযোগ: ${activeIntakeForm.chiefComplaint}`);
+    }
+    if (activeIntakeForm.painSite) {
+      parts.push(`ব্যথার স্থান: ${activeIntakeForm.painSite}`);
+    }
+    if (activeIntakeForm.duration) {
+      parts.push(`স্থিতিকাল: ${activeIntakeForm.duration}`);
+    }
+    const vitalsSummary: string[] = [];
+    if (activeIntakeForm.bpSystolic) {
+      vitalsSummary.push(`BP: ${activeIntakeForm.bpSystolic}/${activeIntakeForm.bpDiastolic || '--'} mmHg`);
+    }
+    if (activeIntakeForm.bloodSugar) {
+      vitalsSummary.push(`RBS: ${activeIntakeForm.bloodSugar} mmol/L`);
+    }
+    if (activeIntakeForm.weightKg) {
+      vitalsSummary.push(`Wt: ${activeIntakeForm.weightKg} kg`);
+    }
+    if (activeIntakeForm.pulseRate) {
+      vitalsSummary.push(`Pulse: ${activeIntakeForm.pulseRate} bpm`);
+    }
+    if (vitalsSummary.length > 0) {
+      parts.push(`ভাইটালস: [${vitalsSummary.join(', ')}]`);
+    }
+
+    const textToAppend = parts.join(' | ');
+    if (textToAppend) {
+      setChiefComplaints((prev) => (prev ? `${prev}\n${textToAppend}` : textToAppend));
+    }
+    if (typeof activeIntakeForm.painSeverity === 'number' && activeIntakeForm.painSeverity > 0) {
+      setPainScore(activeIntakeForm.painSeverity);
+    }
+    setCopiedIntake(true);
+    toast.success('ইনটেক ও ভাইটালস তথ্য প্রেসক্রিপশনের চিফ কমপ্লেইন্টস ফিল্ডে যুক্ত হয়েছে!');
+    setTimeout(() => setCopiedIntake(false), 2500);
+  };
+
   return (
     <div className="w-full space-y-4">
       {/* Top Workstation Navigation Switcher & Doctor Chamber Selector */}
@@ -797,6 +980,7 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
                                 টোকেন: {s.tokenNumber || `T-${s.serialNumber}`}
                               </Badge>
                               {getPriorityBadge(s.priority)}
+                              {renderPatientClinicalStatusBadge(s, 'sm')}
                             </div>
                             <div className="flex items-center gap-1">
                               {getPunctualityBadge(s)}
@@ -1014,6 +1198,7 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
                         </div>
 
                         <div className="flex gap-2 items-center flex-wrap">
+                          {renderPatientClinicalStatusBadge(activeSerial, 'default')}
                           {getPriorityBadge(activeSerial.priority)}
                           {activeSerial.patient?.bloodGroup && (
                             <Badge variant="outline" className="border-emerald-500/30 text-emerald-600 dark:text-emerald-400 font-semibold">
@@ -1229,6 +1414,232 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
                 </div>
               )}
 
+              {/* ================================================================= */}
+              {/* 3.1 SPOTLIGHT INTAKE & INITIAL VITALS ASSESSMENT CARD              */}
+              {/* ================================================================= */}
+              {activeSerial && (() => {
+                const clinicalInfo = resolvePatientClinicalStatus(activeSerial);
+                const isReIntake = clinicalInfo?.status === 'lapsed_reintake';
+                const isBrandNew = clinicalInfo?.status === 'brand_new';
+
+                if (activeIntakeForm) {
+                  return (
+                    <Card
+                      className={cn(
+                        'border-2 shadow-xs transition-all rounded-2xl overflow-hidden',
+                        isReIntake
+                          ? 'border-amber-500/40 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent'
+                          : isBrandNew
+                          ? 'border-teal-500/40 bg-gradient-to-r from-teal-500/10 via-teal-500/5 to-transparent'
+                          : 'border-border/80 bg-card/80'
+                      )}
+                    >
+                      <CardHeader className="p-3.5 sm:p-4 pb-2 sm:pb-3 border-b border-border/60">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <div className={cn(
+                              'size-8 rounded-xl flex items-center justify-center shrink-0',
+                              isReIntake ? 'bg-amber-500/20 text-amber-600 dark:text-amber-400' : 'bg-teal-500/20 text-teal-600 dark:text-teal-400'
+                            )}>
+                              <FileText className="size-4" />
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <h3 className="font-extrabold text-sm sm:text-base text-foreground">
+                                  ইনটেক ও প্রাথমিক ভাইটালস স্পটলাইট (Intake & Vitals)
+                                </h3>
+                                {isReIntake ? (
+                                  <Badge className="bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/40 text-[10px] font-bold">
+                                    ⚠️ পুনর্বার ইনটেক (&gt;৩ মাস)
+                                  </Badge>
+                                ) : isBrandNew ? (
+                                  <Badge className="bg-teal-500/20 text-teal-700 dark:text-teal-300 border border-teal-500/40 text-[10px] font-bold">
+                                    ✨ নতুন রোগীর ইনটেক
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="outline" className="text-[10px] text-muted-foreground">
+                                    ফলো-আপ
+                                  </Badge>
+                                )}
+                              </div>
+                              <p className="text-[11px] text-muted-foreground mt-0.5">
+                                রিসেপশন ইনটেক ডেস্ক থেকে নিবন্ধিত আজকের প্রাথমিক পর্যবেক্ষণ
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 flex-wrap self-end sm:self-auto">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={handleCopyIntakeToPrescription}
+                              className={cn(
+                                'h-8 text-xs font-bold gap-1.5 transition-all active:scale-95 cursor-pointer',
+                                copiedIntake
+                                  ? 'bg-emerald-600 text-white border-emerald-600'
+                                  : 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/20'
+                              )}
+                            >
+                              {copiedIntake ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+                              <span>{copiedIntake ? 'যুক্ত হয়েছে!' : 'প্রেসক্রিপশনে কপি করুন'}</span>
+                            </Button>
+
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setSelectedIntakePatient(activeSerial);
+                                setIsIntakePrintModalOpen(true);
+                              }}
+                              className="h-8 text-xs font-bold border-teal-500/40 text-teal-700 dark:text-teal-300 hover:bg-teal-500/10 gap-1.5 active:scale-95 cursor-pointer"
+                            >
+                              <Printer className="size-3.5" />
+                              <span>A4 প্রিন্ট</span>
+                            </Button>
+                          </div>
+                        </div>
+                      </CardHeader>
+
+                      <CardContent className="p-3.5 sm:p-4 space-y-3">
+                        {/* Vitals Highlights Bar */}
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
+                          {/* BP */}
+                          <div className="p-2 sm:p-2.5 rounded-xl border border-border/70 bg-card/70 flex flex-col items-center text-center">
+                            <span className="text-[10px] font-bold text-muted-foreground uppercase">রক্তচাপ (BP)</span>
+                            <span className="text-xs sm:text-sm font-black font-mono text-foreground mt-0.5">
+                              {activeIntakeForm.bpSystolic ? `${activeIntakeForm.bpSystolic}/${activeIntakeForm.bpDiastolic || '--'}` : '—'}
+                            </span>
+                            <span className="text-[9px] text-muted-foreground font-mono">mmHg</span>
+                          </div>
+
+                          {/* Blood Sugar */}
+                          <div className="p-2 sm:p-2.5 rounded-xl border border-border/70 bg-card/70 flex flex-col items-center text-center">
+                            <span className="text-[10px] font-bold text-muted-foreground uppercase">রক্তের শর্করা (RBS)</span>
+                            <span className="text-xs sm:text-sm font-black font-mono text-foreground mt-0.5">
+                              {activeIntakeForm.bloodSugar ? activeIntakeForm.bloodSugar : '—'}
+                            </span>
+                            <span className="text-[9px] text-muted-foreground font-mono">mmol/L</span>
+                          </div>
+
+                          {/* Weight */}
+                          <div className="p-2 sm:p-2.5 rounded-xl border border-border/70 bg-card/70 flex flex-col items-center text-center">
+                            <span className="text-[10px] font-bold text-muted-foreground uppercase">ওজন (Weight)</span>
+                            <span className="text-xs sm:text-sm font-black font-mono text-foreground mt-0.5">
+                              {activeIntakeForm.weightKg ? activeIntakeForm.weightKg : '—'}
+                            </span>
+                            <span className="text-[9px] text-muted-foreground font-mono">kg</span>
+                          </div>
+
+                          {/* Pulse */}
+                          <div className="p-2 sm:p-2.5 rounded-xl border border-border/70 bg-card/70 flex flex-col items-center text-center">
+                            <span className="text-[10px] font-bold text-muted-foreground uppercase">পালস (Pulse)</span>
+                            <span className="text-xs sm:text-sm font-black font-mono text-foreground mt-0.5">
+                              {activeIntakeForm.pulseRate ? activeIntakeForm.pulseRate : '—'}
+                            </span>
+                            <span className="text-[9px] text-muted-foreground font-mono">bpm</span>
+                          </div>
+
+                          {/* Temperature */}
+                          <div className="p-2 sm:p-2.5 rounded-xl border border-border/70 bg-card/70 flex flex-col items-center text-center">
+                            <span className="text-[10px] font-bold text-muted-foreground uppercase">তাপমাত্রা (Temp)</span>
+                            <span className="text-xs sm:text-sm font-black font-mono text-foreground mt-0.5">
+                              {activeIntakeForm.temperatureF ? activeIntakeForm.temperatureF : '—'}
+                            </span>
+                            <span className="text-[9px] text-muted-foreground font-mono">°F</span>
+                          </div>
+
+                          {/* VAS Pain */}
+                          <div className="p-2 sm:p-2.5 rounded-xl border border-border/70 bg-card/70 flex flex-col items-center text-center">
+                            <span className="text-[10px] font-bold text-muted-foreground uppercase">ব্যথার মাত্রা (VAS)</span>
+                            <span className="text-xs sm:text-sm font-black font-mono text-rose-600 dark:text-rose-400 mt-0.5">
+                              {activeIntakeForm.painSeverity ? `${activeIntakeForm.painSeverity}/10` : '—'}
+                            </span>
+                            <span className="text-[9px] text-muted-foreground font-mono">score</span>
+                          </div>
+                        </div>
+
+                        {/* Clinical Complaints & Region Details */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 pt-1 text-xs">
+                          <div className="p-2.5 rounded-xl border border-border/60 bg-card/50 space-y-1">
+                            <span className="text-muted-foreground font-bold">প্রধান অভিযোগ (Chief Complaints):</span>
+                            <p className="font-semibold text-foreground text-xs leading-relaxed">
+                              {activeIntakeForm.chiefComplaint || 'কোনো বিবরণ রেকর্ড করা নেই'}
+                            </p>
+                          </div>
+
+                          <div className="p-2.5 rounded-xl border border-border/60 bg-card/50 space-y-1">
+                            <div className="flex justify-between items-center">
+                              <span className="text-muted-foreground font-bold">ব্যথার স্থান ও স্থিতিকাল:</span>
+                              {activeIntakeForm.duration && (
+                                <span className="font-mono text-emerald-600 dark:text-emerald-400 font-bold">
+                                  ⏱️ {activeIntakeForm.duration}
+                                </span>
+                              )}
+                            </div>
+                            <p className="font-semibold text-foreground text-xs leading-relaxed">
+                              {activeIntakeForm.painSite || 'উল্লেখ নেই'}
+                            </p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                }
+
+                // If no intake form found for brand new or lapsed re-intake patient
+                if (isBrandNew || isReIntake) {
+                  return (
+                    <Card
+                      className={cn(
+                        'border-2 border-dashed rounded-2xl p-4 shadow-xs',
+                        isReIntake ? 'border-amber-500/50 bg-amber-500/5' : 'border-teal-500/50 bg-teal-500/5'
+                      )}
+                    >
+                      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
+                        <div className="flex items-center gap-3">
+                          <div className={cn(
+                            'size-10 rounded-xl flex items-center justify-center shrink-0',
+                            isReIntake ? 'bg-amber-500/20 text-amber-600 dark:text-amber-400' : 'bg-teal-500/20 text-teal-600 dark:text-teal-400'
+                          )}>
+                            <AlertCircle className="size-5" />
+                          </div>
+                          <div>
+                            <h4 className="font-bold text-sm sm:text-base text-foreground">
+                              {isReIntake
+                                ? 'রোগী ৩+ মাস নিষ্ক্রিয় ছিলেন — আজকের ভিজিটের জন্য পুনর্বার ইনটেক ও ভাইটালস প্রয়োজন'
+                                : 'নতুন রোগীর ইনটেক ও ভাইটালস মূল্যায়ন এখনও রেকর্ড করা হয়নি'}
+                            </h4>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              প্রেসক্রিপশন লেখার পূর্বে রোগীর বর্তমান রক্তচাপ, ডায়াবেটিস, ব্যথার স্থান ও অভিযোগ ইনটেক ফরমে রেকর্ড করুন।
+                            </p>
+                          </div>
+                        </div>
+
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedIntakePatient(activeSerial);
+                            setIsCreateIntakeModalOpen(true);
+                          }}
+                          className={cn(
+                            'text-xs font-bold gap-1.5 text-white shadow-sm active:scale-95 shrink-0 cursor-pointer h-9 px-4',
+                            isReIntake ? 'bg-amber-600 hover:bg-amber-500' : 'bg-teal-600 hover:bg-teal-500'
+                          )}
+                        >
+                          <Plus className="size-4" />
+                          <span>{isReIntake ? 'পুনর্বার ইনটেক পূরণ করুন' : 'ইনটেক ফরম পূরণ করুন'}</span>
+                        </Button>
+                      </div>
+                    </Card>
+                  );
+                }
+
+                return null;
+              })()}
+
               {/* Clinical Assessment Card */}
               <Card className="border-border shadow-sm">
                 <CardHeader className="flex flex-row items-center justify-between pb-3 flex-wrap gap-3">
@@ -1428,6 +1839,31 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
             visitId={selectedIntakePatient?.visitId || selectedIntakePatient?.id}
             patient={selectedIntakePatient?.patient}
             intakeForm={selectedIntakePatient?.id === activeSerial?.id ? activeIntakeForm : null}
+          />
+
+          {/* PATIENT INTAKE FORM (CREATE / RE-INTAKE) MODAL */}
+          <PatientIntakeFormModal
+            open={isCreateIntakeModalOpen}
+            onOpenChange={setIsCreateIntakeModalOpen}
+            patient={activeSerial?.patient || selectedIntakePatient?.patient}
+            currentUser={session}
+            clinicalStatus={resolvePatientClinicalStatus(activeSerial || selectedIntakePatient) as any}
+            isReIntake={resolvePatientClinicalStatus(activeSerial || selectedIntakePatient)?.status === 'lapsed_reintake'}
+            onSuccess={() => {
+              if (activeSerial?.patientId) {
+                api.patients
+                  .listIntakeForms({ patientId: activeSerial.patientId })
+                  .then((forms) => {
+                    if (forms && forms.length > 0) {
+                      setActiveIntakeForm(forms[0]);
+                      if (forms[0].chiefComplaint && !chiefComplaints) {
+                        setChiefComplaints(forms[0].chiefComplaint);
+                      }
+                    }
+                  })
+                  .catch(() => {});
+              }
+            }}
           />
 
           {/* PATIENT FULL ACTIVITY TIMELINE MODAL */}

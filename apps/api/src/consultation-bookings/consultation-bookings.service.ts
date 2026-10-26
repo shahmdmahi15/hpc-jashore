@@ -21,6 +21,7 @@ import {
 import { EventsGateway } from '../realtime/events.gateway';
 import { RealtimeService } from '../realtime/realtime.service';
 import { computePunctuality, parseToldTimeToMinutes } from '../common/punctuality.util';
+import { getPatientClinicalStatus } from '../patients/patient-clinical-status';
 import type {
   CancelConsultationBookingDto,
   CreateConsultationBookingDto,
@@ -312,17 +313,29 @@ export class ConsultationBookingsService {
       );
     }
 
-    // 5. Calculate Fee
+    // 5. Resolve visitType & clinical status
+    let effectiveVisitType: 'new_consultation' | 'follow_up' | 'report_review';
+    if (dto.visitType) {
+      effectiveVisitType = dto.visitType;
+    } else {
+      const clinicalStatus = await getPatientClinicalStatus(this.db, patient.id).catch(() => null);
+      if (clinicalStatus?.patientType === 'old_active') {
+        effectiveVisitType = 'follow_up';
+      } else {
+        effectiveVisitType = 'new_consultation';
+      }
+    }
+
+    // 6. Calculate Fee
     let feePaisa: number;
     if (dto.feeTaka !== undefined) {
       feePaisa = dto.feeTaka * 100;
     } else if (dto.feePaisa !== undefined) {
       feePaisa = dto.feePaisa;
     } else {
-      const visitType = dto.visitType || 'new_consultation';
-      if (visitType === 'follow_up') {
+      if (effectiveVisitType === 'follow_up') {
         feePaisa = doctor.followUpFeePaisa ?? 30000;
-      } else if (visitType === 'report_review') {
+      } else if (effectiveVisitType === 'report_review') {
         feePaisa = doctor.reportFeePaisa ?? 0;
       } else {
         feePaisa = doctor.consultationFeePaisa ?? 50000;
@@ -343,7 +356,7 @@ export class ConsultationBookingsService {
       bookingDate: targetDate,
       slotTime: dto.slotTime.trim(),
       toldTime: dto.toldTime?.trim() || dto.slotTime.trim(),
-      visitType: dto.visitType || ('new_consultation' as const),
+      visitType: effectiveVisitType,
       feePaisa,
       serialNumber: null,
       status: 'booked' as const,

@@ -178,6 +178,12 @@ export class PatientsController {
     return this.patients.createAssessmentFile(patientId, dto, user);
   }
 
+  @Get(':id/clinical-status')
+  @Roles('admin', 'doctor', 'receptionist', 'cashier', 'handler')
+  getClinicalStatus(@Param('id') id: string) {
+    return this.patients.getClinicalStatus(id);
+  }
+
   @Get(':id')
   get(@Param('id') id: string) {
     return this.patients.get(id);
