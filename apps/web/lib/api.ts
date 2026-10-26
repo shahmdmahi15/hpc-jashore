@@ -285,6 +285,11 @@ export const api = {
       apiFetch<any>(`/visits/serials/${serialId}/complete`, { method: 'POST' }),
     skipSerial: (serialId: string) =>
       apiFetch<any>(`/visits/serials/${serialId}/skip`, { method: 'POST' }),
+    routePatient: (visitId: string, dto: { location: string }) =>
+      apiFetch<any>(`/visits/${visitId}/route`, {
+        method: 'PATCH',
+        body: JSON.stringify(dto),
+      }),
     getTvSnapshot: () => apiFetch<any>('/visits/tv/snapshot'),
   },
   clinical: {
