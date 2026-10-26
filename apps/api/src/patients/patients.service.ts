@@ -556,15 +556,20 @@ export class PatientsService {
     await this.db.insert(patientIntakeForms).values(intakeRow);
 
     // 5. Add Timeline Event: Intake Form Completed
+    const isRe = Boolean(dto.isReIntake);
     await this.addPatientTimelineEvent({
       patientId: patientId!,
       visitId,
       intakeFormId: intakeId,
-      step: 'intake_completed',
-      titleEn: 'Reception Intake Form Filled',
-      titleBn: 'প্রাথমিক তথ্য ও রিসেপশন ফরম পূরণ',
-      descriptionEn: `Intake form completed by ${actorName}`,
-      descriptionBn: `রিসেপশনিস্ট ${actorName} কর্তৃক রোগীর প্রাথমিক তথ্য ও স্বাস্থ্য ফরম পূরণ সম্পন্ন।`,
+      step: isRe ? 're_intake_completed' : 'intake_completed',
+      titleEn: isRe ? 'Re-Intake Clinical Evaluation Completed' : 'Reception Intake Form Filled',
+      titleBn: isRe ? 'পুনর্বার প্রাথমিক স্বাস্থ্য মূল্যায়ন সম্পন্ন' : 'প্রাথমিক তথ্য ও রিসেপশন ফরম পূরণ',
+      descriptionEn: isRe
+        ? `Re-intake form completed by ${actorName} (returning inactive patient clinical re-evaluation)`
+        : `Intake form completed by ${actorName}`,
+      descriptionBn: isRe
+        ? `৩ মাসের অধিক বিরতির পর রিসেপশনিস্ট ${actorName} কর্তৃক রোগীর পুনর্বার স্বাস্থ্য তথ্য ফরম পূরণ সম্পন্ন।`
+        : `রিসেপশনিস্ট ${actorName} কর্তৃক রোগীর প্রাথমিক তথ্য ও স্বাস্থ্য ফরম পূরণ সম্পন্ন।`,
       actorId: actor.sub,
       actorName,
       actorRole: actor.role,
@@ -577,9 +582,9 @@ export class PatientsService {
         patientId: patientId!,
         visitId,
         intakeFormId: intakeId,
-        step: 'forwarded_to_cashier',
-        titleEn: 'Forwarded to Cashier',
-        titleBn: 'ক্যাশিয়ারের কাছে ফরোয়ার্ড',
+        step: isRe ? 're_intake_forwarded_to_cashier' : 'forwarded_to_cashier',
+        titleEn: isRe ? 'Re-Intake Forwarded to Cashier' : 'Forwarded to Cashier',
+        titleBn: isRe ? 'পুনর্বার মূল্যায়ন ক্যাশিয়ারের কাছে পাঠানো হয়েছে' : 'ক্যাশিয়ারের কাছে ফরোয়ার্ড',
         descriptionEn: 'Forwarded to Cashier for fee collection and doctor queue admission',
         descriptionBn: 'কনসালটেশন ফি গ্রহণ ও ডাক্তার সিরিয়ালে প্রবেশের জন্য ক্যাশিয়ারের কাছে পাঠানো হয়েছে।',
         actorId: actor.sub,

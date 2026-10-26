@@ -341,6 +341,11 @@ export class CreateIntakeFormDto {
   @IsOptional()
   @IsBoolean()
   forwardToCashier?: boolean;
+
+  @ApiPropertyOptional({ description: 'Indicates whether this is a re-intake for a lapsed/inactive returning patient (>3 months)' })
+  @IsOptional()
+  @IsBoolean()
+  isReIntake?: boolean;
 }
 
 export class AdmitToQueueDto {
