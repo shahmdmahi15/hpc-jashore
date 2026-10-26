@@ -1,0 +1,42 @@
+name: Migrate Database on Lightsail
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: migrate-database
+  cancel-in-progress: false
+
+jobs:
+  migrate-database:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Execute Migration on AWS Lightsail
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.HOST_IP }}
+          username: ${{ secrets.HOST_USERNAME }}
+          key: ${{ secrets.HOST_KEY }}
+          port: 22
+          timeout: 5m
+          command_timeout: 10m
+          script_stop: true
+          script: |
+            set -e
+            echo "🚀 [Lightsail] Pulling latest migration script and executing..."
+            cd /var/www/hpc-jashore
+
+            # Export environment paths
+            export PATH="$HOME/.local/share/pnpm:/usr/local/bin:/usr/bin:/bin:$PATH"
+            if [ -f "$HOME/.profile" ]; then . "$HOME/.profile" || true; fi
+            if [ -f "$HOME/.bashrc" ]; then . "$HOME/.bashrc" || true; fi
+            if [ -f "$HOME/.nvm/nvm.sh" ]; then . "$HOME/.nvm/nvm.sh" || true; fi
+
+            git fetch origin main
+            git checkout main
+            git pull origin main
+
+            chmod +x deploy/scripts/migrate-user-columns.sh
+            bash deploy/scripts/migrate-user-columns.sh

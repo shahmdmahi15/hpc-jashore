@@ -97,6 +97,12 @@ jobs:
               bash deploy/scripts/backup-db.sh ./data || true
             fi
 
+            echo "🩺 Applying database migrations & user schema updates..."
+            if [ -f deploy/scripts/migrate-user-columns.sh ]; then
+              chmod +x deploy/scripts/migrate-user-columns.sh
+              bash deploy/scripts/migrate-user-columns.sh || true
+            fi
+
             echo "📦 Installing all dependencies on Lightsail..."
             pnpm install --frozen-lockfile || pnpm install
             pnpm rebuild better-sqlite3
