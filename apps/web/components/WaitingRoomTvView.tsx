@@ -452,7 +452,8 @@ export default function WaitingRoomTvView() {
       event.type.startsWith('consultation.') ||
       event.type.startsWith('announcement.') ||
       event.type.startsWith('bulletin.') ||
-      event.type.startsWith('tv:')
+      event.type.startsWith('tv:') ||
+      event.type.startsWith('patient.')
     ) {
       const payloadData = (event as any).data || (event as any).payload;
       if (event.type === 'consultation.call_chamber') {

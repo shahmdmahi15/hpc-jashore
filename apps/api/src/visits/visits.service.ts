@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import { and, desc, eq, isNull, or, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull, ne, or, sql } from 'drizzle-orm';
 import { AuditService } from '../audit/audit.service';
 import { DB, type Db } from '../db/db.module';
 import {
@@ -491,7 +491,15 @@ export class VisitsService {
         .innerJoin(visits, eq(serials.visitId, visits.id))
         .leftJoin(users, eq(serials.doctorId, users.id))
         .leftJoin(rooms, eq(users.chamberRoomId, rooms.id))
-        .where(and(eq(serials.doctorId, doctorId), eq(serials.date, today)))
+        .where(
+          and(
+            eq(serials.doctorId, doctorId),
+            eq(serials.date, today),
+            isNull(visits.checkedOutAt),
+            ne(visits.status, 'checked_out'),
+            ne(visits.status, 'cancelled'),
+          ),
+        )
         .orderBy(serials.serialNumber);
 
       // If 0 rows found, check if this doctorId is actually a doctor or an admin/overseer
@@ -515,7 +523,14 @@ export class VisitsService {
             .innerJoin(visits, eq(serials.visitId, visits.id))
             .leftJoin(users, eq(serials.doctorId, users.id))
             .leftJoin(rooms, eq(users.chamberRoomId, rooms.id))
-            .where(eq(serials.date, today))
+            .where(
+              and(
+                eq(serials.date, today),
+                isNull(visits.checkedOutAt),
+                ne(visits.status, 'checked_out'),
+                ne(visits.status, 'cancelled'),
+              ),
+            )
             .orderBy(serials.serialNumber);
         }
       }
@@ -534,7 +549,14 @@ export class VisitsService {
         .innerJoin(visits, eq(serials.visitId, visits.id))
         .leftJoin(users, eq(serials.doctorId, users.id))
         .leftJoin(rooms, eq(users.chamberRoomId, rooms.id))
-        .where(eq(serials.date, today))
+        .where(
+          and(
+            eq(serials.date, today),
+            isNull(visits.checkedOutAt),
+            ne(visits.status, 'checked_out'),
+            ne(visits.status, 'cancelled'),
+          ),
+        )
         .orderBy(serials.serialNumber);
     }
 
@@ -594,9 +616,19 @@ export class VisitsService {
       const isSpecificDoctor = Boolean(doctorId && doctorId !== 'all' && doctorId !== 'undefined');
       let rows = isSpecificDoctor
         ? await this.db
-            .select()
+            .select({ serial: serials })
             .from(serials)
-            .where(and(eq(serials.doctorId, doctorId), eq(serials.date, today), eq(serials.status, 'waiting')))
+            .innerJoin(visits, eq(serials.visitId, visits.id))
+            .where(
+              and(
+                eq(serials.doctorId, doctorId),
+                eq(serials.date, today),
+                eq(serials.status, 'waiting'),
+                isNull(visits.checkedOutAt),
+                ne(visits.status, 'checked_out'),
+                ne(visits.status, 'cancelled'),
+              ),
+            )
             .orderBy(serials.serialNumber)
             .limit(1)
         : [];
@@ -604,13 +636,22 @@ export class VisitsService {
       if (!rows.length) {
         // Fallback: look for waiting serials across all doctors for today
         rows = await this.db
-          .select()
+          .select({ serial: serials })
           .from(serials)
-          .where(and(eq(serials.date, today), eq(serials.status, 'waiting')))
+          .innerJoin(visits, eq(serials.visitId, visits.id))
+          .where(
+            and(
+              eq(serials.date, today),
+              eq(serials.status, 'waiting'),
+              isNull(visits.checkedOutAt),
+              ne(visits.status, 'checked_out'),
+              ne(visits.status, 'cancelled'),
+            ),
+          )
           .orderBy(serials.serialNumber)
           .limit(1);
       }
-      targetSerial = rows[0];
+      targetSerial = rows[0]?.serial;
     }
 
     if (!targetSerial) {
@@ -944,6 +985,24 @@ export class VisitsService {
       })
       .where(eq(visits.id, visitId));
 
+    // When routed away from doctor chamber (e.g. to therapy, reception, cashier, or exit),
+    // complete any open or waiting consultation serials for this visit
+    if (targetLocation !== 'chamber') {
+      await this.db
+        .update(serials)
+        .set({ status: 'completed', completedAt: now, updatedAt: now })
+        .where(
+          and(
+            eq(serials.visitId, visitId),
+            inArray(serials.status, ['waiting', 'called', 'in_chamber']),
+          ),
+        );
+      this.gateway.emit('clinic:global', 'queue.updated', { visitId, type: 'consultation', status: 'completed' });
+      this.gateway.emit('clinic:global', 'tv:updated', { source: 'patient.routed', visitId });
+      this.realtime.publish('queue.updated', { visitId, type: 'consultation', status: 'completed' });
+      this.realtime.publish('tv:updated', { source: 'patient.routed', visitId });
+    }
+
     const payload = {
       visitId,
       patientId: visit.patientId,
@@ -1184,6 +1243,21 @@ export class VisitsService {
         .where(eq(therapySlotBookings.id, item.visit.therapyBookingId));
     }
 
+    // Explicitly complete any remaining active or waiting serials for this visit
+    await this.db
+      .update(serials)
+      .set({
+        status: 'completed',
+        completedAt: now,
+        updatedAt: now,
+      })
+      .where(
+        and(
+          eq(serials.visitId, visitId),
+          inArray(serials.status, ['waiting', 'called', 'in_chamber']),
+        ),
+      );
+
     // Departure slip payload
     const departureSlip = await this.getDepartureSlip(visitId);
 
@@ -1193,10 +1267,28 @@ export class VisitsService {
       patientName: item.patient.nameEn,
       checkedOutAt: now,
     });
+    this.gateway.emit('clinic:global', 'queue.updated', {
+      type: 'consultation',
+      visitId,
+      status: 'completed',
+    });
+    this.gateway.emit('clinic:global', 'tv:updated', {
+      source: 'visit.check_out',
+      visitId,
+    });
     this.realtime.publish('visit.checked_out', {
       visitId,
       patientId: item.patient.id,
       checkedOutAt: now,
+    });
+    this.realtime.publish('queue.updated', {
+      type: 'consultation',
+      visitId,
+      status: 'completed',
+    });
+    this.realtime.publish('tv:updated', {
+      source: 'visit.check_out',
+      visitId,
     });
 
     if (meta) {
@@ -1421,7 +1513,17 @@ export class VisitsService {
         })
         .from(serials)
         .innerJoin(patients, eq(serials.patientId, patients.id))
-        .where(and(eq(serials.doctorId, doc.id), eq(serials.date, today), eq(serials.status, 'called')))
+        .innerJoin(visits, eq(serials.visitId, visits.id))
+        .where(
+          and(
+            eq(serials.doctorId, doc.id),
+            eq(serials.date, today),
+            eq(serials.status, 'called'),
+            isNull(visits.checkedOutAt),
+            ne(visits.status, 'checked_out'),
+            ne(visits.status, 'cancelled'),
+          ),
+        )
         .orderBy(desc(serials.calledAt))
         .limit(1);
 
@@ -1432,7 +1534,17 @@ export class VisitsService {
         })
         .from(serials)
         .innerJoin(patients, eq(serials.patientId, patients.id))
-        .where(and(eq(serials.doctorId, doc.id), eq(serials.date, today), eq(serials.status, 'waiting')))
+        .innerJoin(visits, eq(serials.visitId, visits.id))
+        .where(
+          and(
+            eq(serials.doctorId, doc.id),
+            eq(serials.date, today),
+            eq(serials.status, 'waiting'),
+            isNull(visits.checkedOutAt),
+            ne(visits.status, 'checked_out'),
+            ne(visits.status, 'cancelled'),
+          ),
+        )
         .orderBy(serials.serialNumber)
         .limit(5);
 
@@ -1480,6 +1592,9 @@ export class VisitsService {
         and(
           eq(serials.date, today),
           eq(serials.status, 'called'),
+          isNull(visits.checkedOutAt),
+          ne(visits.status, 'checked_out'),
+          ne(visits.status, 'cancelled'),
         ),
       )
       .orderBy(desc(serials.calledAt));
@@ -1500,7 +1615,15 @@ export class VisitsService {
       .innerJoin(users, eq(serials.doctorId, users.id))
       .leftJoin(rooms, eq(users.chamberRoomId, rooms.id))
       .innerJoin(visits, eq(serials.visitId, visits.id))
-      .where(and(eq(serials.date, today), eq(serials.status, 'waiting')))
+      .where(
+        and(
+          eq(serials.date, today),
+          eq(serials.status, 'waiting'),
+          isNull(visits.checkedOutAt),
+          ne(visits.status, 'checked_out'),
+          ne(visits.status, 'cancelled'),
+        ),
+      )
       .orderBy(serials.serialNumber)
       .limit(50);
 

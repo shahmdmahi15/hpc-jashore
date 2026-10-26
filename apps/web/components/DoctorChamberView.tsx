@@ -625,8 +625,14 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
     }
   };
 
-  // Waiting queue only includes patients waiting or actively being called
-  const waitingQueue = queue.filter((s) => s.status === 'waiting' || s.status === 'called');
+  // Waiting queue only includes patients waiting or actively being called who are still in clinic
+  const waitingQueue = queue.filter(
+    (s) =>
+      (s.status === 'waiting' || s.status === 'called') &&
+      s.visit?.status !== 'checked_out' &&
+      !s.visit?.checkedOutAt &&
+      s.visit?.status !== 'cancelled'
+  );
 
   // Punctuality Badge Helper
   const getPunctualityBadge = (item: any) => {

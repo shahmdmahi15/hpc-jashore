@@ -1126,6 +1126,49 @@ export type Db = BetterSQLite3Database<typeof schema>;
               DROP TABLE IF EXISTS batches;
             `);
           } catch {}
+
+          // Clean up orphan active serials where visit is already checked out or cancelled,
+          // and establish SQLite triggers so visits checkout atomically and permanently completes serials.
+          try {
+            sqlite.exec(`
+              UPDATE serials
+              SET status = 'completed',
+                  completed_at = COALESCE(completed_at, datetime('now')),
+                  updated_at = datetime('now')
+              WHERE status IN ('waiting', 'called', 'in_chamber')
+                AND visit_id IN (
+                  SELECT id FROM visits
+                  WHERE status IN ('checked_out', 'cancelled')
+                     OR checked_out_at IS NOT NULL
+                );
+
+              CREATE TRIGGER IF NOT EXISTS trg_cleanup_serials_on_visit_checkout
+              AFTER UPDATE OF status, checked_out_at ON visits
+              WHEN NEW.status = 'checked_out' OR NEW.checked_out_at IS NOT NULL
+              BEGIN
+                UPDATE serials
+                SET status = 'completed',
+                    completed_at = COALESCE(completed_at, datetime('now')),
+                    updated_at = datetime('now')
+                WHERE visit_id = NEW.id
+                  AND status IN ('waiting', 'called', 'in_chamber');
+              END;
+
+              CREATE TRIGGER IF NOT EXISTS trg_cleanup_serials_on_visit_cancelled
+              AFTER UPDATE OF status ON visits
+              WHEN NEW.status = 'cancelled'
+              BEGIN
+                UPDATE serials
+                SET status = 'completed',
+                    completed_at = COALESCE(completed_at, datetime('now')),
+                    updated_at = datetime('now')
+                WHERE visit_id = NEW.id
+                  AND status IN ('waiting', 'called', 'in_chamber');
+              END;
+            `);
+          } catch (serialCleanErr) {
+            console.error('Error ensuring serial checkout triggers and cleanup:', serialCleanErr);
+          }
         } catch {
           // Idempotent column safety
         }

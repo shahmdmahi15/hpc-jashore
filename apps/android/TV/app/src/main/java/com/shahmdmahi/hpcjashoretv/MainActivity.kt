@@ -367,7 +367,8 @@ class MainActivity : ComponentActivity() {
                                 }
                             } else if (type.startsWith("queue.") || type.startsWith("visit.") ||
                                        type.startsWith("consultation.") || type.startsWith("therapy.") ||
-                                       type.startsWith("serial.") || type.startsWith("call.")) {
+                                       type.startsWith("serial.") || type.startsWith("call.") ||
+                                       type.startsWith("tv:") || type.startsWith("patient.")) {
                                 if (isPaired) {
                                     fetchQueueSnapshot { docWait, thWait, calledPat ->
                                         waitingDoctorList = docWait
