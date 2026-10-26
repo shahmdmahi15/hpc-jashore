@@ -12,6 +12,8 @@ export interface DoctorConfigRecord {
   email: string;
   phone: string | null;
   role: 'doctor';
+  specialization?: string | null;
+  qualifications?: string | null;
   consultationFeePaisa: number;
   consultationFeeTaka: number;
   followUpFeePaisa: number;
@@ -28,6 +30,13 @@ export interface DoctorConfigRecord {
     type: string;
     status: string;
   } | null;
+  dailyQuota?: number;
+  slotDurationMinutes?: number;
+  dutyStartTime?: string;
+  dutyEndTime?: string;
+  availableDays?: string[];
+  customTimeSlots?: string[];
+  notes?: string | null;
   isActive: boolean | number;
   createdAt: string;
   updatedAt: string;
@@ -40,20 +49,38 @@ export interface CreateDoctorInput {
   email?: string;
   password?: string;
   phone?: string;
+  specialization?: string;
+  qualifications?: string;
   consultationFeeTaka?: number;
   followUpFeeTaka?: number;
   reportFeeTaka?: number;
   chamberRoomId?: string | null;
+  dailyQuota?: number;
+  slotDurationMinutes?: number;
+  dutyStartTime?: string;
+  dutyEndTime?: string;
+  availableDays?: string[];
+  customTimeSlots?: string[];
+  notes?: string;
 }
 
 export interface UpdateDoctorConfigInput {
   displayName?: string;
   fullName?: string;
   phone?: string;
+  specialization?: string;
+  qualifications?: string;
   consultationFeeTaka?: number;
   followUpFeeTaka?: number;
   reportFeeTaka?: number;
   chamberRoomId?: string | null;
+  dailyQuota?: number;
+  slotDurationMinutes?: number;
+  dutyStartTime?: string;
+  dutyEndTime?: string;
+  availableDays?: string[];
+  customTimeSlots?: string[];
+  notes?: string;
   isActive?: boolean;
 }
 

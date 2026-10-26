@@ -68,6 +68,13 @@ export type Db = BetterSQLite3Database<typeof schema>;
             sqlite.exec("ALTER TABLE tv_devices ADD COLUMN force_update INTEGER NOT NULL DEFAULT 0");
           }
 
+          // Ensure users table has custom_time_slots column idempotently
+          const userCols = sqlite.prepare("PRAGMA table_info(users)").all() as Array<{ name: string }>;
+          const userColNames = new Set(userCols.map((c) => c.name));
+          if (!userColNames.has('custom_time_slots')) {
+            sqlite.exec("ALTER TABLE users ADD COLUMN custom_time_slots TEXT");
+          }
+
           // Ensure bulletins table exists
           sqlite.exec(`
             CREATE TABLE IF NOT EXISTS bulletins (

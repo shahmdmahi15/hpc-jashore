@@ -47,6 +47,7 @@ export const users = sqliteTable('users', {
   dutyStartTime: text('duty_start_time'),
   dutyEndTime: text('duty_end_time'),
   availableDays: text('available_days'),
+  customTimeSlots: text('custom_time_slots'),
   notes: text('notes'),
   isApproved: integer('is_approved').notNull().default(0),
   approvalStatus: text('approval_status').notNull().default('pending'), // 'pending' | 'approved' | 'rejected'

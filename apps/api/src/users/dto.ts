@@ -78,6 +78,9 @@ export class CreateUserDto {
   availableDays?: string[] | string;
 
   @IsOptional()
+  customTimeSlots?: string[] | string;
+
+  @IsOptional()
   @IsString()
   notes?: string;
 
@@ -168,6 +171,9 @@ export class UpdateUserDto {
 
   @IsOptional()
   availableDays?: string[] | string;
+
+  @IsOptional()
+  customTimeSlots?: string[] | string;
 
   @IsOptional()
   @IsString()

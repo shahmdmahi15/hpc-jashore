@@ -181,6 +181,11 @@ export class UpdateDoctorConfigDto {
   @IsArray()
   availableDays?: string[];
 
+  @ApiPropertyOptional({ description: 'Custom configured time slot presets (JSON array of strings e.g. ["09:00 AM", "09:15 AM"])', type: [String] })
+  @IsOptional()
+  @IsArray()
+  customTimeSlots?: string[];
+
   @ApiPropertyOptional({ description: 'Active status of the doctor profile' })
   @IsOptional()
   @IsBoolean()
@@ -305,6 +310,11 @@ export class CreateDoctorDto {
   @IsOptional()
   @IsArray()
   availableDays?: string[];
+
+  @ApiPropertyOptional({ description: 'Custom configured time slot presets (JSON array of strings e.g. ["09:00 AM", "09:15 AM"])', type: [String] })
+  @IsOptional()
+  @IsArray()
+  customTimeSlots?: string[];
 
   @ApiPropertyOptional({ description: 'Operational notes / remarks' })
   @IsOptional()

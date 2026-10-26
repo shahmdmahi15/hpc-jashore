@@ -218,6 +218,9 @@ export class UsersService {
       availableDays: dto.availableDays
         ? (Array.isArray(dto.availableDays) ? JSON.stringify(dto.availableDays) : dto.availableDays)
         : JSON.stringify(DEFAULT_DAYS),
+      customTimeSlots: dto.customTimeSlots
+        ? (Array.isArray(dto.customTimeSlots) ? JSON.stringify(dto.customTimeSlots) : dto.customTimeSlots)
+        : null,
       notes: dto.notes ?? null,
       isApproved,
       approvalStatus,
@@ -320,6 +323,11 @@ export class UsersService {
       patch.availableDays = Array.isArray(dto.availableDays)
         ? JSON.stringify(dto.availableDays)
         : dto.availableDays;
+    }
+    if (dto.customTimeSlots !== undefined) {
+      patch.customTimeSlots = Array.isArray(dto.customTimeSlots)
+        ? JSON.stringify(dto.customTimeSlots)
+        : dto.customTimeSlots;
     }
     if (dto.notes !== undefined) patch.notes = dto.notes;
 

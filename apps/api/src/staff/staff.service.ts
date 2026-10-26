@@ -125,6 +125,15 @@ export class StaffService {
         }
       }
 
+      let parsedCustomTimeSlots: string[] = [];
+      if (u.customTimeSlots) {
+        try {
+          parsedCustomTimeSlots = JSON.parse(u.customTimeSlots);
+        } catch {
+          parsedCustomTimeSlots = [];
+        }
+      }
+
       return {
         id: u.id,
         staffId: u.id,
@@ -160,6 +169,7 @@ export class StaffService {
         dutyStartTime: u.dutyStartTime || '09:00 AM',
         dutyEndTime: u.dutyEndTime || '05:00 PM',
         availableDays: parsedAvailableDays,
+        customTimeSlots: parsedCustomTimeSlots,
         notes: u.notes || null,
         isActive: u.isActive === 1,
         createdAt: u.createdAt,
@@ -219,6 +229,11 @@ export class StaffService {
       userPatch.availableDays = Array.isArray(dto.availableDays)
         ? JSON.stringify(dto.availableDays)
         : dto.availableDays;
+    }
+    if (dto.customTimeSlots !== undefined) {
+      userPatch.customTimeSlots = Array.isArray(dto.customTimeSlots)
+        ? JSON.stringify(dto.customTimeSlots)
+        : dto.customTimeSlots;
     }
     if (dto.notes !== undefined) userPatch.notes = dto.notes;
     if (dto.isActive !== undefined) userPatch.isActive = dto.isActive ? 1 : 0;
@@ -299,6 +314,9 @@ export class StaffService {
             availableDays: dto.availableDays
               ? (Array.isArray(dto.availableDays) ? JSON.stringify(dto.availableDays) : dto.availableDays)
               : existingUser[0].availableDays ?? JSON.stringify(DEFAULT_DAYS),
+            customTimeSlots: dto.customTimeSlots
+              ? (Array.isArray(dto.customTimeSlots) ? JSON.stringify(dto.customTimeSlots) : dto.customTimeSlots)
+              : existingUser[0].customTimeSlots ?? null,
             notes: dto.notes ?? existingUser[0].notes ?? null,
             updatedAt: now,
           })
@@ -329,6 +347,9 @@ export class StaffService {
             availableDays: dto.availableDays
               ? (Array.isArray(dto.availableDays) ? JSON.stringify(dto.availableDays) : dto.availableDays)
               : JSON.stringify(DEFAULT_DAYS),
+            customTimeSlots: dto.customTimeSlots
+              ? (Array.isArray(dto.customTimeSlots) ? JSON.stringify(dto.customTimeSlots) : dto.customTimeSlots)
+              : null,
             notes: dto.notes ?? null,
             updatedAt: now,
           })
@@ -356,6 +377,9 @@ export class StaffService {
           availableDays: dto.availableDays
             ? (Array.isArray(dto.availableDays) ? JSON.stringify(dto.availableDays) : dto.availableDays)
             : JSON.stringify(DEFAULT_DAYS),
+          customTimeSlots: dto.customTimeSlots
+            ? (Array.isArray(dto.customTimeSlots) ? JSON.stringify(dto.customTimeSlots) : dto.customTimeSlots)
+            : null,
           notes: dto.notes ?? null,
           isActive: 1,
           mustChangePassword: 1,

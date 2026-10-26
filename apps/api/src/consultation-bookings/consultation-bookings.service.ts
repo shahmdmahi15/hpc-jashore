@@ -186,21 +186,31 @@ export class ConsultationBookingsService {
     const slotDuration = doc.doctor.slotDurationMinutes || 15;
     const dailyQuota = doc.doctor.dailyQuota || 40;
 
-    // Parse start and end time
-    const startMinutes = parseToldTimeToMinutes(doc.doctor.dutyStartTime) ?? 9 * 60; // 09:00 AM default
-    const endMinutes = parseToldTimeToMinutes(doc.doctor.dutyEndTime) ?? 17 * 60; // 05:00 PM default
+    let generatedSlots: string[] = [];
+    if (doc.doctor.customTimeSlots) {
+      try {
+        const parsed = JSON.parse(doc.doctor.customTimeSlots);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          generatedSlots = parsed;
+        }
+      } catch {}
+    }
 
-    // Generate slots
-    const generatedSlots: string[] = [];
-    let cur = startMinutes;
-    while (cur < endMinutes && generatedSlots.length < dailyQuota) {
-      const hours = Math.floor(cur / 60);
-      const mins = cur % 60;
-      const meridiem = hours >= 12 ? 'PM' : 'AM';
-      const displayHours = hours % 12 === 0 ? 12 : hours % 12;
-      const slotString = `${displayHours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')} ${meridiem}`;
-      generatedSlots.push(slotString);
-      cur += slotDuration;
+    // Fallback: auto-generate from dutyStartTime -> dutyEndTime
+    if (generatedSlots.length === 0) {
+      const startMinutes = parseToldTimeToMinutes(doc.doctor.dutyStartTime) ?? 9 * 60; // 09:00 AM default
+      const endMinutes = parseToldTimeToMinutes(doc.doctor.dutyEndTime) ?? 17 * 60; // 05:00 PM default
+
+      let cur = startMinutes;
+      while (cur < endMinutes && generatedSlots.length < dailyQuota) {
+        const hours = Math.floor(cur / 60);
+        const mins = cur % 60;
+        const meridiem = hours >= 12 ? 'PM' : 'AM';
+        const displayHours = hours % 12 === 0 ? 12 : hours % 12;
+        const slotString = `${displayHours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')} ${meridiem}`;
+        generatedSlots.push(slotString);
+        cur += slotDuration;
+      }
     }
 
     // Fetch existing bookings for this doctor on target date
