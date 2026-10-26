@@ -48,8 +48,8 @@ for DB_FILE in "${DB_LOCATIONS[@]}"; do
     cp "$DB_FILE" "$BACKUP_FILE"
     echo "🛡️ Backup saved: $BACKUP_FILE"
 
-    # Ensure staff table exists and is populated before touching users (prevents SQLite trigger failure: no such table: main.staff)
-    echo "🛡️ Ensuring legacy staff mirror table exists..."
+    # 1. Ensure staff table DDL exists first (prevents SQLite trigger failure: no such table: main.staff)
+    echo "🛡️ Ensuring legacy staff mirror table DDL exists..."
     sqlite3 "$DB_FILE" "
       CREATE TABLE IF NOT EXISTS staff (
         id TEXT PRIMARY KEY NOT NULL,
@@ -63,6 +63,24 @@ for DB_FILE in "${DB_LOCATIONS[@]}"; do
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
       );
+    "
+
+    # 2. Get existing columns and add missing user columns
+    EXISTING_COLS=$(sqlite3 "$DB_FILE" "PRAGMA table_info('users');" | awk -F'|' '{print $2}')
+
+    for DEF in "${COLS[@]}"; do
+      COL_NAME=$(echo "$DEF" | awk '{print $1}')
+      if echo "$EXISTING_COLS" | grep -qw "$COL_NAME"; then
+        echo "   [EXISTS] Column '$COL_NAME' already exists in users"
+      else
+        echo "   [ADDING] Adding column: $COL_NAME ($DEF)"
+        sqlite3 "$DB_FILE" "ALTER TABLE users ADD COLUMN $DEF;"
+      fi
+    done
+
+    # 3. Mirror users into staff table safely now that all user columns exist
+    echo "🛡️ Mirroring users to staff..."
+    sqlite3 "$DB_FILE" "
       INSERT OR REPLACE INTO staff (id, user_id, full_name, role, phone, is_active, created_at, updated_at)
       SELECT 
         u.id, 
@@ -75,19 +93,6 @@ for DB_FILE in "${DB_LOCATIONS[@]}"; do
         COALESCE(u.updated_at, CURRENT_TIMESTAMP)
       FROM users u;
     "
-
-    # Get existing columns
-    EXISTING_COLS=$(sqlite3 "$DB_FILE" "PRAGMA table_info('users');" | awk -F'|' '{print $2}')
-
-    for DEF in "${COLS[@]}"; do
-      COL_NAME=$(echo "$DEF" | awk '{print $1}')
-      if echo "$EXISTING_COLS" | grep -qw "$COL_NAME"; then
-        echo "   [EXISTS] Column '$COL_NAME' already exists in users"
-      else
-        echo "   [ADDING] Adding column: $COL_NAME ($DEF)"
-        sqlite3 "$DB_FILE" "ALTER TABLE users ADD COLUMN $DEF;"
-      fi
-    done
 
     # Ensure admin users are approved
     sqlite3 "$DB_FILE" "UPDATE users SET is_approved = 1, approval_status = 'approved' WHERE role = 'admin';"
