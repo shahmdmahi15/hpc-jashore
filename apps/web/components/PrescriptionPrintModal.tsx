@@ -114,7 +114,17 @@ export default function PrescriptionPrintModal({
               margin: 0 !important;
               padding: 0 !important;
             }
+            body * {
+              visibility: hidden;
+            }
+            .prescription-sheet-container,
+            .prescription-sheet-container * {
+              visibility: visible !important;
+            }
             .prescription-sheet-container {
+              position: absolute !important;
+              left: 0 !important;
+              top: 0 !important;
               width: 5.5in !important;
               height: 8.27in !important;
               max-width: 5.5in !important;

@@ -175,10 +175,12 @@ export function IntakeAssessmentPrintModal({
   const handlePrint = () => {
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = 'visible';
-    window.print();
     setTimeout(() => {
-      document.body.style.overflow = prevOverflow;
-    }, 500);
+      window.print();
+      setTimeout(() => {
+        document.body.style.overflow = prevOverflow;
+      }, 500);
+    }, 50);
   };
 
   const patientName =
@@ -225,7 +227,7 @@ export function IntakeAssessmentPrintModal({
 
   return (
     <Dialog open={open} onOpenChange={(op) => !op && handleClose()}>
-      <DialogContent className="max-w-4xl max-h-[96vh] overflow-y-auto p-0 gap-0 border-emerald-500/40 bg-zinc-950/90 text-foreground backdrop-blur-xl">
+      <DialogContent className="max-w-4xl max-h-[96vh] overflow-y-auto p-0 gap-0 border-emerald-500/40 bg-zinc-950/90 text-foreground backdrop-blur-xl print:!bg-transparent print:!border-none print:!shadow-none print:!p-0 print:!m-0 print:!max-w-none print:!max-h-none print:!overflow-visible print:!backdrop-blur-none">
         {/* Screen Toolbar (hidden during print) */}
         <div className="sticky top-0 z-20 flex items-center justify-between px-6 py-3.5 bg-zinc-900 border-b border-zinc-800 print:hidden">
           <div className="flex items-center gap-2.5">
@@ -266,7 +268,7 @@ export function IntakeAssessmentPrintModal({
         </div>
 
         {/* Paper Container Preview for screen */}
-        <div className="p-4 sm:p-8 bg-zinc-900/60 flex justify-center print:p-0 print:m-0 print:block print:bg-transparent">
+        <div className="p-4 sm:p-8 bg-zinc-900/60 flex justify-center print:!p-0 print:!m-0 print:!block print:!bg-transparent">
           {loading ? (
             <div className="py-20 flex flex-col items-center justify-center gap-2 text-zinc-400 print:hidden">
               <Loader2 className="size-7 animate-spin text-emerald-500" />
@@ -276,7 +278,7 @@ export function IntakeAssessmentPrintModal({
             /* Printable A4 Sheet */
             <div
               id="hpc-intake-a4-sheet"
-              className="sheet-report-a4 bg-white text-black shadow-2xl rounded-sm p-[8mm] w-[210mm] max-w-[210mm] text-[10.5px] leading-normal font-sans"
+              className="sheet-report-a4 bg-white text-black shadow-2xl rounded-sm p-[8mm] w-[210mm] max-w-[210mm] text-[10.5px] leading-normal font-sans print:!shadow-none print:!border-none print:!p-0 print:!m-0 print:!w-full print:!max-w-[190mm]"
               style={{
                 fontFamily: "'Hind Siliguri', 'Noto Sans Bengali', var(--font-poppins), sans-serif",
               }}
@@ -286,13 +288,13 @@ export function IntakeAssessmentPrintModal({
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
                     <div className="w-12 h-12 relative shrink-0">
-                      <Image
+                      <img
                         src="/hpclogo-transparent.png"
                         alt="HPC Logo"
-                        width={48}
-                        height={48}
-                        className="object-contain"
-                        priority
+                        className="w-12 h-12 object-contain shrink-0"
+                        onError={(e) => {
+                          (e.target as HTMLElement).style.display = 'none';
+                        }}
                       />
                     </div>
                     <div>
@@ -552,7 +554,7 @@ export function IntakeAssessmentPrintModal({
         </div>
 
         {/* Embedded print style to guarantee A4 portrait mode */}
-        <style jsx global>{`
+        <style dangerouslySetInnerHTML={{ __html: `
           @page {
             size: A4 portrait;
             margin: 8mm 10mm;
@@ -593,7 +595,7 @@ export function IntakeAssessmentPrintModal({
               min-height: 0 !important;
             }
           }
-        `}</style>
+        ` }} />
       </DialogContent>
     </Dialog>
   );

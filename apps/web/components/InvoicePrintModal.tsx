@@ -145,9 +145,12 @@ export default function InvoicePrintModal({
             margin: 4mm 5mm;
           }
           @media print {
-            /* 1. Completely collapse the full Next.js page tree so background layout is 0px */
-            body > *:not([data-radix-portal]) {
-              display: none !important;
+            body * {
+              visibility: hidden;
+            }
+            .sheet-invoice-hpc,
+            .sheet-invoice-hpc * {
+              visibility: visible !important;
             }
 
             /* 2. Hide dialog overlay, close button, dialog header and modal buttons */
