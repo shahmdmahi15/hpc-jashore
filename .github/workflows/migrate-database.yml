@@ -36,7 +36,7 @@ jobs:
 
             git fetch origin main
             git checkout main
-            git pull origin main
+            git reset --hard origin/main
 
             chmod +x deploy/scripts/migrate-user-columns.sh
             bash deploy/scripts/migrate-user-columns.sh
