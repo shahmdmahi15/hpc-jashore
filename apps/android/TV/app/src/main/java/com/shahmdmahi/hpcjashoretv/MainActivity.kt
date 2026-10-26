@@ -3,12 +3,15 @@ package com.shahmdmahi.hpcjashoretv
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
+import android.media.AudioAttributes
 import android.media.AudioManager
+import android.media.MediaPlayer
 import android.media.ToneGenerator
 import android.net.Uri
 import android.os.Bundle
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
+import java.net.URLEncoder
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -91,6 +94,8 @@ class MainActivity : ComponentActivity() {
     private lateinit var prefs: SharedPreferences
     private var textToSpeech: TextToSpeech? = null
     private var toneGenerator: ToneGenerator? = null
+    private var mediaPlayer: MediaPlayer? = null
+    private var isTtsInitialized = false
 
     @OptIn(ExperimentalTvMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -101,10 +106,26 @@ class MainActivity : ComponentActivity() {
 
         try {
             toneGenerator = ToneGenerator(AudioManager.STREAM_MUSIC, 100)
-            textToSpeech = TextToSpeech(this) { status ->
+            val audioAttributes = AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_MEDIA)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                .build()
+
+            val initListener = TextToSpeech.OnInitListener { status ->
                 if (status == TextToSpeech.SUCCESS) {
-                    textToSpeech?.setSpeechRate(0.9f)
+                    isTtsInitialized = true
+                    try {
+                        textToSpeech?.setAudioAttributes(audioAttributes)
+                        textToSpeech?.setSpeechRate(0.9f)
+                        textToSpeech?.setPitch(1.0f)
+                    } catch (_: Exception) {}
                 }
+            }
+
+            try {
+                textToSpeech = TextToSpeech(this, initListener, "com.google.android.tts")
+            } catch (_: Exception) {
+                textToSpeech = TextToSpeech(this, initListener)
             }
         } catch (_: Exception) {}
 
@@ -1333,6 +1354,145 @@ class MainActivity : ComponentActivity() {
             textToSpeech?.stop()
             textToSpeech?.shutdown()
             toneGenerator?.release()
+            mediaPlayer?.stop()
+            mediaPlayer?.release()
+            mediaPlayer = null
+        } catch (_: Exception) {}
+    }
+
+    private fun playOnlineTts(
+        text: String,
+        lang: String,
+        onFinished: () -> Unit,
+        onFailure: () -> Unit
+    ) {
+        if (text.isBlank()) {
+            onFinished()
+            return
+        }
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val encoded = URLEncoder.encode(text, "UTF-8")
+                val streamUrl = "https://translate.google.com/translate_tts?ie=UTF-8&tl=$lang&client=tw-ob&q=$encoded"
+
+                withContext(Dispatchers.Main) {
+                    try {
+                        mediaPlayer?.stop()
+                        mediaPlayer?.release()
+                        mediaPlayer = MediaPlayer().apply {
+                            setAudioAttributes(
+                                AudioAttributes.Builder()
+                                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                                    .setUsage(AudioAttributes.USAGE_MEDIA)
+                                    .build()
+                            )
+                            val headers = mapOf("User-Agent" to "Mozilla/5.0 (Linux; Android)")
+                            setDataSource(this@MainActivity, Uri.parse(streamUrl), headers)
+                            setOnPreparedListener { mp ->
+                                try {
+                                    mp.start()
+                                } catch (_: Exception) {
+                                    onFailure()
+                                }
+                            }
+                            setOnCompletionListener { mp ->
+                                try {
+                                    mp.release()
+                                } catch (_: Exception) {}
+                                mediaPlayer = null
+                                onFinished()
+                            }
+                            setOnErrorListener { mp, _, _ ->
+                                try {
+                                    mp.release()
+                                } catch (_: Exception) {}
+                                mediaPlayer = null
+                                onFailure()
+                                true
+                            }
+                            prepareAsync()
+                        }
+                    } catch (_: Exception) {
+                        onFailure()
+                    }
+                }
+            } catch (_: Exception) {
+                withContext(Dispatchers.Main) {
+                    onFailure()
+                }
+            }
+        }
+    }
+
+    private fun speakWithLocalTts(banglaText: String, englishText: String) {
+        val tts = textToSpeech ?: return
+        try {
+            tts.stop()
+
+            // Multi-level fallback for English on Android TV
+            val enCandidates = listOf(
+                Locale("en", "IN"),
+                Locale("en", "GB"),
+                Locale.US,
+                Locale.ENGLISH,
+                Locale.getDefault()
+            )
+            var resolvedEnLocale = Locale.US
+            for (loc in enCandidates) {
+                val res = tts.isLanguageAvailable(loc)
+                if (res != TextToSpeech.LANG_MISSING_DATA && res != TextToSpeech.LANG_NOT_SUPPORTED) {
+                    resolvedEnLocale = loc
+                    break
+                }
+            }
+
+            // Check if local Bangla voice data is installed
+            val bnCandidates = listOf(
+                Locale("bn", "BD"),
+                Locale("bn", "IN"),
+                Locale("bn")
+            )
+            var resolvedBnLocale: Locale? = null
+            for (loc in bnCandidates) {
+                val res = tts.isLanguageAvailable(loc)
+                if (res != TextToSpeech.LANG_MISSING_DATA && res != TextToSpeech.LANG_NOT_SUPPORTED) {
+                    resolvedBnLocale = loc
+                    break
+                }
+            }
+
+            val speakParams = Bundle().apply {
+                putInt(TextToSpeech.Engine.KEY_PARAM_STREAM, AudioManager.STREAM_MUSIC)
+                putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, 1.0f)
+            }
+
+            if (resolvedBnLocale != null && banglaText.isNotBlank()) {
+                tts.language = resolvedBnLocale
+                tts.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+                    override fun onStart(utteranceId: String?) {}
+                    override fun onDone(utteranceId: String?) {
+                        if (utteranceId == "bn_call" && englishText.isNotBlank()) {
+                            try {
+                                Thread.sleep(350)
+                                tts.language = resolvedEnLocale
+                                tts.speak(englishText, TextToSpeech.QUEUE_FLUSH, speakParams, "en_call")
+                            } catch (_: Exception) {}
+                        }
+                    }
+                    override fun onError(utteranceId: String?) {
+                        if (englishText.isNotBlank()) {
+                            try {
+                                tts.language = resolvedEnLocale
+                                tts.speak(englishText, TextToSpeech.QUEUE_FLUSH, speakParams, "en_call")
+                            } catch (_: Exception) {}
+                        }
+                    }
+                })
+                tts.speak(banglaText, TextToSpeech.QUEUE_FLUSH, speakParams, "bn_call")
+            } else if (englishText.isNotBlank()) {
+                tts.language = resolvedEnLocale
+                tts.speak(englishText, TextToSpeech.QUEUE_FLUSH, speakParams, "en_call")
+            }
         } catch (_: Exception) {}
     }
 
@@ -1372,37 +1532,32 @@ class MainActivity : ComponentActivity() {
             englishText = "Doctor $doctorName is calling patient $patientNameEn to room number $chamberDigits"
         }
 
-        try {
-            textToSpeech?.stop()
-            val bnLocale = Locale("bn", "BD")
-            val enLocale = Locale("en", "IN")
-
-            val bnSupported = textToSpeech?.setLanguage(bnLocale)
-            if (bnSupported != TextToSpeech.LANG_MISSING_DATA && bnSupported != TextToSpeech.LANG_NOT_SUPPORTED) {
-                textToSpeech?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
-                    override fun onStart(utteranceId: String?) {}
-                    override fun onDone(utteranceId: String?) {
-                        if (utteranceId == "bn_call") {
-                            try {
-                                Thread.sleep(350)
-                                textToSpeech?.language = enLocale
-                                textToSpeech?.speak(englishText, TextToSpeech.QUEUE_FLUSH, null, "en_call")
-                            } catch (_: Exception) {}
-                        }
+        // Play voice announcement after bell chime:
+        // Priority 1: High-fidelity natural online TTS streaming (crystal-clear native Bangla & English audio on Android TV)
+        // Priority 2: Offline fallback to local Android TextToSpeech engine
+        lifecycleScope.launch {
+            delay(650)
+            playOnlineTts(
+                text = banglaText,
+                lang = "bn",
+                onFinished = {
+                    lifecycleScope.launch {
+                        delay(350)
+                        playOnlineTts(
+                            text = englishText,
+                            lang = "en",
+                            onFinished = {},
+                            onFailure = {
+                                speakWithLocalTts("", englishText)
+                            }
+                        )
                     }
-                    override fun onError(utteranceId: String?) {
-                        try {
-                            textToSpeech?.language = enLocale
-                            textToSpeech?.speak(englishText, TextToSpeech.QUEUE_FLUSH, null, "en_call")
-                        } catch (_: Exception) {}
-                    }
-                })
-                textToSpeech?.speak(banglaText, TextToSpeech.QUEUE_FLUSH, null, "bn_call")
-            } else {
-                textToSpeech?.language = enLocale
-                textToSpeech?.speak(englishText, TextToSpeech.QUEUE_FLUSH, null, "en_call")
-            }
-        } catch (_: Exception) {}
+                },
+                onFailure = {
+                    speakWithLocalTts(banglaText, englishText)
+                }
+            )
+        }
     }
 
     private fun checkSelfUpdate(onResult: (Boolean, String, String?, Boolean) -> Unit) {

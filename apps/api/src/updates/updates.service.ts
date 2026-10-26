@@ -138,6 +138,27 @@ export class UpdatesService implements OnModuleInit {
     return {
       releases: [
         {
+          version: '0.1.51',
+          notes: 'HPC Jashore v0.1.51 - High-fidelity dual Bangla/English voice announcements for Android TV with studio audio streaming & package visibility fixes.',
+          pub_date: '2026-10-26T16:30:00.000Z',
+          forceUpdate: true,
+          minVersionCode: 52,
+          platforms: {
+            'windows-x86_64': {
+              signature: '',
+              url: 'https://github.com/shahmdmahi15/hpc-jashore/releases/download/v0.1.51/hpc-jashore_0.1.51_x64-setup.exe',
+            },
+            'android': {
+              versionCode: 52,
+              url: 'https://github.com/shahmdmahi15/hpc-jashore/releases/download/v0.1.51/hpc-jashore-mobile.apk',
+            },
+            'android-tv': {
+              versionCode: 52,
+              url: 'https://github.com/shahmdmahi15/hpc-jashore/releases/download/v0.1.51/hpc-jashore-tv.apk',
+            },
+          },
+        },
+        {
           version: '0.1.50',
           notes: 'HPC Jashore v0.1.50 - Real-time queue sync, audio calling with chamber & room numbers, remote restart support.',
           pub_date: '2026-10-26T14:30:00.000Z',
