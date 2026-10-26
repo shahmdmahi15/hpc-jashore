@@ -45,7 +45,10 @@ import {
 import { PatientTimelineModal } from './patient/PatientTimelineModal';
 import { PainAssessmentFormModal } from './patient/PainAssessmentFormModal';
 import { PatientFilesListModal } from './patient/PatientFilesListModal';
+import { PatientPrescriptionsListModal } from './patient/PatientPrescriptionsListModal';
 import { IntakeAssessmentPrintModal } from './patient/IntakeAssessmentPrintModal';
+import { PrescriptionBuilderSection } from './doctor/PrescriptionBuilderSection';
+import { DoctorDispositionModal } from './doctor/DoctorDispositionModal';
 import { TherapyQueueManagementTab } from './therapy/TherapyQueueManagementTab';
 import {
   Volume2,
@@ -135,6 +138,12 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
   const [assessmentFilesCount, setAssessmentFilesCount] = useState<number>(0);
   const [isFilesListModalOpen, setIsFilesListModalOpen] = useState(false);
   const [isNewAssessmentModalOpen, setIsNewAssessmentModalOpen] = useState(false);
+
+  // Prescription & Disposition States
+  const [isPrescriptionsListModalOpen, setIsPrescriptionsListModalOpen] = useState(false);
+  const [isDispositionModalOpen, setIsDispositionModalOpen] = useState(false);
+  const [followUpDate, setFollowUpDate] = useState<string>('');
+  const [savingRx, setSavingRx] = useState(false);
 
   const doctorId = session?.staffId || '';
 
@@ -381,6 +390,43 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
     setPrescribedMods(prescribedMods.filter((m) => m.modalityCode !== code));
   };
 
+  const handleResetNewPrescription = () => {
+    setPrescribedMeds([
+      {
+        brandName: '',
+        genericName: '',
+        form: 'Tab',
+        strength: '',
+        dosage: '1+0+1',
+        duration: '৫ দিন',
+        instructions: 'খাবারের পর',
+      },
+    ]);
+    setAdvice('');
+    setFollowUpDate('');
+    toast.info('নতুন প্রেসক্রিপশন শুরু করা হয়েছে');
+    const el = document.getElementById('prescription-section');
+    if (el) el.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const handleClonePrescription = (rx: any) => {
+    if (Array.isArray(rx.medicines) && rx.medicines.length > 0) {
+      setPrescribedMeds(rx.medicines);
+    }
+    if (rx.advice) {
+      setAdvice(rx.advice);
+    }
+    if (rx.clinicalNotes?.diagnosis && !diagnosis) {
+      setDiagnosis(rx.clinicalNotes.diagnosis);
+    }
+    if (rx.followUpDate) {
+      setFollowUpDate(rx.followUpDate);
+    }
+    toast.success('পূর্বের প্রেসক্রিপশনের ওষুধ ও নির্দেশাবলী লোড করা হয়েছে!');
+    const el = document.getElementById('prescription-section');
+    if (el) el.scrollIntoView({ behavior: 'smooth' });
+  };
+
   const handleSaveAndPrint = async () => {
     if (!activeSerial) {
       toast.error('No active patient selected from queue!');
@@ -388,6 +434,7 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
     }
 
     try {
+      setSavingRx(true);
       let createdRx = null;
       try {
         createdRx = await api.prescriptions.create({
@@ -399,6 +446,7 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
           painScore,
           objectiveNotes,
           advice,
+          followUpDate,
           medicines: prescribedMeds,
           modalities: prescribedMods,
         });
@@ -431,12 +479,15 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
         medicines: prescribedMeds,
         modalities: prescribedMods,
         advice,
+        followUpDate,
         createdAt: new Date().toISOString(),
       });
 
       loadQueue();
     } catch (err: any) {
       toast.error(`Error saving prescription: ${err.message}`);
+    } finally {
+      setSavingRx(false);
     }
   };
 
@@ -910,11 +961,7 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
                       type="button"
                       variant="outline"
                       size="sm"
-                      onClick={() => {
-                        const el = document.getElementById('prescription-section');
-                        if (el) el.scrollIntoView({ behavior: 'smooth' });
-                        toast.info('নতুন প্রেসক্রিপশন সেকশনে যাওয়া হয়েছে');
-                      }}
+                      onClick={handleResetNewPrescription}
                       className="h-11 text-xs font-bold border-emerald-500/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 flex flex-col items-center justify-center p-1 gap-0.5 active:scale-95 cursor-pointer"
                     >
                       <Plus className="size-4 shrink-0" />
@@ -926,9 +973,7 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
                       type="button"
                       variant="outline"
                       size="sm"
-                      onClick={() => {
-                        toast.info('পূর্বের প্রেসক্রিপশন হিস্ট্রি দেখার সুবিধা লোড হচ্ছে...');
-                      }}
+                      onClick={() => setIsPrescriptionsListModalOpen(true)}
                       className="h-11 text-xs font-bold border-border/80 text-foreground hover:bg-muted/80 flex flex-col items-center justify-center p-1 gap-0.5 active:scale-95 cursor-pointer"
                     >
                       <History className="size-4 shrink-0 text-amber-500" />
@@ -956,9 +1001,7 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
                       type="button"
                       variant="outline"
                       size="sm"
-                      onClick={() => {
-                        toast.info('পূর্বের থেরাপি প্ল্যানসমূহ লোড হচ্ছে...');
-                      }}
+                      onClick={() => setIsFilesListModalOpen(true)}
                       className="h-11 text-xs font-bold border-border/80 text-foreground hover:bg-muted/80 flex flex-col items-center justify-center p-1 gap-0.5 active:scale-95 cursor-pointer"
                     >
                       <Activity className="size-4 shrink-0 text-cyan-500" />
@@ -970,9 +1013,7 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
                       type="button"
                       variant="outline"
                       size="sm"
-                      onClick={() => {
-                        toast.success('রোগীকে থেরাপি হল / ক্যাশিয়ারে পাঠানোর অপশন সচল করা হয়েছে');
-                      }}
+                      onClick={() => setIsDispositionModalOpen(true)}
                       className="h-11 text-xs font-bold border-rose-500/40 text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 flex flex-col items-center justify-center p-1 gap-0.5 active:scale-95 cursor-pointer"
                     >
                       <Send className="size-4 shrink-0" />
@@ -1203,99 +1244,21 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
                 </CardContent>
               </Card>
 
-              {/* Medicines (Rx) Writer Section */}
-              <Card id="prescription-section" className="border-border shadow-sm">
-                <CardHeader className="flex flex-row items-center justify-between pb-3">
-                  <CardTitle className="text-base sm:text-lg font-bold flex items-center gap-2">
-                    ℞ Prescribed Medicines
-                  </CardTitle>
-                  <Button size="sm" onClick={handleAddMedicine} className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold">
-                    + Add Medicine
-                  </Button>
-                </CardHeader>
-
-                <CardContent className="space-y-4">
-                  <div className="flex flex-col gap-2.5">
-                    {prescribedMeds.map((med, idx) => (
-                      <div
-                        key={idx}
-                        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-[2fr_1.5fr_1fr_1fr_2fr_auto] gap-2 items-center bg-muted/40 p-2.5 rounded-xl border border-border/60"
-                      >
-                        <Input
-                          placeholder="Brand Name"
-                          value={med.brandName}
-                          onChange={(e) => {
-                            const updated = [...prescribedMeds];
-                            updated[idx].brandName = e.target.value;
-                            setPrescribedMeds(updated);
-                          }}
-                        />
-                        <Input
-                          placeholder="Generic"
-                          value={med.genericName}
-                          onChange={(e) => {
-                            const updated = [...prescribedMeds];
-                            updated[idx].genericName = e.target.value;
-                            setPrescribedMeds(updated);
-                          }}
-                        />
-                        <Input
-                          placeholder="1+0+1"
-                          value={med.dosage}
-                          onChange={(e) => {
-                            const updated = [...prescribedMeds];
-                            updated[idx].dosage = e.target.value;
-                            setPrescribedMeds(updated);
-                          }}
-                        />
-                        <Input
-                          placeholder="7 days"
-                          value={med.duration}
-                          onChange={(e) => {
-                            const updated = [...prescribedMeds];
-                            updated[idx].duration = e.target.value;
-                            setPrescribedMeds(updated);
-                          }}
-                        />
-                        <Input
-                          placeholder="খাবারের পর"
-                          value={med.instructions}
-                          onChange={(e) => {
-                            const updated = [...prescribedMeds];
-                            updated[idx].instructions = e.target.value;
-                            setPrescribedMeds(updated);
-                          }}
-                        />
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          className="size-8 p-0 shrink-0 self-center"
-                          onClick={() => handleRemoveMedicine(idx)}
-                        >
-                          ✕
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-
-                  <Textarea
-                    label="Special Advice / নির্দেশাবলী"
-                    rows={2}
-                    value={advice}
-                    onChange={(e) => setAdvice(e.target.value)}
-                  />
-
-                  <div className="pt-2">
-                    <Button
-                      size="lg"
-                      className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 text-sm sm:text-base shadow-sm"
-                      onClick={handleSaveAndPrint}
-                    >
-                      📄 Save &amp; Print 5.5in × 8.27in Prescription
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
+              {/* Super Robust Prescription Builder Section (HPC 5.50" x 8.27" Paper) */}
+              <div id="prescription-section">
+                <PrescriptionBuilderSection
+                  medicines={prescribedMeds}
+                  onChangeMedicines={setPrescribedMeds}
+                  advice={advice}
+                  onChangeAdvice={setAdvice}
+                  followUpDate={followUpDate}
+                  onChangeFollowUpDate={setFollowUpDate}
+                  onSaveAndPrint={handleSaveAndPrint}
+                  onOpenAllPrescriptions={() => setIsPrescriptionsListModalOpen(true)}
+                  onResetNewPrescription={handleResetNewPrescription}
+                  saving={savingRx}
+                />
+              </div>
             </div>
           </div>
 
@@ -1351,6 +1314,35 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
             onCreateNew={() => {
               setIsFilesListModalOpen(false);
               setIsNewAssessmentModalOpen(true);
+            }}
+          />
+
+          {/* PATIENT ALL PRESCRIPTIONS LIST / CLONE / PRINT MODAL */}
+          <PatientPrescriptionsListModal
+            open={isPrescriptionsListModalOpen}
+            onOpenChange={setIsPrescriptionsListModalOpen}
+            patientId={activeSerial?.patientId || activeSerial?.patient?.id}
+            patient={activeSerial?.patient}
+            onSelectToClone={handleClonePrescription}
+          />
+
+          {/* DOCTOR DISPOSITION ROUTING MODAL */}
+          <DoctorDispositionModal
+            open={isDispositionModalOpen}
+            onOpenChange={setIsDispositionModalOpen}
+            patient={activeSerial?.patient}
+            visitId={activeSerial?.visitId || activeSerial?.id}
+            activeSerialId={activeSerial?.id}
+            hasAssessmentFile={assessmentFilesCount > 0}
+            hasTreatmentPlan={prescribedMods.length > 0}
+            onOpenFileModal={() => setIsNewAssessmentModalOpen(true)}
+            onOpenPlanSection={() => {
+              const el = document.getElementById('therapy-plan-section');
+              if (el) el.scrollIntoView({ behavior: 'smooth' });
+            }}
+            onRoutingSuccess={() => {
+              loadQueue();
+              setActiveSerial(null);
             }}
           />
         </>

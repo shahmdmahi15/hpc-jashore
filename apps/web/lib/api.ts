@@ -298,8 +298,14 @@ export const api = {
   prescriptions: {
     create: (data: any) =>
       apiFetch<any>('/clinical/prescriptions', { method: 'POST', body: JSON.stringify(data) }),
+    getById: (id: string) =>
+      apiFetch<any>(`/clinical/prescriptions/${id}`),
     getByVisitId: (visitId: string) =>
       apiFetch<any>(`/clinical/prescriptions/${visitId}`),
+    getByPatientId: (patientId: string) =>
+      apiFetch<any[]>(`/clinical/prescriptions/patient/${patientId}`),
+    list: () =>
+      apiFetch<any[]>('/clinical/prescriptions'),
   },
   therapy: {
     getQueue: () => apiFetch<{ waiting: any[]; nowServing: any[]; activeSessions: any[] }>('/therapy/queue'),
@@ -339,6 +345,8 @@ export const api = {
     recordPayment: (data: any) =>
       apiFetch<any>('/billing/payments', { method: 'POST', body: JSON.stringify(data) }),
     getDues: () => apiFetch<any[]>('/billing/dues'),
+    getPatientBilling: (patientId: string) =>
+      apiFetch<any>(`/billing/bills/patient/${patientId}`),
   },
   inventory: {
     getMedicines: () => apiFetch<any[]>('/inventory/medicines'),

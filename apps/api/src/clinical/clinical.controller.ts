@@ -61,6 +61,16 @@ export class ClinicalController {
     return this.clinical.getPatientConsultations(patientId);
   }
 
+  @Get('prescriptions')
+  listPrescriptions() {
+    return this.clinical.listPrescriptions();
+  }
+
+  @Get('prescriptions/patient/:patientId')
+  getPatientPrescriptions(@Param('patientId') patientId: string) {
+    return this.clinical.getPatientPrescriptions(patientId);
+  }
+
   @Get('prescriptions/:id')
   getPrescription(@Param('id') id: string) {
     return this.clinical.getPrescription(id);

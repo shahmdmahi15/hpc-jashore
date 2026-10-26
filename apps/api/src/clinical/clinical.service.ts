@@ -225,6 +225,90 @@ export class ClinicalService {
     }));
   }
 
+  async getPatientPrescriptions(patientId: string) {
+    const rxRows = await this.db
+      .select({
+        prescription: prescriptions,
+        patient: patients,
+        doctor: users,
+      })
+      .from(prescriptions)
+      .innerJoin(patients, eq(prescriptions.patientId, patients.id))
+      .leftJoin(users, eq(prescriptions.doctorId, users.id))
+      .where(eq(prescriptions.patientId, patientId))
+      .orderBy(desc(prescriptions.createdAt));
+
+    const result = [];
+    for (const record of rxRows) {
+      const items = await this.db
+        .select()
+        .from(prescriptionItems)
+        .where(eq(prescriptionItems.prescriptionId, record.prescription.id));
+
+      result.push({
+        ...record.prescription,
+        patient: {
+          id: record.patient.id,
+          mrn: record.patient.mrn,
+          nameEn: record.patient.nameEn,
+          nameBn: record.patient.nameBn,
+          ageYears: record.patient.ageYears,
+          gender: record.patient.gender,
+          phone: record.patient.phone,
+        },
+        doctor: {
+          id: record.doctor?.id,
+          fullName: record.doctor?.displayName ?? 'Doctor',
+          specialization: record.doctor?.specialization ?? 'Specialist Physiotherapist',
+        },
+        items,
+      });
+    }
+    return result;
+  }
+
+  async listPrescriptions(limit = 50) {
+    const rxRows = await this.db
+      .select({
+        prescription: prescriptions,
+        patient: patients,
+        doctor: users,
+      })
+      .from(prescriptions)
+      .innerJoin(patients, eq(prescriptions.patientId, patients.id))
+      .leftJoin(users, eq(prescriptions.doctorId, users.id))
+      .orderBy(desc(prescriptions.createdAt))
+      .limit(limit);
+
+    const result = [];
+    for (const record of rxRows) {
+      const items = await this.db
+        .select()
+        .from(prescriptionItems)
+        .where(eq(prescriptionItems.prescriptionId, record.prescription.id));
+
+      result.push({
+        ...record.prescription,
+        patient: {
+          id: record.patient.id,
+          mrn: record.patient.mrn,
+          nameEn: record.patient.nameEn,
+          nameBn: record.patient.nameBn,
+          ageYears: record.patient.ageYears,
+          gender: record.patient.gender,
+          phone: record.patient.phone,
+        },
+        doctor: {
+          id: record.doctor?.id,
+          fullName: record.doctor?.displayName ?? 'Doctor',
+          specialization: record.doctor?.specialization ?? 'Specialist Physiotherapist',
+        },
+        items,
+      });
+    }
+    return result;
+  }
+
   async getPrescription(id: string) {
     const rxRows = await this.db
       .select({
