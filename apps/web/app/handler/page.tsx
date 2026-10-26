@@ -29,8 +29,8 @@ const HANDLER_TABS = [
     titleEn: 'Therapy Queue',
     titleBn: 'থেরাপি কিউ',
     icon: Activity,
-    descriptionEn: 'Active therapy hall beds, modality timer controls, machine allocation, and session tracking.',
-    descriptionBn: 'থেরাপি হলের সক্রিয় বেড, মডালিটি টাইমার ও মেশিন বরাদ্দ পর্যবেক্ষণ।',
+    descriptionEn: 'Active therapy hall equipment, modality timer controls, machine allocation, and session tracking.',
+    descriptionBn: 'থেরাপি হলের সক্রিয় যন্ত্রপাতি, মডালিটি টাইমার ও মেশিন বরাদ্দ পর্যবেক্ষণ।',
   },
   {
     id: 'checkin',
@@ -61,8 +61,8 @@ const HANDLER_TABS = [
     titleEn: 'Therapy Slot',
     titleBn: 'থেরাপি স্লট',
     icon: Clock,
-    descriptionEn: 'Daily machine and bed schedule, equipment maintenance intervals, and slot roster.',
-    descriptionBn: 'দৈনিক থেরাপি স্লট সূচী, মেশিন মেইনটেন্যান্স ও বেড বুকিং রস্টার।',
+    descriptionEn: 'Daily machine and equipment schedule, maintenance intervals, and slot roster.',
+    descriptionBn: 'দৈনিক থেরাপি স্লট সূচী, মেশিন মেইনটেন্যান্স ও বরাদ্দ রস্টার।',
   },
   {
     id: 'patients',
@@ -100,7 +100,7 @@ export default function HandlerPage() {
                   {language === 'bn' ? 'থেরাপি হল ও হ্যান্ডলার ওয়ার্কস্টেশন' : 'Therapy Hall & Handler Workstation'}
                 </h1>
                 <p className="text-xs sm:text-sm text-muted-foreground">
-                  {language === 'bn' ? 'মডালিটি প্রয়োগ, বেড ব্যবস্থাপনা ও সেশন পরিচালনা' : 'Modality application, bed management, and session execution'}
+                  {language === 'bn' ? 'মডালিটি প্রয়োগ, যন্ত্রপাতি ব্যবস্থাপনা ও সেশন পরিচালনা' : 'Modality application, machine management, and session execution'}
                 </p>
               </div>
             </div>

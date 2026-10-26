@@ -71,7 +71,7 @@ const DOCTOR_TABS = [
     titleEn: 'Therapy Slot',
     titleBn: 'থেরাপি স্লট',
     icon: Clock,
-    descriptionEn: 'Machine availability and schedule to prescribe therapy packages with optimal bed allocation.',
+    descriptionEn: 'Machine availability and schedule to prescribe therapy packages with optimal slot allocation.',
     descriptionBn: 'থেরাপি মেশিনের প্রাপ্যতা ও রোগীর জন্য উপযুক্ত থেরাপি স্লট নির্ধারণ।',
   },
   {

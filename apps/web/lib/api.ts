@@ -312,7 +312,6 @@ export const api = {
       apiFetch<any>('/therapy/recall-patient', { method: 'POST', body: JSON.stringify(data) }),
     cancelCall: (data: any) =>
       apiFetch<any>('/therapy/cancel-call', { method: 'POST', body: JSON.stringify(data) }),
-    getBeds: () => apiFetch<any[]>('/therapy/beds'),
     getMachines: () => apiFetch<any[]>('/therapy/machines'),
     getActiveSessions: () => apiFetch<any[]>('/therapy/sessions/active'),
     startSession: (data: any) =>
@@ -340,9 +339,6 @@ export const api = {
     recordPayment: (data: any) =>
       apiFetch<any>('/billing/payments', { method: 'POST', body: JSON.stringify(data) }),
     getDues: () => apiFetch<any[]>('/billing/dues'),
-  },
-  desks: {
-    list: () => apiFetch<any[]>('/desks'),
   },
   inventory: {
     getMedicines: () => apiFetch<any[]>('/inventory/medicines'),

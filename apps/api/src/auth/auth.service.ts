@@ -19,7 +19,6 @@ import { MailService } from '../mail/mail.service';
 import { RealtimeService } from '../realtime/realtime.service';
 import { EventsGateway } from '../realtime/events.gateway';
 import {
-  desks,
   refreshSessions,
   users,
   type Role,

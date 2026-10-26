@@ -908,8 +908,8 @@ export function ConsultationConfigView() {
                 </span>
                 <span className="text-[11px] text-muted-foreground block">
                   {language === 'bn'
-                    ? 'নিষ্ক্রিয় থাকলে ফ্রন্ট ডেস্কে নতুন সিরিয়াল বুকিং বন্ধ থাকবে।'
-                    : 'When inactive, serial booking will be disabled on front desks.'}
+                    ? 'নিষ্ক্রিয় থাকলে অভ্যর্থনায় নতুন সিরিয়াল বুকিং বন্ধ থাকবে।'
+                    : 'When inactive, serial booking will be disabled on reception.'}
                 </span>
               </div>
               <Switch

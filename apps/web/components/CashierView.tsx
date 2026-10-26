@@ -417,15 +417,7 @@ export default function CashierView({ session: propSession }: CashierProps = {})
   const handleOpenDrawer = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      let deskId = 'cashier-1';
-      try {
-        const deskList = await api.desks.list();
-        const found = deskList.find((d: any) => d.type === 'cashier') || deskList[0];
-        if (found?.id) deskId = found.id;
-      } catch {}
-
       await api.billing.openDrawer({
-        deskId,
         openingCashPaisa: Math.max(0, openingCashTaka) * 100,
       });
       toast.success('ক্যাশ ড্রয়ার সফলভাবে খোলা হয়েছে! (Cash Drawer Opened for shift)');

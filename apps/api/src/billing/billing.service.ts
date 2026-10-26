@@ -12,7 +12,6 @@ import {
   billItems,
   bills,
   cashDrawers,
-  desks,
   drawerEvents,
   dues,
   patients,
@@ -99,51 +98,6 @@ export class BillingService {
     } catch {}
 
     return resolvedId;
-  }
-
-  private async resolveDeskId(deskId?: string): Promise<string> {
-    if (deskId) {
-      const existing = await this.db
-        .select({ id: desks.id })
-        .from(desks)
-        .where(eq(desks.id, deskId))
-        .limit(1);
-      if (existing[0]) return existing[0].id;
-    }
-
-    // Look for any active cashier desk
-    const cashierDesk = await this.db
-      .select({ id: desks.id })
-      .from(desks)
-      .where(and(eq(desks.type, 'cashier'), eq(desks.isActive, 1)))
-      .limit(1);
-    if (cashierDesk[0]) return cashierDesk[0].id;
-
-    // Look for any active desk
-    const anyDesk = await this.db
-      .select({ id: desks.id })
-      .from(desks)
-      .where(eq(desks.isActive, 1))
-      .limit(1);
-    if (anyDesk[0]) return anyDesk[0].id;
-
-    // Fallback: auto-create the desk so foreign keys never fail
-    const targetId = deskId || 'cashier-1';
-    try {
-      this.db.run(
-        sql`INSERT OR IGNORE INTO desks (id, code, type, name, is_active)
-            VALUES (
-              ${targetId},
-              ${targetId === 'reception-1' ? 'REC-01' : (targetId === 'cashier-1' ? 'CSH-01' : targetId.toUpperCase())},
-              ${targetId.startsWith('rec') ? 'reception' : 'cashier'},
-              ${targetId === 'reception-1' ? 'Reception Counter 1' : 'Cash Counter 1'},
-              1
-            )`,
-      );
-      return targetId;
-    } catch {
-      return targetId;
-    }
   }
 
   async createBill(
@@ -526,7 +480,7 @@ export class BillingService {
   ) {
     try {
       const effectiveCashierId = await this.resolveStaffId(cashierStaffId);
-      const effectiveDeskId = await this.resolveDeskId(dto.deskId);
+      const effectiveDeskId = dto.deskId ?? 'cashier';
       const existing = await this.db
         .select()
         .from(cashDrawers)

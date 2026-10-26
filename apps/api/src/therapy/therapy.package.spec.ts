@@ -102,16 +102,6 @@ sqlite.exec(`
     updated_at TEXT NOT NULL
   );
 
-  CREATE TABLE beds (
-    id TEXT PRIMARY KEY,
-    room_id TEXT NOT NULL,
-    code TEXT NOT NULL UNIQUE,
-    name TEXT NOT NULL,
-    is_active INTEGER NOT NULL DEFAULT 1,
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
-  );
-
   CREATE TABLE machines (
     id TEXT PRIMARY KEY,
     room_id TEXT,
@@ -558,6 +548,7 @@ async function runTests() {
 
   restoreDate();
   console.log('\n🎉 ALL THERAPY PACKAGE SPECIFICATION TESTS PASSED!\n');
+  process.exit(0);
 }
 
 runTests().catch((err) => {

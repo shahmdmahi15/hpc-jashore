@@ -13,7 +13,7 @@ import { Server, Socket } from 'socket.io';
 import { Inject } from '@nestjs/common';
 import { and, eq } from 'drizzle-orm';
 import { DB, type Db } from '../db/db.module';
-import { refreshSessions, shifts, users } from '../db/schema';
+import { refreshSessions, users } from '../db/schema';
 
 // Socket.IO gateway: slim events only ({ id, ...refs }); clients refetch REST.
 // Rooms: clinic:global, role:{role}, user:{userId}, tv:{pairingCode}, doctor:{staffId}, room:{deskRoomId}.
@@ -98,13 +98,6 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     if (role === 'doctor') {
       await client.join(`doctor:${user.id}`);
     }
-
-    const activeShifts = await this.db
-      .select()
-      .from(shifts)
-      .where(and(eq(shifts.staffId, user.id), eq(shifts.status, 'active')));
-    const deskId = activeShifts[0]?.deskId;
-    if (deskId) await client.join(`room:${deskId}`);
 
     client.emit('connected', {
       user: { id: user.id, role, email: user.email },

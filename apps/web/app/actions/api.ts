@@ -325,11 +325,11 @@ export async function createPrescriptionAction(data: any, token?: string) {
 }
 
 // -----------------------------------------------------------------------------
-// Therapy Hall & Bed Matrix Server Actions
+// Therapy Hall & Machines Server Actions
 // -----------------------------------------------------------------------------
 
-export async function getTherapyBedsAction(token?: string) {
-  return serverFetch<any[]>('/therapy/beds', {}, token);
+export async function getTherapyBedsAction(_token?: string) {
+  return [];
 }
 
 export async function getTherapyMachinesAction(token?: string) {

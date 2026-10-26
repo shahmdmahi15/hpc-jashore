@@ -271,8 +271,8 @@ export default function WaitingRoomTvView() {
         const isTherapy = latestCalled.type === 'therapy' || latestCalled.isTherapy || !latestCalled.doctorNameEn;
         const patientBn = latestCalled.patientNameBn || latestCalled.patientNameEn || 'রোগী';
         const patientEn = latestCalled.patientNameEn || latestCalled.patientNameBn || 'Patient';
-        const roomNameBn = latestCalled.roomName || latestCalled.bedName || (latestCalled.chamberRoomNumber ? `রুম নম্বর ${toBnNum(latestCalled.chamberRoomNumber)}` : 'থেরাপি রুম ১');
-        const roomNameEn = latestCalled.roomName || latestCalled.bedName || (latestCalled.chamberRoomNumber ? `Room ${latestCalled.chamberRoomNumber}` : 'Therapy Room 1');
+        const roomNameBn = latestCalled.roomName || (latestCalled.chamberRoomNumber ? `রুম নম্বর ${toBnNum(latestCalled.chamberRoomNumber)}` : 'থেরাপি হল ১');
+        const roomNameEn = latestCalled.roomName || (latestCalled.chamberRoomNumber ? `Room ${latestCalled.chamberRoomNumber}` : 'Therapy Hall 1');
 
         if (isTherapy) {
           // 1. Speak in native Bangla: থেরাপির জন্য রোগী <patient_name> কে <room_name> এ আসার জন্য অনুরোধ করা হচ্ছে।
@@ -937,7 +937,7 @@ export default function WaitingRoomTvView() {
                 </div>
                 <div className="text-2xl sm:text-4xl font-black font-mono text-white">
                   {activeCallAlert.type === 'therapy' || activeCallAlert.isTherapy
-                    ? (activeCallAlert.roomName || activeCallAlert.bedName || (lang === 'bn' ? 'থেরাপি রুম ১' : 'THERAPY ROOM 1'))
+                    ? (activeCallAlert.roomName || (lang === 'bn' ? 'থেরাপি হল ১' : 'THERAPY HALL 1'))
                     : (activeCallAlert.chamberRoomNumber
                         ? (lang === 'bn' ? `রুম নম্বর ${toBnNum(activeCallAlert.chamberRoomNumber)}` : `ROOM ${activeCallAlert.chamberRoomNumber}`)
                         : (lang === 'bn' ? 'চেম্বার রুম ১' : 'CHAMBER ROOM 1'))}

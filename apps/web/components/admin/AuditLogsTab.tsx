@@ -102,8 +102,8 @@ const COMMON_ENTITIES = [
   { value: 'therapy_sessions', labelEn: 'therapy_sessions', labelBn: 'থেরাপি সেশন' },
   { value: 'serials', labelEn: 'serials (Consultation Queue)', labelBn: 'ডাক্তার সিরিয়াল' },
   { value: 'consultation_bookings', labelEn: 'consultation_bookings', labelBn: 'কনসালটেশন বুকিং' },
-  { value: 'rooms', labelEn: 'rooms (Chambers & Beds)', labelBn: 'রুম ও বেড' },
-  { value: 'desks', labelEn: 'desks (Cash & Reception Desks)', labelBn: 'কাউন্টার ও ডেস্ক' },
+  { value: 'rooms', labelEn: 'rooms (Chambers & Rehab Halls)', labelBn: 'চেম্বার ও রিহ্যাব হল' },
+  { value: 'machines', labelEn: 'machines (Therapy Equipment)', labelBn: 'থেরাপি যন্ত্রপাতি' },
   { value: 'bulletins', labelEn: 'bulletins (TV Announcements)', labelBn: 'টিভি বুলেটিন' },
   { value: 'settings', labelEn: 'settings (System Config)', labelBn: 'সিস্টেম কনফিগ' },
 ];

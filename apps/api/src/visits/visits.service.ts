@@ -9,7 +9,6 @@ import { and, desc, eq, isNull, or, sql } from 'drizzle-orm';
 import { AuditService } from '../audit/audit.service';
 import { DB, type Db } from '../db/db.module';
 import {
-  beds,
   bills,
   consultationBookings,
   consultations,
@@ -1407,14 +1406,14 @@ export class VisitsService {
         modalityCode: therapySessions.modalityCode,
         modalityNameEn: modalities.nameEn,
         modalityNameBn: modalities.nameBn,
-        bedName: beds.name,
+        bedName: sql<string | null>`NULL`,
+        roomName: sql<string>`'Therapy Hall'`,
         startedAt: therapySessions.startedAt,
         durationMinutes: therapySessions.durationMinutes,
       })
       .from(therapySessions)
       .innerJoin(patients, eq(therapySessions.patientId, patients.id))
       .leftJoin(modalities, eq(therapySessions.modalityCode, modalities.code))
-      .leftJoin(beds, eq(therapySessions.bedId, beds.id))
       .where(eq(therapySessions.status, 'in_progress'))
       .limit(8);
 

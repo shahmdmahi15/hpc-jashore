@@ -22,5 +22,7 @@ assert.strictEqual(nextMrn(db, 2026), 'HPC-2026-00001');
 assert.strictEqual(nextMrn(db, 2026), 'HPC-2026-00002');
 assert.strictEqual(nextMrn(db, 2027), 'HPC-2027-00001'); // year rollover
 
+sqlite.close();
 // eslint-disable-next-line no-console
 console.log('mrn.util: all assertions passed');
+process.exit(0);

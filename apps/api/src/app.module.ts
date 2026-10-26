@@ -11,7 +11,6 @@ import { ClinicalModule } from './clinical/clinical.module';
 import configuration from './config/configuration';
 import { RequestIdMiddleware } from './common/request-id.middleware';
 import { DbModule } from './db/db.module';
-import { DesksModule } from './desks/desks.module';
 import { HealthController } from './health/health.controller';
 import { InventoryModule } from './inventory/inventory.module';
 import { MailModule } from './mail/mail.module';
@@ -51,7 +50,6 @@ import { VisitsModule } from './visits/visits.module';
     RbacModule,
     UsersModule,
     StaffModule,
-    DesksModule,
     ShiftsModule,
     CatalogModule,
     SettingsModule,

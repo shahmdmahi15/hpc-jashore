@@ -19,7 +19,6 @@ import {
   CallTherapyPatientDto,
   CancelTherapyCallDto,
   CompleteSessionDto,
-  CreateBedDto,
   CreateMachineDto,
   CreatePackageDto,
   MarkInTherapyDto,
@@ -139,17 +138,7 @@ export class TherapyController {
 
   @Get('beds')
   listBeds() {
-    return this.therapy.listBeds();
-  }
-
-  @Post('beds')
-  @Roles('admin')
-  createBed(
-    @CurrentUser() user: RequestUser,
-    @Body() dto: CreateBedDto,
-    @Req() req: Request,
-  ) {
-    return this.therapy.createBed({ sub: user.sub, role: user.role }, dto, this.meta(req));
+    return [];
   }
 
   @Get('machines')

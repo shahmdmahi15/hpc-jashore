@@ -2,12 +2,12 @@ import { Inject, Injectable } from '@nestjs/common';
 import { and, desc, eq, gte, lte, sql } from 'drizzle-orm';
 import { DB, type Db } from '../db/db.module';
 import {
-  beds,
   bills,
   consultations,
   dues,
   expenses,
   feedback,
+  machines,
   modalities,
   payments,
   prescriptions,
@@ -60,15 +60,16 @@ export class ReportsService {
       .where(eq(dues.status, 'pending'));
     const totalPendingDuesPaisa = pendingDues.reduce((acc, d) => acc + d.amountPaisa, 0);
 
-    // Active occupancy
-    const totalBeds = (await this.db.select().from(beds)).length;
-    const occupiedBeds = (
+    // Active occupancy (therapy sessions vs active machines/capacity)
+    const activeMachines = await this.db.select().from(machines).where(eq(machines.isActive, 1));
+    const totalCapacity = activeMachines.length > 0 ? activeMachines.length : 10;
+    const occupiedCapacity = (
       await this.db
         .select()
         .from(therapySessions)
         .where(eq(therapySessions.status, 'in_progress'))
     ).length;
-    const bedOccupancyPercent = totalBeds > 0 ? Math.round((occupiedBeds / totalBeds) * 100) : 0;
+    const bedOccupancyPercent = totalCapacity > 0 ? Math.round((occupiedCapacity / totalCapacity) * 100) : 0;
 
     return {
       date: targetDate,
@@ -101,8 +102,8 @@ export class ReportsService {
         count: pendingDues.length,
       },
       occupancy: {
-        totalBeds,
-        occupiedBeds,
+        totalBeds: totalCapacity,
+        occupiedBeds: occupiedCapacity,
         ratePercent: bedOccupancyPercent,
       },
     };

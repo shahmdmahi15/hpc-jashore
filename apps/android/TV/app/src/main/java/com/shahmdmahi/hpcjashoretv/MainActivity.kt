@@ -68,7 +68,8 @@ data class TherapyPatient(
     val tokenNumber: Int,
     val patientNameEn: String,
     val patientNameBn: String? = null,
-    val bedName: String = "Bed 1",
+    val bedName: String = "Therapy Hall",
+    val roomName: String = "Therapy Hall",
     val modality: String = "Physiotherapy",
     val durationMinutes: Int = 20,
     val priority: String = "regular",
@@ -821,9 +822,9 @@ class MainActivity : ComponentActivity() {
                                         } else {
                                             Text(
                                                 text = if (currentLanguage == "bn")
-                                                    "📢 নোটিশ: থেরাপির সময় মোবাইল ফোন সাইলেন্ট রাখুন   ✦   সিরিয়াল অনুযায়ী চেম্বারে প্রবেশ করুন   ✦   যেকোনো তথ্যের জন্য ফ্রন্ট ডেস্কে যোগাযোগ করুন   ✦   হটলাইন: +৮৮০ ১৫১৫-৬১৫১৮৮"
+                                                    "📢 নোটিশ: থেরাপির সময় মোবাইল ফোন সাইলেন্ট রাখুন   ✦   সিরিয়াল অনুযায়ী চেম্বারে প্রবেশ করুন   ✦   যেকোনো তথ্যের জন্য রিসেপশনে যোগাযোগ করুন   ✦   হটলাইন: +৮৮০ ১৫১৫-৬১৫১৮৮"
                                                 else
-                                                    "📢 Notice: Keep mobile phones silent during therapy   ✦   Enter chamber according to serial token   ✦   Contact front desk for any inquiries   ✦   Hotline: +880 1515-615188",
+                                                    "📢 Notice: Keep mobile phones silent during therapy   ✦   Enter chamber according to serial token   ✦   Contact reception for any inquiries   ✦   Hotline: +880 1515-615188",
                                                 color = Emerald400,
                                                 fontSize = 13.sp,
                                                 fontWeight = FontWeight.Bold
@@ -1103,10 +1104,8 @@ class MainActivity : ComponentActivity() {
                             if (obj.optString("status") == "calling") {
                                 val roomStr = if (obj.has("roomName") && !obj.isNull("roomName")) {
                                     obj.getString("roomName")
-                                } else if (obj.has("bedName") && !obj.isNull("bedName")) {
-                                    obj.getString("bedName")
                                 } else {
-                                    "Therapy Room 1"
+                                    "Therapy Hall 1"
                                 }
                                 calledPatient = ConsultationPatient(
                                     serialNumber = obj.optInt("tokenNumber", 1),
@@ -1132,7 +1131,7 @@ class MainActivity : ComponentActivity() {
                             tokenNumber = obj.optInt("tokenNumber", i + 1),
                             patientNameEn = obj.optString("patientNameEn", "Patient"),
                             patientNameBn = if (obj.has("patientNameBn") && !obj.isNull("patientNameBn")) obj.getString("patientNameBn") else null,
-                            bedName = "Bed ${i + 1}",
+                            roomName = "Therapy Hall 1",
                             modality = "Physiotherapy",
                             durationMinutes = 20,
                             priority = obj.optString("priority", "regular"),

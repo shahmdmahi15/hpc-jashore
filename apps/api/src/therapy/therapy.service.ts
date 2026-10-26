@@ -9,7 +9,6 @@ import { and, desc, eq } from 'drizzle-orm';
 import { AuditService } from '../audit/audit.service';
 import { DB, type Db } from '../db/db.module';
 import {
-  beds,
   machines,
   modalities,
   packageCredits,
@@ -29,7 +28,6 @@ import type {
   CallTherapyPatientDto,
   CancelTherapyCallDto,
   CompleteSessionDto,
-  CreateBedDto,
   CreateMachineDto,
   CreatePackageDto,
   MarkInTherapyDto,
@@ -58,17 +56,6 @@ export class TherapyService {
       .from(patients)
       .where(eq(patients.id, dto.patientId));
     if (!patientRows[0]) throw new NotFoundException('Patient not found');
-
-    // Prevent bed conflict
-    if (dto.bedId) {
-      const activeBedSession = await this.db
-        .select()
-        .from(therapySessions)
-        .where(and(eq(therapySessions.bedId, dto.bedId), eq(therapySessions.status, 'in_progress')));
-      if (activeBedSession.length > 0) {
-        throw new BadRequestException('Bed is currently occupied by another active session');
-      }
-    }
 
     // Prevent machine conflict
     if (dto.machineId) {
@@ -106,7 +93,7 @@ export class TherapyService {
       planId: dto.planId ?? null,
       patientId: dto.patientId,
       therapistStaffId: effectiveTherapistId,
-      bedId: dto.bedId ?? null,
+      bedId: null,
       machineId: dto.machineId ?? null,
       modalityCode: dto.modalityCode,
       status: 'in_progress' as const,
@@ -126,7 +113,7 @@ export class TherapyService {
       patientId: dto.patientId,
       patientName: patientRows[0].nameEn,
       modalityCode: dto.modalityCode,
-      bedId: dto.bedId ?? null,
+      bedId: null,
       machineId: dto.machineId ?? null,
       therapistStaffId,
       startedAt: now,
@@ -294,13 +281,11 @@ export class TherapyService {
       .select({
         session: therapySessions,
         patient: patients,
-        bed: beds,
         machine: machines,
         therapist: users,
       })
       .from(therapySessions)
       .innerJoin(patients, eq(therapySessions.patientId, patients.id))
-      .leftJoin(beds, eq(therapySessions.bedId, beds.id))
       .leftJoin(machines, eq(therapySessions.machineId, machines.id))
       .leftJoin(users, eq(therapySessions.therapistStaffId, users.id))
       .orderBy(desc(therapySessions.createdAt));
@@ -309,7 +294,7 @@ export class TherapyService {
       ...r.session,
       patientName: r.patient.nameEn,
       patientMrn: r.patient.mrn,
-      bedCode: r.bed?.code ?? null,
+      bedCode: null,
       machineCode: r.machine?.code ?? null,
       therapistName: r.therapist?.displayName ?? 'Therapist',
     }));
@@ -317,7 +302,6 @@ export class TherapyService {
 
   async getOccupancy() {
     const allRooms = await this.db.select().from(rooms);
-    const allBeds = await this.db.select().from(beds);
     const allMachines = await this.db.select().from(machines);
 
     const activeSessions = await this.db
@@ -328,18 +312,6 @@ export class TherapyService {
       .from(therapySessions)
       .innerJoin(patients, eq(therapySessions.patientId, patients.id))
       .where(eq(therapySessions.status, 'in_progress'));
-
-    const bedOccupancy = allBeds.map((b) => {
-      const active = activeSessions.find((s) => s.session.bedId === b.id);
-      return {
-        ...b,
-        isOccupied: !!active,
-        patientName: active?.patient.nameEn ?? null,
-        patientMrn: active?.patient.mrn ?? null,
-        modalityCode: active?.session.modalityCode ?? null,
-        startedAt: active?.session.startedAt ?? null,
-      };
-    });
 
     const machineOccupancy = allMachines.map((m) => {
       const active = activeSessions.find((s) => s.session.machineId === m.id);
@@ -353,42 +325,16 @@ export class TherapyService {
 
     return {
       rooms: allRooms,
-      beds: bedOccupancy,
+      beds: [],
       machines: machineOccupancy,
       totalActiveSessions: activeSessions.length,
     };
   }
 
-  // --- Beds and Machines CRUD ------------------------------------------------
+  // --- Machines CRUD ------------------------------------------------
 
   async listBeds() {
-    return this.db.select().from(beds);
-  }
-
-  async createBed(
-    actor: { sub?: string; role?: string },
-    dto: CreateBedDto,
-    meta: { ip?: string | null; requestId?: string | null },
-  ) {
-    const row = {
-      id: randomUUID(),
-      roomId: dto.roomId,
-      code: dto.code.trim().toUpperCase(),
-      name: dto.name.trim(),
-      isActive: 1,
-    };
-    await this.db.insert(beds).values(row);
-    await this.audit.log({
-      actorUserId: actor.sub,
-      actorRole: actor.role,
-      action: 'beds.create',
-      entity: 'beds',
-      entityId: row.id,
-      after: row,
-      ip: meta.ip,
-      requestId: meta.requestId,
-    });
-    return row;
+    return [];
   }
 
   async listMachines() {
@@ -571,57 +517,15 @@ export class TherapyService {
 
   async getRooms() {
     const allRooms = await this.db.select().from(rooms).orderBy(rooms.roomNumber);
-    const allBeds = await this.db.select().from(beds).orderBy(beds.code);
-    const activeSessions = await this.db
-      .select({
-        sessionId: therapySessions.id,
-        bedId: therapySessions.bedId,
-        patientName: patients.nameEn,
-      })
-      .from(therapySessions)
-      .leftJoin(patients, eq(therapySessions.patientId, patients.id))
-      .where(eq(therapySessions.status, 'in_progress'));
-
-    const occupiedBedIds = new Set(activeSessions.map((s) => s.bedId).filter(Boolean));
-
-    const combined: Array<{
-      id: string;
-      name: string;
-      code: string;
-      roomNumber: string | number;
-      type: string;
-      isOccupied: boolean;
-      currentPatientName?: string | null;
-    }> = [];
-
-    // Map rooms
-    for (const r of allRooms) {
-      combined.push({
-        id: r.id,
-        name: r.name || `Room ${r.roomNumber}`,
-        code: String(r.roomNumber),
-        roomNumber: r.roomNumber,
-        type: r.type,
-        isOccupied: false,
-      });
-    }
-
-    // Map beds
-    for (const b of allBeds) {
-      const isOcc = occupiedBedIds.has(b.id);
-      const sess = activeSessions.find((s) => s.bedId === b.id);
-      combined.push({
-        id: b.id,
-        name: b.name || `Bed ${b.code}`,
-        code: b.code,
-        roomNumber: b.code,
-        type: 'therapy_bed',
-        isOccupied: isOcc,
-        currentPatientName: sess?.patientName || null,
-      });
-    }
-
-    return combined;
+    return allRooms.map((r) => ({
+      id: r.id,
+      name: r.name || `Room ${r.roomNumber}`,
+      code: String(r.roomNumber),
+      roomNumber: r.roomNumber,
+      type: r.type,
+      isOccupied: false,
+      currentPatientName: null,
+    }));
   }
 
   async getQueue() {
@@ -654,12 +558,10 @@ export class TherapyService {
       .select({
         session: therapySessions,
         patient: patients,
-        bed: beds,
         modality: modalities,
       })
       .from(therapySessions)
       .innerJoin(patients, eq(therapySessions.patientId, patients.id))
-      .leftJoin(beds, eq(therapySessions.bedId, beds.id))
       .leftJoin(modalities, eq(therapySessions.modalityCode, modalities.code))
       .where(eq(therapySessions.status, 'in_progress'));
 
@@ -703,13 +605,13 @@ export class TherapyService {
     return {
       waiting,
       nowServing,
-      activeSessions: activeSessions.map(({ session: s, patient: p, bed: b, modality: m }) => ({
+      activeSessions: activeSessions.map(({ session: s, patient: p, modality: m }) => ({
         sessionId: s.id,
         patientId: p.id,
         patientNameEn: p.nameEn,
         patientNameBn: p.nameBn,
         mrn: p.mrn,
-        bedName: b?.name || 'Bed 1',
+        bedName: null,
         modalityCode: s.modalityCode,
         modalityNameEn: m?.nameEn || s.modalityCode,
         modalityNameBn: m?.nameBn || s.modalityCode,

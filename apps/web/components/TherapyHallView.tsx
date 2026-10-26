@@ -29,8 +29,7 @@ export interface TherapyHallProps {
 
 export default function TherapyHallView({ session: propSession }: TherapyHallProps = {}) {
   const session = propSession || getSession();
-  const [mobileTab, setMobileTab] = useState<'queue' | 'beds' | 'sessions' | 'packages'>('queue');
-  const [beds, setBeds] = useState<any[]>([]);
+  const [mobileTab, setMobileTab] = useState<'queue' | 'machines' | 'sessions' | 'packages'>('queue');
   const [machines, setMachines] = useState<any[]>([]);
   const [activeSessions, setActiveSessions] = useState<any[]>([]);
   const [packages, setPackages] = useState<any[]>([]);
@@ -39,7 +38,6 @@ export default function TherapyHallView({ session: propSession }: TherapyHallPro
   // Start Session Modal
   const [showStartModal, setShowStartModal] = useState(false);
   const [selectedPatientId, setSelectedPatientId] = useState('');
-  const [selectedBedId, setSelectedBedId] = useState('');
   const [selectedMachineId, setSelectedMachineId] = useState('');
   const [selectedModalityCode, setSelectedModalityCode] = useState('IFT');
   const [durationMinutes, setDurationMinutes] = useState(15);
@@ -51,20 +49,17 @@ export default function TherapyHallView({ session: propSession }: TherapyHallPro
 
   const loadData = async () => {
     try {
-      const [b, m, s, p, pat] = await Promise.all([
-        api.therapy.getBeds(),
+      const [m, s, p, pat] = await Promise.all([
         api.therapy.getMachines(),
         api.therapy.getActiveSessions(),
         api.therapy.getPackages(),
         api.patients.list(),
       ]);
-      setBeds(b || []);
       setMachines(m || []);
       setActiveSessions(s || []);
       setPackages(p || []);
       setPatients(pat || []);
 
-      if (b && b.length > 0 && !selectedBedId) setSelectedBedId(b[0].id);
       if (m && m.length > 0 && !selectedMachineId) setSelectedMachineId(m[0].id);
       if (pat && pat.length > 0 && !selectedPatientId) setSelectedPatientId(pat[0].id);
     } catch (err: any) {
@@ -72,7 +67,7 @@ export default function TherapyHallView({ session: propSession }: TherapyHallPro
     }
   };
 
-  // Sub-second Realtime sync for therapy beds and active sessions
+  // Sub-second Realtime sync for therapy and active sessions
   useRealtime((event) => {
     if (
       event.type.startsWith('therapy.') ||
@@ -94,7 +89,6 @@ export default function TherapyHallView({ session: propSession }: TherapyHallPro
     try {
       await api.therapy.startSession({
         patientId: selectedPatientId,
-        bedId: selectedBedId,
         machineId: selectedMachineId && selectedMachineId !== 'none' ? selectedMachineId : undefined,
         modalityCode: selectedModalityCode,
         durationMinutes,
@@ -165,15 +159,15 @@ export default function TherapyHallView({ session: propSession }: TherapyHallPro
         </button>
         <button
           type="button"
-          onClick={() => setMobileTab('beds')}
+          onClick={() => setMobileTab('machines')}
           className={cn(
             'flex-1 py-2 px-3 text-xs sm:text-sm font-semibold rounded-xl transition-all flex items-center justify-center gap-1.5',
-            mobileTab === 'beds'
+            mobileTab === 'machines'
               ? 'bg-emerald-600 text-white shadow-xs'
               : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
           )}
         >
-          🛏️ Beds ({beds.length})
+          ⚙️ Machines ({machines.length})
         </button>
         <button
           type="button"
@@ -205,81 +199,81 @@ export default function TherapyHallView({ session: propSession }: TherapyHallPro
         <TherapyQueueManagementTab />
       ) : (
         <>
-          {/* Bed Matrix Grid */}
-      <div className={cn(mobileTab !== 'beds' && 'hidden lg:block')}>
-        <Card className="border border-border bg-card shadow-sm">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base sm:text-lg font-bold flex items-center gap-2">
-              🛏️ Hall A Bed Status ({beds.length} Beds)
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {beds.map((b) => {
-                const activeSess = activeSessions.find((s) => s.bedId === b.id);
-                const isOccupied = !!activeSess;
+          {/* Therapy Machines & Equipment Grid */}
+          <div className={cn(mobileTab !== 'machines' && 'hidden lg:block')}>
+            <Card className="border border-border bg-card shadow-sm">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base sm:text-lg font-bold flex items-center gap-2">
+                  ⚙️ Therapy Equipment & Machines ({machines.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {machines.map((m) => {
+                    const activeSess = activeSessions.find((s) => s.machineId === m.id);
+                    const isInUse = !!activeSess;
 
-                return (
-                  <div
-                    key={b.id}
-                    className={cn(
-                      'rounded-xl p-4 flex flex-col gap-3 transition-colors border',
-                      isOccupied
-                        ? 'border-amber-500/40 bg-amber-500/5 dark:bg-amber-950/20'
-                        : 'border-emerald-500/40 bg-emerald-500/5 dark:bg-emerald-950/20'
-                    )}
-                  >
-                    <div className="flex justify-between items-center">
-                      <strong className="text-base font-bold text-foreground">{b.name}</strong>
-                      <Badge variant={isOccupied ? 'warning' : 'success'}>
-                        {isOccupied ? 'In Session' : 'Available'}
-                      </Badge>
-                    </div>
-
-                    <div className="text-xs text-muted-foreground">
-                      Code: {b.code}
-                    </div>
-
-                    {isOccupied ? (
-                      <div className="mt-1 flex flex-col gap-2 text-xs">
-                        <div>
-                          Patient: <strong className="text-foreground">{activeSess.patient?.nameEn || 'Patient'}</strong>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <span>Modality:</span>
-                          <Badge variant="outline" className="text-xs uppercase">
-                            {activeSess.modalityCode}
+                    return (
+                      <div
+                        key={m.id}
+                        className={cn(
+                          'rounded-xl p-4 flex flex-col gap-3 transition-colors border',
+                          isInUse
+                            ? 'border-amber-500/40 bg-amber-500/5 dark:bg-amber-950/20'
+                            : 'border-emerald-500/40 bg-emerald-500/5 dark:bg-emerald-950/20'
+                        )}
+                      >
+                        <div className="flex justify-between items-center">
+                          <strong className="text-base font-bold text-foreground">{m.name}</strong>
+                          <Badge variant={isInUse ? 'warning' : 'success'}>
+                            {isInUse ? 'In Use' : 'Available'}
                           </Badge>
                         </div>
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          className="w-full mt-1 text-xs"
-                          onClick={() => setCompletingSession(activeSess)}
-                        >
-                          ✓ Complete Session
-                        </Button>
+
+                        <div className="text-xs text-muted-foreground">
+                          Code: {m.code}
+                        </div>
+
+                        {isInUse ? (
+                          <div className="mt-1 flex flex-col gap-2 text-xs">
+                            <div>
+                              Patient: <strong className="text-foreground">{activeSess.patient?.nameEn || 'Patient'}</strong>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <span>Modality:</span>
+                              <Badge variant="outline" className="text-xs uppercase">
+                                {activeSess.modalityCode}
+                              </Badge>
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              className="w-full mt-1 text-xs"
+                              onClick={() => setCompletingSession(activeSess)}
+                            >
+                              ✓ Complete Session
+                            </Button>
+                          </div>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="w-full mt-auto text-xs"
+                            onClick={() => {
+                              setSelectedMachineId(m.id);
+                              setShowStartModal(true);
+                            }}
+                          >
+                            Assign Machine
+                          </Button>
+                        )}
                       </div>
-                    ) : (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="w-full mt-auto text-xs"
-                        onClick={() => {
-                          setSelectedBedId(b.id);
-                          setShowStartModal(true);
-                        }}
-                      >
-                        Assign Bed
-                      </Button>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
 
       {/* Active Sessions Live Table */}
       <div className={cn(mobileTab !== 'sessions' && 'hidden lg:block')}>
@@ -301,7 +295,7 @@ export default function TherapyHallView({ session: propSession }: TherapyHallPro
                     <tr>
                       <th className="p-2.5">Patient</th>
                       <th className="p-2.5 hidden sm:table-cell">MRN</th>
-                      <th className="p-2.5">Bed</th>
+                      <th className="p-2.5">Location</th>
                       <th className="p-2.5 hidden md:table-cell">Machine</th>
                       <th className="p-2.5">Modality</th>
                       <th className="p-2.5">Duration</th>
@@ -318,7 +312,7 @@ export default function TherapyHallView({ session: propSession }: TherapyHallPro
                         <td className="p-2.5 hidden sm:table-cell text-muted-foreground">
                           {s.patient?.mrn || 'N/A'}
                         </td>
-                        <td className="p-2.5 text-foreground">{s.bed?.name || s.bedId}</td>
+                        <td className="p-2.5 text-foreground">{s.roomName || 'Therapy Hall'}</td>
                         <td className="p-2.5 hidden md:table-cell text-muted-foreground">
                           {s.machine?.name || 'N/A'}
                         </td>
@@ -438,49 +432,26 @@ export default function TherapyHallView({ session: propSession }: TherapyHallPro
               </Select>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-muted-foreground">
-                  Assign Bed *
-                </Label>
-                <Select
-                  value={selectedBedId}
-                  onValueChange={setSelectedBedId}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="-- Select Bed --" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {beds.map((b) => (
-                      <SelectItem key={b.id} value={b.id}>
-                        {b.name} ({b.code})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-muted-foreground">
-                  Therapy Machine
-                </Label>
-                <Select
-                  value={selectedMachineId || 'none'}
-                  onValueChange={(val) => setSelectedMachineId(val === 'none' ? '' : val)}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="None / Manual Exercise" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">None / Manual Exercise</SelectItem>
-                    {machines.map((m) => (
-                      <SelectItem key={m.id} value={m.id}>
-                        {m.name} ({m.code})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-muted-foreground">
+                Therapy Machine / Equipment
+              </Label>
+              <Select
+                value={selectedMachineId || 'none'}
+                onValueChange={(val) => setSelectedMachineId(val === 'none' ? '' : val)}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="None / Manual Exercise" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None / Manual Exercise</SelectItem>
+                  {machines.map((m) => (
+                    <SelectItem key={m.id} value={m.id}>
+                      {m.name} ({m.code})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

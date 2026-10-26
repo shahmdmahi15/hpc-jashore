@@ -41,19 +41,10 @@ sqlite.exec(`
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   );
 
-  CREATE TABLE desks (
-    id TEXT PRIMARY KEY,
-    code TEXT NOT NULL UNIQUE,
-    type TEXT NOT NULL,
-    name TEXT NOT NULL,
-    room_id TEXT,
-    is_active INTEGER NOT NULL DEFAULT 1
-  );
-
   CREATE TABLE shifts (
     id TEXT PRIMARY KEY,
     staff_id TEXT NOT NULL REFERENCES users(id),
-    desk_id TEXT REFERENCES desks(id),
+    desk_id TEXT,
     starts_at TEXT NOT NULL,
     ends_at TEXT,
     status TEXT NOT NULL DEFAULT 'scheduled',
@@ -64,7 +55,7 @@ sqlite.exec(`
   CREATE TABLE cash_drawers (
     id TEXT PRIMARY KEY,
     cashier_staff_id TEXT NOT NULL REFERENCES users(id),
-    desk_id TEXT NOT NULL REFERENCES desks(id),
+    desk_id TEXT,
     shift_id TEXT REFERENCES shifts(id),
     opened_at TEXT NOT NULL,
     closed_at TEXT,
@@ -210,24 +201,17 @@ async function runBillingDrawerTests() {
     VALUES (?, ?, ?, ?, ?, ?, ?)
   `).run(cashierId, 'cashier1@hpc.local', 'hash', 'cashier', 'Primary Cashier', '+8801700000001', 1);
 
-  const deskId = 'desk-cashier-001';
-  sqlite.prepare(`
-    INSERT INTO desks (id, code, type, name, is_active)
-    VALUES (?, ?, ?, ?, ?)
-  `).run(deskId, 'CSH-01', 'cashier', 'Cash Counter 1', 1);
-
   const actor = { sub: cashierId, role: 'cashier' };
   const meta = { ip: '127.0.0.1', requestId: 'req-test-1' };
 
-  // TEST 1: openDrawer with existing deskId
+  // TEST 1: openDrawer with existing user
   const drawer1 = await service.openDrawer(
     actor,
     cashierId,
-    { deskId, openingCashPaisa: 500000 },
+    { openingCashPaisa: 500000 },
     meta,
   );
   assert.strictEqual(drawer1.cashierStaffId, cashierId);
-  assert.strictEqual(drawer1.deskId, deskId);
   assert.strictEqual(drawer1.openingCashPaisa, 500000);
   assert.strictEqual(drawer1.status, 'open');
 
@@ -241,7 +225,7 @@ async function runBillingDrawerTests() {
       await service.openDrawer(
         actor,
         cashierId,
-        { deskId, openingCashPaisa: 200000 },
+        { openingCashPaisa: 200000 },
         meta,
       );
     },
@@ -265,17 +249,15 @@ async function runBillingDrawerTests() {
   assert.strictEqual(closeRes.actualCashPaisa, 495000);
   assert.strictEqual(closeRes.variancePaisa, -5000);
 
-  // TEST 4: openDrawer with a non-existent deskId (resolveDeskId fallback)
-  const nonExistentDeskId = 'non-existent-desk-999';
+  // TEST 4: openDrawer again for fresh session
   const drawer2 = await service.openDrawer(
     actor,
     cashierId,
-    { deskId: nonExistentDeskId, openingCashPaisa: 300000 },
+    { openingCashPaisa: 300000 },
     meta,
   );
   assert.strictEqual(drawer2.status, 'open');
   assert.strictEqual(drawer2.openingCashPaisa, 300000);
-  assert.strictEqual(drawer2.deskId, deskId);
 
   await service.closeDrawer(
     actor,
@@ -285,6 +267,7 @@ async function runBillingDrawerTests() {
   );
 
   console.log('ALL BILLING DRAWER TESTS PASSED SUCCESSFULLY!');
+  process.exit(0);
 }
 
 runBillingDrawerTests().catch((err) => {

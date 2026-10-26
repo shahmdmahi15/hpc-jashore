@@ -271,7 +271,7 @@ export function CheckInWorkstationView() {
     return () => clearInterval(interval);
   }, []);
 
-  // Listen to realtime events across all active workstations, desks, and TV app
+  // Listen to realtime events across all active workstations and TV app
   useRealtime((event) => {
     if (
       event.type === 'therapy.slot.updated' ||

@@ -56,21 +56,12 @@ export const users = sqliteTable('users', {
   ...timestamps,
 });
 
-export const desks = sqliteTable('desks', {
-  id: text('id').primaryKey(),
-  code: text('code').notNull().unique(),
-  type: text('type').notNull().$type<'reception' | 'therapy' | 'cashier'>(),
-  name: text('name').notNull(),
-  roomId: text('room_id').references(() => rooms.id),
-  isActive: integer('is_active').notNull().default(1),
-});
-
 export const shifts = sqliteTable('shifts', {
   id: text('id').primaryKey(),
   staffId: text('staff_id')
     .notNull()
     .references(() => users.id),
-  deskId: text('desk_id').references(() => desks.id),
+  deskId: text('desk_id'),
   startsAt: text('starts_at').notNull(),
   endsAt: text('ends_at'),
   status: text('status').notNull().default('scheduled'),
@@ -516,16 +507,6 @@ export const therapyPlans = sqliteTable('therapy_plans', {
   ...timestamps,
 });
 
-export const beds = sqliteTable('beds', {
-  id: text('id').primaryKey(),
-  roomId: text('room_id')
-    .notNull()
-    .references(() => rooms.id),
-  code: text('code').notNull().unique(),
-  name: text('name').notNull(),
-  isActive: integer('is_active').notNull().default(1),
-});
-
 export const machines = sqliteTable('machines', {
   id: text('id').primaryKey(),
   roomId: text('room_id').references(() => rooms.id),
@@ -548,7 +529,7 @@ export const therapySessions = sqliteTable('therapy_sessions', {
     .notNull()
     .references(() => patients.id),
   therapistStaffId: text('therapist_staff_id').references(() => users.id),
-  bedId: text('bed_id').references(() => beds.id),
+  bedId: text('bed_id'),
   machineId: text('machine_id').references(() => machines.id),
   modalityCode: text('modality_code')
     .notNull()
@@ -687,9 +668,7 @@ export const cashDrawers = sqliteTable('cash_drawers', {
   cashierStaffId: text('cashier_staff_id')
     .notNull()
     .references(() => users.id),
-  deskId: text('desk_id')
-    .notNull()
-    .references(() => desks.id),
+  deskId: text('desk_id'),
   shiftId: text('shift_id').references(() => shifts.id),
   openedAt: text('opened_at').notNull(),
   closedAt: text('closed_at'),
@@ -818,7 +797,7 @@ export const attendance = sqliteTable('attendance', {
     .notNull()
     .references(() => users.id),
   punchType: text('punch_type').notNull().$type<'in' | 'out'>(),
-  deskId: text('desk_id').references(() => desks.id),
+  deskId: text('desk_id'),
   timestamp: text('timestamp').notNull(),
   ip: text('ip'),
   note: text('note'),

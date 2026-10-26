@@ -54,9 +54,7 @@ async function main() {
     'shifts',
     'refresh_sessions',
     'users',
-    'desks',
     'rooms',
-    'beds',
     'machines',
     'sequences',
     'expenses',
@@ -103,24 +101,7 @@ async function main() {
     updatedAt: now(),
   });
 
-  // 2. Operational Clinic Desks
-  const desksToSeed = [
-    { id: 'reception-1', code: 'REC-01', name: 'Reception Counter 1', type: 'reception' as const },
-    { id: 'therapy-1', code: 'THP-01', name: 'Therapy Hall 1', type: 'therapy' as const },
-    { id: 'cashier-1', code: 'CSH-01', name: 'Cash Counter 1', type: 'cashier' as const },
-  ];
-
-  for (const d of desksToSeed) {
-    await db.insert(schema.desks).values({
-      id: d.id,
-      code: d.code,
-      name: d.name,
-      type: d.type,
-      isActive: 1,
-    });
-  }
-
-  // 4. Basic Clinical Modalities
+  // 2. Basic Clinical Modalities
   const modalitiesToSeed = [
     { id: 'mod-ust', code: 'UST', nameEn: 'Ultrasound Therapy (UST)', nameBn: 'আল্ট্রাসাউন্ড থেরাপি (UST)', defaultDurationMin: 15, defaultPricePaisa: 30000 },
     { id: 'mod-swd', code: 'SWD', nameEn: 'Shortwave Diathermy (SWD)', nameBn: 'শর্টওয়েভ ডায়াথার্মি (SWD)', defaultDurationMin: 20, defaultPricePaisa: 40000 },
@@ -141,7 +122,7 @@ async function main() {
     });
   }
 
-  console.log('✅ Seeding complete. Exactly ONE admin user and operational clinic desks created.');
+  console.log('✅ Seeding complete. Exactly ONE admin user and clinical modalities created.');
   sqlite.close();
 }
 

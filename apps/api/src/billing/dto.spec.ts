@@ -88,6 +88,7 @@ async function runDtoTests() {
   console.log('✓ TEST 3 Passed: Negative totalPaisa is rejected with validation error');
 
   console.log('\n🎉 ALL BILLING DTO TESTS PASSED!\n');
+  process.exit(0);
 }
 
 runDtoTests().catch((err) => {

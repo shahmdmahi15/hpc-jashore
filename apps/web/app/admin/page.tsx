@@ -97,8 +97,8 @@ const ADMIN_ROW1_TABS = [
     titleEn: 'Room Config',
     titleBn: 'রুম ও চেম্বার সেটিংস',
     icon: DoorOpen,
-    descriptionEn: 'Consultation chamber rooms, therapy hall beds, reception desks, and waiting zones.',
-    descriptionBn: 'ডাক্তার চেম্বার রুম, থেরাপি হল বেড, ফ্রন্ট ডেস্ক কাউন্টার ও ওয়েটিং জোন বিন্যাস।',
+    descriptionEn: 'Consultation chamber rooms, therapy halls, workstations, and waiting zones.',
+    descriptionBn: 'ডাক্তার চেম্বার রুম, থেরাপি হল, কর্মস্থল ও ওয়েটিং জোন বিন্যাস।',
   },
   {
     id: 'medicine_directory',
@@ -196,8 +196,8 @@ const ADMIN_ROW2_TABS = [
     titleEn: 'Therapy Queue & Calling',
     titleBn: 'থেরাপি কিউ ও ডাকুন',
     icon: PhoneCall,
-    descriptionEn: 'Live therapy waiting queue, room/bed assignment, audio chime announcements, and session control.',
-    descriptionBn: 'লাইভ থেরাপি অপেক্ষমাণ তালিকা, রুম/বেড বরাদ্দ, টিভি ও অডিও কলিং ঘোষণা এবং সেশন পরিচালনা।',
+    descriptionEn: 'Live therapy waiting queue, room/machine assignment, audio chime announcements, and session control.',
+    descriptionBn: 'লাইভ থেরাপি অপেক্ষমাণ তালিকা, রুম/যন্ত্রপাতি বরাদ্দ, টিভি ও অডিও কলিং ঘোষণা এবং সেশন পরিচালনা।',
   },
   {
     id: 'extra_slot',

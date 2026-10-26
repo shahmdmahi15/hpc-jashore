@@ -614,12 +614,12 @@ export default function LandingPage() {
                   </Link>
                 </div>
                 <CardTitle className="text-base font-bold text-foreground">
-                  {isBn ? 'থেরাপি হল ও বেড মেট্রিক্স' : 'Therapy Hall Bed Matrix'}
+                  {isBn ? 'থেরাপি হল ও যন্ত্রপাতি ট্র্যাকিং' : 'Therapy Hall & Equipment Tracking'}
                 </CardTitle>
                 <CardDescription className="text-xs text-muted-foreground mt-1.5">
                   {isBn
-                    ? '১৬টি বেডের লাইভ অকুপেন্সি, মোডালিটি কাউন্টডাউন টাইমার ও সম্পূর্ণ সেশন ট্র্যাকিং।'
-                    : 'Live 16-bed matrix, audio-visual timers for UST/SWD/IRR, and completion logging.'}
+                    ? 'লাইভ থেরাপি যন্ত্রপাতি, মোডালিটি কাউন্টডাউন টাইমার ও সম্পূর্ণ সেশন ট্র্যাকিং।'
+                    : 'Live therapy equipment tracking, audio-visual timers for UST/SWD/IRR, and completion logging.'}
                 </CardDescription>
               </CardHeader>
             </Card>

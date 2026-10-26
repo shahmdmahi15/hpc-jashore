@@ -101,27 +101,14 @@ export type Db = BetterSQLite3Database<typeof schema>;
             `);
           }
 
-          // Ensure operational clinic desks exist idempotently
+          // Clean up legacy desks and beds tables if present
           try {
             sqlite.exec(`
-              CREATE TABLE IF NOT EXISTS desks (
-                id TEXT PRIMARY KEY,
-                code TEXT NOT NULL UNIQUE,
-                type TEXT NOT NULL,
-                name TEXT NOT NULL,
-                room_id TEXT,
-                is_active INTEGER NOT NULL DEFAULT 1
-              );
+              DROP TABLE IF EXISTS desks;
+              DROP TABLE IF EXISTS beds;
             `);
-            sqlite.exec(`
-              INSERT OR IGNORE INTO desks (id, code, type, name, is_active)
-              VALUES
-                ('reception-1', 'REC-01', 'reception', 'Reception Counter 1', 1),
-                ('cashier-1', 'CSH-01', 'cashier', 'Cash Counter 1', 1),
-                ('therapy-1', 'THP-01', 'therapy', 'Therapy Hall 1', 1);
-            `);
-          } catch (deskErr) {
-            console.error('Error ensuring operational desks:', deskErr);
+          } catch (dropErr) {
+            console.error('Error dropping legacy desks/beds tables:', dropErr);
           }
 
           // Ensure staff table exists and always mirrors users table so legacy foreign keys to staff never fail
@@ -204,7 +191,7 @@ export type Db = BetterSQLite3Database<typeof schema>;
                 CREATE TABLE IF NOT EXISTS _cash_drawers_migrated (
                   id TEXT PRIMARY KEY NOT NULL,
                   cashier_staff_id TEXT NOT NULL REFERENCES users(id),
-                  desk_id TEXT NOT NULL REFERENCES desks(id),
+                  desk_id TEXT,
                   shift_id TEXT REFERENCES shifts(id),
                   opened_at TEXT NOT NULL,
                   closed_at TEXT,
