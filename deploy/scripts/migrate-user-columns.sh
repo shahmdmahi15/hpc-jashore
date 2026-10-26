@@ -48,6 +48,34 @@ for DB_FILE in "${DB_LOCATIONS[@]}"; do
     cp "$DB_FILE" "$BACKUP_FILE"
     echo "🛡️ Backup saved: $BACKUP_FILE"
 
+    # Ensure staff table exists and is populated before touching users (prevents SQLite trigger failure: no such table: main.staff)
+    echo "🛡️ Ensuring legacy staff mirror table exists..."
+    sqlite3 "$DB_FILE" "
+      CREATE TABLE IF NOT EXISTS staff (
+        id TEXT PRIMARY KEY NOT NULL,
+        user_id TEXT,
+        full_name TEXT NOT NULL DEFAULT '',
+        role TEXT NOT NULL DEFAULT '',
+        phone TEXT,
+        specialization TEXT,
+        fee_override_paisa INTEGER,
+        is_active INTEGER NOT NULL DEFAULT 1,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      INSERT OR REPLACE INTO staff (id, user_id, full_name, role, phone, is_active, created_at, updated_at)
+      SELECT 
+        u.id, 
+        u.id, 
+        COALESCE(u.display_name, u.email, 'Staff Member'), 
+        u.role, 
+        COALESCE(u.phone, ''), 
+        COALESCE(u.is_active, 1), 
+        COALESCE(u.created_at, CURRENT_TIMESTAMP), 
+        COALESCE(u.updated_at, CURRENT_TIMESTAMP)
+      FROM users u;
+    "
+
     # Get existing columns
     EXISTING_COLS=$(sqlite3 "$DB_FILE" "PRAGMA table_info('users');" | awk -F'|' '{print $2}')
 

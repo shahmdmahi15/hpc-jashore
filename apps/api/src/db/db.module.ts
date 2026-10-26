@@ -1104,12 +1104,11 @@ export type Db = BetterSQLite3Database<typeof schema>;
             console.error('Error creating patient assessment, intake, and timeline tables:', intakeErr);
           }
 
-          // Safely clean up removed legacy tables
+          // Safely clean up removed legacy tables (preserve staff mirror table for legacy foreign keys & triggers)
           try {
             sqlite.exec(`
               DROP TABLE IF EXISTS pin_credentials;
               DROP TABLE IF EXISTS action_grants;
-              DROP TABLE IF EXISTS staff;
             `);
           } catch {}
         } catch {

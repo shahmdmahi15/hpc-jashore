@@ -16,7 +16,7 @@ DB_LOCATIONS=(
 )
 
 FOUND=0
-KEEP_TABLES=" users refresh_sessions rooms therapy_slot_configs __drizzle_migrations "
+KEEP_TABLES=" users refresh_sessions rooms therapy_slot_configs __drizzle_migrations staff "
 
 for DB_FILE in "${DB_LOCATIONS[@]}"; do
   if [ -f "$DB_FILE" ]; then

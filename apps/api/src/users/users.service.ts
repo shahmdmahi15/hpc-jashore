@@ -264,7 +264,7 @@ export class UsersService {
     const now = new Date().toISOString();
     const patch: Partial<typeof users.$inferInsert> = { updatedAt: now };
     if (dto.displayName !== undefined) patch.displayName = dto.displayName.trim();
-    if (dto.phone !== undefined) patch.phone = dto.phone.trim();
+    if (dto.phone !== undefined) patch.phone = dto.phone ? dto.phone.trim() : null;
     if (dto.role !== undefined) patch.role = dto.role;
     if (dto.isActive !== undefined) patch.isActive = dto.isActive ? 1 : 0;
     if (dto.password !== undefined) {
