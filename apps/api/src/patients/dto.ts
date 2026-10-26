@@ -348,6 +348,146 @@ export class CreateIntakeFormDto {
   isReIntake?: boolean;
 }
 
+export class UpdateIntakeFormDto {
+  @ApiPropertyOptional({ description: 'Patient Name' })
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @ApiPropertyOptional({ description: 'Patient Age in years' })
+  @IsOptional()
+  @IsInt()
+  ageYears?: number;
+
+  @ApiPropertyOptional({ description: 'Mobile Number' })
+  @IsOptional()
+  @IsString()
+  phone?: string;
+
+  @ApiPropertyOptional({ enum: ['male', 'female', 'other'], description: 'Gender' })
+  @IsOptional()
+  @IsIn(['male', 'female', 'other'])
+  gender?: 'male' | 'female' | 'other';
+
+  @ApiPropertyOptional({ description: 'Occupation' })
+  @IsOptional()
+  @IsString()
+  occupation?: string;
+
+  @ApiPropertyOptional({ description: 'Address' })
+  @IsOptional()
+  @IsString()
+  address?: string;
+
+  @ApiPropertyOptional({ description: 'BP Systolic' })
+  @IsOptional()
+  @IsInt()
+  bpSystolic?: number;
+
+  @ApiPropertyOptional({ description: 'BP Diastolic' })
+  @IsOptional()
+  @IsInt()
+  bpDiastolic?: number;
+
+  @ApiPropertyOptional({ description: 'Blood Sugar' })
+  @IsOptional()
+  bloodSugar?: string | number;
+
+  @ApiPropertyOptional({ description: 'Has Diabetes' })
+  @IsOptional()
+  @IsInt()
+  hasDiabetes?: number;
+
+  @ApiPropertyOptional({ description: 'Weight in kg' })
+  @IsOptional()
+  weightKg?: string | number;
+
+  @ApiPropertyOptional({ description: 'Chief complaint' })
+  @IsOptional()
+  @IsString()
+  chiefComplaint?: string;
+
+  @ApiPropertyOptional({ description: 'Problem duration' })
+  @IsOptional()
+  @IsString()
+  problemDuration?: string;
+
+  @ApiPropertyOptional({ description: 'Seen doctor before' })
+  @IsOptional()
+  @IsInt()
+  seenDoctorBefore?: number;
+
+  @ApiPropertyOptional({ description: 'Previous doctor details' })
+  @IsOptional()
+  @IsString()
+  previousDoctorDetails?: string;
+
+  @ApiPropertyOptional({ description: 'Has previous reports' })
+  @IsOptional()
+  @IsInt()
+  hasPreviousReports?: number;
+
+  @ApiPropertyOptional({ description: 'Previous report names' })
+  @IsOptional()
+  @IsString()
+  previousReportNames?: string;
+
+  @ApiPropertyOptional({ description: 'Takes regular medication' })
+  @IsOptional()
+  @IsInt()
+  takesRegularMedication?: number;
+
+  @ApiPropertyOptional({ description: 'Regular medication details' })
+  @IsOptional()
+  @IsString()
+  regularMedicationDetails?: string;
+
+  @ApiPropertyOptional({ description: 'Has drug allergies' })
+  @IsOptional()
+  @IsInt()
+  hasDrugAllergies?: number;
+
+  @ApiPropertyOptional({ description: 'Drug allergy details' })
+  @IsOptional()
+  @IsString()
+  drugAllergyDetails?: string;
+
+  @ApiPropertyOptional({ description: 'Referral source' })
+  @IsOptional()
+  @IsString()
+  referralSource?: string;
+
+  @ApiPropertyOptional({ description: 'Referral other details' })
+  @IsOptional()
+  @IsString()
+  referralOtherDetails?: string;
+
+  @ApiPropertyOptional({ description: 'Target doctor ID' })
+  @IsOptional()
+  @IsString()
+  doctorId?: string;
+
+  @ApiPropertyOptional({ description: 'Receptionist name' })
+  @IsOptional()
+  @IsString()
+  receptionistName?: string;
+
+  @ApiPropertyOptional({ description: 'Special notes' })
+  @IsOptional()
+  @IsString()
+  specialNotes?: string;
+
+  @ApiPropertyOptional({ description: 'Status override' })
+  @IsOptional()
+  @IsString()
+  status?: string;
+
+  @ApiPropertyOptional({ description: 'Forward to cashier immediately' })
+  @IsOptional()
+  @IsBoolean()
+  forwardToCashier?: boolean;
+}
+
 export class AdmitToQueueDto {
   @ApiPropertyOptional({ description: 'Consultation fee collected in Taka' })
   @IsOptional()

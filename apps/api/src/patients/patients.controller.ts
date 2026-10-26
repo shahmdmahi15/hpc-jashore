@@ -21,6 +21,7 @@ import {
   CreatePatientDto,
   UpdatePatientDto,
   CreateIntakeFormDto,
+  UpdateIntakeFormDto,
   AdmitToQueueDto,
   CreateTimelineEventDto,
   CreateAssessmentFileDto,
@@ -95,6 +96,23 @@ export class PatientsController {
   @Roles('admin', 'doctor', 'receptionist', 'cashier', 'handler')
   getIntakeForm(@Param('id') id: string) {
     return this.patients.getIntakeForm(id);
+  }
+
+  @Patch('intake-form/:id')
+  @Roles('admin', 'doctor', 'receptionist', 'cashier', 'handler')
+  updateIntakeForm(
+    @CurrentUser() user: RequestUser,
+    @Param('id') id: string,
+    @Body() dto: UpdateIntakeFormDto,
+    @Req() req: Request,
+  ) {
+    return this.patients.updateIntakeForm({ sub: user.sub, role: user.role }, id, dto, this.meta(req));
+  }
+
+  @Get(':id/latest-intake-form')
+  @Roles('admin', 'doctor', 'receptionist', 'cashier', 'handler')
+  getLatestIntakeForm(@Param('id') patientId: string) {
+    return this.patients.getLatestIntakeFormForPatient(patientId);
   }
 
   @Post('intake-form/:id/forward-to-cashier')

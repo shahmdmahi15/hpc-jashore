@@ -38,6 +38,7 @@ import type {
   CreatePatientDto,
   UpdatePatientDto,
   CreateIntakeFormDto,
+  UpdateIntakeFormDto,
   AdmitToQueueDto,
   CreateTimelineEventDto,
   CreateAssessmentFileDto,
@@ -499,8 +500,8 @@ export class PatientsService {
         step: 'checked_in',
         titleEn: 'Patient Checked In',
         titleBn: 'রোগীর চেক-ইন সম্পন্ন',
-        descriptionEn: `Token #${tokenNumber} issued at Reception Desk`,
-        descriptionBn: `টোকেন #${tokenNumber} সহ রিসেপশনে উপস্থিতি ও চেক-ইন সম্পন্ন হয়েছে।`,
+        descriptionEn: `Serial #${tokenNumber} issued at Reception Desk`,
+        descriptionBn: `সিরিয়াল #${tokenNumber} সহ রিসেপশনে চেক-ইন সম্পন্ন হয়েছে।`,
         actorId: actor.sub,
         actorRole: actor.role,
         date: today,
@@ -535,7 +536,7 @@ export class PatientsService {
       bloodSugar: dto.bloodSugar !== undefined && dto.bloodSugar !== null ? String(dto.bloodSugar).trim() : null,
       hasDiabetes: dto.hasDiabetes ? 1 : 0,
       weightKg: dto.weightKg !== undefined && dto.weightKg !== null ? String(dto.weightKg).trim() : null,
-      chiefComplaint: dto.chiefComplaint?.trim() ?? null,
+      chiefComplaint: dto.chiefComplaint?.trim() || 'প্রাথমিক স্বাস্থ্য ও ফিজিওথেরাপি পরামর্শ',
       problemDuration: dto.problemDuration?.trim() ?? null,
       seenDoctorBefore: dto.seenDoctorBefore ? 1 : 0,
       previousDoctorDetails: dto.previousDoctorDetails?.trim() ?? null,
@@ -734,6 +735,137 @@ export class PatientsService {
           }
         : null,
     };
+  }
+
+  async getLatestIntakeFormForPatient(patientId: string) {
+    const rows = await this.db
+      .select({ id: patientIntakeForms.id })
+      .from(patientIntakeForms)
+      .where(eq(patientIntakeForms.patientId, patientId))
+      .orderBy(desc(patientIntakeForms.createdAt))
+      .limit(1);
+
+    if (!rows[0]) return null;
+    return this.getIntakeForm(rows[0].id);
+  }
+
+  async updateIntakeForm(
+    actor: { sub: string; role: string },
+    id: string,
+    dto: UpdateIntakeFormDto,
+    meta: { ip?: string | null; requestId?: string | null },
+  ) {
+    const existing = await this.getIntakeForm(id);
+    const now = new Date().toISOString();
+    const patch: Partial<typeof patientIntakeForms.$inferInsert> = {
+      updatedAt: now,
+    };
+
+    if (dto.name !== undefined) patch.name = dto.name.trim();
+    if (dto.ageYears !== undefined) patch.ageYears = dto.ageYears;
+    if (dto.phone !== undefined) patch.phone = dto.phone.trim();
+    if (dto.gender !== undefined) patch.gender = dto.gender;
+    if (dto.occupation !== undefined) patch.occupation = dto.occupation?.trim() ?? null;
+    if (dto.address !== undefined) patch.address = dto.address?.trim() ?? null;
+    if (dto.bpSystolic !== undefined) patch.bpSystolic = dto.bpSystolic;
+    if (dto.bpDiastolic !== undefined) patch.bpDiastolic = dto.bpDiastolic;
+    if (dto.bloodSugar !== undefined) patch.bloodSugar = dto.bloodSugar !== null ? String(dto.bloodSugar).trim() : null;
+    if (dto.hasDiabetes !== undefined) patch.hasDiabetes = dto.hasDiabetes ? 1 : 0;
+    if (dto.weightKg !== undefined) patch.weightKg = dto.weightKg !== null ? String(dto.weightKg).trim() : null;
+    if (dto.chiefComplaint !== undefined) patch.chiefComplaint = dto.chiefComplaint?.trim() ?? null;
+    if (dto.problemDuration !== undefined) patch.problemDuration = dto.problemDuration?.trim() ?? null;
+    if (dto.seenDoctorBefore !== undefined) patch.seenDoctorBefore = dto.seenDoctorBefore ? 1 : 0;
+    if (dto.previousDoctorDetails !== undefined) patch.previousDoctorDetails = dto.previousDoctorDetails?.trim() ?? null;
+    if (dto.hasPreviousReports !== undefined) patch.hasPreviousReports = dto.hasPreviousReports ? 1 : 0;
+    if (dto.previousReportNames !== undefined) patch.previousReportNames = dto.previousReportNames?.trim() ?? null;
+    if (dto.takesRegularMedication !== undefined) patch.takesRegularMedication = dto.takesRegularMedication ? 1 : 0;
+    if (dto.regularMedicationDetails !== undefined) patch.regularMedicationDetails = dto.regularMedicationDetails?.trim() ?? null;
+    if (dto.hasDrugAllergies !== undefined) patch.hasDrugAllergies = dto.hasDrugAllergies ? 1 : 0;
+    if (dto.drugAllergyDetails !== undefined) patch.drugAllergyDetails = dto.drugAllergyDetails?.trim() ?? null;
+    if (dto.referralSource !== undefined) patch.referralSource = dto.referralSource?.trim() ?? null;
+    if (dto.referralOtherDetails !== undefined) patch.referralOtherDetails = dto.referralOtherDetails?.trim() ?? null;
+    if (dto.doctorId !== undefined) patch.doctorId = dto.doctorId || null;
+    if (dto.receptionistName !== undefined) patch.receptionistName = dto.receptionistName?.trim() ?? null;
+    if (dto.specialNotes !== undefined) patch.specialNotes = dto.specialNotes?.trim() ?? null;
+
+    const shouldForward = dto.forwardToCashier === true || dto.status === 'forwarded_to_cashier';
+    if (shouldForward && existing.status === 'submitted') {
+      patch.status = 'forwarded_to_cashier';
+      patch.forwardedToCashierAt = now;
+    } else if (dto.status !== undefined) {
+      patch.status = dto.status as any;
+    }
+
+    await this.db.update(patientIntakeForms).set(patch).where(eq(patientIntakeForms.id, id));
+
+    // Also sync patient demographic updates
+    if (existing.patientId) {
+      const patientPatch: any = { updatedAt: now };
+      if (dto.name) {
+        patientPatch.nameEn = dto.name.trim();
+        patientPatch.nameBn = dto.name.trim();
+      }
+      if (dto.phone) patientPatch.phone = dto.phone.trim();
+      if (dto.ageYears !== undefined) patientPatch.ageYears = dto.ageYears;
+      if (dto.gender) patientPatch.gender = dto.gender === 'female' ? 'female' : 'male';
+      if (dto.address !== undefined) patientPatch.address = dto.address?.trim() ?? null;
+      if (dto.occupation !== undefined) patientPatch.occupation = dto.occupation?.trim() ?? null;
+      if (dto.drugAllergyDetails !== undefined) patientPatch.allergies = dto.drugAllergyDetails?.trim() ?? null;
+      if (dto.hasDiabetes !== undefined) patientPatch.chronicConditions = dto.hasDiabetes ? 'Diabetes Mellitus' : null;
+      await this.db.update(patients).set(patientPatch).where(eq(patients.id, existing.patientId));
+    }
+
+    const updated = await this.getIntakeForm(id);
+
+    // Record Timeline Event
+    if (existing.patientId) {
+      if (shouldForward && existing.status === 'submitted') {
+        await this.addPatientTimelineEvent({
+          patientId: existing.patientId,
+          visitId: existing.visitId,
+          intakeFormId: id,
+          step: 'forwarded_to_cashier',
+          titleEn: 'Intake Form Forwarded to Cashier',
+          titleBn: 'ইনটেক তথ্য ক্যাশিয়ারের কাছে পাঠানো হয়েছে',
+          descriptionEn: 'Forwarded to Cashier for fee payment and doctor queue routing',
+          descriptionBn: 'কনসালটেশন ফি গ্রহণ ও সিরিয়ালে যুক্ত করার জন্য ক্যাশিয়ারের কাছে ফরোয়ার্ড করা হয়েছে।',
+          actorId: actor.sub,
+          actorRole: actor.role,
+          date: existing.date,
+        });
+      } else {
+        await this.addPatientTimelineEvent({
+          patientId: existing.patientId,
+          visitId: existing.visitId,
+          intakeFormId: id,
+          step: 'intake_form_updated',
+          titleEn: 'Intake Form Updated',
+          titleBn: 'প্রাথমিক তথ্য ফরম পরিমার্জিত',
+          descriptionEn: `Intake form updated by ${actor.role}`,
+          descriptionBn: `রিসেপশনে রোগীর প্রাথমিক স্বাস্থ্য ও তথ্য বিবরণী সফলভাবে আপডেট করা হয়েছে।`,
+          actorId: actor.sub,
+          actorRole: actor.role,
+          date: existing.date,
+        });
+      }
+    }
+
+    this.gateway?.emit('clinic:global', 'intake.updated', updated);
+    this.realtime?.publish('intake.updated', updated);
+
+    await this.audit.log({
+      actorUserId: actor.sub,
+      actorRole: actor.role,
+      action: 'patients.update_intake_form',
+      entity: 'patient_intake_forms',
+      entityId: id,
+      before: existing,
+      after: updated,
+      ip: meta.ip,
+      requestId: meta.requestId,
+    });
+
+    return updated;
   }
 
   async forwardIntakeFormToCashier(
@@ -999,8 +1131,8 @@ export class PatientsService {
       step: 'queued_consultation',
       titleEn: 'Admitted to Doctor Queue',
       titleBn: 'ডাক্তার কনসালটেশন সিরিয়ালে অন্তর্ভুক্তি',
-      descriptionEn: `Token #${tokenNumber} (Serial #${nextSerialNum}) queued for Dr. ${doctorName} (Room ${chamberNumber})`,
-      descriptionBn: `টোকেন #${tokenNumber} (সিরিয়াল #${nextSerialNum}) সহ ডা. ${doctorName}-এর চেম্বার সিরিয়ালে প্রবেশ করানো হয়েছে (রুম ${chamberNumber})।`,
+      descriptionEn: `Serial #${nextSerialNum} queued for Dr. ${doctorName} (Room ${chamberNumber})`,
+      descriptionBn: `সিরিয়াল #${nextSerialNum} সহ ডা. ${doctorName}-এর চেম্বার সিরিয়ালে প্রবেশ করানো হয়েছে (রুম ${chamberNumber})।`,
       actorId: actor.sub,
       actorRole: actor.role,
       date: today,

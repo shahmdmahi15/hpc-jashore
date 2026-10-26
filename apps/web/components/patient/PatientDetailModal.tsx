@@ -360,7 +360,7 @@ export function PatientDetailModal({
                       <table className="w-full text-xs">
                         <thead className="bg-muted/50 text-muted-foreground border-b border-border/60">
                           <tr>
-                            <th className="py-2.5 px-3 text-left font-semibold">{isBn ? 'টোকেন' : 'Token'}</th>
+                            <th className="py-2.5 px-3 text-left font-semibold">{isBn ? 'সিরিয়াল' : 'Serial'}</th>
                             <th className="py-2.5 px-3 text-left font-semibold">{isBn ? 'তারিখ' : 'Date'}</th>
                             <th className="py-2.5 px-3 text-left font-semibold">{isBn ? 'অবস্থা' : 'Status'}</th>
                             <th className="py-2.5 px-3 text-left font-semibold">{isBn ? 'অগ্রাধিকার' : 'Priority'}</th>

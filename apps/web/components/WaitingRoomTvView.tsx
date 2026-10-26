@@ -171,7 +171,7 @@ export default function WaitingRoomTvView() {
     bulletinNotices: [
       'স্বাগতম: হেলথ অ্যান্ড পেইন কেয়ার সেন্টার (HPC) · যশোর | আধুনিক ফিজিওথেরাপি ও পুনর্বাসন কেন্দ্র',
       'আধুনিক ফিজিওথেরাপি, পুনর্বাসন ও পেইন ম্যানেজমেন্ট সেবা | সিরিয়াল অনুযায়ী অপেক্ষা করুন',
-      'জরুরি হটলাইন: +880 1515-615188 | অনুগ্রহ করে আপনার টোকেন নম্বর ডিসপ্লেতে লক্ষ্য করুন',
+      'জরুরি হটলাইন: +880 1515-615188 | অনুগ্রহ করে আপনার সিরিয়াল নম্বর ডিসপ্লেতে লক্ষ্য করুন',
       'চাচড়া পুলিশ ফাঁড়ির বিপরীতে, ডালমিল মোড়, যশোর ৭৪০০ | সিরিয়ালের জন্য অপেক্ষা করুন',
       'থেরাপির সময় মোবাইল ফোন সাইলেন্ট রাখুন | নামাজের বিরতি: দুপুর ১:১৫ হতে ১:৪৫ পর্যন্ত',
       'Welcome to HPC Jashore | Evidence-led pain management, stroke rehabilitation, and physical therapy',
@@ -916,8 +916,8 @@ export default function WaitingRoomTvView() {
             <div className="mb-2">
               <span className="px-5 py-1.5 rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-mono font-black text-2xl sm:text-4xl shadow-inner">
                 {lang === 'bn'
-                  ? `টোকেন #${toBnNum(activeCallAlert.tokenNumber || activeCallAlert.serialNumber)}`
-                  : `TOKEN #${activeCallAlert.tokenNumber || activeCallAlert.serialNumber}`}
+                  ? `সিরিয়াল #${toBnNum(activeCallAlert.serialNumber || activeCallAlert.tokenNumber)}`
+                  : `SERIAL #${activeCallAlert.serialNumber || activeCallAlert.tokenNumber}`}
               </span>
             </div>
 
@@ -1023,7 +1023,7 @@ export default function WaitingRoomTvView() {
                     {lang === 'bn' ? 'বর্তমানে কোনো সিরিয়াল অপেক্ষারত নেই' : 'No Patients Currently Waiting'}
                   </span>
                   <span className="text-[11px] 2xl:text-xs mt-1 text-muted-foreground">
-                    {lang === 'bn' ? 'সবাইকে সেবা দেওয়া হয়েছে অথবা চেম্বার অপেক্ষমাণ' : 'All consultation tokens have been completed'}
+                    {lang === 'bn' ? 'সবাইকে সেবা দেওয়া হয়েছে অথবা চেম্বার অপেক্ষমাণ' : 'All consultation patients have been attended'}
                   </span>
                 </div>
               ) : (
@@ -1124,7 +1124,7 @@ export default function WaitingRoomTvView() {
                     {lang === 'bn' ? 'থেরাপির জন্য কোনো সিরিয়াল অপেক্ষারত নেই' : 'No Therapy Patients Currently Waiting'}
                   </span>
                   <span className="text-[11px] 2xl:text-xs mt-1 text-muted-foreground">
-                    {lang === 'bn' ? 'সকল থেরাপি টোকেন সম্পন্ন হয়েছে' : 'All therapy queue tokens have been attended to'}
+                    {lang === 'bn' ? 'সকল থেরাপি সিরিয়াল সম্পন্ন হয়েছে' : 'All therapy queue serials have been attended to'}
                   </span>
                 </div>
               ) : (

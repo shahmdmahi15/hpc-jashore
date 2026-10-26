@@ -52,6 +52,8 @@ interface PatientIntakeFormModalProps {
   onSuccess?: (intakeForm: any) => void;
   isReIntake?: boolean;
   clinicalStatus?: PatientClinicalStatus | null;
+  intakeFormId?: string;
+  existingIntake?: any;
 }
 
 export function PatientIntakeFormModal({
@@ -62,11 +64,16 @@ export function PatientIntakeFormModal({
   onSuccess,
   isReIntake = false,
   clinicalStatus,
+  intakeFormId,
+  existingIntake,
 }: PatientIntakeFormModalProps) {
   const [submitting, setSubmitting] = useState(false);
   const [loadingDoctors, setLoadingDoctors] = useState(false);
   const [doctors, setDoctors] = useState<any[]>([]);
   const [showPrintModal, setShowPrintModal] = useState(false);
+  const [activeIntakeId, setActiveIntakeId] = useState<string | null>(null);
+  const [activeIntakeStatus, setActiveIntakeStatus] = useState<string | null>(null);
+  const [loadingIntake, setLoadingIntake] = useState(false);
 
   // Determine effective re-intake mode
   const effectiveIsReIntake = Boolean(
@@ -110,8 +117,43 @@ export function PatientIntakeFormModal({
   const [selectedDoctorId, setSelectedDoctorId] = useState('');
   const [specialNotes, setSpecialNotes] = useState('');
 
-  // Sync when patient prop changes (Automatic Pre-Population)
-  useEffect(() => {
+  const populateFromIntake = (f: any) => {
+    if (!f) return;
+    setActiveIntakeId(f.id);
+    setActiveIntakeStatus(f.status || 'submitted');
+    setName(f.name || patient?.nameBn || patient?.nameEn || '');
+    setPhone(f.phone || patient?.phone || '');
+    setAgeYears(f.ageYears ? String(f.ageYears) : patient?.ageYears ? String(patient.ageYears) : '');
+    setGender(f.gender || patient?.gender || 'male');
+    setOccupation(f.occupation || patient?.occupation || '');
+    setAddress(f.address || patient?.address || '');
+
+    setBpSystolic(f.bpSystolic !== null && f.bpSystolic !== undefined ? String(f.bpSystolic) : '');
+    setBpDiastolic(f.bpDiastolic !== null && f.bpDiastolic !== undefined ? String(f.bpDiastolic) : '');
+    setBloodSugar(f.bloodSugar !== null && f.bloodSugar !== undefined ? String(f.bloodSugar) : '');
+    setHasDiabetes(Boolean(f.hasDiabetes));
+    setWeightKg(f.weightKg !== null && f.weightKg !== undefined ? String(f.weightKg) : '');
+    setChiefComplaint(f.chiefComplaint || '');
+    setProblemDuration(f.problemDuration || '');
+
+    setSeenDoctorBefore(Boolean(f.seenDoctorBefore));
+    setPreviousDoctorDetails(f.previousDoctorDetails || '');
+    setHasPreviousReports(Boolean(f.hasPreviousReports));
+    setPreviousReportNames(f.previousReportNames || '');
+    setTakesRegularMedication(Boolean(f.takesRegularMedication));
+    setRegularMedicationDetails(f.regularMedicationDetails || '');
+    setHasDrugAllergies(Boolean(f.hasDrugAllergies));
+    setDrugAllergyDetails(f.drugAllergyDetails || '');
+
+    if (f.referralSource) setReferralSource(f.referralSource);
+    setReferralOtherDetails(f.referralOtherDetails || '');
+    if (f.doctorId) setSelectedDoctorId(f.doctorId);
+    setSpecialNotes(f.specialNotes || '');
+  };
+
+  const resetForNewIntake = () => {
+    setActiveIntakeId(null);
+    setActiveIntakeStatus(null);
     if (patient) {
       setName(patient.nameBn || patient.nameEn || '');
       setPhone(patient.phone || '');
@@ -120,7 +162,6 @@ export function PatientIntakeFormModal({
       setOccupation(patient.occupation || '');
       setAddress(patient.address || '');
 
-      // Prepopulate known allergies & chronic conditions
       if (patient.allergies && patient.allergies.trim()) {
         setHasDrugAllergies(true);
         setDrugAllergyDetails(patient.allergies.trim());
@@ -140,7 +181,6 @@ export function PatientIntakeFormModal({
         }
       }
 
-      // Reset today's vitals for new evaluation
       setBpSystolic('');
       setBpDiastolic('');
       setBloodSugar('');
@@ -166,7 +206,51 @@ export function PatientIntakeFormModal({
       setChiefComplaint('');
       setProblemDuration('');
     }
-  }, [patient, open]);
+  };
+
+  // Sync when patient or intake form changes
+  useEffect(() => {
+    if (!open) {
+      setActiveIntakeId(null);
+      setActiveIntakeStatus(null);
+      return;
+    }
+
+    if (existingIntake) {
+      populateFromIntake(existingIntake);
+      return;
+    }
+
+    const targetId = intakeFormId || clinicalStatus?.todayIntakeId;
+    if (targetId) {
+      setLoadingIntake(true);
+      api.patients.getIntakeForm(targetId)
+        .then((f) => {
+          if (f && f.id) populateFromIntake(f);
+        })
+        .catch((err) => console.warn('Could not load intake by id:', err))
+        .finally(() => setLoadingIntake(false));
+      return;
+    }
+
+    if (patient?.id) {
+      setLoadingIntake(true);
+      api.patients.getLatestIntakeForm(patient.id)
+        .then((f) => {
+          if (f && f.id) {
+            populateFromIntake(f);
+          } else {
+            resetForNewIntake();
+          }
+        })
+        .catch(() => {
+          resetForNewIntake();
+        })
+        .finally(() => setLoadingIntake(false));
+    } else {
+      resetForNewIntake();
+    }
+  }, [patient?.id, open, intakeFormId, clinicalStatus?.todayIntakeId, existingIntake]);
 
   // Load doctors for consultation selection
   useEffect(() => {
@@ -218,13 +302,10 @@ export function PatientIntakeFormModal({
       toast.error('মোবাইল নম্বর আবশ্যক (Mobile phone number is required)');
       return;
     }
-    if (!chiefComplaint.trim()) {
-      toast.error('প্রধান শারীরিক সমস্যা / উপসর্গ উল্লেখ করুন (Chief complaint is required)');
-      return;
-    }
 
     try {
       setSubmitting(true);
+      const safeChiefComplaint = chiefComplaint.trim() || 'সাধারণ স্বাস্থ্য ও ফিজিওথেরাপি পরামর্শ';
       const payload: any = {
         patientId: patient?.id,
         name,
@@ -239,7 +320,7 @@ export function PatientIntakeFormModal({
         bloodSugar: bloodSugar.trim() || undefined,
         hasDiabetes: hasDiabetes ? 1 : 0,
         weightKg: weightKg.trim() || undefined,
-        chiefComplaint: chiefComplaint.trim(),
+        chiefComplaint: safeChiefComplaint,
         problemDuration: problemDuration.trim() || undefined,
 
         seenDoctorBefore: seenDoctorBefore ? 1 : 0,
@@ -261,65 +342,79 @@ export function PatientIntakeFormModal({
         isReIntake: effectiveIsReIntake,
       };
 
-      const res = await api.patients.createIntakeForm(payload);
+      let res: any;
+      if (activeIntakeId) {
+        payload.forwardToCashier = forwardToCashier;
+        res = await api.patients.updateIntakeForm(activeIntakeId, payload);
+        setActiveIntakeStatus(res.status);
+        toast.success(
+          forwardToCashier
+            ? 'ইনটেক তথ্য সফলভাবে আপডেট ও ক্যাশিয়ারের কাছে পাঠানো হয়েছে!'
+            : 'ইনটেক তথ্য সফলভাবে আপডেট ও সংরক্ষণ করা হয়েছে!'
+        );
+      } else {
+        res = await api.patients.createIntakeForm(payload);
+        setActiveIntakeId(res?.id || res?.intakeForm?.id);
+        setActiveIntakeStatus(res?.status || (forwardToCashier ? 'forwarded_to_cashier' : 'submitted'));
 
-      // Record Timeline Event
-      if (patient?.id) {
-        try {
-          const stepKey = forwardToCashier
-            ? effectiveIsReIntake
-              ? 're_intake_forwarded_to_cashier'
-              : 'forwarded_to_cashier'
-            : effectiveIsReIntake
-            ? 're_intake_form_submitted'
-            : 'intake_form_submitted';
+        // Record Timeline Event if patient exists
+        if (patient?.id) {
+          try {
+            const stepKey = forwardToCashier
+              ? effectiveIsReIntake
+                ? 're_intake_forwarded_to_cashier'
+                : 'forwarded_to_cashier'
+              : effectiveIsReIntake
+              ? 're_intake_form_submitted'
+              : 'intake_form_submitted';
 
-          const titleEn = effectiveIsReIntake
-            ? forwardToCashier
-              ? 'Re-Intake Form Submitted & Forwarded to Cashier'
-              : 'Re-Intake Clinical Evaluation Completed'
-            : forwardToCashier
-            ? 'Intake Form Submitted & Forwarded to Cashier'
-            : 'Intake Form Recorded';
+            const titleEn = effectiveIsReIntake
+              ? forwardToCashier
+                ? 'Re-Intake Form Submitted & Forwarded to Cashier'
+                : 'Re-Intake Clinical Evaluation Completed'
+              : forwardToCashier
+              ? 'Intake Form Submitted & Forwarded to Cashier'
+              : 'Intake Form Recorded';
 
-          const titleBn = effectiveIsReIntake
-            ? forwardToCashier
-              ? '৩+ মাস পর পুনর্বার মূল্যায়ন সম্পন্ন ও ক্যাশিয়ারে পাঠানো হয়েছে'
-              : '৩+ মাস পর পুনর্বার মূল্যায়ন সংরক্ষিত হয়েছে'
-            : forwardToCashier
-            ? 'প্রাথমিক তথ্য পূরণ ও ক্যাশিয়ারের কাছে পাঠানো হয়েছে'
-            : 'রোগীর প্রাথমিক তথ্য সংরক্ষিত হয়েছে';
+            const titleBn = effectiveIsReIntake
+              ? forwardToCashier
+                ? '৩+ মাস পর পুনর্বার মূল্যায়ন সম্পন্ন ও ক্যাশিয়ারে পাঠানো হয়েছে'
+                : '৩+ মাস পর পুনর্বার মূল্যায়ন সংরক্ষিত হয়েছে'
+              : forwardToCashier
+              ? 'প্রাথমিক তথ্য পূরণ ও ক্যাশিয়ারের কাছে পাঠানো হয়েছে'
+              : 'রোগীর প্রাথমিক তথ্য সংরক্ষিত হয়েছে';
 
-          await api.patients.addTimelineEvent(patient.id, {
-            step: stepKey,
-            titleEn,
-            titleBn,
-            descriptionEn: `${
-              effectiveIsReIntake ? '[Re-Intake >3 Months] ' : ''
-            }Chief complaint: ${chiefComplaint.trim()}${
-              selectedDoctorId ? '. Target doctor assigned' : ''
-            }`,
-            descriptionBn: `${
-              effectiveIsReIntake ? '[৩+ মাস পর পুনর্বার মূল্যায়ন] ' : ''
-            }প্রধান সমস্যা: ${chiefComplaint.trim()}${
-              selectedDoctorId ? '. ডাক্তার নির্ধারিত করা হয়েছে' : ''
-            }`,
-            intakeFormId: res?.id || res?.intakeForm?.id,
-          });
-        } catch (timelineErr) {
-          console.warn('Failed to record timeline event:', timelineErr);
+            await api.patients.addTimelineEvent(patient.id, {
+              step: stepKey,
+              titleEn,
+              titleBn,
+              descriptionEn: `${
+                effectiveIsReIntake ? '[Re-Intake >3 Months] ' : ''
+              }Chief complaint: ${safeChiefComplaint}${
+                selectedDoctorId ? '. Target doctor assigned' : ''
+              }`,
+              descriptionBn: `${
+                effectiveIsReIntake ? '[৩+ মাস পর পুনর্বার মূল্যায়ন] ' : ''
+              }প্রধান সমস্যা: ${safeChiefComplaint}${
+                selectedDoctorId ? '. ডাক্তার নির্ধারিত করা হয়েছে' : ''
+              }`,
+              intakeFormId: res?.id || res?.intakeForm?.id,
+            });
+          } catch (timelineErr) {
+            console.warn('Failed to record timeline event:', timelineErr);
+          }
         }
-      }
 
-      toast.success(
-        effectiveIsReIntake
-          ? forwardToCashier
-            ? 'পুনর্বার মূল্যায়ন সফলভাবে সম্পন্ন ও ক্যাশিয়ারে পাঠানো হয়েছে!'
-            : 'পুনর্বার মূল্যায়ন ফরম সফলভাবে সংরক্ষিত হয়েছে!'
-          : forwardToCashier
-          ? 'তথ্য সংরক্ষিত এবং ক্যাশিয়ারের কাছে সফলভাবে পাঠানো হয়েছে!'
-          : 'রোগীর প্রাথমিক তথ্য সফলভাবে সংরক্ষিত হয়েছে!'
-      );
+        toast.success(
+          effectiveIsReIntake
+            ? forwardToCashier
+              ? 'পুনর্বার মূল্যায়ন সফলভাবে সম্পন্ন ও ক্যাশিয়ারে পাঠানো হয়েছে!'
+              : 'পুনর্বার মূল্যায়ন ফরম সফলভাবে সংরক্ষিত হয়েছে!'
+            : forwardToCashier
+            ? 'তথ্য সংরক্ষিত এবং ক্যাশিয়ারের কাছে সফলভাবে পাঠানো হয়েছে!'
+            : 'রোগীর প্রাথমিক তথ্য সফলভাবে সংরক্ষিত হয়েছে!'
+        );
+      }
 
       if (onSuccess) onSuccess(res);
       onOpenChange(false);
@@ -404,7 +499,12 @@ export function PatientIntakeFormModal({
                   >
                     HEALTH &amp; PAIN CARE (HPC)
                   </span>
-                  {effectiveIsReIntake ? (
+                  {activeIntakeId ? (
+                    <Badge className="bg-emerald-600 hover:bg-emerald-600 text-white font-bold text-[10px] flex items-center gap-1 shadow-2xs">
+                      <Sparkles className="size-3" />
+                      <span>ভিউ ও এডিট মোড (View & Edit)</span>
+                    </Badge>
+                  ) : effectiveIsReIntake ? (
                     <Badge className="bg-amber-600 hover:bg-amber-600 text-white font-bold text-[10px] flex items-center gap-1 shadow-2xs">
                       <AlertTriangle className="size-3" />
                       <span>৩+ মাস পর পুনর্বার মূল্যায়ন (Re-Intake)</span>
@@ -417,14 +517,29 @@ export function PatientIntakeFormModal({
                       রিসেপশন ফরম
                     </Badge>
                   )}
+
+                  {activeIntakeStatus === 'forwarded_to_cashier' && (
+                    <Badge className="bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/30 text-[10px]">
+                      ক্যাশিয়ারে প্রেরিত
+                    </Badge>
+                  )}
+                  {(activeIntakeStatus === 'billed' || activeIntakeStatus === 'admitted_to_queue') && (
+                    <Badge className="bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30 text-[10px]">
+                      বিল্ড ও সিরিয়ালে আছে
+                    </Badge>
+                  )}
                 </div>
                 <DialogTitle className="text-lg sm:text-xl font-bold tracking-tight">
-                  {effectiveIsReIntake
+                  {activeIntakeId
+                    ? 'রোগীর প্রাথমিক তথ্য ও ইনটেক ফরম (ভিউ ও এডিট)'
+                    : effectiveIsReIntake
                     ? '৩+ মাস পর পুনর্বার মূল্যায়ন ফরম (Re-Intake Assessment)'
                     : 'রোগীর প্রাথমিক তথ্য ও রিসেপশন ফরম'}
                 </DialogTitle>
                 <DialogDescription className="text-xs text-muted-foreground">
-                  {effectiveIsReIntake
+                  {activeIntakeId
+                    ? 'সংরক্ষিত ইনটেক ফরম প্রদর্শন ও সম্পাদনা। প্রয়োজনমতো তথ্য পরিবর্তন করুন, ক্যাশিয়ারে পাঠান বা প্রিন্ট করুন।'
+                    : effectiveIsReIntake
                     ? 'রোগী দীর্ঘ ৩+ মাস পর এসেছেন। পূর্ববর্তী তথ্য সংরক্ষিত আছে। বর্তমান ভাইটালস, বর্তমান প্রধান সমস্যা এবং বিগত ৩ মাসের চিকিৎসা ইতিহাস গ্রহণ করুন।'
                     : 'নতুন বা আগত রোগীর প্রাথমিক স্বাস্থ্য বিবরণী ও ডাক্তার পরামর্শ এন্ট্রি'}
                 </DialogDescription>
@@ -912,34 +1027,73 @@ export function PatientIntakeFormModal({
                 প্রিন্ট প্রিভিউ (A4)
               </Button>
 
-              <Button
-                type="button"
-                variant="outline"
-                disabled={submitting}
-                onClick={() => handleSubmit(false)}
-                className="text-xs h-9 gap-1.5"
-              >
-                <Save className="size-3.5" />
-                শুধু সংরক্ষণ করুন
-              </Button>
+              {activeIntakeId ? (
+                <>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={submitting}
+                    onClick={() => handleSubmit(false)}
+                    className="text-xs h-9 gap-1.5"
+                  >
+                    <Save className="size-3.5" />
+                    পরিবর্তন সংরক্ষণ করুন
+                  </Button>
 
-              <Button
-                type="button"
-                disabled={submitting}
-                onClick={() => handleSubmit(true)}
-                className="text-xs h-9 gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold shadow-md shadow-emerald-500/20"
-              >
-                {submitting ? (
-                  <>
-                    <Loader2 className="size-3.5 animate-spin" /> সংরক্ষণ হচ্ছে...
-                  </>
-                ) : (
-                  <>
-                    <Send className="size-3.5" />
-                    সংরক্ষণ ও ক্যাশিয়ারের কাছে পাঠান
-                  </>
-                )}
-              </Button>
+                  {activeIntakeStatus !== 'forwarded_to_cashier' &&
+                    activeIntakeStatus !== 'billed' &&
+                    activeIntakeStatus !== 'admitted_to_queue' && (
+                      <Button
+                        type="button"
+                        disabled={submitting}
+                        onClick={() => handleSubmit(true)}
+                        className="text-xs h-9 gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold shadow-md shadow-emerald-500/20"
+                      >
+                        {submitting ? (
+                          <>
+                            <Loader2 className="size-3.5 animate-spin" /> পাঠানো হচ্ছে...
+                          </>
+                        ) : (
+                          <>
+                            <Send className="size-3.5" />
+                            ক্যাশিয়ারের কাছে পাঠান
+                          </>
+                        )}
+                      </Button>
+                    )}
+                </>
+              ) : (
+                <>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={submitting}
+                    onClick={() => handleSubmit(false)}
+                    className="text-xs h-9 gap-1.5"
+                  >
+                    <Save className="size-3.5" />
+                    শুধু সংরক্ষণ করুন
+                  </Button>
+
+                  <Button
+                    type="button"
+                    disabled={submitting}
+                    onClick={() => handleSubmit(true)}
+                    className="text-xs h-9 gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold shadow-md shadow-emerald-500/20"
+                  >
+                    {submitting ? (
+                      <>
+                        <Loader2 className="size-3.5 animate-spin" /> সংরক্ষণ হচ্ছে...
+                      </>
+                    ) : (
+                      <>
+                        <Send className="size-3.5" />
+                        সংরক্ষণ ও ক্যাশিয়ারের কাছে পাঠান
+                      </>
+                    )}
+                  </Button>
+                </>
+              )}
             </div>
           </div>
         </DialogContent>

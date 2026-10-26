@@ -185,7 +185,7 @@ export function TherapyQueueManagementTab() {
         modalityCode: patient.modalityCode || 'PHYSIO',
       });
       toast.success(
-        `টোকেন #${String(patient.tokenNumber).padStart(2, '0')} কে রুম ${roomNumber} (${roomName}) এ ডাকা হয়েছে! টিভি স্ক্রিনে ঘোষণা পাঠানো হয়েছে।`,
+        `সিরিয়াল #${String(patient.tokenNumber).padStart(2, '0')} কে রুম ${roomNumber} (${roomName}) এ ডাকা হয়েছে! টিভি স্ক্রিনে ঘোষণা পাঠানো হয়েছে।`,
       );
       await fetchData(true);
     } catch (err: any) {
@@ -359,7 +359,7 @@ export function TherapyQueueManagementTab() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
             <Input
               type="text"
-              placeholder="রোগীর নাম, টোকেন # বা MRN দিয়ে খুঁজুন..."
+              placeholder="রোগীর নাম, সিরিয়াল # বা MRN দিয়ে খুঁজুন..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9 h-9 text-xs sm:text-sm bg-card/60"
@@ -1059,7 +1059,7 @@ export function AllPlansModal({
               </DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground mt-0.5">
                 রোগী: <strong className="text-foreground">{patient.patientNameBn || patient.patientNameEn}</strong> · MRN:{' '}
-                <strong className="text-foreground">{patient.mrn}</strong> · টোকেন: #{String(patient.tokenNumber).padStart(2, '0')}
+                <strong className="text-foreground">{patient.mrn}</strong> · সিরিয়াল: #{String(patient.tokenNumber).padStart(2, '0')}
               </DialogDescription>
             </div>
           </div>
@@ -1270,7 +1270,7 @@ export function StartTherapySessionModal({
         durationMinutes,
       });
       toast.success(
-        `টোকেন #${String(patient.tokenNumber).padStart(2, '0')} এর ${modalityCode} সেশন (${durationMinutes} মিনিট) শুরু হয়েছে!`,
+        `সিরিয়াল #${String(patient.tokenNumber).padStart(2, '0')} এর ${modalityCode} সেশন (${durationMinutes} মিনিট) শুরু হয়েছে!`,
       );
       onOpenChange(false);
       onSuccess();
@@ -1294,7 +1294,7 @@ export function StartTherapySessionModal({
                 থেরাপি সেশন শুরু করুন (Start Session)
               </DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground mt-0.5">
-                রোগী: <strong className="text-foreground">{patient.patientNameBn || patient.patientNameEn}</strong> (টোকেন #{String(patient.tokenNumber).padStart(2, '0')})
+                রোগী: <strong className="text-foreground">{patient.patientNameBn || patient.patientNameEn}</strong> (সিরিয়াল #{String(patient.tokenNumber).padStart(2, '0')})
               </DialogDescription>
             </div>
           </div>

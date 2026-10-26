@@ -134,6 +134,7 @@ export async function apiFetch<T>(
     | 'GET'
     | 'POST'
     | 'PUT'
+    | 'PATCH'
     | 'DELETE');
 
   let body: any = undefined;
@@ -258,6 +259,10 @@ export const api = {
       return apiFetch<any[]>(`/patients/intake-forms${str ? `?${str}` : ''}`);
     },
     getIntakeForm: (id: string) => apiFetch<any>(`/patients/intake-form/${id}`),
+    updateIntakeForm: (id: string, data: any) =>
+      apiFetch<any>(`/patients/intake-form/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+    getLatestIntakeForm: (patientId: string) =>
+      apiFetch<any>(`/patients/${patientId}/latest-intake-form`),
     forwardIntakeFormToCashier: (id: string) =>
       apiFetch<any>(`/patients/intake-form/${id}/forward-to-cashier`, { method: 'POST' }),
     admitIntakeFormToQueue: (id: string, data?: any) =>

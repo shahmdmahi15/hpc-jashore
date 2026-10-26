@@ -154,7 +154,7 @@ export class VisitsService {
 
     if (activeVisit.length > 0) {
       throw new BadRequestException(
-        `এই রোগী ইতিমধ্যে আজ চেক-ইন আছেন (টোকেন #${activeVisit[0].tokenNumber})। পুনরায় চেক-ইন করার পূর্বে আগের ভিজিটটি চেক-আউট সম্পন্ন করতে হবে। (Patient is already checked in with Token #${activeVisit[0].tokenNumber}. Must checkout before re-checking in.)`,
+        `এই রোগী ইতিমধ্যে আজ চেক-ইন আছেন (সিরিয়াল #${activeVisit[0].tokenNumber})। পুনরায় চেক-ইন করার পূর্বে আগের ভিজিটটি চেক-আউট সম্পন্ন করতে হবে। (Patient is already checked in with Serial #${activeVisit[0].tokenNumber}. Must checkout before re-checking in.)`,
       );
     }
 

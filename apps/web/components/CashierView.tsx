@@ -1669,7 +1669,7 @@ export default function CashierView({ session: propSession }: CashierProps = {})
                 {selectedTherapyBillForPayment.patientNameBn ? ` (${selectedTherapyBillForPayment.patientNameBn})` : ''}
               </DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground">
-                টোকেন #{selectedTherapyBillForPayment.tokenNumber} • MRN: {selectedTherapyBillForPayment.mrn} • মডালিটি: {selectedTherapyBillForPayment.modalityName || selectedTherapyBillForPayment.modalityCode}
+                সিরিয়াল #{selectedTherapyBillForPayment.tokenNumber} • MRN: {selectedTherapyBillForPayment.mrn} • মডালিটি: {selectedTherapyBillForPayment.modalityName || selectedTherapyBillForPayment.modalityCode}
               </DialogDescription>
             </DialogHeader>
 

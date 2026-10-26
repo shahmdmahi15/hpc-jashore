@@ -161,7 +161,12 @@ export function CheckInWorkstationView() {
     bookingId?: string;
     toldTimeOverride?: string;
   } | null>(null);
-  const [timelinePatient, setTimelinePatient] = useState<{ id: string; name?: string } | null>(null);
+  const [timelinePatient, setTimelinePatient] = useState<{
+    id: string;
+    name?: string;
+    mrn?: string;
+    phone?: string;
+  } | null>(null);
   const [slipModalData, setSlipModalData] = useState<{
     tokenNumber: number;
     serialNumber?: number | null;
@@ -484,8 +489,8 @@ export function CheckInWorkstationView() {
     if (existingActive) {
       toast.error(
         isBn
-          ? `এই রোগী ইতিমধ্যে আজ চেক-ইন আছেন (টোকেন #${toBnNum(existingActive.tokenNumber)})। পুনরায় চেক-ইন করার পূর্বে আগের ভিজিট চেক-আউট সম্পন্ন করতে হবে।`
-          : `Patient is already checked in (Token #${existingActive.tokenNumber}). Must checkout previous visit before re-checking in.`,
+          ? `এই রোগী ইতিমধ্যে আজ চেক-ইন আছেন (সিরিয়াল #${toBnNum(existingActive.serialNumber || existingActive.tokenNumber)})। পুনরায় চেক-ইন করার পূর্বে আগের ভিজিট চেক-আউট সম্পন্ন করতে হবে।`
+          : `Patient is already checked in (Serial #${existingActive.serialNumber || existingActive.tokenNumber}). Must checkout previous visit before re-checking in.`,
       );
       return;
     }
@@ -510,11 +515,11 @@ export function CheckInWorkstationView() {
         toast.success(
           hasTherapySlot
             ? (isBn
-                ? `টোকেন #${toBnNum(res.tokenSlip.tokenNumber)} চেক-ইন সম্পন্ন! থেরাপি কিউ-তে যুক্ত করা হয়েছে।`
-                : `Token #${res.tokenSlip.tokenNumber} checked in & queued for therapy!`)
+                ? `সিরিয়াল #${toBnNum(res.tokenSlip.serialNumber || res.tokenSlip.tokenNumber)} চেক-ইন সম্পন্ন! থেরাপি কিউ-তে যুক্ত করা হয়েছে।`
+                : `Serial #${res.tokenSlip.serialNumber || res.tokenSlip.tokenNumber} checked in & queued for therapy!`)
             : (isBn
-                ? `টোকেন #${toBnNum(res.tokenSlip.tokenNumber)} চেক-ইন সম্পন্ন! রোগীকে ওয়েটিং রুমে পাঠানো হয়েছে।`
-                : `Token #${res.tokenSlip.tokenNumber} checked in to waiting room!`),
+                ? `সিরিয়াল #${toBnNum(res.tokenSlip.serialNumber || res.tokenSlip.tokenNumber)} চেক-ইন সম্পন্ন! রোগীকে ওয়েটিং রুমে পাঠানো হয়েছে।`
+                : `Serial #${res.tokenSlip.serialNumber || res.tokenSlip.tokenNumber} checked in to waiting room!`),
         );
 
         // Open slip preview
@@ -970,27 +975,39 @@ export function CheckInWorkstationView() {
 
                   {/* Quick Patient Actions: Intake Form & Timeline */}
                   <div className="pt-2 flex flex-wrap items-center gap-2 border-t border-border/40">
-                    <Button
-                      type="button"
-                      size="sm"
-                      onClick={() => setIsIntakeFormOpen(true)}
-                      className={`h-7 px-2.5 text-xs font-semibold text-white gap-1.5 rounded-lg shadow-2xs ${
-                        selectedClinicalStatus?.patientType === 'lapsed_reintake'
-                          ? 'bg-amber-600 hover:bg-amber-500'
-                          : selectedClinicalStatus?.patientType === 'brand_new'
-                          ? 'bg-blue-600 hover:bg-blue-500'
-                          : 'bg-emerald-600 hover:bg-emerald-500'
-                      }`}
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>
-                        {selectedClinicalStatus?.patientType === 'lapsed_reintake'
-                          ? (isBn ? '৩+ মাস পর পুনর্বার মূল্যায়ন ফরম' : 'Re-Intake Assessment Form')
-                          : selectedClinicalStatus?.patientType === 'brand_new'
-                          ? (isBn ? 'প্রাথমিক তথ্য ফরম পূরণ করুন' : 'Fill Initial Intake Form')
-                          : (isBn ? 'রোগীর তথ্য ফরম' : 'Patient Intake Form')}
-                      </span>
-                    </Button>
+                    {selectedClinicalStatus?.intakeCompletedToday ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => setIsIntakeFormOpen(true)}
+                        className="h-7 px-2.5 text-xs font-semibold text-white gap-1.5 rounded-lg shadow-2xs bg-teal-600 hover:bg-teal-500"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                        <span>{isBn ? 'ইনটেক ফরম দেখুন / এডিট' : 'View / Edit Intake Form'}</span>
+                      </Button>
+                    ) : (
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => setIsIntakeFormOpen(true)}
+                        className={`h-7 px-2.5 text-xs font-semibold text-white gap-1.5 rounded-lg shadow-2xs ${
+                          selectedClinicalStatus?.patientType === 'lapsed_reintake'
+                            ? 'bg-amber-600 hover:bg-amber-500'
+                            : selectedClinicalStatus?.patientType === 'brand_new'
+                            ? 'bg-blue-600 hover:bg-blue-500'
+                            : 'bg-emerald-600 hover:bg-emerald-500'
+                        }`}
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>
+                          {selectedClinicalStatus?.patientType === 'lapsed_reintake'
+                            ? (isBn ? '৩+ মাস পর পুনর্বার মূল্যায়ন ফরম' : 'Re-Intake Assessment Form')
+                            : selectedClinicalStatus?.patientType === 'brand_new'
+                            ? (isBn ? 'প্রাথমিক তথ্য ফরম পূরণ করুন' : 'Fill Initial Intake Form')
+                            : (isBn ? 'রোগীর তথ্য ফরম' : 'Patient Intake Form')}
+                        </span>
+                      </Button>
+                    )}
                     <Button
                       type="button"
                       variant="outline"
@@ -1148,8 +1165,8 @@ export function CheckInWorkstationView() {
                         </div>
                         <div className="text-[11px] text-muted-foreground">
                           {isBn
-                            ? 'রোগীর কোনো থেরাপি স্লট নেই। আগমন টোকেন ইস্যু করে রোগীকে ওয়েটিং রুমে পাঠানো হবে। কোনো কিউ-তে অটো-এন্ট্রি হবে না।'
-                            : 'Patient has no active therapy slot. Arrival token will be issued to the waiting room. No queue auto-entry.'}
+                            ? 'রোগীর কোনো থেরাপি স্লট নেই। আগমন সিরিয়াল স্লিপ ইস্যু করে রোগীকে ওয়েটিং রুমে পাঠানো হবে। কোনো কিউ-তে অটো-এন্ট্রি হবে না।'
+                            : 'Patient has no active therapy slot. Arrival serial slip will be issued to the waiting room. No queue auto-entry.'}
                         </div>
                       </div>
                     </div>
@@ -1222,7 +1239,7 @@ export function CheckInWorkstationView() {
                       <div className="font-bold flex items-center gap-1.5">
                         <span>{isBn ? 'এই রোগী ইতিমধ্যে চেক-ইন আছেন' : 'Patient Already Checked In'}</span>
                         <span className="font-mono px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-800 dark:text-amber-200">
-                          #{toBnNum(activeExistingVisit.tokenNumber)}
+                          {isBn ? `সিরিয়াল #${toBnNum(activeExistingVisit.serialNumber || activeExistingVisit.tokenNumber)}` : `Serial #${activeExistingVisit.serialNumber || activeExistingVisit.tokenNumber}`}
                         </span>
                       </div>
                       <div className="text-[11px] leading-relaxed">
@@ -1252,8 +1269,8 @@ export function CheckInWorkstationView() {
                       <AlertTriangle className="w-4 h-4" />
                       <span>
                         {isBn
-                          ? `ইতিমধ্যে চেক-ইন আছেন (টোকেন #${toBnNum(activeExistingVisit.tokenNumber)})`
-                          : `Already Checked In (Token #${activeExistingVisit.tokenNumber})`}
+                          ? `ইতিমধ্যে চেক-ইন আছেন (সিরিয়াল #${toBnNum(activeExistingVisit.serialNumber || activeExistingVisit.tokenNumber)})`
+                          : `Already Checked In (Serial #${activeExistingVisit.serialNumber || activeExistingVisit.tokenNumber})`}
                       </span>
                     </>
                   ) : (
@@ -1265,8 +1282,8 @@ export function CheckInWorkstationView() {
                               ? 'চেক-ইন সম্পন্ন করুন ও থেরাপি কিউতে যুক্ত করুন'
                               : 'Complete Check-In & Queue for Therapy')
                           : (isBn
-                              ? 'ওয়েটিং রুমে চেক-ইন সম্পন্ন করুন ও টোকেন ইস্যু করুন'
-                              : 'Complete Check-In to Waiting Room & Issue Token')}
+                              ? 'ওয়েটিং রুমে চেক-ইন সম্পন্ন করুন ও স্লিপ ইস্যু করুন'
+                              : 'Complete Check-In to Waiting Room & Issue Slip')}
                       </span>
                     </>
                   )}
@@ -1399,7 +1416,7 @@ export function CheckInWorkstationView() {
                             </Badge>
                           ) : isPatientCheckedIn ? (
                             <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/40 text-[10px] font-mono">
-                              {isBn ? `ইতিমধ্যে চেক-ইন #${toBnNum(existingActiveVisit?.tokenNumber ?? '')}` : `Checked In #${existingActiveVisit?.tokenNumber}`}
+                              {isBn ? `ইতিমধ্যে চেক-ইন (সিরিয়াল #${toBnNum(existingActiveVisit?.serialNumber || existingActiveVisit?.tokenNumber || '')})` : `Checked In (Serial #${existingActiveVisit?.serialNumber || existingActiveVisit?.tokenNumber || ''})`}
                             </Badge>
                           ) : (
                             <Badge variant="outline" className="text-[10px] text-amber-600 border-amber-500/40">
@@ -1445,8 +1462,8 @@ export function CheckInWorkstationView() {
                               <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
                               <span className="truncate">
                                 {isBn
-                                  ? `ইতিমধ্যে চেক-ইন আছেন (টোকেন #${toBnNum(existingActiveVisit?.tokenNumber ?? '')})`
-                                  : `Already Checked In (#${existingActiveVisit?.tokenNumber})`}
+                                  ? `ইতিমধ্যে চেক-ইন আছেন (সিরিয়াল #${toBnNum(existingActiveVisit?.serialNumber || existingActiveVisit?.tokenNumber || '')})`
+                                  : `Already Checked In (Serial #${existingActiveVisit?.serialNumber || existingActiveVisit?.tokenNumber || ''})`}
                               </span>
                             </div>
                           ) : (
@@ -1510,7 +1527,7 @@ export function CheckInWorkstationView() {
                 <div className="font-bold text-foreground">
                   {isBn ? 'থেরাপি কিউয়ে কোনো রোগী অপেক্ষমাণ নেই' : 'No therapy patients currently queued'}
                 </div>
-                <div>{isBn ? 'সকল রোগীকে সেবা প্রদান করা হয়েছে' : 'All checked-in therapy tokens have been attended'}</div>
+                <div>{isBn ? 'সকল রোগীকে সেবা প্রদান করা হয়েছে' : 'All checked-in therapy patients have been attended'}</div>
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
@@ -1520,14 +1537,17 @@ export function CheckInWorkstationView() {
                     className="p-3.5 rounded-xl border border-border/60 bg-card hover:border-emerald-500/50 shadow-2xs flex flex-col justify-between space-y-2.5 transition-all"
                   >
                     <div>
-                      {/* Top Header: Index & Large Token */}
+                      {/* Top Header: Index & Large Serial */}
                       <div className="flex items-center justify-between gap-2">
                         <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-muted text-muted-foreground">
                           #{toBnNum(idx + 1)}
                         </span>
-                        <span className="text-2xl sm:text-3xl font-black font-mono text-emerald-500">
-                          {toBnNum(item.tokenNumber)}
-                        </span>
+                        <div className="flex items-center gap-1">
+                          <span className="text-[10px] font-bold uppercase text-muted-foreground">{isBn ? 'সিরিয়াল' : 'Serial'}</span>
+                          <span className="text-2xl sm:text-3xl font-black font-mono text-emerald-500">
+                            #{toBnNum(item.tokenNumber)}
+                          </span>
+                        </div>
                       </div>
 
                       {/* Patient Name */}
@@ -1559,6 +1579,7 @@ export function CheckInWorkstationView() {
                         onClick={() =>
                           setSlipModalData({
                             tokenNumber: item.tokenNumber,
+                            serialNumber: item.tokenNumber,
                             patientName: isBn ? item.patientNameBn || item.patientNameEn : item.patientNameEn,
                             mrn: item.mrn,
                             destination: 'therapy',
@@ -1572,7 +1593,7 @@ export function CheckInWorkstationView() {
                         className="h-7 px-2 text-[10px] gap-1 text-muted-foreground hover:text-foreground"
                       >
                         <Printer className="w-3 h-3" />
-                        <span>{isBn ? 'টোকেন প্রিন্ট' : 'Print Token'}</span>
+                        <span>{isBn ? 'স্লিপ প্রিন্ট' : 'Print Slip'}</span>
                       </Button>
                     </div>
                   </div>
@@ -1600,7 +1621,7 @@ export function CheckInWorkstationView() {
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
                     <tr className="border-b border-border/60 text-muted-foreground">
-                      <th className="py-2.5 px-3 font-semibold">{isBn ? 'টোকেন' : 'Token'}</th>
+                      <th className="py-2.5 px-3 font-semibold">{isBn ? 'সিরিয়াল' : 'Serial'}</th>
                       <th className="py-2.5 px-3 font-semibold">{isBn ? 'রোগীর বিবরণ' : 'Patient Info'}</th>
                       <th className="py-2.5 px-3 font-semibold">{isBn ? 'গন্তব্য' : 'Destination'}</th>
                       <th className="py-2.5 px-3 font-semibold">{isBn ? 'সময়ানুবর্তিতা মার্কার' : 'Punctuality Marker'}</th>
@@ -1613,7 +1634,7 @@ export function CheckInWorkstationView() {
                       <tr key={v.id} className="hover:bg-muted/20 transition-colors">
                         <td className="py-2.5 px-3 font-mono font-black text-emerald-600 dark:text-emerald-400 text-sm">
                           <div className="flex items-center gap-1.5 flex-wrap">
-                            <span>#{toBnNum(v.tokenNumber)}</span>
+                            <span>#{toBnNum(v.serialNumber || v.tokenNumber)}</span>
                             {renderPriorityBadge(v.priority)}
                           </div>
                         </td>
@@ -1651,6 +1672,8 @@ export function CheckInWorkstationView() {
                                 setTimelinePatient({
                                   id: v.patientId || v.patient?.id,
                                   name: isBn ? v.patient?.nameBn || v.patient?.nameEn : v.patient?.nameEn,
+                                  mrn: v.patient?.mrn,
+                                  phone: v.patient?.phone,
                                 });
                                 setIsTimelineOpen(true);
                               }}
@@ -1666,6 +1689,7 @@ export function CheckInWorkstationView() {
                               onClick={() =>
                                 setSlipModalData({
                                   tokenNumber: v.tokenNumber,
+                                  serialNumber: v.serialNumber || v.tokenNumber,
                                   patientName: isBn ? v.patient?.nameBn || v.patient?.nameEn : v.patient?.nameEn,
                                   mrn: v.patient?.mrn || '',
                                   destination: v.currentLocation,
@@ -1742,8 +1766,8 @@ export function CheckInWorkstationView() {
                   type="text"
                   placeholder={
                     isBn
-                      ? 'নাম, ফোন, MRN বা টোকেন নম্বর...'
-                      : 'Search by name, phone, MRN or token...'
+                      ? 'নাম, ফোন, MRN বা সিরিয়াল নম্বর...'
+                      : 'Search by name, phone, MRN or serial...'
                   }
                   value={liveSearchQuery}
                   onChange={(e) => setLiveSearchQuery(e.target.value)}
@@ -1929,10 +1953,10 @@ export function CheckInWorkstationView() {
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span className="text-[10px] uppercase font-bold text-muted-foreground">
-                          {isBn ? 'টোকেন' : 'Token'}
+                          {isBn ? 'সিরিয়াল' : 'Serial'}
                         </span>
                         <span className="font-mono font-black text-emerald-600 dark:text-emerald-400 text-base px-2 py-0.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-                          #{toBnNum(v.tokenNumber)}
+                          #{toBnNum(v.serialNumber || v.tokenNumber)}
                         </span>
                         {renderPriorityBadge(v.priority)}
                       </div>
@@ -1984,6 +2008,8 @@ export function CheckInWorkstationView() {
                           setTimelinePatient({
                             id: v.patientId || v.patient?.id,
                             name: patientName,
+                            mrn: v.patient?.mrn,
+                            phone: v.patient?.phone,
                           });
                           setIsTimelineOpen(true);
                         }}
@@ -1999,6 +2025,7 @@ export function CheckInWorkstationView() {
                         onClick={() =>
                           setSlipModalData({
                             tokenNumber: v.tokenNumber,
+                            serialNumber: v.serialNumber || v.tokenNumber,
                             patientName: patientName,
                             mrn: v.patient?.mrn || '',
                             destination: v.currentLocation,
@@ -2045,7 +2072,7 @@ export function CheckInWorkstationView() {
           <DialogContent className="max-w-[340px] sm:max-w-[360px] p-4">
             <DialogHeader>
               <DialogTitle className="text-center text-sm font-bold">
-                {isBn ? '৮০মিমি টোকেন স্লিপ প্রিভিউ' : '80mm Token Slip Preview'}
+                {isBn ? '৮০মিমি সিরিয়াল স্লিপ প্রিভিউ' : '80mm Serial Slip Preview'}
               </DialogTitle>
             </DialogHeader>
 
@@ -2056,10 +2083,10 @@ export function CheckInWorkstationView() {
               <div className="text-[10px] text-zinc-600">Jashore, Bangladesh</div>
               <div className="border-t border-b border-dashed border-zinc-400 py-1.5 my-1">
                 <div className="text-[10px] uppercase tracking-wider text-zinc-500">
-                  {isBn ? 'টোকেন নম্বর' : 'TOKEN NUMBER'}
+                  {isBn ? 'সিরিয়াল নম্বর' : 'SERIAL NUMBER'}
                 </div>
                 <div className="text-3xl font-black text-black">
-                  #{toBnNum(slipModalData.tokenNumber)}
+                  #{toBnNum(slipModalData.serialNumber || slipModalData.tokenNumber)}
                 </div>
               </div>
 
@@ -2078,7 +2105,9 @@ export function CheckInWorkstationView() {
               </div>
 
               <div className="text-[9px] text-zinc-500 pt-2 border-t border-dashed border-zinc-300">
-                Please wait until your token is displayed on the TV screen.
+                {isBn
+                  ? 'আপনার সিরিয়াল নম্বরটি ডিসপ্লে স্ক্রিনে প্রদর্শিত হওয়া পর্যন্ত অনুগ্রহ করে অপেক্ষা করুন।'
+                  : 'Please wait until your serial number is displayed on the TV screen.'}
               </div>
             </div>
 
@@ -2168,6 +2197,7 @@ export function CheckInWorkstationView() {
         onOpenChange={setIsIntakeFormOpen}
         patient={selectedPatient}
         clinicalStatus={selectedClinicalStatus}
+        intakeFormId={selectedClinicalStatus?.todayIntakeId || undefined}
         isReIntake={selectedClinicalStatus?.patientType === 'lapsed_reintake'}
         onSuccess={() => {
           loadData();
@@ -2190,6 +2220,8 @@ export function CheckInWorkstationView() {
         onOpenChange={setIsTimelineOpen}
         patientId={timelinePatient?.id}
         patientName={timelinePatient?.name}
+        mrn={timelinePatient?.mrn}
+        phone={timelinePatient?.phone}
       />
     </div>
   );

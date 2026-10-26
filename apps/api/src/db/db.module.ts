@@ -89,6 +89,27 @@ export type Db = BetterSQLite3Database<typeof schema>;
               created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
               updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
             );
+
+            CREATE TABLE IF NOT EXISTS patient_timeline_events (
+              id TEXT PRIMARY KEY,
+              patient_id TEXT NOT NULL REFERENCES patients(id),
+              visit_id TEXT REFERENCES visits(id),
+              consultation_booking_id TEXT,
+              intake_form_id TEXT,
+              step TEXT NOT NULL,
+              title_en TEXT NOT NULL,
+              title_bn TEXT NOT NULL,
+              description_en TEXT,
+              description_bn TEXT,
+              actor_id TEXT,
+              actor_name TEXT,
+              actor_role TEXT,
+              metadata_json TEXT,
+              occurred_at TEXT NOT NULL,
+              date TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_timeline_patient_date ON patient_timeline_events(patient_id, date);
+            CREATE INDEX IF NOT EXISTS idx_timeline_occurred_at ON patient_timeline_events(occurred_at);
           `);
 
           // Seed default bulletin if none exist

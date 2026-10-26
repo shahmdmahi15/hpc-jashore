@@ -58,6 +58,7 @@ export interface RecentCheckInVisit {
   patientId: string;
   doctorId?: string | null;
   tokenNumber: number;
+  serialNumber?: number | null;
   visitDate: string;
   status: string;
   priority: 'normal' | 'emergency' | 'vip';

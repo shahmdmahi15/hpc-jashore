@@ -15,7 +15,7 @@ export type ServerActionResult<T = any> =
 
 export async function executeServerAction<T = any>(
   path: string,
-  method: 'GET' | 'POST' | 'PUT' | 'DELETE' = 'GET',
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' = 'GET',
   body?: any,
   explicitToken?: string,
 ): Promise<ServerActionResult<T>> {

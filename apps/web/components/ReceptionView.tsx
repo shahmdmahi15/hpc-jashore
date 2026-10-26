@@ -69,7 +69,12 @@ export default function ReceptionView() {
   const [showPrintModal, setShowPrintModal] = useState(false);
 
   // Timeline Modal State
-  const [timelinePatient, setTimelinePatient] = useState<{ id: string; name: string } | null>(null);
+  const [timelinePatient, setTimelinePatient] = useState<{
+    id: string;
+    name: string;
+    mrn?: string;
+    phone?: string;
+  } | null>(null);
 
   // Forward to Cashier Modal State
   const [forwardVisit, setForwardVisit] = useState<any | null>(null);
@@ -134,7 +139,7 @@ export default function ReceptionView() {
       }
 
       toast.success(
-        `রোগী ${pat?.nameEn || ''} সফলভাবে চেক-ইন সম্পন্ন হয়েছে! (টোকেন #${res.tokenNumber || res.serialNumber})`
+        `রোগী ${pat?.nameEn || ''} সফলভাবে চেক-ইন সম্পন্ন হয়েছে! (সিরিয়াল #${res.serialNumber || res.tokenNumber})`
       );
 
       // Reset selection and refresh queue
@@ -531,7 +536,7 @@ export default function ReceptionView() {
                       <table className="w-full text-left text-xs sm:text-sm">
                         <thead className="bg-muted/50 border-b border-border text-muted-foreground font-semibold">
                           <tr>
-                            <th className="p-3">Token</th>
+                            <th className="p-3">সিরিয়াল / Serial</th>
                             <th className="p-3">Patient</th>
                             <th className="p-3 hidden sm:table-cell">Doctor</th>
                             <th className="p-3">Status</th>
@@ -634,6 +639,8 @@ export default function ReceptionView() {
                                       setTimelinePatient({
                                         id: v.patient?.id || v.patientId,
                                         name: v.patient?.nameBn || v.patient?.nameEn || '',
+                                        mrn: v.patient?.mrn,
+                                        phone: v.patient?.phone,
                                       })
                                     }
                                     title="রোগীর টাইমলাইন দেখুন"
@@ -717,6 +724,8 @@ export default function ReceptionView() {
         }}
         patientId={timelinePatient?.id}
         patientName={timelinePatient?.name}
+        mrn={timelinePatient?.mrn}
+        phone={timelinePatient?.phone}
       />
 
       {/* Forward to Cashier Confirmation Dialog */}
@@ -737,7 +746,7 @@ export default function ReceptionView() {
                   {forwardVisit.patient?.mrn})
                 </div>
                 <div>
-                  <strong>টোকেন নম্বর:</strong> #{forwardVisit.tokenNumber}
+                  <strong>সিরিয়াল নম্বর:</strong> #{forwardVisit.serialNumber || forwardVisit.tokenNumber}
                 </div>
               </div>
 

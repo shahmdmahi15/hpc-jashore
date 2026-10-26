@@ -976,15 +976,12 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
                               : 'border-border bg-card hover:bg-muted/50'
                           )}
                         >
-                          {/* Top row: Serial, Token, Punctuality & Priority Badge */}
+                          {/* Top row: Serial, Punctuality & Priority Badge */}
                           <div className="flex justify-between items-center gap-2 flex-wrap">
                             <div className="flex items-center gap-1.5 flex-wrap">
                               <span className="font-extrabold text-base text-emerald-600 dark:text-emerald-400 font-mono">
-                                #{s.serialNumber}
+                                সিরিয়াল #{s.serialNumber}
                               </span>
-                              <Badge variant="outline" className="font-mono text-[11px] font-bold border-emerald-500/40 text-emerald-600 dark:text-emerald-400">
-                                টোকেন: {s.tokenNumber || `T-${s.serialNumber}`}
-                              </Badge>
                               {getPriorityBadge(s.priority)}
                               {renderPatientClinicalStatusBadge(s, 'sm')}
                             </div>
@@ -1878,6 +1875,8 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
             onOpenChange={setIsTimelineModalOpen}
             patientId={activeSerial?.patientId || activeSerial?.patient?.id}
             patientName={activeSerial?.patient?.nameBn || activeSerial?.patient?.nameEn}
+            mrn={activeSerial?.patient?.mrn}
+            phone={activeSerial?.patient?.phone}
           />
 
           {/* PAIN ASSESSMENT FORM MODAL (CREATE NEW) */}
