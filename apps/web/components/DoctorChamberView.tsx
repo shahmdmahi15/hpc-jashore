@@ -121,28 +121,69 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
   const [savingRx, setSavingRx] = useState(false);
 
   const doctorId = session?.staffId || '';
+  const [doctorsList, setDoctorsList] = useState<any[]>([]);
+  const [selectedDoctorId, setSelectedDoctorId] = useState<string>(() => {
+    if (session?.role === 'doctor') {
+      return session.staffId || session.userId || 'all';
+    }
+    return 'all';
+  });
 
-  const loadQueue = async () => {
+  const loadQueue = async (overrideDoctorId?: string, isSilent = false) => {
     try {
-      setLoading(true);
-      const staffList = await api.staff.list();
-      let targetDoctor = staffList.find((s: any) => s.userId === session?.userId || s.role === 'doctor');
-      const docId = targetDoctor ? targetDoctor.id : doctorId;
+      if (!isSilent) setLoading(true);
 
-      if (docId) {
-        const q = await api.visits.getDoctorQueue(docId);
-        setQueue(q || []);
-        if (q && q.length > 0) {
-          setActiveSerial((prev: any) => {
-            if (prev) {
-              return q.find((s: any) => s.id === prev.id) || null;
-            }
-            const inProgress = q.find((s: any) => s.status === 'in_chamber' || s.status === 'called');
-            return inProgress || null;
+      // Load doctors list
+      let doctors: any[] = [];
+      try {
+        doctors = await api.staff.listDoctors();
+      } catch {
+        const staffList = await api.staff.list();
+        doctors = (staffList || []).filter((s: any) => s.role === 'doctor');
+      }
+      setDoctorsList(doctors || []);
+
+      const targetDoctorId = overrideDoctorId !== undefined ? overrideDoctorId : selectedDoctorId;
+      const queryDoctorId = targetDoctorId || 'all';
+
+      let q: any[] = [];
+      try {
+        q = await api.visits.getDoctorQueue(queryDoctorId);
+      } catch (err) {
+        console.error('getDoctorQueue error:', err);
+        q = [];
+      }
+
+      // If 'all' was queried and backend returned empty, attempt multi-doctor fetch as fallback
+      if ((!q || q.length === 0) && queryDoctorId === 'all' && doctors && doctors.length > 0) {
+        try {
+          const queues = await Promise.all(
+            doctors.map((d: any) => api.visits.getDoctorQueue(d.id || d.userId).catch(() => []))
+          );
+          const merged = queues.flat();
+          const seen = new Set();
+          q = merged.filter((item: any) => {
+            if (!item || !item.id || seen.has(item.id)) return false;
+            seen.add(item.id);
+            return true;
           });
-        } else {
-          setActiveSerial(null);
+          q.sort((a: any, b: any) => (a.serialNumber || 0) - (b.serialNumber || 0));
+        } catch {
+          // ignore
         }
+      }
+
+      setQueue(q || []);
+      if (q && q.length > 0) {
+        setActiveSerial((prev: any) => {
+          if (prev) {
+            return q.find((s: any) => s.id === prev.id) || null;
+          }
+          const inProgress = q.find((s: any) => s.status === 'in_chamber' || s.status === 'called');
+          return inProgress || null;
+        });
+      } else {
+        setActiveSerial(null);
       }
 
       const meds = await api.inventory.getMedicines();
@@ -150,7 +191,7 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
     } catch (err: any) {
       console.error(err);
     } finally {
-      setLoading(false);
+      if (!isSilent) setLoading(false);
     }
   };
 
@@ -160,9 +201,10 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
       event.type.startsWith('queue.') ||
       event.type.startsWith('serial.') ||
       event.type.startsWith('consultation.') ||
-      event.type.startsWith('visit.')
+      event.type.startsWith('visit.') ||
+      event.type.startsWith('doctor.')
     ) {
-      loadQueue();
+      loadQueue(undefined, true);
     }
     if (event.type.startsWith('patient.assessment_')) {
       loadAssessmentFilesCount();
@@ -237,9 +279,28 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
     }
   };
 
+  const handleDoctorChange = (val: string) => {
+    setSelectedDoctorId(val);
+    loadQueue(val);
+  };
+
+  useEffect(() => {
+    if (session?.role === 'doctor' && selectedDoctorId === 'all') {
+      const docId = session.staffId || session.userId;
+      if (docId) {
+        setSelectedDoctorId(docId);
+      }
+    }
+  }, [session?.role, session?.staffId, session?.userId]);
+
+  // Live 3-second interval polling loop (matches TV screen real-time updates)
   useEffect(() => {
     loadQueue();
-  }, [doctorId, session]);
+    const interval = setInterval(() => {
+      loadQueue(undefined, true);
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [selectedDoctorId]);
 
   // Load intake form whenever activeSerial changes
   useEffect(() => {
@@ -421,7 +482,7 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
       try {
         createdRx = await api.prescriptions.create({
           visitId: activeSerial.id,
-          doctorId: session?.staffId || 'staff-1',
+          doctorId: activeSerial.doctorId || session?.staffId || session?.userId || 'staff-1',
           patientId: activeSerial.patientId,
           chiefComplaints,
           diagnosis,
@@ -568,34 +629,71 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
 
   return (
     <div className="w-full space-y-4">
-      {/* Top Workstation Navigation Switcher */}
-      <div className="flex items-center gap-2 p-1.5 rounded-2xl bg-card/80 border border-border/80 shadow-xs max-w-md">
-        <Button
-          type="button"
-          variant={doctorMainTab === 'chamber' ? 'default' : 'ghost'}
-          size="sm"
-          onClick={() => setDoctorMainTab('chamber')}
-          className={cn(
-            'flex-1 text-xs font-bold rounded-xl h-9 gap-1.5',
-            doctorMainTab === 'chamber' && 'bg-emerald-600 text-white hover:bg-emerald-600/90 shadow-sm'
-          )}
-        >
-          <Stethoscope className="size-4" />
-          <span>কনসালটেশন চেম্বার</span>
-        </Button>
-        <Button
-          type="button"
-          variant={doctorMainTab === 'therapy_queue' ? 'default' : 'ghost'}
-          size="sm"
-          onClick={() => setDoctorMainTab('therapy_queue')}
-          className={cn(
-            'flex-1 text-xs font-bold rounded-xl h-9 gap-1.5',
-            doctorMainTab === 'therapy_queue' && 'bg-emerald-600 text-white hover:bg-emerald-600/90 shadow-sm'
-          )}
-        >
-          <PhoneCall className="size-4 text-emerald-400" />
-          <span>থেরাপি কিউ</span>
-        </Button>
+      {/* Top Workstation Navigation Switcher & Doctor Chamber Selector */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-2 p-1.5 rounded-2xl bg-card/80 border border-border/80 shadow-xs max-w-md">
+          <Button
+            type="button"
+            variant={doctorMainTab === 'chamber' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => setDoctorMainTab('chamber')}
+            className={cn(
+              'flex-1 text-xs font-bold rounded-xl h-9 gap-1.5',
+              doctorMainTab === 'chamber' && 'bg-emerald-600 text-white hover:bg-emerald-600/90 shadow-sm'
+            )}
+          >
+            <Stethoscope className="size-4" />
+            <span>কনসালটেশন চেম্বার</span>
+          </Button>
+          <Button
+            type="button"
+            variant={doctorMainTab === 'therapy_queue' ? 'default' : 'ghost'}
+            size="sm"
+            onClick={() => setDoctorMainTab('therapy_queue')}
+            className={cn(
+              'flex-1 text-xs font-bold rounded-xl h-9 gap-1.5',
+              doctorMainTab === 'therapy_queue' && 'bg-emerald-600 text-white hover:bg-emerald-600/90 shadow-sm'
+            )}
+          >
+            <PhoneCall className="size-4 text-emerald-400" />
+            <span>থেরাপি কিউ</span>
+          </Button>
+        </div>
+
+        {/* Doctor / Chamber Selector Dropdown */}
+        {doctorMainTab === 'chamber' && (
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-muted-foreground whitespace-nowrap hidden md:inline">
+              চেম্বার:
+            </span>
+            <Select value={selectedDoctorId} onValueChange={handleDoctorChange}>
+              <SelectTrigger className="w-full sm:w-[260px] h-9 text-xs font-semibold rounded-xl bg-card border-border/80 shadow-xs">
+                <SelectValue placeholder="সকল চেম্বার / All Doctors" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all" className="text-xs font-medium">
+                  🏥 সকল চেম্বার / All Doctors
+                </SelectItem>
+                {doctorsList.map((doc: any) => {
+                  const roomStr = doc.chamberRoomNumber
+                    ? ` - Room ${doc.chamberRoomNumber}`
+                    : doc.chamberName
+                    ? ` - ${doc.chamberName}`
+                    : '';
+                  return (
+                    <SelectItem
+                      key={doc.id || doc.userId}
+                      value={doc.id || doc.userId}
+                      className="text-xs font-medium"
+                    >
+                      ডাঃ {doc.displayName || doc.fullName || 'Doctor'}{roomStr}
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
       </div>
 
       {doctorMainTab === 'therapy_queue' ? (
@@ -641,7 +739,9 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
                     <span>🚪</span> কনসালটেশন কিউ ({waitingQueue.length})
                   </CardTitle>
                   <p className="text-[11px] text-muted-foreground mt-0.5">
-                    অপেক্ষমাণ ও আহূত রোগীদের তালিকা
+                    {selectedDoctorId === 'all'
+                      ? 'সকল চেম্বারের অপেক্ষমাণ ও আহূত রোগীদের তালিকা'
+                      : 'অপেক্ষমাণ ও আহূত রোগীদের তালিকা'}
                   </p>
                 </div>
               </CardHeader>
@@ -658,6 +758,21 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
                     {waitingQueue.map((s) => {
                       const isCurrent = activeSerial?.id === s.id;
                       const isCalled = s.status === 'called';
+                      const assignedDoctor = doctorsList.find(
+                        (d) => d.id === s.doctorId || d.userId === s.doctorId
+                      );
+                      const doctorName =
+                        s.doctorName ||
+                        s.doctor?.name ||
+                        s.doctor?.fullName ||
+                        assignedDoctor?.displayName ||
+                        assignedDoctor?.fullName;
+                      const roomNumber =
+                        s.chamberRoomNumber ||
+                        s.roomNumber ||
+                        s.chamber?.roomNumber ||
+                        assignedDoctor?.chamberRoomNumber ||
+                        assignedDoctor?.chamberName;
 
                       return (
                         <div
@@ -687,6 +802,24 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
                               {getPunctualityBadge(s)}
                             </div>
                           </div>
+
+                          {/* Doctor & Room Badge (shown in 'all' mode or whenever doctor information is available) */}
+                          {(selectedDoctorId === 'all' || doctorName) && doctorName && (
+                            <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
+                              <Badge
+                                variant="secondary"
+                                className="text-[10px] font-semibold bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/25 px-2 py-0.5 rounded-md"
+                              >
+                                <Stethoscope className="size-3 mr-1 inline text-emerald-600 dark:text-emerald-400" />
+                                <span>ডাঃ {doctorName}</span>
+                                {roomNumber && (
+                                  <span className="ml-1 text-muted-foreground font-mono font-normal">
+                                    ({roomNumber.toString().toLowerCase().includes('room') ? roomNumber : `Room ${roomNumber}`})
+                                  </span>
+                                )}
+                              </Badge>
+                            </div>
+                          )}
 
                           {/* Patient Demographics Details */}
                           <div className="mt-2 space-y-0.5">
@@ -1310,8 +1443,8 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
             open={isNewAssessmentModalOpen}
             onOpenChange={setIsNewAssessmentModalOpen}
             patient={activeSerial?.patient}
-            doctorId={session?.staffId || session?.userId}
-            doctorName={session?.displayName}
+            doctorId={activeSerial?.doctorId || session?.staffId || session?.userId}
+            doctorName={activeSerial?.doctorName || session?.displayName}
             visitId={activeSerial?.visitId || activeSerial?.id}
             currentUser={session}
             existingFile={null}
@@ -1323,8 +1456,8 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
             open={isFilesListModalOpen}
             onOpenChange={setIsFilesListModalOpen}
             patient={activeSerial?.patient}
-            doctorId={session?.staffId || session?.userId}
-            doctorName={session?.displayName}
+            doctorId={activeSerial?.doctorId || session?.staffId || session?.userId}
+            doctorName={activeSerial?.doctorName || session?.displayName}
             visitId={activeSerial?.visitId || activeSerial?.id}
             currentUser={session}
             onFileSelected={handleAssessmentFileSaved}

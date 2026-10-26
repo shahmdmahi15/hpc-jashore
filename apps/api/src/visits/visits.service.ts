@@ -465,20 +465,76 @@ export class VisitsService {
 
   async getDoctorQueue(doctorId: string) {
     const today = todayDateString();
-    const rows = await this.db
-      .select({
-        serial: serials,
-        patient: patients,
-        visit: visits,
-      })
-      .from(serials)
-      .innerJoin(patients, eq(serials.patientId, patients.id))
-      .innerJoin(visits, eq(serials.visitId, visits.id))
-      .where(and(eq(serials.doctorId, doctorId), eq(serials.date, today)))
-      .orderBy(serials.serialNumber);
+    const isSpecificDoctor = Boolean(doctorId && doctorId !== 'all' && doctorId !== 'undefined');
+
+    let rows: any[] = [];
+    if (isSpecificDoctor) {
+      rows = await this.db
+        .select({
+          serial: serials,
+          patient: patients,
+          visit: visits,
+          doctor: users,
+          chamber: rooms,
+        })
+        .from(serials)
+        .innerJoin(patients, eq(serials.patientId, patients.id))
+        .innerJoin(visits, eq(serials.visitId, visits.id))
+        .leftJoin(users, eq(serials.doctorId, users.id))
+        .leftJoin(rooms, eq(users.chamberRoomId, rooms.id))
+        .where(and(eq(serials.doctorId, doctorId), eq(serials.date, today)))
+        .orderBy(serials.serialNumber);
+
+      // If 0 rows found, check if this doctorId is actually a doctor or an admin/overseer
+      if (rows.length === 0) {
+        const [targetUser] = await this.db
+          .select({ role: users.role })
+          .from(users)
+          .where(eq(users.id, doctorId))
+          .limit(1);
+        if (!targetUser || targetUser.role !== 'doctor') {
+          rows = await this.db
+            .select({
+              serial: serials,
+              patient: patients,
+              visit: visits,
+              doctor: users,
+              chamber: rooms,
+            })
+            .from(serials)
+            .innerJoin(patients, eq(serials.patientId, patients.id))
+            .innerJoin(visits, eq(serials.visitId, visits.id))
+            .leftJoin(users, eq(serials.doctorId, users.id))
+            .leftJoin(rooms, eq(users.chamberRoomId, rooms.id))
+            .where(eq(serials.date, today))
+            .orderBy(serials.serialNumber);
+        }
+      }
+    } else {
+      // doctorId is 'all', '', or undefined: return all serials for today across all doctors
+      rows = await this.db
+        .select({
+          serial: serials,
+          patient: patients,
+          visit: visits,
+          doctor: users,
+          chamber: rooms,
+        })
+        .from(serials)
+        .innerJoin(patients, eq(serials.patientId, patients.id))
+        .innerJoin(visits, eq(serials.visitId, visits.id))
+        .leftJoin(users, eq(serials.doctorId, users.id))
+        .leftJoin(rooms, eq(users.chamberRoomId, rooms.id))
+        .where(eq(serials.date, today))
+        .orderBy(serials.serialNumber);
+    }
 
     return rows.map((r) => ({
       ...r.serial,
+      tokenNumber: r.visit.tokenNumber ?? r.serial.serialNumber,
+      toldTime: r.visit.toldTime,
+      punctualityStatus: r.visit.punctualityStatus,
+      delayMinutes: r.visit.delayMinutes,
       patient: {
         id: r.patient.id,
         mrn: r.patient.mrn,
@@ -489,6 +545,12 @@ export class VisitsService {
         gender: r.patient.gender,
       },
       priority: r.visit.priority,
+      doctorName: r.doctor?.displayName,
+      doctor: r.doctor ? { id: r.doctor.id, name: r.doctor.displayName } : null,
+      chamber: r.chamber ? { id: r.chamber.id, name: r.chamber.name, roomNumber: r.chamber.roomNumber } : null,
+      chamberRoomNumber: r.chamber?.roomNumber,
+      chamberName: r.chamber?.name,
+      roomNumber: r.chamber?.roomNumber,
     }));
   }
 
@@ -511,12 +573,25 @@ export class VisitsService {
         .where(eq(serials.id, serialId));
       targetSerial = rows[0];
     } else {
-      const rows = await this.db
-        .select()
-        .from(serials)
-        .where(and(eq(serials.doctorId, doctorId), eq(serials.date, today), eq(serials.status, 'waiting')))
-        .orderBy(serials.serialNumber)
-        .limit(1);
+      const isSpecificDoctor = Boolean(doctorId && doctorId !== 'all' && doctorId !== 'undefined');
+      let rows = isSpecificDoctor
+        ? await this.db
+            .select()
+            .from(serials)
+            .where(and(eq(serials.doctorId, doctorId), eq(serials.date, today), eq(serials.status, 'waiting')))
+            .orderBy(serials.serialNumber)
+            .limit(1)
+        : [];
+
+      if (!rows.length) {
+        // Fallback: look for waiting serials across all doctors for today
+        rows = await this.db
+          .select()
+          .from(serials)
+          .where(and(eq(serials.date, today), eq(serials.status, 'waiting')))
+          .orderBy(serials.serialNumber)
+          .limit(1);
+      }
       targetSerial = rows[0];
     }
 
@@ -554,7 +629,7 @@ export class VisitsService {
       .where(eq(patients.id, targetSerial.patientId));
     const patient = patientRows[0];
 
-    const effectiveDoctorId = doctorId || targetSerial.doctorId;
+    const effectiveDoctorId = targetSerial.doctorId || doctorId;
 
     const doctorRows = await this.db
       .select({
