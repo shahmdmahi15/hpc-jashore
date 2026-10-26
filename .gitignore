@@ -24,6 +24,8 @@ Thumbs.db
 *.db-*
 *.sqlite*
 data/
+!data/updates-registry.json
+!**/updates-registry.json
 
 # pm2
 .pm2/

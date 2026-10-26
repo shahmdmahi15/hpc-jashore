@@ -459,6 +459,10 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({ force }),
       }),
+    restart: (id: string) =>
+      apiFetch<any>(`/tv/devices/${id}/restart`, {
+        method: 'POST',
+      }),
   },
   audit: {
     query: (params?: {

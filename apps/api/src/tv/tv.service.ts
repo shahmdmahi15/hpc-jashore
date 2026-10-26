@@ -10,6 +10,8 @@ import type { HeartbeatTvDto, PairTvDto, RegisterTvDto, UpdateTvDto } from './dt
 
 @Injectable()
 export class TvService {
+  private readonly pendingRestarts = new Set<string>();
+
   constructor(
     @Inject(DB) private readonly db: Db,
     private readonly audit: AuditService,
@@ -182,6 +184,11 @@ export class TvService {
       isOnline: true,
     });
 
+    const restartRequested = this.pendingRestarts.has(code);
+    if (restartRequested) {
+      this.pendingRestarts.delete(code);
+    }
+
     return {
       id: row.id,
       pairingCode: row.pairingCode,
@@ -193,6 +200,7 @@ export class TvService {
       theme: row.theme || 'dark',
       language: row.language || 'bn',
       forceUpdate: row.forceUpdate === 1,
+      restartRequested,
     };
   }
 
@@ -463,6 +471,51 @@ export class TvService {
     });
 
     return updated;
+  }
+
+  async restartDevice(
+    actor: { sub: string; role: string },
+    id: string,
+    meta: { ip?: string | null; requestId?: string | null },
+  ) {
+    const [existing] = await this.db.select().from(tvDevices).where(eq(tvDevices.id, id));
+    if (!existing) {
+      throw new NotFoundException('TV device not found');
+    }
+
+    const code = this.normalizeCode(existing.pairingCode);
+    this.pendingRestarts.add(code);
+
+    const now = new Date().toISOString();
+    await this.audit.log({
+      actorUserId: actor.sub,
+      actorRole: actor.role,
+      action: 'tv.restart_requested',
+      entity: 'tv_devices',
+      entityId: id,
+      after: { pairingCode: existing.pairingCode, action: 'restart' },
+      ip: meta.ip,
+      requestId: meta.requestId,
+    });
+
+    const payload = {
+      id: existing.id,
+      pairingCode: existing.pairingCode,
+      action: 'restart',
+      timestamp: now,
+    };
+
+    this.realtime.publish('tv:restart', payload);
+    this.realtime.publish('tv:updated', payload);
+    this.gateway?.emit('clinic:global', 'tv:restart', payload);
+    this.gateway?.emit('clinic:global', 'tv:updated', payload);
+
+    return {
+      success: true,
+      message: 'TV restart signal dispatched successfully',
+      deviceId: existing.id,
+      pairingCode: existing.pairingCode,
+    };
   }
 
   async getActiveBulletins() {

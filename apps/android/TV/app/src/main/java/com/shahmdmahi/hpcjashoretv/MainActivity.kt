@@ -190,13 +190,13 @@ class MainActivity : ComponentActivity() {
             }
 
             // -----------------------------------------------------------------
-            // Pure Real-Time Streaming Flow (Zero Polling)
+            // Pure Real-Time Streaming & Live Queue Synchronization
             // -----------------------------------------------------------------
 
             // Registration on boot
             LaunchedEffect(pairingCode) {
                 withContext(Dispatchers.IO) {
-                    registerTvWithServer(pairingCode, "0.1.49")
+                    registerTvWithServer(pairingCode, BuildConfig.VERSION_NAME)
                 }
             }
 
@@ -205,6 +205,10 @@ class MainActivity : ComponentActivity() {
                 while (isActive) {
                     withContext(Dispatchers.IO) {
                         streamTvRealtimeEvents(pairingCode) { type, payload ->
+                            if (type == "tv:restart" || type == "tv.restart" || payload.optString("action") == "restart") {
+                                restartApp()
+                                return@streamTvRealtimeEvents
+                            }
                             if (type == "tv:paired") {
                                 val wantsDark = (payload.optString("theme", "dark").lowercase() != "light")
                                 val resolvedLang = if (payload.optString("language", "bn") == "en") "en" else "bn"
@@ -244,6 +248,10 @@ class MainActivity : ComponentActivity() {
                                 prefs.edit().putBoolean("is_paired", false).apply()
                                 isPaired = false
                             } else if (type == "tv:updated") {
+                                if (payload.optString("action") == "restart") {
+                                    restartApp()
+                                    return@streamTvRealtimeEvents
+                                }
                                 val newName = payload.optString("deviceName", "")
                                 val newDept = payload.optString("department", "")
                                 val newTheme = payload.optString("theme", "")
@@ -371,7 +379,27 @@ class MainActivity : ComponentActivity() {
             // Initial Snapshot Fetch Upon Paired Activation
             LaunchedEffect(isPaired) {
                 if (isPaired) {
-                    withContext(Dispatchers.IO) {
+                    fetchQueueSnapshot { docWait, thWait, calledPat ->
+                        waitingDoctorList = docWait
+                        waitingTherapyList = thWait
+                        if (calledPat != null) {
+                            val key = "${calledPat.isTherapy}_${calledPat.tokenNumber}_${calledPat.chamber}"
+                            if (key != lastCallKey) {
+                                lastCallKey = key
+                                triggerCallAlert(calledPat)
+                            }
+                        }
+                    }
+                    fetchTvBulletins { bulletins ->
+                        liveBulletins = bulletins
+                    }
+                }
+            }
+
+            // Continuous 2.5-second Real-time Polling Loop (mimics Web /tv setInterval(loadData, 3000) for instant state parity)
+            LaunchedEffect(isPaired) {
+                if (isPaired) {
+                    while (isActive && isPaired) {
                         fetchQueueSnapshot { docWait, thWait, calledPat ->
                             waitingDoctorList = docWait
                             waitingTherapyList = thWait
@@ -381,21 +409,36 @@ class MainActivity : ComponentActivity() {
                                     lastCallKey = key
                                     triggerCallAlert(calledPat)
                                 }
+                            } else {
+                                if (activeCallAlert != null) {
+                                    activeCallAlert = null
+                                    try { textToSpeech?.stop() } catch (_: Exception) {}
+                                }
                             }
                         }
-                        fetchTvBulletins { bulletins ->
-                            liveBulletins = bulletins
-                        }
+                        delay(2500)
                     }
                 }
             }
 
-            // Dedicated Robust Heartbeat Loop (every 20 seconds, zero busy polling)
+            // Bulletins auto-refresh loop (every 20s)
+            LaunchedEffect(isPaired) {
+                if (isPaired) {
+                    while (isActive && isPaired) {
+                        fetchTvBulletins { bulletins ->
+                            liveBulletins = bulletins
+                        }
+                        delay(20000)
+                    }
+                }
+            }
+
+            // Dedicated Robust Heartbeat Loop (every 8 seconds with remote restart check)
             LaunchedEffect(pairingCode, isPaired) {
                 if (isPaired) {
                     while (isPaired && isActive) {
                         withContext(Dispatchers.IO) {
-                            sendTvHeartbeat(pairingCode, "0.1.49") { isOk, status, dept, name, theme, lang, forceUpdate ->
+                            sendTvHeartbeat(pairingCode, BuildConfig.VERSION_NAME) { isOk, status, dept, name, theme, lang, forceUpdate ->
                                 if (!isOk || status == "revoked" || status == "unregistered") {
                                     launch(Dispatchers.Main) {
                                         prefs.edit().putBoolean("is_paired", false).apply()
@@ -415,7 +458,7 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
                         }
-                        delay(20000)
+                        delay(8000)
                     }
                 }
             }
@@ -1059,6 +1102,25 @@ class MainActivity : ComponentActivity() {
         } catch (_: Exception) {}
     }
 
+    private fun restartApp() {
+        runOnUiThread {
+            try {
+                val intent = packageManager.getLaunchIntentForPackage(packageName)
+                val restartIntent = Intent.makeRestartActivityTask(intent?.component)
+                startActivity(restartIntent)
+                Runtime.getRuntime().exit(0)
+            } catch (_: Exception) {
+                try {
+                    val intent = Intent(this, MainActivity::class.java).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                    }
+                    startActivity(intent)
+                    Runtime.getRuntime().exit(0)
+                } catch (_: Exception) {}
+            }
+        }
+    }
+
     private fun sendTvHeartbeat(
         pairingCode: String,
         appVersion: String,
@@ -1089,6 +1151,13 @@ class MainActivity : ComponentActivity() {
                 val theme = if (json.has("theme") && !json.isNull("theme")) json.getString("theme") else null
                 val lang = if (json.has("language") && !json.isNull("language")) json.getString("language") else null
                 val forceUpdate = json.optBoolean("forceUpdate", false)
+                val restartRequested = json.optBoolean("restartRequested", false) || json.optString("command") == "restart"
+
+                if (restartRequested) {
+                    restartApp()
+                    return
+                }
+
                 if (!paired || status == "revoked" || status == "unregistered") {
                     onStatus(false, "revoked", null, null, null, null, false)
                 } else {
@@ -1102,148 +1171,156 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun fetchTvBulletins(onResult: (List<TvBulletin>) -> Unit) {
-        try {
-            val url = URL("https://hpc.toufiquzzaman.com/api/tv/bulletins")
-            val conn = url.openConnection() as HttpURLConnection
-            conn.connectTimeout = 4000
-            conn.readTimeout = 4000
-            conn.requestMethod = "GET"
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val url = URL("https://hpc.toufiquzzaman.com/api/tv/bulletins")
+                val conn = url.openConnection() as HttpURLConnection
+                conn.connectTimeout = 4000
+                conn.readTimeout = 4000
+                conn.requestMethod = "GET"
 
-            if (conn.responseCode == 200) {
-                val text = conn.inputStream.bufferedReader().use { it.readText() }
-                val arr = JSONArray(text)
-                val list = mutableListOf<TvBulletin>()
-                for (i in 0 until arr.length()) {
-                    val obj = arr.getJSONObject(i)
-                    list.add(
-                        TvBulletin(
-                            id = obj.optString("id", ""),
-                            title = obj.optString("title", ""),
-                            contentEn = obj.optString("contentEn", ""),
-                            contentBn = obj.optString("contentBn", ""),
-                            isUrgent = obj.optInt("isUrgent", 0) == 1
+                if (conn.responseCode == 200) {
+                    val text = conn.inputStream.bufferedReader().use { it.readText() }
+                    val arr = JSONArray(text)
+                    val list = mutableListOf<TvBulletin>()
+                    for (i in 0 until arr.length()) {
+                        val obj = arr.getJSONObject(i)
+                        list.add(
+                            TvBulletin(
+                                id = obj.optString("id", ""),
+                                title = obj.optString("title", ""),
+                                contentEn = obj.optString("contentEn", ""),
+                                contentBn = obj.optString("contentBn", ""),
+                                isUrgent = obj.optInt("isUrgent", 0) == 1
+                            )
                         )
-                    )
+                    }
+                    withContext(Dispatchers.Main) {
+                        onResult(list)
+                    }
                 }
-                onResult(list)
-            }
-            conn.disconnect()
-        } catch (_: Exception) {}
+                conn.disconnect()
+            } catch (_: Exception) {}
+        }
     }
 
     private fun fetchQueueSnapshot(
         onResult: (List<ConsultationPatient>, List<TherapyPatient>, ConsultationPatient?) -> Unit
     ) {
-        try {
-            val url = URL("https://hpc.toufiquzzaman.com/api/visits/tv/snapshot")
-            val conn = url.openConnection() as HttpURLConnection
-            conn.connectTimeout = 4000
-            conn.readTimeout = 4000
-            conn.requestMethod = "GET"
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val url = URL("https://hpc.toufiquzzaman.com/api/visits/tv/snapshot")
+                val conn = url.openConnection() as HttpURLConnection
+                conn.connectTimeout = 4000
+                conn.readTimeout = 4000
+                conn.requestMethod = "GET"
 
-            if (conn.responseCode == 200) {
-                val text = conn.inputStream.bufferedReader().use { it.readText() }
-                val json = JSONObject(text)
+                if (conn.responseCode == 200) {
+                    val text = conn.inputStream.bufferedReader().use { it.readText() }
+                    val json = JSONObject(text)
 
-                val consultationObj = json.optJSONObject("consultationQueue")
-                val docArr = consultationObj?.optJSONArray("waiting") ?: JSONArray()
-                val docList = mutableListOf<ConsultationPatient>()
-                for (i in 0 until docArr.length()) {
-                    val obj = docArr.getJSONObject(i)
-                    val chamberNum = if (obj.has("chamberRoomNumber") && !obj.isNull("chamberRoomNumber")) obj.optString("chamberRoomNumber") else ""
-                    val chamberName = if (obj.has("chamberName") && !obj.isNull("chamberName")) obj.optString("chamberName") else ""
-                    val chamberStr = if (chamberNum.isNotBlank()) "Room $chamberNum" else if (chamberName.isNotBlank()) chamberName else "Chamber 1"
-                    docList.add(
-                        ConsultationPatient(
-                            serialNumber = obj.optInt("serialNumber", i + 1),
-                            tokenNumber = obj.optInt("tokenNumber", i + 1),
+                    val consultationObj = json.optJSONObject("consultationQueue")
+                    val docArr = consultationObj?.optJSONArray("waiting") ?: JSONArray()
+                    val docList = mutableListOf<ConsultationPatient>()
+                    for (i in 0 until docArr.length()) {
+                        val obj = docArr.getJSONObject(i)
+                        val chamberNum = if (obj.has("chamberRoomNumber") && !obj.isNull("chamberRoomNumber")) obj.optString("chamberRoomNumber") else ""
+                        val chamberName = if (obj.has("chamberName") && !obj.isNull("chamberName")) obj.optString("chamberName") else ""
+                        val chamberStr = if (chamberNum.isNotBlank()) "Room $chamberNum" else if (chamberName.isNotBlank()) chamberName else "Chamber 1"
+                        docList.add(
+                            ConsultationPatient(
+                                serialNumber = obj.optInt("serialNumber", i + 1),
+                                tokenNumber = obj.optInt("tokenNumber", i + 1),
+                                patientNameEn = obj.optString("patientNameEn", "Patient"),
+                                patientNameBn = if (obj.has("patientNameBn") && !obj.isNull("patientNameBn")) obj.getString("patientNameBn") else null,
+                                doctorName = obj.optString("doctorNameEn", ""),
+                                chamber = chamberStr,
+                                priority = obj.optString("priority", "regular")
+                            )
+                        )
+                    }
+
+                    // Check active called patient in nowServing
+                    val nowServingArr = consultationObj?.optJSONArray("nowServing")
+                    var calledPatient: ConsultationPatient? = null
+                    if (nowServingArr != null && nowServingArr.length() > 0) {
+                        val obj = nowServingArr.getJSONObject(0)
+                        val chamberNum = if (obj.has("chamberRoomNumber") && !obj.isNull("chamberRoomNumber")) obj.optString("chamberRoomNumber") else ""
+                        val chamberName = if (obj.has("chamberName") && !obj.isNull("chamberName")) obj.optString("chamberName") else ""
+                        val chamberStr = if (chamberNum.isNotBlank()) "Room $chamberNum" else if (chamberName.isNotBlank()) chamberName else "Chamber 1"
+                        val ser = obj.optInt("serialNumber", 1)
+                        val tok = obj.optInt("tokenNumber", ser)
+                        calledPatient = ConsultationPatient(
+                            serialNumber = if (ser > 0) ser else 1,
+                            tokenNumber = if (tok > 0) tok else 1,
                             patientNameEn = obj.optString("patientNameEn", "Patient"),
                             patientNameBn = if (obj.has("patientNameBn") && !obj.isNull("patientNameBn")) obj.getString("patientNameBn") else null,
-                            doctorName = obj.optString("doctorNameEn", ""),
+                            doctorName = obj.optString("doctorNameEn", "Doctor"),
                             chamber = chamberStr,
-                            priority = obj.optString("priority", "regular")
+                            priority = obj.optString("priority", "regular"),
+                            isTherapy = false
                         )
-                    )
-                }
+                    }
 
-                // Check active called patient in nowServing
-                val nowServingArr = consultationObj?.optJSONArray("nowServing")
-                var calledPatient: ConsultationPatient? = null
-                if (nowServingArr != null && nowServingArr.length() > 0) {
-                    val obj = nowServingArr.getJSONObject(0)
-                    val chamberNum = if (obj.has("chamberRoomNumber") && !obj.isNull("chamberRoomNumber")) obj.optString("chamberRoomNumber") else ""
-                    val chamberName = if (obj.has("chamberName") && !obj.isNull("chamberName")) obj.optString("chamberName") else ""
-                    val chamberStr = if (chamberNum.isNotBlank()) "Room $chamberNum" else if (chamberName.isNotBlank()) chamberName else "Chamber 1"
-                    val ser = obj.optInt("serialNumber", 1)
-                    val tok = obj.optInt("tokenNumber", ser)
-                    calledPatient = ConsultationPatient(
-                        serialNumber = if (ser > 0) ser else 1,
-                        tokenNumber = if (tok > 0) tok else 1,
-                        patientNameEn = obj.optString("patientNameEn", "Patient"),
-                        patientNameBn = if (obj.has("patientNameBn") && !obj.isNull("patientNameBn")) obj.getString("patientNameBn") else null,
-                        doctorName = obj.optString("doctorNameEn", "Doctor"),
-                        chamber = chamberStr,
-                        priority = obj.optString("priority", "regular"),
-                        isTherapy = false
-                    )
-                }
+                    val therapyObj = json.optJSONObject("therapyQueue")
 
-                val therapyObj = json.optJSONObject("therapyQueue")
-
-                // Check active called patient in therapy nowServing if no consultation called
-                if (calledPatient == null) {
-                    val thNowServing = therapyObj?.optJSONArray("nowServing")
-                    if (thNowServing != null && thNowServing.length() > 0) {
-                        for (i in 0 until thNowServing.length()) {
-                            val obj = thNowServing.getJSONObject(i)
-                            if (obj.optString("status") == "calling") {
-                                val roomNum = if (obj.has("roomNumber") && !obj.isNull("roomNumber")) obj.optString("roomNumber") else "1"
-                                val rawRoom = if (obj.has("roomName") && !obj.isNull("roomName")) obj.getString("roomName") else "Therapy Room $roomNum"
-                                val roomStr = if (Regex("\\d").containsMatchIn(rawRoom)) rawRoom else "$rawRoom $roomNum"
-                                val tok = obj.optInt("tokenNumber", 1)
-                                val resolvedTok = if (tok > 0) tok else 1
-                                calledPatient = ConsultationPatient(
-                                    serialNumber = resolvedTok,
-                                    tokenNumber = resolvedTok,
-                                    patientNameEn = obj.optString("patientNameEn", "Patient"),
-                                    patientNameBn = if (obj.has("patientNameBn") && !obj.isNull("patientNameBn")) obj.getString("patientNameBn") else null,
-                                    doctorName = "",
-                                    chamber = roomStr,
-                                    priority = obj.optString("priority", "regular"),
-                                    isTherapy = true
-                                )
-                                break
+                    // Check active called patient in therapy nowServing if no consultation called
+                    if (calledPatient == null) {
+                        val thNowServing = therapyObj?.optJSONArray("nowServing")
+                        if (thNowServing != null && thNowServing.length() > 0) {
+                            for (i in 0 until thNowServing.length()) {
+                                val obj = thNowServing.getJSONObject(i)
+                                if (obj.optString("status") == "calling") {
+                                    val roomNum = if (obj.has("roomNumber") && !obj.isNull("roomNumber")) obj.optString("roomNumber") else "1"
+                                    val rawRoom = if (obj.has("roomName") && !obj.isNull("roomName")) obj.getString("roomName") else "Therapy Room $roomNum"
+                                    val roomStr = if (Regex("\\d").containsMatchIn(rawRoom)) rawRoom else "$rawRoom $roomNum"
+                                    val tok = obj.optInt("tokenNumber", 1)
+                                    val resolvedTok = if (tok > 0) tok else 1
+                                    calledPatient = ConsultationPatient(
+                                        serialNumber = resolvedTok,
+                                        tokenNumber = resolvedTok,
+                                        patientNameEn = obj.optString("patientNameEn", "Patient"),
+                                        patientNameBn = if (obj.has("patientNameBn") && !obj.isNull("patientNameBn")) obj.getString("patientNameBn") else null,
+                                        doctorName = "",
+                                        chamber = roomStr,
+                                        priority = obj.optString("priority", "regular"),
+                                        isTherapy = true
+                                    )
+                                    break
+                                }
                             }
                         }
                     }
-                }
-                val thArr = therapyObj?.optJSONArray("waiting") ?: JSONArray()
-                val thList = mutableListOf<TherapyPatient>()
-                for (i in 0 until thArr.length()) {
-                    val obj = thArr.getJSONObject(i)
-                    val roomNum = if (obj.has("roomNumber") && !obj.isNull("roomNumber")) obj.optString("roomNumber") else "1"
-                    val rawRoom = if (obj.has("roomName") && !obj.isNull("roomName")) obj.getString("roomName") else "Therapy Room $roomNum"
-                    val roomStr = if (Regex("\\d").containsMatchIn(rawRoom)) rawRoom else "$rawRoom $roomNum"
-                    val tok = obj.optInt("tokenNumber", i + 1)
-                    thList.add(
-                        TherapyPatient(
-                            tokenNumber = if (tok > 0) tok else (i + 1),
-                            patientNameEn = obj.optString("patientNameEn", "Patient"),
-                            patientNameBn = if (obj.has("patientNameBn") && !obj.isNull("patientNameBn")) obj.getString("patientNameBn") else null,
-                            roomName = roomStr,
-                            modality = obj.optString("modalityNameBn", obj.optString("modalityNameEn", "Physiotherapy")),
-                            durationMinutes = 20,
-                            priority = obj.optString("priority", "regular"),
-                            toldTime = if (obj.has("toldTime") && !obj.isNull("toldTime")) obj.getString("toldTime") else null,
-                            punctualityStatus = if (obj.has("punctualityStatus") && !obj.isNull("punctualityStatus")) obj.getString("punctualityStatus") else null,
-                            delayMinutes = if (obj.has("delayMinutes") && !obj.isNull("delayMinutes")) obj.getInt("delayMinutes") else null
+                    val thArr = therapyObj?.optJSONArray("waiting") ?: JSONArray()
+                    val thList = mutableListOf<TherapyPatient>()
+                    for (i in 0 until thArr.length()) {
+                        val obj = thArr.getJSONObject(i)
+                        val roomNum = if (obj.has("roomNumber") && !obj.isNull("roomNumber")) obj.optString("roomNumber") else "1"
+                        val rawRoom = if (obj.has("roomName") && !obj.isNull("roomName")) obj.getString("roomName") else "Therapy Room $roomNum"
+                        val roomStr = if (Regex("\\d").containsMatchIn(rawRoom)) rawRoom else "$rawRoom $roomNum"
+                        val tok = obj.optInt("tokenNumber", i + 1)
+                        thList.add(
+                            TherapyPatient(
+                                tokenNumber = if (tok > 0) tok else (i + 1),
+                                patientNameEn = obj.optString("patientNameEn", "Patient"),
+                                patientNameBn = if (obj.has("patientNameBn") && !obj.isNull("patientNameBn")) obj.getString("patientNameBn") else null,
+                                roomName = roomStr,
+                                modality = obj.optString("modalityNameBn", obj.optString("modalityNameEn", "Physiotherapy")),
+                                durationMinutes = 20,
+                                priority = obj.optString("priority", "regular"),
+                                toldTime = if (obj.has("toldTime") && !obj.isNull("toldTime")) obj.getString("toldTime") else null,
+                                punctualityStatus = if (obj.has("punctualityStatus") && !obj.isNull("punctualityStatus")) obj.getString("punctualityStatus") else null,
+                                delayMinutes = if (obj.has("delayMinutes") && !obj.isNull("delayMinutes")) obj.getInt("delayMinutes") else null
+                            )
                         )
-                    )
+                    }
+                    withContext(Dispatchers.Main) {
+                        onResult(docList, thList, calledPatient)
+                    }
                 }
-                onResult(docList, thList, calledPatient)
-            }
-            conn.disconnect()
-        } catch (_: Exception) {}
+                conn.disconnect()
+            } catch (_: Exception) {}
+        }
     }
 
     override fun onDestroy() {
@@ -1268,15 +1345,26 @@ class MainActivity : ComponentActivity() {
         val banglaText: String
         val englishText: String
 
+        val bnDigits = charArrayOf('০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯')
+        val toBnDigits: (String) -> String = { raw ->
+            val sb = StringBuilder()
+            for (ch in raw) {
+                if (ch in '0'..'9') sb.append(bnDigits[ch - '0']) else sb.append(ch)
+            }
+            sb.toString()
+        }
+
         if (patient.isTherapy) {
             val roomDigits = chamber.replace(Regex("[^0-9]"), "").ifBlank { "1" }
-            val roomNameBn = "থেরাপি রুম $roomDigits"
+            val roomDigitsBn = toBnDigits(roomDigits)
+            val roomNameBn = "থেরাপি রুম $roomDigitsBn"
             val roomNameEn = "Therapy Room $roomDigits"
             banglaText = "থেরাপির জন্য রোগী $patientNameBn কে $roomNameBn এ আসার জন্য অনুরোধ করা হচ্ছে।"
             englishText = "Patient $patientNameEn, please proceed to $roomNameEn for therapy."
         } else {
             val chamberDigits = chamber.replace(Regex("[^0-9]"), "").ifBlank { "1" }
-            banglaText = "ডাঃ $doctorName, রোগী $patientNameBn কে $chamberDigits নম্বর রুমে ডাকছেন"
+            val chamberDigitsBn = toBnDigits(chamberDigits)
+            banglaText = "ডাঃ $doctorName, রোগী $patientNameBn কে $chamberDigitsBn নম্বর রুমে ডাকছেন"
             englishText = "Doctor $doctorName is calling patient $patientNameEn to room number $chamberDigits"
         }
 
@@ -1588,7 +1676,7 @@ fun TvPairingScreen(
 
         // 3. Footer
         Text(
-            text = "Health & Pain Care Center · Jashore • Hardware Station ID: $pairingCode • Version 0.1.49",
+            text = "Health & Pain Care Center · Jashore • Hardware Station ID: $pairingCode • Version ${BuildConfig.VERSION_NAME}",
             color = textMutedColor,
             fontSize = 11.sp,
             fontFamily = FontFamily.Monospace
@@ -1725,6 +1813,14 @@ fun CallingAlertOverlay(
                         fontWeight = FontWeight.Black,
                         fontFamily = FontFamily.Monospace
                     )
+                    if (patient.chamber.isNotBlank() && !patient.chamber.equals(chamberDisplayText, ignoreCase = true)) {
+                        Text(
+                            text = patient.chamber,
+                            color = Color(0xFFD1FAE5),
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
                 }
             }
 

@@ -131,3 +131,17 @@ export async function forceUpdateTvDeviceAction(
     return { success: false, error: err?.message || 'Failed to trigger force update' };
   }
 }
+
+export async function restartTvDeviceAction(
+  id: string,
+): Promise<{ success: boolean; data?: any; error?: string }> {
+  try {
+    const data = await serverFetch<any>(`/tv/devices/${id}/restart`, {
+      method: 'POST',
+    });
+    revalidatePath('/admin');
+    return { success: true, data };
+  } catch (err: any) {
+    return { success: false, error: err?.message || 'Failed to trigger TV restart' };
+  }
+}

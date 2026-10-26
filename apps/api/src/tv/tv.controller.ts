@@ -137,6 +137,19 @@ export class TvController {
   @ApiBearerAuth()
   @UseGuards(JwtAccessAuthGuard, RolesGuard)
   @Roles('admin')
+  @Post('devices/:id/restart')
+  @HttpCode(HttpStatus.OK)
+  restartDevice(
+    @CurrentUser() user: RequestUser,
+    @Param('id') id: string,
+    @Req() req: Request,
+  ) {
+    return this.tv.restartDevice({ sub: user.sub, role: user.role }, id, this.meta(req));
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAccessAuthGuard, RolesGuard)
+  @Roles('admin')
   @Delete('devices/:id')
   deleteDevice(
     @CurrentUser() user: RequestUser,

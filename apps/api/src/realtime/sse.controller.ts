@@ -74,7 +74,7 @@ export class SseController {
         if (isStaff) return true;
 
         // Specific TV pairing events for this device
-        if (normalizedTvCode && type.startsWith('tv:')) {
+        if (normalizedTvCode && (type.startsWith('tv:') || type.startsWith('tv.'))) {
           if (!eventPayload?.pairingCode || eventPayload.pairingCode.toUpperCase() === normalizedTvCode) {
             return true;
           }
@@ -93,7 +93,8 @@ export class SseController {
           type.startsWith('checkout.') ||
           type.startsWith('doctor.') ||
           type.startsWith('bulletin.') ||
-          type.startsWith('tv:')
+          type.startsWith('tv:') ||
+          type.startsWith('tv.')
         );
       }),
     );

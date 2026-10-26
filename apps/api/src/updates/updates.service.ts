@@ -138,6 +138,27 @@ export class UpdatesService implements OnModuleInit {
     return {
       releases: [
         {
+          version: '0.1.50',
+          notes: 'HPC Jashore v0.1.50 - Real-time queue sync, audio calling with chamber & room numbers, remote restart support.',
+          pub_date: '2026-10-26T14:30:00.000Z',
+          forceUpdate: false,
+          minVersionCode: 50,
+          platforms: {
+            'windows-x86_64': {
+              signature: '',
+              url: 'https://github.com/shahmdmahi15/hpc-jashore/releases/download/v0.1.50/hpc-jashore_0.1.50_x64-setup.exe',
+            },
+            'android': {
+              versionCode: 51,
+              url: 'https://github.com/shahmdmahi15/hpc-jashore/releases/download/v0.1.50/hpc-jashore-mobile.apk',
+            },
+            'android-tv': {
+              versionCode: 51,
+              url: 'https://github.com/shahmdmahi15/hpc-jashore/releases/download/v0.1.50/hpc-jashore-tv.apk',
+            },
+          },
+        },
+        {
           version: '0.1.0',
           notes: 'HPC Jashore v0.1.0 initial release for Windows, Android, and Android TV.',
           pub_date: '2026-10-20T00:00:00.000Z',

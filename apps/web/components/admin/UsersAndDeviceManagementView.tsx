@@ -34,6 +34,7 @@ import {
   UserCheck,
   UserX,
   AlertTriangle,
+  RotateCw,
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
@@ -88,6 +89,7 @@ import {
   revokeTvDeviceAction,
   deleteTvDeviceAction,
   forceUpdateTvDeviceAction,
+  restartTvDeviceAction,
   type TvDeviceRecord,
 } from '../../lib/actions/devices';
 import { useRealtime } from '../../lib/use-realtime';
@@ -544,6 +546,28 @@ export default function UsersAndDeviceManagementView() {
         toast.error(res.error || (isBn ? 'ফোর্স আপডেট নির্দেশ ব্যর্থ' : 'Failed to send force update'));
       }
     });
+  };
+
+  // Handle Remote Restart TV App
+  const [restartingTvId, setRestartingTvId] = useState<string | null>(null);
+  const handleRestartTv = async (tv: TvDeviceRecord) => {
+    try {
+      setRestartingTvId(tv.id);
+      const res = await restartTvDeviceAction(tv.id);
+      if (res.success) {
+        toast.success(
+          isBn
+            ? `"${tv.deviceName}" টিভি স্ক্রিনে রিস্টার্ট সিগন্যাল পাঠানো হয়েছে!`
+            : `Restart signal dispatched to "${tv.deviceName}"!`,
+        );
+      } else {
+        toast.error(res.error || (isBn ? 'টিভি রিস্টার্ট নির্দেশ পাঠাতে ব্যর্থ' : 'Failed to send restart signal'));
+      }
+    } catch (err: any) {
+      toast.error(err?.message || 'Error triggering TV restart');
+    } finally {
+      setTimeout(() => setRestartingTvId(null), 3000);
+    }
   };
 
   // Handle Revoke TV
@@ -1181,7 +1205,7 @@ export default function UsersAndDeviceManagementView() {
                             <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 font-mono">
                               v{tv.appVersion}
                             </Badge>
-                            {tv.appVersion !== '0.1.9' && (
+                            {tv.appVersion !== '0.1.50' && (
                               <Badge className="bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 text-[9px] px-1.5 py-0 h-4 font-semibold">
                                 {isBn ? 'আপডেট আবশ্যক' : 'Outdated'}
                               </Badge>
@@ -1324,6 +1348,30 @@ export default function UsersAndDeviceManagementView() {
                                 : isBn
                                 ? 'ফোর্স আপডেট'
                                 : 'Force Update'}
+                            </span>
+                          </Button>
+                        )}
+
+                        {isPaired && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleRestartTv(tv)}
+                            disabled={isPending || restartingTvId === tv.id}
+                            className={`h-8 px-2.5 rounded-lg text-xs font-semibold cursor-pointer border-cyan-500/40 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-500/10 active:scale-95 shadow-xs ${
+                              restartingTvId === tv.id ? 'animate-pulse bg-cyan-500/20' : ''
+                            }`}
+                            title={
+                              isBn
+                                ? 'অ্যাডমিন রুম থেকে সরাসরি এই টিভি অ্যাপটি রিস্টার্ট করুন'
+                                : 'Remotely restart this HPC TV app from admin dashboard'
+                            }
+                          >
+                            <RotateCw className={`w-3.5 h-3.5 mr-1 ${restartingTvId === tv.id ? 'animate-spin' : ''}`} />
+                            <span>
+                              {restartingTvId === tv.id
+                                ? (isBn ? 'রিস্টার্ট সিগন্যাল প্রেরিত...' : 'Restarting...')
+                                : (isBn ? 'রিস্টার্ট টিভি' : 'Restart TV App')}
                             </span>
                           </Button>
                         )}
