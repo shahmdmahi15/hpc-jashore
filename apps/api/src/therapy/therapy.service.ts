@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, isNull, sql } from 'drizzle-orm';
 import { AuditService } from '../audit/audit.service';
 import { DB, type Db } from '../db/db.module';
 import {
@@ -449,15 +449,22 @@ export class TherapyService {
 
   async getRooms() {
     const allRooms = await this.db.select().from(rooms).orderBy(rooms.roomNumber);
-    return allRooms.map((r) => ({
-      id: r.id,
-      name: r.name || `Room ${r.roomNumber}`,
-      code: String(r.roomNumber),
-      roomNumber: r.roomNumber,
-      type: r.type,
-      isOccupied: false,
-      currentPatientName: null,
-    }));
+    return allRooms.map((r, idx) => {
+      const roomNum = r.roomNumber || r.code || `${idx + 1}`;
+      const hasNumber = /\d/.test(r.name || '');
+      const baseName = r.name || 'Therapy Room';
+      const formattedName = hasNumber ? baseName : `${baseName} ${roomNum}`;
+      return {
+        id: r.id,
+        name: formattedName,
+        displayName: `রুম ${roomNum} (${formattedName})`,
+        code: String(roomNum),
+        roomNumber: String(roomNum),
+        type: r.type,
+        isOccupied: false,
+        currentPatientName: null,
+      };
+    });
   }
 
   async getQueue() {
@@ -621,8 +628,14 @@ export class TherapyService {
     const patientRows = await this.db.select().from(patients).where(eq(patients.id, visitRow.patientId));
     const patient = patientRows[0];
 
-    const targetRoomId = dto.roomId || 'therapy-hall-1';
-    const targetRoomName = dto.roomName || 'Therapy Hall 1';
+    const allRooms = await this.db.select().from(rooms);
+    const targetRoomId = dto.roomId || visitRow.roomId || allRooms[0]?.id || 'therapy-hall-1';
+    const foundRoom = allRooms.find((r) => r.id === targetRoomId);
+    const roomNum = dto.roomNumber || (foundRoom?.roomNumber ? Number(foundRoom.roomNumber) : 1);
+    let targetRoomName = dto.roomName || foundRoom?.name || `Therapy Room ${roomNum}`;
+    if (!/\d/.test(targetRoomName)) {
+      targetRoomName = `${targetRoomName} ${roomNum}`;
+    }
 
     // Update visit status to calling
     await this.db
@@ -644,15 +657,17 @@ export class TherapyService {
         ?.run('calling', targetRoomId, targetRoomName, now, now, visitRow.id);
     } catch {}
 
+    const tok = (visitRow.tokenNumber && Number(visitRow.tokenNumber) > 0) ? Number(visitRow.tokenNumber) : 1;
     const payload = {
       visitId: visitRow.id,
       patientId: patient?.id,
-      tokenNumber: visitRow.tokenNumber,
+      tokenNumber: tok,
+      serialNumber: tok,
       patientNameEn: patient?.nameEn || 'Patient',
       patientNameBn: patient?.nameBn || patient?.nameEn,
       roomId: targetRoomId,
       roomName: targetRoomName,
-      roomNumber: dto.roomNumber || 1,
+      roomNumber: roomNum,
       modality: dto.modalityCode || 'Physiotherapy & Rehab',
       type: 'therapy',
       isTherapy: true,
@@ -813,14 +828,28 @@ export class TherapyService {
     const patientRows = await this.db.select().from(patients).where(eq(patients.id, visitRow.patientId));
     const patient = patientRows[0];
 
+    const allRooms = await this.db.select().from(rooms);
+    const targetRoomId = dto.roomId || visitRow.roomId || allRooms[0]?.id || 'therapy-hall-1';
+    const foundRoom = allRooms.find((r) => r.id === targetRoomId);
+    const roomNum = dto.roomNumber || (foundRoom?.roomNumber ? Number(foundRoom.roomNumber) : 1);
+    let targetRoomName = dto.roomName || foundRoom?.name || `Therapy Room ${roomNum}`;
+    if (!/\d/.test(targetRoomName)) {
+      targetRoomName = `${targetRoomName} ${roomNum}`;
+    }
+
+    const tok = (visitRow.tokenNumber && Number(visitRow.tokenNumber) > 0) ? Number(visitRow.tokenNumber) : 1;
     const payload = {
       visitId: visitRow.id,
       patientId: patient?.id,
-      tokenNumber: visitRow.tokenNumber,
+      tokenNumber: tok,
+      serialNumber: tok,
       patientNameEn: patient?.nameEn || 'Patient',
       patientNameBn: patient?.nameBn || patient?.nameEn,
-      roomId: dto.roomId || visitRow.roomId,
-      roomName: dto.roomName || 'Therapy Room 1',
+      roomId: targetRoomId,
+      roomName: targetRoomName,
+      roomNumber: roomNum,
+      type: 'therapy',
+      isTherapy: true,
       calledAt: now,
     };
 

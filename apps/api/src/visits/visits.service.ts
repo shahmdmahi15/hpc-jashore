@@ -1439,20 +1439,31 @@ export class VisitsService {
       .orderBy(desc(visits.updatedAt));
 
     const therapyNowServing = [
-      ...callingTherapies.map((c) => ({
-        sessionId: c.visitId,
-        visitId: c.visitId,
-        tokenNumber: c.tokenNumber,
-        patientNameEn: c.patientNameEn,
-        patientNameBn: c.patientNameBn || c.patientNameEn,
-        modalityCode: 'PHYSIO',
-        modalityNameEn: 'Physiotherapy & Rehab',
-        modalityNameBn: 'ফিজিওথেরাপি ও পুনর্বাসন',
-        bedName: c.roomName || (c.roomNumber ? `Room ${c.roomNumber}` : 'Therapy Hall'),
-        roomName: c.roomName || (c.roomNumber ? `Room ${c.roomNumber}` : 'Therapy Hall'),
-        startedAt: c.updatedAt,
-        status: 'calling',
-      })),
+      ...callingTherapies.map((c) => {
+        const roomNum = c.roomNumber || 1;
+        const roomNameWithNum = c.roomName
+          ? (/\d/.test(c.roomName) ? c.roomName : `${c.roomName} ${roomNum}`)
+          : `Therapy Room ${roomNum}`;
+        const tok = (c.tokenNumber && Number(c.tokenNumber) > 0) ? Number(c.tokenNumber) : 1;
+        return {
+          sessionId: c.visitId,
+          visitId: c.visitId,
+          tokenNumber: tok,
+          serialNumber: tok,
+          patientNameEn: c.patientNameEn,
+          patientNameBn: c.patientNameBn || c.patientNameEn,
+          modalityCode: 'PHYSIO',
+          modalityNameEn: 'Physiotherapy & Rehab',
+          modalityNameBn: 'ফিজিওথেরাপি ও পুনর্বাসন',
+          bedName: roomNameWithNum,
+          roomName: roomNameWithNum,
+          roomNumber: roomNum,
+          startedAt: c.updatedAt,
+          status: 'calling',
+          type: 'therapy',
+          isTherapy: true,
+        };
+      }),
       ...activeTherapies,
     ];
 
@@ -1465,6 +1476,8 @@ export class VisitsService {
         priority: visits.priority,
         currentLocation: visits.currentLocation,
         roomId: visits.roomId,
+        roomNumber: rooms.roomNumber,
+        roomName: rooms.name,
         checkedInAt: visits.checkedInAt,
         toldTime: visits.toldTime,
         punctualityStatus: visits.punctualityStatus,
@@ -1472,6 +1485,7 @@ export class VisitsService {
       })
       .from(visits)
       .innerJoin(patients, eq(visits.patientId, patients.id))
+      .leftJoin(rooms, eq(visits.roomId, rooms.id))
       .where(
         and(
           eq(visits.visitDate, today),

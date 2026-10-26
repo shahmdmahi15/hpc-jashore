@@ -139,8 +139,10 @@ export function TherapyQueueManagementTab() {
   const handleCallPatient = async (patient: TherapyQueueItem) => {
     const roomId = selectedRooms[patient.visitId] || rooms[0]?.id || 'room-therapy-1';
     const roomObj = rooms.find((r) => r.id === roomId);
-    const roomName = roomObj?.name || (roomObj?.roomNumber ? `রুম ${roomObj.roomNumber}` : 'থেরাপি হল ১');
     const roomNumber = roomObj?.roomNumber || 1;
+    const roomName = roomObj?.name
+      ? (roomObj.name.match(/\d/) ? roomObj.name : `${roomObj.name} ${roomNumber}`)
+      : `Therapy Room ${roomNumber}`;
 
     try {
       setCallingVisitId(patient.visitId);
@@ -149,7 +151,7 @@ export function TherapyQueueManagementTab() {
         patientId: patient.patientId,
         roomId,
         roomName,
-        roomNumber,
+        roomNumber: Number(roomNumber),
         modalityCode: patient.modalityCode || 'PHYSIO',
       });
       toast.success(
@@ -475,7 +477,7 @@ export function TherapyQueueManagementTab() {
                               disabled={room.isOccupied}
                               className="text-xs"
                             >
-                              {room.name} {room.isOccupied ? '(ব্যস্ত)' : '(ফাঁকা)'}
+                              {room.displayName || (room.roomNumber ? `রুম ${room.roomNumber} (${room.name})` : room.name)} {room.isOccupied ? '(ব্যস্ত)' : '(ফাঁকা)'}
                             </SelectItem>
                           ))}
                         </SelectContent>

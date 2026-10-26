@@ -265,6 +265,10 @@ export class RecallTherapyPatientDto {
   @IsOptional()
   @IsString()
   roomName?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  roomNumber?: number;
 }
 
 export class CancelTherapyCallDto {

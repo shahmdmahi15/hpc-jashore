@@ -125,12 +125,33 @@ class MainActivity : ComponentActivity() {
             var waitingDoctorList by remember { mutableStateOf<List<ConsultationPatient>>(emptyList()) }
             var waitingTherapyList by remember { mutableStateOf<List<TherapyPatient>>(emptyList()) }
             var activeCallAlert by remember { mutableStateOf<ConsultationPatient?>(null) }
-            var lastCalledSerial by remember { mutableStateOf<Int?>(null) }
+            var callCountdown by remember { mutableStateOf(16) }
+            var lastCallKey by remember { mutableStateOf<String?>(null) }
             var liveBulletins by remember { mutableStateOf<List<TvBulletin>>(emptyList()) }
             var currentBulletinIndex by remember { mutableStateOf(0) }
 
             var currentTime by remember { mutableStateOf("") }
             var updateNotice by remember { mutableStateOf<String?>(null) }
+
+            val triggerCallAlert: (ConsultationPatient) -> Unit = { patient ->
+                activeCallAlert = patient
+                callCountdown = 16
+                speakChamberCall(patient)
+            }
+
+            // Auto dismiss countdown ticker for calling alert (mimics Web /tv 16s timeout)
+            LaunchedEffect(activeCallAlert) {
+                if (activeCallAlert != null) {
+                    callCountdown = 16
+                    while (isActive && callCountdown > 0) {
+                        delay(1000)
+                        callCountdown -= 1
+                    }
+                    if (callCountdown <= 0) {
+                        activeCallAlert = null
+                    }
+                }
+            }
 
             // Clock update loop
             LaunchedEffect(Unit) {
@@ -175,7 +196,7 @@ class MainActivity : ComponentActivity() {
             // Registration on boot
             LaunchedEffect(pairingCode) {
                 withContext(Dispatchers.IO) {
-                    registerTvWithServer(pairingCode, "0.1.39")
+                    registerTvWithServer(pairingCode, "0.1.49")
                 }
             }
 
@@ -208,10 +229,12 @@ class MainActivity : ComponentActivity() {
                                 fetchQueueSnapshot { docWait, thWait, calledPat ->
                                     waitingDoctorList = docWait
                                     waitingTherapyList = thWait
-                                    if (calledPat != null && calledPat.serialNumber != lastCalledSerial) {
-                                        lastCalledSerial = calledPat.serialNumber
-                                        activeCallAlert = calledPat
-                                        speakChamberCall(calledPat)
+                                    if (calledPat != null) {
+                                        val key = "${calledPat.isTherapy}_${calledPat.tokenNumber}_${calledPat.chamber}"
+                                        if (key != lastCallKey) {
+                                            lastCallKey = key
+                                            triggerCallAlert(calledPat)
+                                        }
                                     }
                                 }
                                 fetchTvBulletins { bulletins ->
@@ -247,6 +270,70 @@ class MainActivity : ComponentActivity() {
                                         prefs.edit().putString("language", currentLanguage).apply()
                                     }
                                 }
+                            } else if (type == "consultation.call_chamber") {
+                                val serial = payload.optInt("serialNumber", 1)
+                                val token = payload.optInt("tokenNumber", serial)
+                                val patNameEn = payload.optString("patientNameEn", "Patient")
+                                val patNameBn = if (payload.has("patientNameBn") && !payload.isNull("patientNameBn")) payload.getString("patientNameBn") else null
+                                val docName = payload.optString("doctorNameEn", "Doctor")
+                                val chamberNum = payload.optString("chamberRoomNumber", "")
+                                val chamberName = payload.optString("chamberName", "")
+                                val chamberStr = if (chamberNum.isNotBlank()) "Room $chamberNum" else if (chamberName.isNotBlank()) chamberName else "Chamber 1"
+                                val calledPat = ConsultationPatient(
+                                    serialNumber = serial,
+                                    tokenNumber = if (token > 0) token else 1,
+                                    patientNameEn = patNameEn,
+                                    patientNameBn = patNameBn,
+                                    doctorName = docName,
+                                    chamber = chamberStr,
+                                    isTherapy = false
+                                )
+                                lastCallKey = "consult_${serial}_${token}_${System.currentTimeMillis()}"
+                                triggerCallAlert(calledPat)
+                                if (isPaired) {
+                                    fetchQueueSnapshot { docWait, thWait, _ ->
+                                        waitingDoctorList = docWait
+                                        waitingTherapyList = thWait
+                                    }
+                                }
+                            } else if (type == "therapy.called") {
+                                val token = payload.optInt("tokenNumber", 1)
+                                val patNameEn = payload.optString("patientNameEn", "Patient")
+                                val patNameBn = if (payload.has("patientNameBn") && !payload.isNull("patientNameBn")) payload.getString("patientNameBn") else null
+                                val roomName = payload.optString("roomName", "")
+                                val roomNum = payload.optString("roomNumber", "1")
+                                val chamberStr = if (roomName.isNotBlank()) {
+                                    if (Regex("\\d").containsMatchIn(roomName)) roomName else "$roomName $roomNum"
+                                } else {
+                                    "Therapy Room $roomNum"
+                                }
+                                val calledPat = ConsultationPatient(
+                                    serialNumber = if (token > 0) token else 1,
+                                    tokenNumber = if (token > 0) token else 1,
+                                    patientNameEn = patNameEn,
+                                    patientNameBn = patNameBn,
+                                    doctorName = "",
+                                    chamber = chamberStr,
+                                    isTherapy = true
+                                )
+                                lastCallKey = "therapy_${token}_${System.currentTimeMillis()}"
+                                triggerCallAlert(calledPat)
+                                if (isPaired) {
+                                    fetchQueueSnapshot { docWait, thWait, _ ->
+                                        waitingDoctorList = docWait
+                                        waitingTherapyList = thWait
+                                    }
+                                }
+                            } else if (type == "consultation.in_chamber" || type == "consultation.call_cancelled" ||
+                                       type == "therapy.in_session" || type == "therapy.call_cancelled") {
+                                activeCallAlert = null
+                                try { textToSpeech?.stop() } catch (_: Exception) {}
+                                if (isPaired) {
+                                    fetchQueueSnapshot { docWait, thWait, _ ->
+                                        waitingDoctorList = docWait
+                                        waitingTherapyList = thWait
+                                    }
+                                }
                             } else if (type.startsWith("queue.") || type.startsWith("visit.") ||
                                        type.startsWith("consultation.") || type.startsWith("therapy.") ||
                                        type.startsWith("serial.") || type.startsWith("call.")) {
@@ -255,10 +342,10 @@ class MainActivity : ComponentActivity() {
                                         waitingDoctorList = docWait
                                         waitingTherapyList = thWait
                                         if (calledPat != null) {
-                                            if (calledPat.serialNumber != lastCalledSerial) {
-                                                lastCalledSerial = calledPat.serialNumber
-                                                activeCallAlert = calledPat
-                                                speakChamberCall(calledPat)
+                                            val key = "${calledPat.isTherapy}_${calledPat.tokenNumber}_${calledPat.chamber}"
+                                            if (key != lastCallKey) {
+                                                lastCallKey = key
+                                                triggerCallAlert(calledPat)
                                             }
                                         } else {
                                             if (activeCallAlert != null) {
@@ -288,10 +375,12 @@ class MainActivity : ComponentActivity() {
                         fetchQueueSnapshot { docWait, thWait, calledPat ->
                             waitingDoctorList = docWait
                             waitingTherapyList = thWait
-                            if (calledPat != null && calledPat.serialNumber != lastCalledSerial) {
-                                lastCalledSerial = calledPat.serialNumber
-                                activeCallAlert = calledPat
-                                speakChamberCall(calledPat)
+                            if (calledPat != null) {
+                                val key = "${calledPat.isTherapy}_${calledPat.tokenNumber}_${calledPat.chamber}"
+                                if (key != lastCallKey) {
+                                    lastCallKey = key
+                                    triggerCallAlert(calledPat)
+                                }
                             }
                         }
                         fetchTvBulletins { bulletins ->
@@ -306,7 +395,7 @@ class MainActivity : ComponentActivity() {
                 if (isPaired) {
                     while (isPaired && isActive) {
                         withContext(Dispatchers.IO) {
-                            sendTvHeartbeat(pairingCode, "0.1.39") { isOk, status, dept, name, theme, lang, forceUpdate ->
+                            sendTvHeartbeat(pairingCode, "0.1.49") { isOk, status, dept, name, theme, lang, forceUpdate ->
                                 if (!isOk || status == "revoked" || status == "unregistered") {
                                     launch(Dispatchers.Main) {
                                         prefs.edit().putBoolean("is_paired", false).apply()
@@ -549,8 +638,10 @@ class MainActivity : ComponentActivity() {
                                                             horizontalArrangement = Arrangement.SpaceBetween,
                                                             verticalAlignment = Alignment.CenterVertically
                                                         ) {
+                                                            val chamberDigits = item.chamber.replace(Regex("[^0-9]"), "").ifBlank { "1" }
+                                                            val chamberDisplay = if (currentLanguage == "bn") "চেম্বার $chamberDigits" else "Chamber $chamberDigits"
                                                             Text(
-                                                                text = if (currentLanguage == "bn") "চেম্বার ১" else "Chamber 1",
+                                                                text = chamberDisplay,
                                                                 color = Emerald400,
                                                                 fontSize = 10.sp,
                                                                 fontWeight = FontWeight.SemiBold
@@ -704,8 +795,10 @@ class MainActivity : ComponentActivity() {
                                                                 maxLines = 1,
                                                                 overflow = TextOverflow.Ellipsis
                                                             )
+                                                            val roomDigits = item.roomName.replace(Regex("[^0-9]"), "").ifBlank { "1" }
+                                                            val roomDisplay = if (currentLanguage == "bn") "থেরাপি রুম $roomDigits" else "Room $roomDigits"
                                                             Text(
-                                                                text = if (currentLanguage == "bn") "থেরাপি হল" else "Therapy Hall",
+                                                                text = roomDisplay,
                                                                 color = textMutedColor,
                                                                 fontSize = 10.sp,
                                                                 fontWeight = FontWeight.Bold
@@ -839,6 +932,7 @@ class MainActivity : ComponentActivity() {
                         activeCallAlert?.let { patient ->
                             CallingAlertOverlay(
                                 patient = patient,
+                                callCountdown = callCountdown,
                                 currentLanguage = currentLanguage,
                                 isDarkTheme = isDarkTheme,
                                 onDismiss = { activeCallAlert = null }
@@ -1056,6 +1150,9 @@ class MainActivity : ComponentActivity() {
                 val docList = mutableListOf<ConsultationPatient>()
                 for (i in 0 until docArr.length()) {
                     val obj = docArr.getJSONObject(i)
+                    val chamberNum = if (obj.has("chamberRoomNumber") && !obj.isNull("chamberRoomNumber")) obj.optString("chamberRoomNumber") else ""
+                    val chamberName = if (obj.has("chamberName") && !obj.isNull("chamberName")) obj.optString("chamberName") else ""
+                    val chamberStr = if (chamberNum.isNotBlank()) "Room $chamberNum" else if (chamberName.isNotBlank()) chamberName else "Chamber 1"
                     docList.add(
                         ConsultationPatient(
                             serialNumber = obj.optInt("serialNumber", i + 1),
@@ -1063,7 +1160,7 @@ class MainActivity : ComponentActivity() {
                             patientNameEn = obj.optString("patientNameEn", "Patient"),
                             patientNameBn = if (obj.has("patientNameBn") && !obj.isNull("patientNameBn")) obj.getString("patientNameBn") else null,
                             doctorName = obj.optString("doctorNameEn", ""),
-                            chamber = "Chamber 1",
+                            chamber = chamberStr,
                             priority = obj.optString("priority", "regular")
                         )
                     )
@@ -1074,16 +1171,14 @@ class MainActivity : ComponentActivity() {
                 var calledPatient: ConsultationPatient? = null
                 if (nowServingArr != null && nowServingArr.length() > 0) {
                     val obj = nowServingArr.getJSONObject(0)
-                    val chamberStr = if (obj.has("chamberRoomNumber") && !obj.isNull("chamberRoomNumber")) {
-                        "Room ${obj.optString("chamberRoomNumber")}"
-                    } else if (obj.has("chamberName") && !obj.isNull("chamberName")) {
-                        obj.optString("chamberName")
-                    } else {
-                        "Chamber 1"
-                    }
+                    val chamberNum = if (obj.has("chamberRoomNumber") && !obj.isNull("chamberRoomNumber")) obj.optString("chamberRoomNumber") else ""
+                    val chamberName = if (obj.has("chamberName") && !obj.isNull("chamberName")) obj.optString("chamberName") else ""
+                    val chamberStr = if (chamberNum.isNotBlank()) "Room $chamberNum" else if (chamberName.isNotBlank()) chamberName else "Chamber 1"
+                    val ser = obj.optInt("serialNumber", 1)
+                    val tok = obj.optInt("tokenNumber", ser)
                     calledPatient = ConsultationPatient(
-                        serialNumber = obj.optInt("serialNumber", 1),
-                        tokenNumber = obj.optInt("tokenNumber", 1),
+                        serialNumber = if (ser > 0) ser else 1,
+                        tokenNumber = if (tok > 0) tok else 1,
                         patientNameEn = obj.optString("patientNameEn", "Patient"),
                         patientNameBn = if (obj.has("patientNameBn") && !obj.isNull("patientNameBn")) obj.getString("patientNameBn") else null,
                         doctorName = obj.optString("doctorNameEn", "Doctor"),
@@ -1102,14 +1197,14 @@ class MainActivity : ComponentActivity() {
                         for (i in 0 until thNowServing.length()) {
                             val obj = thNowServing.getJSONObject(i)
                             if (obj.optString("status") == "calling") {
-                                val roomStr = if (obj.has("roomName") && !obj.isNull("roomName")) {
-                                    obj.getString("roomName")
-                                } else {
-                                    "Therapy Hall 1"
-                                }
+                                val roomNum = if (obj.has("roomNumber") && !obj.isNull("roomNumber")) obj.optString("roomNumber") else "1"
+                                val rawRoom = if (obj.has("roomName") && !obj.isNull("roomName")) obj.getString("roomName") else "Therapy Room $roomNum"
+                                val roomStr = if (Regex("\\d").containsMatchIn(rawRoom)) rawRoom else "$rawRoom $roomNum"
+                                val tok = obj.optInt("tokenNumber", 1)
+                                val resolvedTok = if (tok > 0) tok else 1
                                 calledPatient = ConsultationPatient(
-                                    serialNumber = obj.optInt("tokenNumber", 1),
-                                    tokenNumber = obj.optInt("tokenNumber", 1),
+                                    serialNumber = resolvedTok,
+                                    tokenNumber = resolvedTok,
                                     patientNameEn = obj.optString("patientNameEn", "Patient"),
                                     patientNameBn = if (obj.has("patientNameBn") && !obj.isNull("patientNameBn")) obj.getString("patientNameBn") else null,
                                     doctorName = "",
@@ -1126,13 +1221,17 @@ class MainActivity : ComponentActivity() {
                 val thList = mutableListOf<TherapyPatient>()
                 for (i in 0 until thArr.length()) {
                     val obj = thArr.getJSONObject(i)
+                    val roomNum = if (obj.has("roomNumber") && !obj.isNull("roomNumber")) obj.optString("roomNumber") else "1"
+                    val rawRoom = if (obj.has("roomName") && !obj.isNull("roomName")) obj.getString("roomName") else "Therapy Room $roomNum"
+                    val roomStr = if (Regex("\\d").containsMatchIn(rawRoom)) rawRoom else "$rawRoom $roomNum"
+                    val tok = obj.optInt("tokenNumber", i + 1)
                     thList.add(
                         TherapyPatient(
-                            tokenNumber = obj.optInt("tokenNumber", i + 1),
+                            tokenNumber = if (tok > 0) tok else (i + 1),
                             patientNameEn = obj.optString("patientNameEn", "Patient"),
                             patientNameBn = if (obj.has("patientNameBn") && !obj.isNull("patientNameBn")) obj.getString("patientNameBn") else null,
-                            roomName = "Therapy Hall 1",
-                            modality = "Physiotherapy",
+                            roomName = roomStr,
+                            modality = obj.optString("modalityNameBn", obj.optString("modalityNameEn", "Physiotherapy")),
                             durationMinutes = 20,
                             priority = obj.optString("priority", "regular"),
                             toldTime = if (obj.has("toldTime") && !obj.isNull("toldTime")) obj.getString("toldTime") else null,
@@ -1170,8 +1269,11 @@ class MainActivity : ComponentActivity() {
         val englishText: String
 
         if (patient.isTherapy) {
-            banglaText = "থেরাপির জন্য রোগী $patientNameBn কে $chamber এ আসার জন্য অনুরোধ করা হচ্ছে।"
-            englishText = "Patient $patientNameEn, please proceed to $chamber for therapy."
+            val roomDigits = chamber.replace(Regex("[^0-9]"), "").ifBlank { "1" }
+            val roomNameBn = "থেরাপি রুম $roomDigits"
+            val roomNameEn = "Therapy Room $roomDigits"
+            banglaText = "থেরাপির জন্য রোগী $patientNameBn কে $roomNameBn এ আসার জন্য অনুরোধ করা হচ্ছে।"
+            englishText = "Patient $patientNameEn, please proceed to $roomNameEn for therapy."
         } else {
             val chamberDigits = chamber.replace(Regex("[^0-9]"), "").ifBlank { "1" }
             banglaText = "ডাঃ $doctorName, রোগী $patientNameBn কে $chamberDigits নম্বর রুমে ডাকছেন"
@@ -1486,7 +1588,7 @@ fun TvPairingScreen(
 
         // 3. Footer
         Text(
-            text = "Health & Pain Care Center · Jashore • Hardware Station ID: $pairingCode • Version 0.1.39",
+            text = "Health & Pain Care Center · Jashore • Hardware Station ID: $pairingCode • Version 0.1.49",
             color = textMutedColor,
             fontSize = 11.sp,
             fontFamily = FontFamily.Monospace
@@ -1497,6 +1599,7 @@ fun TvPairingScreen(
 @Composable
 fun CallingAlertOverlay(
     patient: ConsultationPatient,
+    callCountdown: Int,
     currentLanguage: String,
     isDarkTheme: Boolean,
     onDismiss: () -> Unit
@@ -1505,6 +1608,7 @@ fun CallingAlertOverlay(
     val cardBg = if (isDarkTheme) Color(0xF5090D0B) else Color(0xF9FFFFFF)
     val textPrimary = if (isDarkTheme) Color.White else Color(0xFF0F172A)
     val textSecondary = if (isDarkTheme) Color(0xFF94A3B8) else Color(0xFF475569)
+    val bnDigits = charArrayOf('০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯')
 
     Box(
         modifier = Modifier
@@ -1548,9 +1652,9 @@ fun CallingAlertOverlay(
                 )
             }
 
-            // Token Number
-            val bnDigits = charArrayOf('০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯')
-            val tokenStr = patient.tokenNumber.toString().let { raw ->
+            // Token Number (always at least 1, never 0)
+            val tokNum = if (patient.tokenNumber > 0) patient.tokenNumber else 1
+            val tokenStr = tokNum.toString().let { raw ->
                 if (isBn) {
                     val sb = StringBuilder()
                     for (ch in raw) {
@@ -1561,7 +1665,7 @@ fun CallingAlertOverlay(
             }
 
             Text(
-                text = if (isBn) "টোকেন #$tokenStr" else "TOKEN #${patient.tokenNumber}",
+                text = if (isBn) "টোকেন #$tokenStr" else "TOKEN #$tokNum",
                 color = Emerald400,
                 fontSize = 38.sp,
                 fontFamily = FontFamily.Monospace,
@@ -1578,7 +1682,21 @@ fun CallingAlertOverlay(
                 lineHeight = 50.sp
             )
 
-            // Doctor & Chamber Box
+            // Doctor & Chamber Box (prominently featuring the room number)
+            val roomDigits = patient.chamber.replace(Regex("[^0-9]"), "").ifBlank { "1" }
+            val roomDigitsBn = roomDigits.let { raw ->
+                val sb = StringBuilder()
+                for (ch in raw) {
+                    if (ch in '0'..'9') sb.append(bnDigits[ch - '0']) else sb.append(ch)
+                }
+                sb.toString()
+            }
+            val chamberDisplayText = if (patient.isTherapy) {
+                if (isBn) "থেরাপি রুম $roomDigitsBn" else "THERAPY ROOM $roomDigits"
+            } else {
+                if (isBn) "রুম নম্বর $roomDigitsBn" else "ROOM $roomDigits"
+            }
+
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1593,7 +1711,7 @@ fun CallingAlertOverlay(
                         text = if (patient.isTherapy) {
                             if (isBn) "ফিজিওথেরাপি ও পুনর্বাসন" else "PHYSIOTHERAPY & REHAB"
                         } else {
-                            if (patient.doctorName.isNotBlank()) "ডাঃ ${patient.doctorName}" else "ডাক্তার কনসাল্টেশন চেম্বার"
+                            if (patient.doctorName.isNotBlank()) "ডাঃ ${patient.doctorName}" else (if (isBn) "ডাক্তার কনসাল্টেশন চেম্বার" else "DOCTOR CONSULTATION CHAMBER")
                         },
                         color = Color(0xFFD1FAE5),
                         fontSize = 15.sp,
@@ -1601,21 +1719,50 @@ fun CallingAlertOverlay(
                         letterSpacing = 1.sp
                     )
                     Text(
-                        text = patient.chamber,
+                        text = chamberDisplayText,
                         color = Color.White,
-                        fontSize = 32.sp,
+                        fontSize = 34.sp,
                         fontWeight = FontWeight.Black,
                         fontFamily = FontFamily.Monospace
                     )
                 }
             }
 
-            // Auto dismiss hint
-            Text(
-                text = if (isBn) "পর্দার যেকোনো স্থানে চাপ দিয়ে বন্ধ করুন" else "Tap anywhere to dismiss notification",
-                color = textSecondary,
-                fontSize = 11.sp
-            )
+            // Auto dismiss countdown & Dismiss button
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                val countdownBn = callCountdown.toString().let { raw ->
+                    val sb = StringBuilder()
+                    for (ch in raw) {
+                        if (ch in '0'..'9') sb.append(bnDigits[ch - '0']) else sb.append(ch)
+                    }
+                    sb.toString()
+                }
+                Text(
+                    text = if (isBn) "স্বয়ংক্রিয়ভাবে বন্ধ হবে: $countdownBn সেকেন্ড" else "Auto dismiss in: ${callCountdown}s",
+                    color = textSecondary,
+                    fontSize = 12.sp
+                )
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(if (isDarkTheme) Color(0xFF27272A) else Color(0xFFE2E8F0))
+                        .clickable { onDismiss() }
+                        .padding(horizontal = 14.dp, vertical = 6.dp)
+                ) {
+                    Text(
+                        text = if (isBn) "বন্ধ করুন" else "Dismiss",
+                        color = textPrimary,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
         }
     }
 }
