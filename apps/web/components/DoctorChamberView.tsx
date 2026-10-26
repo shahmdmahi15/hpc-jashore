@@ -258,7 +258,12 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
             seen.add(item.id);
             return true;
           });
-          q.sort((a: any, b: any) => (a.serialNumber || 0) - (b.serialNumber || 0));
+          // Sort strictly by arrival / appointment time
+          q.sort((a: any, b: any) => {
+            const timeA = new Date(a.bookingTime || a.checkedInAt || a.createdAt || 0).getTime();
+            const timeB = new Date(b.bookingTime || b.checkedInAt || b.createdAt || 0).getTime();
+            return timeA - timeB;
+          });
         } catch {
           // ignore
         }
@@ -433,7 +438,7 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
       setActiveSerial(s);
       await api.visits.callSerial(s.id);
       setActiveSerial((prev: any) => ({ ...prev, status: 'called' }));
-      toast.success(`রোগী #${s.serialNumber} কে চেম্বারে ডাকা হয়েছে! টিভি ও ওয়েব স্ক্রিনে ঘোষণা শুরু হয়েছে।`);
+      toast.success(`রোগী ${s.patient?.nameBn || s.patient?.nameEn || ''} কে চেম্বারে ডাকা হয়েছে! টিভি ও ওয়েব স্ক্রিনে ঘোষণা শুরু হয়েছে।`);
       loadQueue();
     } catch (err: any) {
       toast.error(err?.message || 'চেম্বারে ডাকতে ব্যর্থ হয়েছে');
@@ -913,7 +918,7 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
                 mobileTab === 'consultation' && 'bg-emerald-600 text-white hover:bg-emerald-600/90 shadow-xs'
               )}
             >
-              📝 পরামর্শ কক্ষ {activeSerial ? `(#${activeSerial.serialNumber})` : ''}
+              📝 পরামর্শ কক্ষ {activeSerial ? `(${activeSerial.patient?.nameBn || activeSerial.patient?.nameEn || ''})` : ''}
             </Button>
           </div>
 
@@ -976,12 +981,13 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
                               : 'border-border bg-card hover:bg-muted/50'
                           )}
                         >
-                          {/* Top row: Serial, Punctuality & Priority Badge */}
+                          {/* Top row: Arrival Time, Punctuality & Priority Badge */}
                           <div className="flex justify-between items-center gap-2 flex-wrap">
                             <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className="font-extrabold text-base text-emerald-600 dark:text-emerald-400 font-mono">
-                                সিরিয়াল #{s.serialNumber}
-                              </span>
+                              <div className="flex items-center gap-1 font-mono text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
+                                <Clock className="w-3.5 h-3.5" />
+                                <span>{s.bookingTime || (s.checkedInAt ? new Date(s.checkedInAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '')}</span>
+                              </div>
                               {getPriorityBadge(s.priority)}
                               {renderPatientClinicalStatusBadge(s, 'sm')}
                             </div>
@@ -1154,7 +1160,7 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
                     বর্তমানে কোনো রোগী পরামর্শ কক্ষে নেই
                   </h3>
                   <p className="text-xs sm:text-sm text-muted-foreground mt-1.5 max-w-md mx-auto">
-                    বাম পাশের অপেক্ষমাণ কিউ থেকে রোগীকে পরামর্শ কক্ষে ডাকুন অথবা সিরিয়াল নির্বাচন করুন।
+                    বাম পাশের অপেক্ষমাণ তালিকা থেকে রোগীকে পরামর্শ কক্ষে ডাকুন অথবা রোগী নির্বাচন করুন।
                   </p>
                   {waitingQueue.length > 0 && (
                     <Button
@@ -1165,7 +1171,7 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
                       className="mt-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold h-9 gap-1.5 shadow-sm active:scale-95 cursor-pointer"
                     >
                       <Volume2 className="size-4" />
-                      <span>পরবর্তী রোগী ডাকুন (#{waitingQueue[0].serialNumber} - {waitingQueue[0].patient?.nameEn || waitingQueue[0].patient?.nameBn || 'Patient'})</span>
+                      <span>পরবর্তী রোগী ডাকুন ({waitingQueue[0].patient?.nameEn || waitingQueue[0].patient?.nameBn || 'Patient'})</span>
                     </Button>
                   )}
                 </Card>
@@ -1193,7 +1199,7 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
                             )}
                           </h2>
                           <div className="text-xs sm:text-sm text-muted-foreground mt-1">
-                            MRN: <strong className="text-foreground">{activeSerial.patient?.mrn || 'N/A'}</strong> · সিরিয়াল: #{activeSerial.serialNumber || 1}
+                            MRN: <strong className="text-foreground">{activeSerial.patient?.mrn || 'N/A'}</strong> · আগমনের সময়: {activeSerial.checkedInAt ? new Date(activeSerial.checkedInAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : (activeSerial.bookingTime || 'আজ')}
                             {activeSerial.patient?.ageYears ? ` · বয়স: ${activeSerial.patient.ageYears} Y` : ''}
                             {activeSerial.patient?.gender ? ` · লিঙ্গ: ${activeSerial.patient.gender === 'female' ? 'নারী' : activeSerial.patient.gender === 'male' ? 'পুরুষ' : 'অন্যান্য'}` : ''}
                             {activeSerial.patient?.phone ? ` · ফোন: ${activeSerial.patient.phone}` : ''}

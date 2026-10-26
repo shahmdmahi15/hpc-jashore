@@ -587,7 +587,7 @@ export class PatientsService {
         titleEn: isRe ? 'Re-Intake Forwarded to Cashier' : 'Forwarded to Cashier',
         titleBn: isRe ? 'পুনর্বার মূল্যায়ন ক্যাশিয়ারের কাছে পাঠানো হয়েছে' : 'ক্যাশিয়ারের কাছে ফরোয়ার্ড',
         descriptionEn: 'Forwarded to Cashier for fee collection and doctor queue admission',
-        descriptionBn: 'কনসালটেশন ফি গ্রহণ ও ডাক্তার সিরিয়ালে প্রবেশের জন্য ক্যাশিয়ারের কাছে পাঠানো হয়েছে।',
+        descriptionBn: 'কনসালটেশন ফি গ্রহণ ও ডাক্তার পরামর্শের জন্য ক্যাশিয়ারের কাছে পাঠানো হয়েছে।',
         actorId: actor.sub,
         actorName,
         actorRole: actor.role,
@@ -789,9 +789,11 @@ export class PatientsService {
     if (dto.specialNotes !== undefined) patch.specialNotes = dto.specialNotes?.trim() ?? null;
 
     const shouldForward = dto.forwardToCashier === true || dto.status === 'forwarded_to_cashier';
-    if (shouldForward && existing.status === 'submitted') {
+    if (shouldForward) {
       patch.status = 'forwarded_to_cashier';
-      patch.forwardedToCashierAt = now;
+      if (!existing.forwardedToCashierAt) {
+        patch.forwardedToCashierAt = now;
+      }
     } else if (dto.status !== undefined) {
       patch.status = dto.status as any;
     }
@@ -819,7 +821,7 @@ export class PatientsService {
 
     // Record Timeline Event
     if (existing.patientId) {
-      if (shouldForward && existing.status === 'submitted') {
+      if (shouldForward && existing.status !== 'forwarded_to_cashier') {
         await this.addPatientTimelineEvent({
           patientId: existing.patientId,
           visitId: existing.visitId,
@@ -827,8 +829,8 @@ export class PatientsService {
           step: 'forwarded_to_cashier',
           titleEn: 'Intake Form Forwarded to Cashier',
           titleBn: 'ইনটেক তথ্য ক্যাশিয়ারের কাছে পাঠানো হয়েছে',
-          descriptionEn: 'Forwarded to Cashier for fee payment and doctor queue routing',
-          descriptionBn: 'কনসালটেশন ফি গ্রহণ ও সিরিয়ালে যুক্ত করার জন্য ক্যাশিয়ারের কাছে ফরোয়ার্ড করা হয়েছে।',
+          descriptionEn: 'Forwarded to Cashier for fee payment and doctor consultation',
+          descriptionBn: 'কনসালটেশন ফি গ্রহণ ও চেম্বার পরামর্শের জন্য ক্যাশিয়ারের কাছে ফরোয়ার্ড করা হয়েছে।',
           actorId: actor.sub,
           actorRole: actor.role,
           date: existing.date,
@@ -840,9 +842,9 @@ export class PatientsService {
           intakeFormId: id,
           step: 'intake_form_updated',
           titleEn: 'Intake Form Updated',
-          titleBn: 'প্রাথমিক তথ্য ফরম পরিমার্জিত',
-          descriptionEn: `Intake form updated by ${actor.role}`,
-          descriptionBn: `রিসেপশনে রোগীর প্রাথমিক স্বাস্থ্য ও তথ্য বিবরণী সফলভাবে আপডেট করা হয়েছে।`,
+          titleBn: 'ইনটেক তথ্য পরিমার্জন করা হয়েছে',
+          descriptionEn: 'Receptionist updated patient intake details and vitals',
+          descriptionBn: 'ইনটেক মূল্যায়ন ও ভাইটালস তথ্য সফলভাবে সংরক্ষণ করা হয়েছে।',
           actorId: actor.sub,
           actorRole: actor.role,
           date: existing.date,
@@ -894,7 +896,7 @@ export class PatientsService {
       titleEn: 'Forwarded to Cashier',
       titleBn: 'ক্যাশিয়ারের কাছে ফরোয়ার্ড',
       descriptionEn: 'Forwarded to Cashier for consultation fee payment & queue admission',
-      descriptionBn: 'কনসালটেশন ফি গ্রহণ ও সিরিয়াল অন্তর্ভুক্তির জন্য ক্যাশিয়ারের কাছে পাঠানো হয়েছে।',
+      descriptionBn: 'কনসালটেশন ফি গ্রহণ ও চেম্বার পরামর্শের জন্য ক্যাশিয়ারের কাছে পাঠানো হয়েছে।',
       actorId: actor.sub,
       actorRole: actor.role,
     });
@@ -1129,10 +1131,10 @@ export class PatientsService {
       intakeFormId: id,
       consultationBookingId: bookingId,
       step: 'queued_consultation',
-      titleEn: 'Admitted to Doctor Queue',
-      titleBn: 'ডাক্তার কনসালটেশন সিরিয়ালে অন্তর্ভুক্তি',
-      descriptionEn: `Serial #${nextSerialNum} queued for Dr. ${doctorName} (Room ${chamberNumber})`,
-      descriptionBn: `সিরিয়াল #${nextSerialNum} সহ ডা. ${doctorName}-এর চেম্বার সিরিয়ালে প্রবেশ করানো হয়েছে (রুম ${chamberNumber})।`,
+      titleEn: 'Admitted to Doctor Chamber',
+      titleBn: 'ডাক্তার কনসালটেশনে অন্তর্ভুক্তি',
+      descriptionEn: `Patient admitted for Dr. ${doctorName} (Room ${chamberNumber})`,
+      descriptionBn: `ডা. ${doctorName}-এর চেম্বারে পাঠানো হয়েছে (রুম ${chamberNumber})।`,
       actorId: actor.sub,
       actorRole: actor.role,
       date: today,

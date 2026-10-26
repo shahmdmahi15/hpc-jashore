@@ -185,7 +185,7 @@ export function TherapyQueueManagementTab() {
         modalityCode: patient.modalityCode || 'PHYSIO',
       });
       toast.success(
-        `সিরিয়াল #${String(patient.tokenNumber).padStart(2, '0')} কে রুম ${roomNumber} (${roomName}) এ ডাকা হয়েছে! টিভি স্ক্রিনে ঘোষণা পাঠানো হয়েছে।`,
+        `রোগী ${patient.patientNameBn || patient.patientNameEn} কে রুম ${roomNumber} (${roomName}) এ ডাকা হয়েছে! টিভি স্ক্রিনে ঘোষণা পাঠানো হয়েছে।`,
       );
       await fetchData(true);
     } catch (err: any) {
@@ -359,7 +359,7 @@ export function TherapyQueueManagementTab() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
             <Input
               type="text"
-              placeholder="রোগীর নাম, সিরিয়াল # বা MRN দিয়ে খুঁজুন..."
+              placeholder="রোগীর নাম, ফোন বা MRN দিয়ে খুঁজুন..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9 h-9 text-xs sm:text-sm bg-card/60"
@@ -500,17 +500,18 @@ export function TherapyQueueManagementTab() {
                             : 'bg-emerald-500/10 border-emerald-500/30'
                       }`}
                     >
-                      <span
-                        className={`font-mono text-xl font-black ${
+                      <div className="flex flex-col items-center justify-center text-center">
+                        <Clock className={`size-4 ${
                           isInTherapy
                             ? 'text-cyan-400'
                             : isCalling
                               ? 'text-amber-400'
                               : 'text-emerald-400'
-                        }`}
-                      >
-                        #{String(patient.tokenNumber).padStart(2, '0')}
-                      </span>
+                        }`} />
+                        <span className="font-mono text-[10px] font-bold text-muted-foreground mt-0.5">
+                          {patient.toldTime || (patient.checkedInAt ? new Date(patient.checkedInAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '')}
+                        </span>
+                      </div>
                     </div>
                     <div>
                       <h4 className="font-bold text-sm sm:text-base leading-snug line-clamp-1">
@@ -878,8 +879,8 @@ export function SendToCashierModal({
           {/* Patient Quick Info Card */}
           <div className="p-3 rounded-xl bg-muted/40 border border-border/80 flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <div className="size-11 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center font-mono font-black text-emerald-400 text-lg">
-                #{String(patient.tokenNumber).padStart(2, '0')}
+              <div className="size-11 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                <Clock className="size-5" />
               </div>
               <div>
                 <div className="font-bold text-sm sm:text-base text-foreground">
@@ -1059,7 +1060,7 @@ export function AllPlansModal({
               </DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground mt-0.5">
                 রোগী: <strong className="text-foreground">{patient.patientNameBn || patient.patientNameEn}</strong> · MRN:{' '}
-                <strong className="text-foreground">{patient.mrn}</strong> · সিরিয়াল: #{String(patient.tokenNumber).padStart(2, '0')}
+                <strong className="text-foreground">{patient.mrn}</strong>
               </DialogDescription>
             </div>
           </div>
@@ -1270,7 +1271,7 @@ export function StartTherapySessionModal({
         durationMinutes,
       });
       toast.success(
-        `সিরিয়াল #${String(patient.tokenNumber).padStart(2, '0')} এর ${modalityCode} সেশন (${durationMinutes} মিনিট) শুরু হয়েছে!`,
+        `রোগী ${patient.patientNameBn || patient.patientNameEn} এর ${modalityCode} সেশন (${durationMinutes} মিনিট) শুরু হয়েছে!`,
       );
       onOpenChange(false);
       onSuccess();
@@ -1294,7 +1295,7 @@ export function StartTherapySessionModal({
                 থেরাপি সেশন শুরু করুন (Start Session)
               </DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground mt-0.5">
-                রোগী: <strong className="text-foreground">{patient.patientNameBn || patient.patientNameEn}</strong> (সিরিয়াল #{String(patient.tokenNumber).padStart(2, '0')})
+                রোগী: <strong className="text-foreground">{patient.patientNameBn || patient.patientNameEn}</strong> (MRN: {patient.mrn})
               </DialogDescription>
             </div>
           </div>

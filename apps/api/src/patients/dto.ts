@@ -349,6 +349,16 @@ export class CreateIntakeFormDto {
 }
 
 export class UpdateIntakeFormDto {
+  @ApiPropertyOptional({ description: 'Patient ID' })
+  @IsOptional()
+  @IsString()
+  patientId?: string;
+
+  @ApiPropertyOptional({ description: 'Is Re-Intake after 3 months inactivity' })
+  @IsOptional()
+  @IsBoolean()
+  isReIntake?: boolean;
+
   @ApiPropertyOptional({ description: 'Patient Name' })
   @IsOptional()
   @IsString()

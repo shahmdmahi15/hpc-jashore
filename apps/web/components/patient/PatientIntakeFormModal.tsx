@@ -525,7 +525,7 @@ export function PatientIntakeFormModal({
                   )}
                   {(activeIntakeStatus === 'billed' || activeIntakeStatus === 'admitted_to_queue') && (
                     <Badge className="bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30 text-[10px]">
-                      বিল্ড ও সিরিয়ালে আছে
+                      বিল পরিশোধিত ও অপেক্ষমাণ
                     </Badge>
                   )}
                 </div>

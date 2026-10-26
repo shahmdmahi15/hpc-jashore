@@ -139,7 +139,7 @@ export default function ReceptionView() {
       }
 
       toast.success(
-        `রোগী ${pat?.nameEn || ''} সফলভাবে চেক-ইন সম্পন্ন হয়েছে! (সিরিয়াল #${res.serialNumber || res.tokenNumber})`
+        `রোগী ${pat?.nameEn || ''} সফলভাবে চেক-ইন সম্পন্ন হয়েছে! (আগমনের সময়: ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})`
       );
 
       // Reset selection and refresh queue
@@ -536,7 +536,7 @@ export default function ReceptionView() {
                       <table className="w-full text-left text-xs sm:text-sm">
                         <thead className="bg-muted/50 border-b border-border text-muted-foreground font-semibold">
                           <tr>
-                            <th className="p-3">সিরিয়াল / Serial</th>
+                            <th className="p-3">আগমনের সময় / Time</th>
                             <th className="p-3">Patient</th>
                             <th className="p-3 hidden sm:table-cell">Doctor</th>
                             <th className="p-3">Status</th>
@@ -548,8 +548,9 @@ export default function ReceptionView() {
                             <tr key={v.id} className="hover:bg-muted/30 transition-colors">
                               <td className="p-3">
                                 <div className="flex items-center gap-1.5 flex-wrap">
-                                  <span className="font-extrabold text-emerald-600 text-sm sm:text-base">
-                                    #{v.tokenNumber}
+                                  <span className="font-bold text-emerald-600 text-xs sm:text-sm font-mono flex items-center gap-1">
+                                    <Clock className="size-3.5" />
+                                    {new Date(v.checkedInAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                   </span>
                                   {v.priority === 'emergency' && (
                                     <Badge
@@ -746,7 +747,7 @@ export default function ReceptionView() {
                   {forwardVisit.patient?.mrn})
                 </div>
                 <div>
-                  <strong>সিরিয়াল নম্বর:</strong> #{forwardVisit.serialNumber || forwardVisit.tokenNumber}
+                  <strong>আগমনের সময়:</strong> {forwardVisit.checkedInAt ? new Date(forwardVisit.checkedInAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'আজ'}
                 </div>
               </div>
 

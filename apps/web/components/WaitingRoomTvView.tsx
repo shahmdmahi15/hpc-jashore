@@ -170,9 +170,9 @@ export default function WaitingRoomTvView() {
     therapyQueue: { nowServing: [], waiting: [] },
     bulletinNotices: [
       'স্বাগতম: হেলথ অ্যান্ড পেইন কেয়ার সেন্টার (HPC) · যশোর | আধুনিক ফিজিওথেরাপি ও পুনর্বাসন কেন্দ্র',
-      'আধুনিক ফিজিওথেরাপি, পুনর্বাসন ও পেইন ম্যানেজমেন্ট সেবা | সিরিয়াল অনুযায়ী অপেক্ষা করুন',
-      'জরুরি হটলাইন: +880 1515-615188 | অনুগ্রহ করে আপনার সিরিয়াল নম্বর ডিসপ্লেতে লক্ষ্য করুন',
-      'চাচড়া পুলিশ ফাঁড়ির বিপরীতে, ডালমিল মোড়, যশোর ৭৪০০ | সিরিয়ালের জন্য অপেক্ষা করুন',
+      'আধুনিক ফিজিওথেরাপি, পুনর্বাসন ও পেইন ম্যানেজমেন্ট সেবা | সময় অনুযায়ী সেবা গ্রহণ করুন',
+      'জরুরি হটলাইন: +880 1515-615188 | অনুগ্রহ করে আপনার নাম ও রুম নম্বর ডিসপ্লেতে লক্ষ্য করুন',
+      'চাচড়া পুলিশ ফাঁড়ির বিপরীতে, ডালমিল মোড়, যশোর ৭৪০০ | আপনার নির্ধারিত সময়ে সেবা গ্রহণ করুন',
       'থেরাপির সময় মোবাইল ফোন সাইলেন্ট রাখুন | নামাজের বিরতি: দুপুর ১:১৫ হতে ১:৪৫ পর্যন্ত',
       'Welcome to HPC Jashore | Evidence-led pain management, stroke rehabilitation, and physical therapy',
     ],
@@ -914,14 +914,13 @@ export default function WaitingRoomTvView() {
             </div>
 
             <div className="mb-2">
-              <span className="px-5 py-1.5 rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-mono font-black text-2xl sm:text-4xl shadow-inner">
-                {lang === 'bn'
-                  ? `সিরিয়াল #${toBnNum(activeCallAlert.serialNumber || activeCallAlert.tokenNumber)}`
-                  : `SERIAL #${activeCallAlert.serialNumber || activeCallAlert.tokenNumber}`}
+              <span className="px-6 py-2 rounded-2xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-sans font-black text-xl sm:text-2xl shadow-inner inline-flex items-center gap-2">
+                <Clock className="size-6 text-emerald-400" />
+                <span>{lang === 'bn' ? 'আমন্ত্রিত রোগী' : 'Calling Patient'}</span>
               </span>
             </div>
 
-            <h2 className="text-3xl sm:text-5xl font-black text-white tracking-tight mt-3 mb-2">
+            <h2 className="text-3xl sm:text-6xl font-black text-white tracking-tight mt-3 mb-2">
               {lang === 'bn'
                 ? activeCallAlert.patientNameBn || activeCallAlert.patientNameEn
                 : activeCallAlert.patientNameEn}
@@ -1020,7 +1019,7 @@ export default function WaitingRoomTvView() {
                 >
                   <CheckCircle2 className="w-8 h-8 2xl:w-10 2xl:h-10 text-emerald-500 mb-2" />
                   <span className="font-bold text-sm 2xl:text-base text-foreground">
-                    {lang === 'bn' ? 'বর্তমানে কোনো সিরিয়াল অপেক্ষারত নেই' : 'No Patients Currently Waiting'}
+                    {lang === 'bn' ? 'বর্তমানে কোনো রোগী অপেক্ষারত নেই' : 'No Patients Currently Waiting'}
                   </span>
                   <span className="text-[11px] 2xl:text-xs mt-1 text-muted-foreground">
                     {lang === 'bn' ? 'সবাইকে সেবা দেওয়া হয়েছে অথবা চেম্বার অপেক্ষমাণ' : 'All consultation patients have been attended'}
@@ -1028,7 +1027,9 @@ export default function WaitingRoomTvView() {
                 </div>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4 gap-2.5 sm:gap-3 2xl:gap-4">
-                  {snapshot.consultationQueue.waiting.map((item, idx) => (
+                  {[...snapshot.consultationQueue.waiting]
+                    .sort((a: any, b: any) => new Date(a.bookingTime || a.checkedInAt || 0).getTime() - new Date(b.bookingTime || b.checkedInAt || 0).getTime())
+                    .map((item: any, idx: number) => (
                     <div
                       key={idx}
                       className={`p-3 sm:p-3.5 2xl:p-4 rounded-2xl border transition-all duration-200 flex flex-col justify-between hover:shadow-md ${
@@ -1037,15 +1038,14 @@ export default function WaitingRoomTvView() {
                           : 'bg-zinc-50/90 border-zinc-200 hover:border-emerald-500/50 hover:bg-white shadow-2xs'
                       }`}
                     >
-                      {/* Top Row: Index Badge & Token Number */}
+                      {/* Top Row: Index Badge & Time */}
                       <div className="flex items-center justify-between gap-2 mb-2">
                         <span className="px-2 py-0.5 rounded-lg text-[10px] 2xl:text-xs font-mono font-bold bg-muted/80 text-muted-foreground border border-border/50">
-                          #{toBnNum(idx + 1)}
+                          {lang === 'bn' ? 'রোগী' : 'Patient'} #{toBnNum(idx + 1)}
                         </span>
-                        <div className="text-right">
-                          <span className="text-2xl sm:text-3xl 2xl:text-4xl font-black font-mono tracking-tight text-emerald-500 leading-none">
-                            {toBnNum(item.tokenNumber || item.serialNumber)}
-                          </span>
+                        <div className="flex items-center gap-1 text-emerald-500 font-mono font-bold text-xs 2xl:text-sm">
+                          <Clock className="w-3.5 h-3.5" />
+                          <span>{item.bookingTime || (item.checkedInAt ? new Date(item.checkedInAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '')}</span>
                         </div>
                       </div>
 
@@ -1056,17 +1056,17 @@ export default function WaitingRoomTvView() {
                         </div>
                       </div>
 
-                      {/* Bottom Row: Chamber & Priority */}
+                      {/* Bottom Row: Chamber & Status */}
                       <div className="flex items-center justify-between text-[10px] 2xl:text-xs pt-2 border-t border-border/40 mt-1">
                         <span className="font-semibold text-emerald-600 dark:text-emerald-400">
-                          {lang === 'bn' ? 'চেম্বার ১' : 'Chamber 1'}
+                          {item.chamberName || (lang === 'bn' ? 'কনসালটেশন চেম্বার' : 'Consultation Chamber')}
                         </span>
                         <span
                           className={`font-medium ${
                             isDark ? 'text-zinc-400' : 'text-zinc-500'
                           }`}
                         >
-                          {lang === 'bn' ? `সিরিয়াল #${toBnNum(item.serialNumber)}` : `Serial #${item.serialNumber}`}
+                          {lang === 'bn' ? 'অপেক্ষমাণ' : 'Waiting'}
                         </span>
                       </div>
                     </div>
@@ -1121,15 +1121,17 @@ export default function WaitingRoomTvView() {
                 >
                   <CheckCircle2 className="w-8 h-8 2xl:w-10 2xl:h-10 text-emerald-500 mb-2" />
                   <span className="font-bold text-sm 2xl:text-base text-foreground">
-                    {lang === 'bn' ? 'থেরাপির জন্য কোনো সিরিয়াল অপেক্ষারত নেই' : 'No Therapy Patients Currently Waiting'}
+                    {lang === 'bn' ? 'থেরাপির জন্য কোনো রোগী অপেক্ষারত নেই' : 'No Therapy Patients Currently Waiting'}
                   </span>
                   <span className="text-[11px] 2xl:text-xs mt-1 text-muted-foreground">
-                    {lang === 'bn' ? 'সকল থেরাপি সিরিয়াল সম্পন্ন হয়েছে' : 'All therapy queue serials have been attended to'}
+                    {lang === 'bn' ? 'সকল থেরাপি রোগী সম্পন্ন হয়েছে' : 'All therapy queue patients have been attended to'}
                   </span>
                 </div>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4 gap-2.5 sm:gap-3 2xl:gap-4">
-                  {snapshot.therapyQueue.waiting.map((item, idx) => (
+                  {[...snapshot.therapyQueue.waiting]
+                    .sort((a: any, b: any) => new Date(a.toldTime || a.checkedInAt || 0).getTime() - new Date(b.toldTime || b.checkedInAt || 0).getTime())
+                    .map((item: any, idx: number) => (
                     <div
                       key={idx}
                       className={`p-3 sm:p-3.5 2xl:p-4 rounded-2xl border transition-all duration-200 flex flex-col justify-between hover:shadow-md ${
@@ -1138,15 +1140,14 @@ export default function WaitingRoomTvView() {
                           : 'bg-zinc-50/90 border-zinc-200 hover:border-emerald-500/50 hover:bg-white shadow-2xs'
                       }`}
                     >
-                      {/* Top Row: Index Badge & Token Number */}
+                      {/* Top Row: Index Badge & Time */}
                       <div className="flex items-center justify-between gap-2 mb-2">
                         <span className="px-2 py-0.5 rounded-lg text-[10px] 2xl:text-xs font-mono font-bold bg-muted/80 text-muted-foreground border border-border/50">
-                          #{toBnNum(idx + 1)}
+                          {lang === 'bn' ? 'রোগী' : 'Patient'} #{toBnNum(idx + 1)}
                         </span>
-                        <div className="text-right">
-                          <span className="text-2xl sm:text-3xl 2xl:text-4xl font-black font-mono tracking-tight text-emerald-500 leading-none">
-                            {toBnNum(item.tokenNumber)}
-                          </span>
+                        <div className="flex items-center gap-1 text-emerald-500 font-mono font-bold text-xs 2xl:text-sm">
+                          <Clock className="w-3.5 h-3.5" />
+                          <span>{item.toldTime || (item.checkedInAt ? new Date(item.checkedInAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '')}</span>
                         </div>
                       </div>
 

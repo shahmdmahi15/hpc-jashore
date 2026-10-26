@@ -354,8 +354,8 @@ export function PatientTimelineModal({
                 </DialogTitle>
                 <DialogDescription className="text-xs text-muted-foreground mt-0.5">
                   {isBn
-                    ? 'হাসপাতালে রোগীর আগমন, ইনটেক, বিলিং, সিরিয়াল ও পরামর্শের রিয়েল-টাইম ট্র্যাক'
-                    : 'Real-time timeline tracking admission, intake, payments, serials, and chamber visits'}
+                    ? 'হাসপাতালে রোগীর আগমন, ইনটেক, বিলিং ও পরামর্শের রিয়েল-টাইম ট্র্যাক'
+                    : 'Real-time timeline tracking admission, intake, payments, and chamber visits'}
                 </DialogDescription>
               </div>
             </div>
@@ -603,14 +603,9 @@ export function PatientTimelineModal({
                         </p>
                       )}
 
-                      {/* Extra Metadata Chips (Vitals, Doctor, Chamber, Serial, Modality, Cashier) */}
+                      {/* Extra Metadata Chips (Vitals, Doctor, Chamber, Modality, Cashier) */}
                       {meta && (
                         <div className="flex flex-wrap gap-1.5 pt-1">
-                          {meta.serialNumber && (
-                            <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 font-mono">
-                              {isBn ? `সিরিয়াল #${toBnNum(meta.serialNumber)}` : `Serial #${meta.serialNumber}`}
-                            </Badge>
-                          )}
                           {meta.doctorName && (
                             <Badge variant="outline" className="text-[10px] bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/30">
                               👨‍⚕️ {meta.doctorName}

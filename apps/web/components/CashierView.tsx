@@ -751,8 +751,8 @@ export default function CashierView({ session: propSession }: CashierProps = {})
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-start gap-2.5">
-                        <div className="size-9 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-black text-sm font-mono shrink-0 border border-indigo-500/20">
-                          #{bill.tokenNumber.toString().padStart(2, '0')}
+                        <div className="size-9 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0 border border-indigo-500/20">
+                          <Clock className="size-4" />
                         </div>
                         <div>
                           <div className="font-bold text-sm sm:text-base text-foreground">
@@ -1669,7 +1669,7 @@ export default function CashierView({ session: propSession }: CashierProps = {})
                 {selectedTherapyBillForPayment.patientNameBn ? ` (${selectedTherapyBillForPayment.patientNameBn})` : ''}
               </DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground">
-                সিরিয়াল #{selectedTherapyBillForPayment.tokenNumber} • MRN: {selectedTherapyBillForPayment.mrn} • মডালিটি: {selectedTherapyBillForPayment.modalityName || selectedTherapyBillForPayment.modalityCode}
+                MRN: {selectedTherapyBillForPayment.mrn} • মডালিটি: {selectedTherapyBillForPayment.modalityName || selectedTherapyBillForPayment.modalityCode}
               </DialogDescription>
             </DialogHeader>
 

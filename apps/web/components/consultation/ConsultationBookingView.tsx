@@ -271,8 +271,8 @@ export function ConsultationBookingView({ defaultDoctorId }: ConsultationBooking
       if (res.success && res.data) {
         toast.success(
           language === 'bn'
-            ? `${b.patient.nameEn}-কে ডাক্তারের সিরিয়াল কিউতে পাঠানো হয়েছে (সিরিয়াল #${res.data.serialNumber})!`
-            : `Patient sent to doctor queue (Serial #${res.data.serialNumber})!`,
+            ? `${b.patient.nameEn}-কে ডাক্তারের পরামর্শ কিউতে পাঠানো হয়েছে!`
+            : `Patient sent to doctor queue!`,
         );
         await loadData();
       } else {
@@ -620,12 +620,13 @@ export function ConsultationBookingView({ defaultDoctorId }: ConsultationBooking
                       {/* Card Header */}
                       <div className="p-3.5 sm:p-4 border-b border-border/40 flex items-start justify-between gap-2 bg-muted/20">
                         <div className="flex items-center gap-2.5">
-                          <div className={`size-9 sm:size-10 rounded-xl flex items-center justify-center font-black text-sm sm:text-base font-mono ${
+                          <div className={`px-2 py-1 h-9 rounded-xl flex items-center justify-center font-bold text-xs sm:text-sm font-mono gap-1 ${
                             isInQueue
                               ? 'bg-emerald-500 text-black shadow-sm'
                               : 'bg-primary/10 text-primary'
                           }`}>
-                            {b.serialNumber ? `#${b.serialNumber.toString().padStart(2, '0')}` : 'SL'}
+                            <Clock className="size-3.5" />
+                            {b.toldTime || b.slotTime || 'সময়'}
                           </div>
                           <div>
                             <span className="font-bold text-sm sm:text-base text-foreground leading-snug block">
@@ -648,7 +649,7 @@ export function ConsultationBookingView({ defaultDoctorId }: ConsultationBooking
                           </Badge>
                         ) : isInQueue ? (
                           <Badge className="bg-emerald-600 text-white text-[10px] font-bold shadow-xs">
-                            In Queue #{b.serialNumber}
+                            {language === 'bn' ? 'কিউতে অপেক্ষমাণ' : 'In Queue'}
                           </Badge>
                         ) : isCheckedIn ? (
                           <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30 text-[10px]">
@@ -764,7 +765,7 @@ export function ConsultationBookingView({ defaultDoctorId }: ConsultationBooking
                           {isInQueue && (
                             <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1 flex-1">
                               <CheckCircle2 className="size-3.5" />
-                              {language === 'bn' ? `কিউ #${b.serialNumber}` : `In Queue #${b.serialNumber}`}
+                              {language === 'bn' ? 'কিউতে অপেক্ষমাণ' : 'In Queue'}
                             </span>
                           )}
 
@@ -791,7 +792,7 @@ export function ConsultationBookingView({ defaultDoctorId }: ConsultationBooking
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/50">
-                    <TableHead className="font-bold text-xs">SL & Booking</TableHead>
+                    <TableHead className="font-bold text-xs">{language === 'bn' ? 'সময় ও বুকিং' : 'Time & Booking'}</TableHead>
                     <TableHead className="font-bold text-xs">{language === 'bn' ? 'রোগী' : 'Patient'}</TableHead>
                     <TableHead className="font-bold text-xs">{language === 'bn' ? 'ডাক্তার ও চেম্বার' : 'Doctor & Chamber'}</TableHead>
                     <TableHead className="font-bold text-xs">{language === 'bn' ? 'সময়' : 'Time'}</TableHead>
@@ -805,8 +806,9 @@ export function ConsultationBookingView({ defaultDoctorId }: ConsultationBooking
                     <TableRow key={b.id} className="hover:bg-muted/30">
                       <TableCell className="font-medium">
                         <div className="space-y-0.5">
-                          <span className="font-mono font-black text-xs text-primary">
-                            {b.serialNumber ? `#${b.serialNumber}` : 'SL'}
+                          <span className="font-mono font-bold text-xs text-primary flex items-center gap-1">
+                            <Clock className="size-3" />
+                            {b.toldTime || b.slotTime || 'N/A'}
                           </span>
                           <span className="text-[10px] font-mono text-muted-foreground block truncate max-w-[120px]">
                             {b.bookingNumber}
@@ -838,7 +840,7 @@ export function ConsultationBookingView({ defaultDoctorId }: ConsultationBooking
                         {b.status === 'cancelled' ? (
                           <Badge variant="outline" className="text-[10px]">Cancelled</Badge>
                         ) : b.status === 'in_queue' ? (
-                          <Badge className="bg-emerald-600 text-white text-[10px]">Queue #{b.serialNumber}</Badge>
+                          <Badge className="bg-emerald-600 text-white text-[10px]">{language === 'bn' ? 'কিউতে অপেক্ষমাণ' : 'In Queue'}</Badge>
                         ) : b.status === 'checked_in' ? (
                           <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30 text-[10px]">Checked In</Badge>
                         ) : (

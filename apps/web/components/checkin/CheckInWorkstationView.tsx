@@ -246,25 +246,30 @@ export function CheckInWorkstationView() {
 
   const filteredCheckedInPatients = useMemo(() => {
     const list = data?.recentCheckIns || [];
-    return list.filter((v) => {
+    const filtered = list.filter((v) => {
       const pName = (
         isBn ? v.patient?.nameBn || v.patient?.nameEn : v.patient?.nameEn || v.patient?.nameBn || ''
       ).toLowerCase();
       const mrn = (v.patient?.mrn || '').toLowerCase();
       const phone = (v.patient?.phone || '').toLowerCase();
-      const token = String(v.tokenNumber);
       const searchMatch =
         !liveSearchQuery.trim() ||
         pName.includes(liveSearchQuery.toLowerCase().trim()) ||
         mrn.includes(liveSearchQuery.toLowerCase().trim()) ||
-        phone.includes(liveSearchQuery.toLowerCase().trim()) ||
-        token.includes(liveSearchQuery.trim());
+        phone.includes(liveSearchQuery.toLowerCase().trim());
 
       if (!searchMatch) return false;
 
       if (liveLocationFilter === 'all') return true;
       const locInfo = getLocationDisplay(v.currentLocation, v.status);
       return locInfo.category === liveLocationFilter;
+    });
+
+    // Sort strictly by arrival time
+    return [...filtered].sort((a, b) => {
+      const tA = new Date(a.checkedInAt || 0).getTime();
+      const tB = new Date(b.checkedInAt || 0).getTime();
+      return tA - tB;
     });
   }, [data?.recentCheckIns, liveSearchQuery, liveLocationFilter, isBn]);
 
@@ -489,8 +494,8 @@ export function CheckInWorkstationView() {
     if (existingActive) {
       toast.error(
         isBn
-          ? `এই রোগী ইতিমধ্যে আজ চেক-ইন আছেন (সিরিয়াল #${toBnNum(existingActive.serialNumber || existingActive.tokenNumber)})। পুনরায় চেক-ইন করার পূর্বে আগের ভিজিট চেক-আউট সম্পন্ন করতে হবে।`
-          : `Patient is already checked in (Serial #${existingActive.serialNumber || existingActive.tokenNumber}). Must checkout previous visit before re-checking in.`,
+          ? `এই রোগী ইতিমধ্যে আজ চেক-ইন আছেন (আগমনের সময়: ${new Date(existingActive.checkedInAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})। পুনরায় চেক-ইন করার পূর্বে আগের ভিজিট চেক-আউট সম্পন্ন করতে হবে।`
+          : `Patient is already checked in (Arrival: ${new Date(existingActive.checkedInAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}). Must checkout previous visit before re-checking in.`,
       );
       return;
     }
@@ -515,11 +520,11 @@ export function CheckInWorkstationView() {
         toast.success(
           hasTherapySlot
             ? (isBn
-                ? `সিরিয়াল #${toBnNum(res.tokenSlip.serialNumber || res.tokenSlip.tokenNumber)} চেক-ইন সম্পন্ন! থেরাপি কিউ-তে যুক্ত করা হয়েছে।`
-                : `Serial #${res.tokenSlip.serialNumber || res.tokenSlip.tokenNumber} checked in & queued for therapy!`)
+                ? `চেক-ইন সম্পন্ন! (${res.tokenSlip?.time ? new Date(res.tokenSlip.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}) থেরাপি কিউ-তে যুক্ত করা হয়েছে।`
+                : `Checked in & queued for therapy!`)
             : (isBn
-                ? `সিরিয়াল #${toBnNum(res.tokenSlip.serialNumber || res.tokenSlip.tokenNumber)} চেক-ইন সম্পন্ন! রোগীকে ওয়েটিং রুমে পাঠানো হয়েছে।`
-                : `Serial #${res.tokenSlip.serialNumber || res.tokenSlip.tokenNumber} checked in to waiting room!`),
+                ? `চেক-ইন সম্পন্ন! (${res.tokenSlip?.time ? new Date(res.tokenSlip.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}) রোগীকে ওয়েটিং রুমে পাঠানো হয়েছে।`
+                : `Checked in to waiting room!`),
         );
 
         // Open slip preview
@@ -1165,8 +1170,8 @@ export function CheckInWorkstationView() {
                         </div>
                         <div className="text-[11px] text-muted-foreground">
                           {isBn
-                            ? 'রোগীর কোনো থেরাপি স্লট নেই। আগমন সিরিয়াল স্লিপ ইস্যু করে রোগীকে ওয়েটিং রুমে পাঠানো হবে। কোনো কিউ-তে অটো-এন্ট্রি হবে না।'
-                            : 'Patient has no active therapy slot. Arrival serial slip will be issued to the waiting room. No queue auto-entry.'}
+                            ? 'রোগীর কোনো থেরাপি স্লট নেই। আগমন স্লিপ ইস্যু করে রোগীকে ওয়েটিং রুমে পাঠানো হবে। কোনো কিউ-তে অটো-এন্ট্রি হবে না।'
+                            : 'Patient has no active therapy slot. Arrival slip will be issued to the waiting room. No queue auto-entry.'}
                         </div>
                       </div>
                     </div>
@@ -1238,8 +1243,9 @@ export function CheckInWorkstationView() {
                     <div className="space-y-1">
                       <div className="font-bold flex items-center gap-1.5">
                         <span>{isBn ? 'এই রোগী ইতিমধ্যে চেক-ইন আছেন' : 'Patient Already Checked In'}</span>
-                        <span className="font-mono px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-800 dark:text-amber-200">
-                          {isBn ? `সিরিয়াল #${toBnNum(activeExistingVisit.serialNumber || activeExistingVisit.tokenNumber)}` : `Serial #${activeExistingVisit.serialNumber || activeExistingVisit.tokenNumber}`}
+                        <span className="font-mono px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-800 dark:text-amber-200 flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          <span>{new Date(activeExistingVisit.checkedInAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                         </span>
                       </div>
                       <div className="text-[11px] leading-relaxed">
@@ -1268,9 +1274,7 @@ export function CheckInWorkstationView() {
                     <>
                       <AlertTriangle className="w-4 h-4" />
                       <span>
-                        {isBn
-                          ? `ইতিমধ্যে চেক-ইন আছেন (সিরিয়াল #${toBnNum(activeExistingVisit.serialNumber || activeExistingVisit.tokenNumber)})`
-                          : `Already Checked In (Serial #${activeExistingVisit.serialNumber || activeExistingVisit.tokenNumber})`}
+                        {isBn ? 'ইতিমধ্যে চেক-ইন আছেন' : 'Already Checked In'}
                       </span>
                     </>
                   ) : (
@@ -1416,7 +1420,7 @@ export function CheckInWorkstationView() {
                             </Badge>
                           ) : isPatientCheckedIn ? (
                             <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/40 text-[10px] font-mono">
-                              {isBn ? `ইতিমধ্যে চেক-ইন (সিরিয়াল #${toBnNum(existingActiveVisit?.serialNumber || existingActiveVisit?.tokenNumber || '')})` : `Checked In (Serial #${existingActiveVisit?.serialNumber || existingActiveVisit?.tokenNumber || ''})`}
+                              {isBn ? 'ইতিমধ্যে চেক-ইন' : 'Checked In'}
                             </Badge>
                           ) : (
                             <Badge variant="outline" className="text-[10px] text-amber-600 border-amber-500/40">
@@ -1461,9 +1465,7 @@ export function CheckInWorkstationView() {
                             <div className="flex-1 h-8 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-300 text-xs font-semibold flex items-center justify-center gap-1.5 px-2">
                               <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
                               <span className="truncate">
-                                {isBn
-                                  ? `ইতিমধ্যে চেক-ইন আছেন (সিরিয়াল #${toBnNum(existingActiveVisit?.serialNumber || existingActiveVisit?.tokenNumber || '')})`
-                                  : `Already Checked In (Serial #${existingActiveVisit?.serialNumber || existingActiveVisit?.tokenNumber || ''})`}
+                                {isBn ? 'ইতিমধ্যে চেক-ইন আছেন' : 'Already Checked In'}
                               </span>
                             </div>
                           ) : (
@@ -1531,22 +1533,22 @@ export function CheckInWorkstationView() {
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-                {data?.liveTherapyQueue.map((item, idx) => (
+                {[...(data?.liveTherapyQueue || [])]
+                  .sort((a, b) => new Date(a.checkedInAt).getTime() - new Date(b.checkedInAt).getTime())
+                  .map((item, idx) => (
                   <div
                     key={item.visitId}
                     className="p-3.5 rounded-xl border border-border/60 bg-card hover:border-emerald-500/50 shadow-2xs flex flex-col justify-between space-y-2.5 transition-all"
                   >
                     <div>
-                      {/* Top Header: Index & Large Serial */}
+                      {/* Top Header: Index & Arrival Time */}
                       <div className="flex items-center justify-between gap-2">
                         <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-muted text-muted-foreground">
-                          #{toBnNum(idx + 1)}
+                          {isBn ? 'রোগী' : 'Patient'} #{toBnNum(idx + 1)}
                         </span>
-                        <div className="flex items-center gap-1">
-                          <span className="text-[10px] font-bold uppercase text-muted-foreground">{isBn ? 'সিরিয়াল' : 'Serial'}</span>
-                          <span className="text-2xl sm:text-3xl font-black font-mono text-emerald-500">
-                            #{toBnNum(item.tokenNumber)}
-                          </span>
+                        <div className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-mono font-bold text-xs bg-emerald-500/10 px-2 py-0.5 rounded-lg border border-emerald-500/20">
+                          <Clock className="w-3.5 h-3.5" />
+                          <span>{new Date(item.checkedInAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                         </div>
                       </div>
 
@@ -1621,20 +1623,22 @@ export function CheckInWorkstationView() {
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
                     <tr className="border-b border-border/60 text-muted-foreground">
-                      <th className="py-2.5 px-3 font-semibold">{isBn ? 'সিরিয়াল' : 'Serial'}</th>
+                      <th className="py-2.5 px-3 font-semibold">{isBn ? 'আগমনের সময়' : 'Arrival Time'}</th>
                       <th className="py-2.5 px-3 font-semibold">{isBn ? 'রোগীর বিবরণ' : 'Patient Info'}</th>
                       <th className="py-2.5 px-3 font-semibold">{isBn ? 'গন্তব্য' : 'Destination'}</th>
                       <th className="py-2.5 px-3 font-semibold">{isBn ? 'সময়ানুবর্তিতা মার্কার' : 'Punctuality Marker'}</th>
-                      <th className="py-2.5 px-3 font-semibold">{isBn ? 'আগমনের সময়' : 'Arrival Time'}</th>
                       <th className="py-2.5 px-3 font-semibold text-right">{isBn ? 'অ্যাকশন' : 'Action'}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/40">
-                    {data?.recentCheckIns.map((v) => (
+                    {[...(data?.recentCheckIns || [])]
+                      .sort((a, b) => new Date(a.checkedInAt).getTime() - new Date(b.checkedInAt).getTime())
+                      .map((v) => (
                       <tr key={v.id} className="hover:bg-muted/20 transition-colors">
-                        <td className="py-2.5 px-3 font-mono font-black text-emerald-600 dark:text-emerald-400 text-sm">
+                        <td className="py-2.5 px-3 font-mono font-bold text-emerald-600 dark:text-emerald-400 text-xs">
                           <div className="flex items-center gap-1.5 flex-wrap">
-                            <span>#{toBnNum(v.serialNumber || v.tokenNumber)}</span>
+                            <Clock className="w-3.5 h-3.5" />
+                            <span>{new Date(v.checkedInAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                             {renderPriorityBadge(v.priority)}
                           </div>
                         </td>
@@ -1766,8 +1770,8 @@ export function CheckInWorkstationView() {
                   type="text"
                   placeholder={
                     isBn
-                      ? 'নাম, ফোন, MRN বা সিরিয়াল নম্বর...'
-                      : 'Search by name, phone, MRN or serial...'
+                      ? 'নাম, ফোন বা MRN নম্বর...'
+                      : 'Search by name, phone or MRN...'
                   }
                   value={liveSearchQuery}
                   onChange={(e) => setLiveSearchQuery(e.target.value)}
@@ -1949,14 +1953,12 @@ export function CheckInWorkstationView() {
                     key={v.id}
                     className="group rounded-xl border border-border/80 hover:border-emerald-500/50 bg-background/90 hover:bg-card/90 transition-all p-3.5 flex flex-col justify-between shadow-xs gap-3"
                   >
-                    {/* Top Row: Token & Current Location Badge */}
+                    {/* Top Row: Arrival Time & Current Location Badge */}
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="text-[10px] uppercase font-bold text-muted-foreground">
-                          {isBn ? 'সিরিয়াল' : 'Serial'}
-                        </span>
-                        <span className="font-mono font-black text-emerald-600 dark:text-emerald-400 text-base px-2 py-0.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-                          #{toBnNum(v.serialNumber || v.tokenNumber)}
+                        <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400 text-xs px-2 py-0.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center gap-1">
+                          <Clock className="w-3.5 h-3.5" />
+                          <span>{new Date(v.checkedInAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                         </span>
                         {renderPriorityBadge(v.priority)}
                       </div>
@@ -2072,7 +2074,7 @@ export function CheckInWorkstationView() {
           <DialogContent className="max-w-[340px] sm:max-w-[360px] p-4">
             <DialogHeader>
               <DialogTitle className="text-center text-sm font-bold">
-                {isBn ? '৮০মিমি সিরিয়াল স্লিপ প্রিভিউ' : '80mm Serial Slip Preview'}
+                {isBn ? '৮০মিমি আগমন স্লিপ প্রিভিউ' : '80mm Arrival Slip Preview'}
               </DialogTitle>
             </DialogHeader>
 
@@ -2081,12 +2083,12 @@ export function CheckInWorkstationView() {
                 {isBn ? 'এইচপিসি হেলথ অ্যান্ড পেইন কেয়ার সেন্টার' : 'HPC Health & Pain Care Center'}
               </div>
               <div className="text-[10px] text-zinc-600">Jashore, Bangladesh</div>
-              <div className="border-t border-b border-dashed border-zinc-400 py-1.5 my-1">
-                <div className="text-[10px] uppercase tracking-wider text-zinc-500">
-                  {isBn ? 'সিরিয়াল নম্বর' : 'SERIAL NUMBER'}
+              <div className="border-t border-b border-dashed border-zinc-400 py-2 my-1">
+                <div className="text-[10px] uppercase tracking-wider text-zinc-500 font-bold">
+                  {isBn ? 'আগমনের সময়' : 'ARRIVAL TIME'}
                 </div>
-                <div className="text-3xl font-black text-black">
-                  #{toBnNum(slipModalData.serialNumber || slipModalData.tokenNumber)}
+                <div className="text-2xl font-black text-black">
+                  {slipModalData.time ? new Date(slipModalData.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </div>
               </div>
 
@@ -2106,8 +2108,8 @@ export function CheckInWorkstationView() {
 
               <div className="text-[9px] text-zinc-500 pt-2 border-t border-dashed border-zinc-300">
                 {isBn
-                  ? 'আপনার সিরিয়াল নম্বরটি ডিসপ্লে স্ক্রিনে প্রদর্শিত হওয়া পর্যন্ত অনুগ্রহ করে অপেক্ষা করুন।'
-                  : 'Please wait until your serial number is displayed on the TV screen.'}
+                  ? 'অনুগ্রহ করে আপনার নির্ধারিত সময় অনুযায়ী অপেক্ষা করুন।'
+                  : 'Please wait according to your scheduled arrival time.'}
               </div>
             </div>
 

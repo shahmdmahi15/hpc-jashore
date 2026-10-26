@@ -360,7 +360,7 @@ export function PatientDetailModal({
                       <table className="w-full text-xs">
                         <thead className="bg-muted/50 text-muted-foreground border-b border-border/60">
                           <tr>
-                            <th className="py-2.5 px-3 text-left font-semibold">{isBn ? 'সিরিয়াল' : 'Serial'}</th>
+                            <th className="py-2.5 px-3 text-left font-semibold">{isBn ? 'আগমনের সময়' : 'Time'}</th>
                             <th className="py-2.5 px-3 text-left font-semibold">{isBn ? 'তারিখ' : 'Date'}</th>
                             <th className="py-2.5 px-3 text-left font-semibold">{isBn ? 'অবস্থা' : 'Status'}</th>
                             <th className="py-2.5 px-3 text-left font-semibold">{isBn ? 'অগ্রাধিকার' : 'Priority'}</th>
@@ -371,7 +371,7 @@ export function PatientDetailModal({
                           {detail.visits.map((v) => (
                             <tr key={v.id} className="hover:bg-muted/30">
                               <td className="py-2.5 px-3 font-mono font-bold text-emerald-600 dark:text-emerald-400">
-                                #{String(v.tokenNumber).padStart(2, '0')}
+                                {v.createdAt ? new Date(v.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'N/A'}
                               </td>
                               <td className="py-2.5 px-3 font-mono">{v.visitDate}</td>
                               <td className="py-2.5 px-3">

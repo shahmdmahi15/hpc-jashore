@@ -932,7 +932,7 @@ export function ConsultationConfigView() {
                           className="h-8 px-2.5 rounded-xl text-xs border-emerald-500/30 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/10 font-semibold flex items-center gap-1.5 shadow-xs"
                         >
                           <Clock className="size-3 text-emerald-500" />
-                          {language === 'bn' ? 'সিরিয়াল স্লট' : 'Serial Slots'}
+                          {language === 'bn' ? 'সময় স্লট' : 'Time Slots'}
                         </Button>
                         <Button
                           size="sm"
@@ -1024,7 +1024,7 @@ export function ConsultationConfigView() {
                               className="h-8 px-2.5 rounded-lg text-xs border-emerald-500/30 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/10 font-medium"
                             >
                               <Clock className="size-3 mr-1 text-emerald-500" />
-                              {language === 'bn' ? 'সিরিয়াল স্লট' : 'Slots'}
+                              {language === 'bn' ? 'সময় স্লট' : 'Time Slots'}
                             </Button>
                             <Button
                               size="sm"
