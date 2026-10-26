@@ -826,14 +826,26 @@ export class VisitsService {
 
     const now = new Date().toISOString();
     let newStatus = visit.status;
-    if (dto.location === 'therapy') newStatus = 'in_therapy';
-    else if (dto.location === 'cashier') newStatus = 'billed';
-    else if (dto.location === 'exit') newStatus = 'checked_out';
+    let targetLocation = dto.location;
+
+    if (dto.location === 'therapy_hall' || dto.location === 'therapy') {
+      newStatus = 'checked_in';
+      targetLocation = 'therapy_hall';
+    } else if (dto.location === 'cashier') {
+      targetLocation = 'cashier';
+      newStatus = 'billed';
+    } else if (dto.location === 'reception') {
+      targetLocation = 'reception';
+      newStatus = 'checked_in';
+    } else if (dto.location === 'exit') {
+      targetLocation = 'exit';
+      newStatus = 'checked_out';
+    }
 
     await this.db
       .update(visits)
       .set({
-        currentLocation: dto.location,
+        currentLocation: targetLocation,
         status: newStatus,
         updatedAt: now,
       })
@@ -843,13 +855,15 @@ export class VisitsService {
       visitId,
       patientId: visit.patientId,
       previousLocation: visit.currentLocation,
-      currentLocation: dto.location,
+      currentLocation: targetLocation,
       status: newStatus,
       targetId: dto.targetId ?? null,
     };
 
     this.gateway.emit('clinic:global', 'patient.routed', payload);
+    this.gateway.emit('clinic:global', 'visit.routed', payload);
     this.realtime.publish('patient.routed', payload);
+    this.realtime.publish('visit.routed', payload);
 
     return { ok: true, ...payload };
   }

@@ -5,10 +5,12 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import { and, desc, eq, isNull, sql } from 'drizzle-orm';
+import { and, desc, eq, isNull, or, sql } from 'drizzle-orm';
 import { AuditService } from '../audit/audit.service';
 import { DB, type Db } from '../db/db.module';
 import {
+  billItems,
+  bills,
   modalities,
   packageCredits,
   packages,
@@ -31,6 +33,7 @@ import type {
   MarkInTherapyDto,
   PurchasePackageDto,
   RecallTherapyPatientDto,
+  SendToCashierDto,
   StartSessionDto,
 } from './dto';
 
@@ -581,22 +584,42 @@ export class TherapyService {
       }
     }
 
+    const inTherapyPatients = waiting.filter((item) => item.status === 'in_therapy');
+
     return {
       waiting,
       nowServing,
-      activeSessions: activeSessions.map(({ session: s, patient: p, modality: m }) => ({
-        sessionId: s.id,
-        patientId: p.id,
-        patientNameEn: p.nameEn,
-        patientNameBn: p.nameBn,
-        mrn: p.mrn,
-        bedName: null,
-        modalityCode: s.modalityCode,
-        modalityNameEn: m?.nameEn || s.modalityCode,
-        modalityNameBn: m?.nameBn || s.modalityCode,
-        startedAt: s.startedAt,
-        durationMinutes: s.durationMinutes || 20,
-      })),
+      inSession: inTherapyPatients,
+      activeSessions: [
+        ...activeSessions.map(({ session: s, patient: p, modality: m }) => ({
+          sessionId: s.id,
+          patientId: p.id,
+          patientNameEn: p.nameEn,
+          patientNameBn: p.nameBn,
+          mrn: p.mrn,
+          bedName: null,
+          modalityCode: s.modalityCode,
+          modalityNameEn: m?.nameEn || s.modalityCode,
+          modalityNameBn: m?.nameBn || s.modalityCode,
+          startedAt: s.startedAt,
+          durationMinutes: s.durationMinutes || 20,
+        })),
+        ...inTherapyPatients
+          .filter((it) => !activeSessions.some((as) => as.patient.id === it.patientId))
+          .map((it) => ({
+            sessionId: it.visitId,
+            patientId: it.patientId,
+            patientNameEn: it.patientNameEn,
+            patientNameBn: it.patientNameBn,
+            mrn: it.mrn,
+            bedName: it.assignedRoomName,
+            modalityCode: it.modalityCode,
+            modalityNameEn: it.modalityName,
+            modalityNameBn: it.modalityNameBn,
+            startedAt: it.calledAt || it.checkedInAt,
+            durationMinutes: 20,
+          })),
+      ],
     };
   }
 
@@ -962,5 +985,263 @@ export class TherapyService {
     });
 
     return payload;
+  }
+
+  async sendToCashier(
+    actor: { sub?: string; role?: string },
+    dto: SendToCashierDto,
+    meta: { ip?: string | null; requestId?: string | null },
+  ) {
+    const visitRows = await this.db
+      .select()
+      .from(visits)
+      .where(eq(visits.id, dto.visitId));
+    const visit = visitRows[0];
+    if (!visit) throw new NotFoundException('Visit not found');
+
+    const patientRows = await this.db
+      .select()
+      .from(patients)
+      .where(eq(patients.id, dto.patientId || visit.patientId));
+    const patient = patientRows[0];
+    if (!patient) throw new NotFoundException('Patient not found');
+
+    const now = new Date().toISOString();
+    const today = now.slice(0, 10);
+    const feePaisa = Math.round(dto.feeTaka * 100);
+    const modalityCode = dto.modalityCode || 'PHYSIO';
+
+    const notesJson = JSON.stringify({
+      isLockedByHandler: true,
+      fixedFeeTaka: dto.feeTaka,
+      modalityCode,
+      handlerNotes: dto.notes,
+    });
+
+    const existingDraftBill = await this.db
+      .select()
+      .from(bills)
+      .where(and(eq(bills.visitId, visit.id), eq(bills.status, 'draft')))
+      .limit(1);
+
+    let billId: string;
+    let billNumber: string;
+
+    if (existingDraftBill.length > 0) {
+      billId = existingDraftBill[0].id;
+      billNumber = existingDraftBill[0].billNumber;
+      await this.db
+        .update(bills)
+        .set({
+          subtotalPaisa: feePaisa,
+          discountPaisa: 0,
+          totalPaisa: feePaisa,
+          paidPaisa: 0,
+          duePaisa: feePaisa,
+          status: 'draft',
+          notes: notesJson,
+          updatedAt: now,
+        })
+        .where(eq(bills.id, billId));
+
+      await this.db.delete(billItems).where(eq(billItems.billId, billId));
+    } else {
+      billId = randomUUID();
+      billNumber = 'BILL-TH-' + Date.now().toString().slice(-6);
+      await this.db.insert(bills).values({
+        id: billId,
+        billNumber,
+        visitId: visit.id,
+        patientId: visit.patientId,
+        subtotalPaisa: feePaisa,
+        discountPaisa: 0,
+        totalPaisa: feePaisa,
+        paidPaisa: 0,
+        duePaisa: feePaisa,
+        status: 'draft',
+        notes: notesJson,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+
+    await this.db.insert(billItems).values({
+      id: randomUUID(),
+      billId,
+      itemType: 'therapy',
+      description: `Therapy Session (${modalityCode}) - Fixed Fee`,
+      unitPricePaisa: feePaisa,
+      quantity: 1,
+      discountPaisa: 0,
+      totalPaisa: feePaisa,
+    });
+
+    await this.db
+      .update(visits)
+      .set({
+        currentLocation: 'cashier',
+        status: 'billed',
+        updatedAt: now,
+      })
+      .where(eq(visits.id, visit.id));
+
+    try {
+      await this.db.insert(patientTimelineEvents).values({
+        id: randomUUID(),
+        patientId: visit.patientId,
+        visitId: visit.id,
+        step: 'sent_to_cashier',
+        titleEn: 'Forwarded to Cashier for Therapy Fee',
+        titleBn: 'থেরাপি বিলের জন্য ক্যাশিয়ারে প্রেরণ',
+        descriptionEn: `Forwarded to cashier with fixed bill ৳${dto.feeTaka}`,
+        descriptionBn: `হ্যান্ডলার কর্তৃক ফিক্সড বিল ৳${dto.feeTaka} সহ ক্যাশিয়ারে পাঠানো হয়েছে।`,
+        actorId: actor.sub || null,
+        actorRole: actor.role || 'handler',
+        metadataJson: JSON.stringify({
+          billId,
+          feeTaka: dto.feeTaka,
+          modalityCode,
+          notes: dto.notes,
+        }),
+        occurredAt: now,
+        date: today,
+      });
+    } catch (e) {
+      console.warn('Timeline log error:', e);
+    }
+
+    const therapyPayload = {
+      visitId: visit.id,
+      patientId: visit.patientId,
+      billId,
+      billNumber,
+      feeTaka: dto.feeTaka,
+      feePaisa,
+      modalityCode,
+      currentLocation: 'cashier',
+      status: 'billed',
+    };
+
+    const routePayload = {
+      visitId: visit.id,
+      patientId: visit.patientId,
+      previousLocation: visit.currentLocation,
+      currentLocation: 'cashier',
+      status: 'billed',
+      targetId: null,
+    };
+
+    const billPayload = {
+      billId,
+      billNumber,
+      patientId: visit.patientId,
+      visitId: visit.id,
+      totalPaisa: feePaisa,
+    };
+
+    this.gateway?.emit('clinic:global', 'therapy.sent_to_cashier', therapyPayload);
+    this.realtime?.publish('therapy.sent_to_cashier', therapyPayload);
+
+    this.gateway?.emit('clinic:global', 'visit.routed', routePayload);
+    this.realtime?.publish('visit.routed', routePayload);
+
+    this.gateway?.emit('clinic:global', 'bill.created', billPayload);
+    this.realtime?.publish('bill.created', billPayload);
+
+    await this.audit.log({
+      actorUserId: actor.sub,
+      actorRole: actor.role,
+      action: 'therapy.send_to_cashier',
+      entity: 'bills',
+      entityId: billId,
+      after: {
+        billId,
+        billNumber,
+        visitId: visit.id,
+        patientId: visit.patientId,
+        feeTaka: dto.feeTaka,
+        feePaisa,
+        modalityCode,
+        notes: notesJson,
+      },
+      ip: meta.ip,
+      requestId: meta.requestId,
+    });
+
+    return {
+      success: true,
+      billId,
+      feeTaka: dto.feeTaka,
+      visitId: visit.id,
+    };
+  }
+
+  async getPendingBills() {
+    const rows = await this.db
+      .select({
+        bill: bills,
+        patient: patients,
+        visit: visits,
+      })
+      .from(bills)
+      .innerJoin(patients, eq(bills.patientId, patients.id))
+      .leftJoin(visits, eq(bills.visitId, visits.id))
+      .where(
+        and(
+          eq(bills.status, 'draft'),
+          or(
+            sql`${bills.notes} LIKE '%isLockedByHandler%'`,
+            eq(visits.currentLocation, 'cashier'),
+          ),
+        ),
+      )
+      .orderBy(desc(bills.createdAt));
+
+    const billIds = rows.map((r) => r.bill.id);
+    const items =
+      billIds.length > 0
+        ? await this.db
+            .select()
+            .from(billItems)
+            .where(sql`${billItems.billId} IN ${billIds}`)
+        : [];
+
+    return rows.map((r) => {
+      let parsedNotes: any = null;
+      try {
+        if (r.bill.notes) {
+          parsedNotes = JSON.parse(r.bill.notes);
+        }
+      } catch {}
+
+      const bItems = items.filter((it) => it.billId === r.bill.id);
+
+      return {
+        ...r.bill,
+        totalTaka: Math.round(r.bill.totalPaisa / 100),
+        dueTaka: Math.round(r.bill.duePaisa / 100),
+        handlerNotes: parsedNotes?.handlerNotes || null,
+        modalityCode: parsedNotes?.modalityCode || 'PHYSIO',
+        isLockedByHandler: Boolean(parsedNotes?.isLockedByHandler),
+        patient: {
+          id: r.patient.id,
+          mrn: r.patient.mrn,
+          nameEn: r.patient.nameEn,
+          nameBn: r.patient.nameBn,
+          phone: r.patient.phone,
+          gender: r.patient.gender,
+          ageYears: r.patient.ageYears,
+        },
+        visit: r.visit
+          ? {
+              id: r.visit.id,
+              tokenNumber: r.visit.tokenNumber,
+              currentLocation: r.visit.currentLocation,
+              status: r.visit.status,
+            }
+          : null,
+        items: bItems,
+      };
+    });
   }
 }

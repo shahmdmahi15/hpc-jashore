@@ -4,6 +4,7 @@ import {
   IsIn,
   IsInt,
   IsNotEmpty,
+  IsNumber,
   IsOptional,
   IsString,
   Max,
@@ -286,4 +287,31 @@ export class CancelTherapyCallDto {
   @IsOptional()
   @IsString()
   bookingId?: string;
+}
+
+export class SendToCashierDto {
+  @ApiProperty({ description: 'Active visit UUID' })
+  @IsString()
+  @IsNotEmpty()
+  visitId!: string;
+
+  @ApiProperty({ description: 'Patient UUID' })
+  @IsString()
+  @IsNotEmpty()
+  patientId!: string;
+
+  @ApiProperty({ description: 'Fixed therapy fee in Taka', example: 500 })
+  @IsNumber()
+  @Min(0)
+  feeTaka!: number;
+
+  @ApiPropertyOptional({ description: 'Therapy modality code (defaults to PHYSIO)', example: 'PHYSIO' })
+  @IsOptional()
+  @IsString()
+  modalityCode?: string;
+
+  @ApiPropertyOptional({ description: 'Handler notes or billing memo' })
+  @IsOptional()
+  @IsString()
+  notes?: string;
 }

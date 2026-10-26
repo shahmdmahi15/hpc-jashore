@@ -23,9 +23,7 @@ import {
   HeartPulse,
   FilePlus,
   ArrowRight,
-  ShieldAlert,
   Sparkles,
-  RefreshCw,
   Calendar,
 } from 'lucide-react';
 
@@ -128,8 +126,8 @@ export function DoctorDispositionModal({
     }
   };
 
-  // Route: Therapy Needed -> Forward to Cashier for Therapy Package / Billing
-  const handleRouteTherapyToCashier = async () => {
+  // Route: Therapy Needed -> Directly forward to Therapy Hall & Queue (NO advance payment needed!)
+  const handleRouteTherapyToHall = async () => {
     if (!visitId) {
       toast.error('ভিজিট আইডি পাওয়া যায়নি');
       return;
@@ -138,14 +136,16 @@ export function DoctorDispositionModal({
     setLoading(true);
     try {
       await api.visits.routePatient(visitId, {
-        location: 'cashier',
+        location: 'therapy_hall',
       });
       if (activeSerialId) {
         try {
           await api.visits.completeSerial(activeSerialId);
-        } catch {}
+        } catch (e: any) {
+          console.warn('Complete serial note:', e?.message);
+        }
       }
-      toast.success('থেরাপি বিলিং / প্যাকেজ আদায়ের জন্য রোগীকে ক্যাশিয়ারে পাঠানো হয়েছে। এরপর থেরাপি হলে যাবে।');
+      toast.success('রোগীকে সফলভাবে থেরাপিস্ট ও থেরাপি কিউতে পাঠানো হয়েছে (অগ্রিম পেমেন্টের প্রয়োজন নেই)।');
       onOpenChange(false);
       onRoutingSuccess();
     } catch (err: any) {
@@ -166,8 +166,8 @@ export function DoctorDispositionModal({
                 <span>কনসালটেশন সমাপ্তি ও রোগী প্রেরণ (Patient Disposition)</span>
               </DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground">
-                রোগী: <strong className="text-foreground">{patient?.nameEn || 'Patient'}</strong>{' '}
-                {patient?.nameBn && `(${patient.nameBn})`} · MRN:{' '}
+                রোগী: <strong className="text-foreground">{patient?.nameEn || patient?.nameBn || 'Patient'}</strong>{' '}
+                {patient?.nameBn && patient?.nameEn && `(${patient.nameBn})`} · MRN:{' '}
                 <strong className="text-foreground font-mono">{patient?.mrn || 'N/A'}</strong>
               </DialogDescription>
             </div>
@@ -268,21 +268,36 @@ export function DoctorDispositionModal({
                 ফিজিওথেরাপি প্রয়োজন (Therapy Needed)
               </CardTitle>
               <p className="text-xs text-muted-foreground leading-relaxed">
-                রোগীর জন্য সেন্টারের থেরাপি হল / রিহ্যাব ফ্লোরে চিকিৎসা সেশন নির্ধারিত হয়েছে।
+                রোগীর জন্য সেন্টারের থেরাপি হল / রিহ্যাব ফ্লোরে চিকিৎসা সেশন নির্ধারিত হয়েছে। থেরাপির পূর্বে কোনো পেমেন্ট লাগবে না—সকল বিলিং থেরাপির পরে সম্পন্ন হবে।
               </p>
             </CardHeader>
 
             <CardContent className="space-y-3 pt-2">
+              <div className="p-2.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-emerald-900 dark:text-emerald-200 text-xs space-y-1">
+                <div className="flex items-center gap-1.5 font-bold">
+                  <Sparkles className="size-4 text-emerald-600 shrink-0" />
+                  <span>অগ্রিম পেমেন্ট নেই (Pay After Therapy)</span>
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  নীতি অনুযায়ী থেরাপির পূর্বে কোনো বিল পরিশোধের প্রয়োজন নেই। রোগী সরাসরি থেরাপিস্টের কিউতে প্রবেশ করবেন এবং থেরাপি শেষে বিল পরিশোধ করবেন।
+                </p>
+              </div>
+
               <div className="p-2.5 rounded-lg border border-border bg-card text-xs space-y-2">
                 <div className="font-semibold text-foreground flex items-center justify-between">
-                  <span>প্রয়োজনীয় ধাপসমূহ:</span>
+                  <span>পরামর্শ ও প্রস্তুতি:</span>
                 </div>
 
                 {/* Step 1: Assessment File */}
                 <div className="flex items-center justify-between gap-2 p-1.5 rounded-md bg-muted/40">
                   <div className="flex items-center gap-1.5">
                     <span className="font-bold text-emerald-600 font-mono">১.</span>
-                    <span className="text-[11.5px]">নতুন ফিজিওথেরাপি ফাইল পূরণ</span>
+                    <span className="text-[11.5px]">ফিজিওথেরাপি ফাইল</span>
+                    {hasAssessmentFile ? (
+                      <Badge className="bg-emerald-500/20 text-emerald-600 border-none text-[10px] py-0 px-1 font-bold">সম্পন্ন</Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-amber-600 border-amber-500/40 text-[10px] py-0 px-1 font-medium">ঐচ্ছিক</Badge>
+                    )}
                   </div>
                   <Button
                     type="button"
@@ -295,7 +310,7 @@ export function DoctorDispositionModal({
                     className="h-7 text-[11px] font-bold border-emerald-500/40 text-emerald-700 hover:bg-emerald-500/10 cursor-pointer"
                   >
                     <FilePlus className="size-3.5 mr-1" />
-                    <span>নতুন ফাইল</span>
+                    <span>ফাইল ওপেন</span>
                   </Button>
                 </div>
 
@@ -303,7 +318,12 @@ export function DoctorDispositionModal({
                 <div className="flex items-center justify-between gap-2 p-1.5 rounded-md bg-muted/40">
                   <div className="flex items-center gap-1.5">
                     <span className="font-bold text-cyan-600 font-mono">২.</span>
-                    <span className="text-[11.5px]">ট্রিটমেন্ট প্ল্যান ও সেশন নির্ধারণ</span>
+                    <span className="text-[11.5px]">ট্রিটমেন্ট প্ল্যান ও মডালিটি</span>
+                    {hasTreatmentPlan ? (
+                      <Badge className="bg-emerald-500/20 text-emerald-600 border-none text-[10px] py-0 px-1 font-bold">নির্ধারিত</Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-amber-600 border-amber-500/40 text-[10px] py-0 px-1 font-medium">চেক করুন</Badge>
+                    )}
                   </div>
                   <Button
                     type="button"
@@ -321,15 +341,15 @@ export function DoctorDispositionModal({
                 </div>
               </div>
 
-              {/* Forward to Cashier Button */}
+              {/* Direct Route to Therapy Hall Button */}
               <Button
                 type="button"
-                onClick={handleRouteTherapyToCashier}
+                onClick={handleRouteTherapyToHall}
                 disabled={loading}
-                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold gap-1.5 text-xs sm:text-sm h-11 cursor-pointer shadow-sm"
+                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold gap-1.5 text-xs sm:text-sm h-11 cursor-pointer shadow-sm active:scale-98"
               >
-                <CreditCard className="size-4" />
-                <span>ক্যাশিয়ারে পাঠান (থেরাপি বিলিং / প্যাকেজ)</span>
+                <HeartPulse className="size-4" />
+                <span>থেরাপিস্ট ও থেরাপি কিউতে পাঠান</span>
                 <ArrowRight className="size-4 ml-auto" />
               </Button>
             </CardContent>

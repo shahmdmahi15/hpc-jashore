@@ -23,6 +23,7 @@ import {
   MarkInTherapyDto,
   PurchasePackageDto,
   RecallTherapyPatientDto,
+  SendToCashierDto,
   StartSessionDto,
 } from './dto';
 import { TherapyService } from './therapy.service';
@@ -39,6 +40,26 @@ export class TherapyController {
       ip: extractClientIp(req),
       requestId: ((req as unknown as { requestId?: string }).requestId ?? null) as string | null,
     };
+  }
+
+  @Post('send-to-cashier')
+  @Roles('admin', 'doctor', 'cashier', 'receptionist', 'handler')
+  sendToCashier(
+    @CurrentUser() user: RequestUser,
+    @Body() dto: SendToCashierDto,
+    @Req() req: Request,
+  ) {
+    return this.therapy.sendToCashier(
+      { sub: user.sub, role: user.role },
+      dto,
+      this.meta(req),
+    );
+  }
+
+  @Get('pending-bills')
+  @Roles('admin', 'doctor', 'cashier', 'receptionist', 'handler')
+  getPendingBills() {
+    return this.therapy.getPendingBills();
   }
 
   @Post('sessions/start')

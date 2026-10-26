@@ -84,43 +84,18 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
   const [medicinesList, setMedicinesList] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // Consultation & Prescription State
-  const [chiefComplaints, setChiefComplaints] = useState('Severe lower back pain radiating down left leg for 3 months');
-  const [painScore, setPainScore] = useState(7);
-  const [diagnosis, setDiagnosis] = useState('Lumbar Radiculopathy / Sciatica (L4-L5 disc protrusion)');
-  const [objectiveNotes, setObjectiveNotes] = useState('SLR test positive on left side at 45°. Tenderness on lumbar paravertebral muscles.');
-  const [advice, setAdvice] = useState('Avoid bending forward and lifting heavy weights. Use hard mattress. Apply warm moist compress for 15 mins twice daily.');
+  // Consultation & Prescription State (Clean initial values, NO mock data!)
+  const [chiefComplaints, setChiefComplaints] = useState<string>('');
+  const [painScore, setPainScore] = useState<number>(0);
+  const [diagnosis, setDiagnosis] = useState<string>('');
+  const [objectiveNotes, setObjectiveNotes] = useState<string>('');
+  const [advice, setAdvice] = useState<string>('');
 
-  // Prescribed Medicines State
-  const [prescribedMeds, setPrescribedMeds] = useState<any[]>([
-    {
-      brandName: 'Naprosyn 500',
-      genericName: 'Naproxen 500mg',
-      dosage: '1+0+1',
-      duration: '7 days',
-      instructions: 'খাবারের পর (After meals)',
-    },
-    {
-      brandName: 'Myolax 50',
-      genericName: 'Tolperisone HCl 50mg',
-      dosage: '1+0+1',
-      duration: '7 days',
-      instructions: 'খাবারের পর (After meals)',
-    },
-    {
-      brandName: 'Maxpro 20',
-      genericName: 'Esomeprazole 20mg',
-      dosage: '1+0+0',
-      duration: '14 days',
-      instructions: 'খাবারের ২০ মিনিট আগে (Before meal)',
-    },
-  ]);
+  // Prescribed Medicines State (Empty array, NOT mock data)
+  const [prescribedMeds, setPrescribedMeds] = useState<any[]>([]);
 
-  // Prescribed Modalities State
-  const [prescribedMods, setPrescribedMods] = useState<any[]>([
-    { modalityCode: 'IFT', modalityName: 'Interferential Therapy (IFT)', sessionsPrescribed: 10, frequency: 'daily' },
-    { modalityCode: 'UST', modalityName: 'Ultrasound Therapy (UST)', sessionsPrescribed: 10, frequency: 'daily' },
-  ]);
+  // Prescribed Modalities State (Empty array, NOT mock data)
+  const [prescribedMods, setPrescribedMods] = useState<any[]>([]);
 
   // Print & Modal states
   const [printData, setPrintData] = useState<any>(null);
@@ -157,9 +132,16 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
       if (docId) {
         const q = await api.visits.getDoctorQueue(docId);
         setQueue(q || []);
-        if (q && q.length > 0 && !activeSerial) {
-          const inProgress = q.find((s: any) => s.status === 'in_chamber' || s.status === 'called') || q[0];
-          setActiveSerial(inProgress);
+        if (q && q.length > 0) {
+          setActiveSerial((prev: any) => {
+            if (prev) {
+              return q.find((s: any) => s.id === prev.id) || null;
+            }
+            const inProgress = q.find((s: any) => s.status === 'in_chamber' || s.status === 'called');
+            return inProgress || null;
+          });
+        } else {
+          setActiveSerial(null);
         }
       }
 
@@ -459,11 +441,11 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
         rxNumber: createdRx?.rxNumber || `RX-${new Date().getFullYear()}-${String(activeSerial.serialNumber).padStart(4, '0')}`,
         serialNumber: activeSerial.serialNumber,
         patient: {
-          nameEn: activeSerial.patient?.nameEn || 'Patient',
+          nameEn: activeSerial.patient?.nameEn || activeSerial.patient?.nameBn || 'Patient',
           nameBn: activeSerial.patient?.nameBn,
-          mrn: activeSerial.patient?.mrn || 'HPC-26-00001',
-          phone: activeSerial.patient?.phone || '01712345678',
-          ageYears: activeSerial.patient?.ageYears || 52,
+          mrn: activeSerial.patient?.mrn || 'N/A',
+          phone: activeSerial.patient?.phone || '',
+          ageYears: activeSerial.patient?.ageYears,
           gender: activeSerial.patient?.gender || 'male',
           bloodGroup: activeSerial.patient?.bloodGroup,
         },
@@ -843,44 +825,77 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
             {/* 2. RIGHT COLUMN: CONSULTATION ROOM & PRESCRIPTION WRITER  */}
             {/* ========================================================= */}
             <div className={cn('flex flex-col gap-4 sm:gap-5 transition-all w-full', mobileTab !== 'consultation' && 'hidden lg:flex')}>
-              {/* Active Patient Demographics Banner */}
-              <Card className="border-border bg-card/90 shadow-sm">
-                <CardContent className="p-4 sm:p-5">
-                  <div className="flex justify-between items-center flex-wrap gap-4">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                          CURRENT SEATED PATIENT
-                        </span>
-                        {activeSerial?.status === 'in_chamber' && (
-                          <Badge className="bg-emerald-600 text-white text-[10px] font-bold">
-                            পরামর্শ কক্ষ সচল (In Chamber)
-                          </Badge>
-                        )}
-                      </div>
-                      <h2 className="text-xl sm:text-2xl font-black text-foreground mt-0.5">
-                        {activeSerial?.patient?.nameEn || 'Abdul Karim'}{' '}
-                        {activeSerial?.patient?.nameBn && <small className="text-sm font-normal">({activeSerial.patient.nameBn})</small>}
-                      </h2>
-                      <div className="text-xs sm:text-sm text-muted-foreground mt-1">
-                        MRN: <strong className="text-foreground">{activeSerial?.patient?.mrn || 'HPC-26-00001'}</strong> · সিরিয়াল: #{activeSerial?.serialNumber || 1} · বয়স: {activeSerial?.patient?.ageYears || 52} Y · লিঙ্গ: {activeSerial?.patient?.gender || 'male'} · ফোন: {activeSerial?.patient?.phone || '01712345678'}
-                      </div>
-                    </div>
-
-                    <div className="flex gap-2 items-center flex-wrap">
-                      {getPriorityBadge(activeSerial?.priority)}
-                      <Badge variant="outline" className="border-emerald-500/30 text-emerald-600 dark:text-emerald-400 font-semibold">
-                        Blood: {activeSerial?.patient?.bloodGroup || 'B+'}
-                      </Badge>
-                      {activeSerial?.patient?.allergies && (
-                        <Badge variant="destructive" className="font-semibold">
-                          ⚠️ {activeSerial.patient.allergies}
-                        </Badge>
-                      )}
-                    </div>
+              {!activeSerial ? (
+                <Card className="border border-dashed border-border/80 bg-card/60 p-8 sm:p-12 text-center rounded-2xl shadow-xs">
+                  <div className="size-16 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 mx-auto flex items-center justify-center mb-4">
+                    <Stethoscope className="size-8" />
                   </div>
-                </CardContent>
-              </Card>
+                  <h3 className="text-lg sm:text-xl font-bold text-foreground">
+                    বর্তমানে কোনো রোগী পরামর্শ কক্ষে নেই
+                  </h3>
+                  <p className="text-xs sm:text-sm text-muted-foreground mt-1.5 max-w-md mx-auto">
+                    বাম পাশের অপেক্ষমাণ কিউ থেকে রোগীকে পরামর্শ কক্ষে ডাকুন অথবা সিরিয়াল নির্বাচন করুন।
+                  </p>
+                  {waitingQueue.length > 0 && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => handleCallSpecificSerial(waitingQueue[0])}
+                      disabled={callingActionLoading}
+                      className="mt-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold h-9 gap-1.5 shadow-sm active:scale-95 cursor-pointer"
+                    >
+                      <Volume2 className="size-4" />
+                      <span>পরবর্তী রোগী ডাকুন (#{waitingQueue[0].serialNumber} - {waitingQueue[0].patient?.nameEn || waitingQueue[0].patient?.nameBn || 'Patient'})</span>
+                    </Button>
+                  )}
+                </Card>
+              ) : (
+                <>
+                  {/* Active Patient Demographics Banner */}
+                  <Card className="border-border bg-card/90 shadow-sm">
+                    <CardContent className="p-4 sm:p-5">
+                      <div className="flex justify-between items-center flex-wrap gap-4">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                              CURRENT SEATED PATIENT
+                            </span>
+                            {activeSerial.status === 'in_chamber' && (
+                              <Badge className="bg-emerald-600 text-white text-[10px] font-bold">
+                                পরামর্শ কক্ষ সচল (In Chamber)
+                              </Badge>
+                            )}
+                          </div>
+                          <h2 className="text-xl sm:text-2xl font-black text-foreground mt-0.5">
+                            {activeSerial.patient?.nameEn || activeSerial.patient?.nameBn || 'Patient'}{' '}
+                            {activeSerial.patient?.nameBn && activeSerial.patient?.nameEn && (
+                              <small className="text-sm font-normal">({activeSerial.patient.nameBn})</small>
+                            )}
+                          </h2>
+                          <div className="text-xs sm:text-sm text-muted-foreground mt-1">
+                            MRN: <strong className="text-foreground">{activeSerial.patient?.mrn || 'N/A'}</strong> · সিরিয়াল: #{activeSerial.serialNumber || 1}
+                            {activeSerial.patient?.ageYears ? ` · বয়স: ${activeSerial.patient.ageYears} Y` : ''}
+                            {activeSerial.patient?.gender ? ` · লিঙ্গ: ${activeSerial.patient.gender === 'female' ? 'নারী' : activeSerial.patient.gender === 'male' ? 'পুরুষ' : 'অন্যান্য'}` : ''}
+                            {activeSerial.patient?.phone ? ` · ফোন: ${activeSerial.patient.phone}` : ''}
+                          </div>
+                        </div>
+
+                        <div className="flex gap-2 items-center flex-wrap">
+                          {getPriorityBadge(activeSerial.priority)}
+                          {activeSerial.patient?.bloodGroup && (
+                            <Badge variant="outline" className="border-emerald-500/30 text-emerald-600 dark:text-emerald-400 font-semibold">
+                              Blood: {activeSerial.patient.bloodGroup}
+                            </Badge>
+                          )}
+                          {activeSerial.patient?.allergies && (
+                            <Badge variant="destructive" className="font-semibold">
+                              ⚠️ {activeSerial.patient.allergies}
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
 
               {/* ================================================================= */}
               {/* 3. ACTIVE CONSULTATION ACTION TOOLBAR (EXACT 9 BUTTONS REQUESTED) */}
@@ -1259,8 +1274,10 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
                   saving={savingRx}
                 />
               </div>
-            </div>
-          </div>
+            </>
+          )}
+        </div>
+      </div>
 
           {/* 5.5in x 8.27in Prescription Modal */}
           {printData && (

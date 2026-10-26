@@ -41,6 +41,8 @@ import {
   Printer,
   ShieldCheck,
   AlertTriangle,
+  Activity,
+  Lock,
 } from 'lucide-react';
 
 interface PackagePreset {
@@ -145,6 +147,13 @@ export default function CashierView({ session: propSession }: CashierProps = {})
   const [consultationTxnId, setConsultationTxnId] = useState('');
   const [admittingToQueue, setAdmittingToQueue] = useState(false);
 
+  // Therapy Hall Forwarded Bills State (Locked by Handler)
+  const [pendingTherapyBills, setPendingTherapyBills] = useState<any[]>([]);
+  const [selectedTherapyBillForPayment, setSelectedTherapyBillForPayment] = useState<any>(null);
+  const [therapyPaymentMethod, setTherapyPaymentMethod] = useState<'cash' | 'bkash' | 'nagad' | 'rocket' | 'card'>('cash');
+  const [therapyTxnId, setTherapyTxnId] = useState('');
+  const [collectingTherapyBill, setCollectingTherapyBill] = useState(false);
+
   // Modals
   const [isTimelineOpen, setIsTimelineOpen] = useState(false);
   const [timelinePatient, setTimelinePatient] = useState<{ id: string; name?: string } | null>(null);
@@ -183,21 +192,75 @@ export default function CashierView({ session: propSession }: CashierProps = {})
 
   const cashierStaffId = session?.staffId || '';
 
+  const normalizePendingTherapyBill = (raw: any) => {
+    let fee = raw.feeTaka ?? raw.fixedFeeTaka;
+    if (!fee && raw.totalPaisa) fee = Math.round(raw.totalPaisa / 100);
+    if (!fee && raw.items?.[0]?.unitPricePaisa) fee = Math.round(raw.items[0].unitPricePaisa / 100);
+    if (!fee && raw.items?.[0]?.unitPriceTaka) fee = raw.items[0].unitPriceTaka;
+    fee = Number(fee) || 0;
+
+    const pat = raw.patient || patients.find((p) => p.id === raw.patientId);
+    const patientName = raw.patientName || pat?.nameEn || raw.patient?.nameEn || 'Patient';
+    const patientNameBn = raw.patientNameBn || pat?.nameBn || raw.patient?.nameBn;
+    const mrn = raw.mrn || pat?.mrn || raw.patient?.mrn || 'N/A';
+    const phone = raw.phone || pat?.phone || raw.patient?.phone || '';
+    const ageYears = raw.ageYears ?? pat?.ageYears ?? raw.patient?.ageYears;
+    const gender = raw.gender || pat?.gender || raw.patient?.gender || 'other';
+
+    const token = raw.tokenNumber ?? raw.visit?.tokenNumber ?? raw.token ?? 1;
+    const modalityCode = raw.modalityCode || raw.items?.[0]?.modalityCode || raw.modality || 'Therapy';
+    const modalityName = raw.modalityName || raw.items?.[0]?.description || modalityCode;
+    const visitId = raw.visitId || raw.visit?.id || '';
+
+    return {
+      id: raw.id || raw.billId || visitId || `bill-${Date.now()}`,
+      visitId,
+      patientId: raw.patientId || pat?.id || '',
+      tokenNumber: Number(token) || 1,
+      patientName,
+      patientNameBn,
+      mrn,
+      phone,
+      ageYears,
+      gender,
+      modalityCode,
+      modalityName,
+      feeTaka: fee,
+      notes: raw.notes || '',
+      isLockedByHandler: true,
+      rawBill: raw,
+    };
+  };
+
   const loadData = async () => {
     try {
       setLoading(true);
-      const [bList, dList, pList, sList, intakes] = await Promise.all([
+      const [bList, dList, pList, sList, intakes, therapyBills] = await Promise.all([
         api.billing.getBills().catch(() => []),
         api.billing.getDues().catch(() => []),
         api.patients.list().catch(() => []),
         api.staff.list().catch(() => []),
         api.patients.listIntakeForms({ status: 'forwarded_to_cashier' }).catch(() => []),
+        api.therapy.getPendingBills().catch(async () => {
+          try {
+            const all = await api.billing.getBills().catch(() => []);
+            return (all || []).filter((b: any) => {
+              const isDraft = b.status === 'draft';
+              const hasHandlerLock = b.notes && (b.notes.includes('isLockedByHandler') || b.notes.includes('Therapy'));
+              const hasTherapy = b.items?.some((it: any) => it.itemType === 'therapy');
+              return isDraft && (hasHandlerLock || hasTherapy);
+            });
+          } catch {
+            return [];
+          }
+        }),
       ]);
       setBills(bList || []);
       setDues(dList || []);
       setPatients(pList || []);
       setStaffList(sList || []);
       setForwardedIntakes(intakes || []);
+      setPendingTherapyBills(therapyBills || []);
 
       if (pList && pList.length > 0 && !selectedPatientId) {
         setSelectedPatientId(pList[0].id);
@@ -216,7 +279,7 @@ export default function CashierView({ session: propSession }: CashierProps = {})
     }
   };
 
-  // Realtime billing, queue & visit sync for cashier
+  // Realtime billing, queue, therapy & visit sync for cashier
   useRealtime((event) => {
     if (
       event.type.startsWith('bill.') ||
@@ -226,6 +289,7 @@ export default function CashierView({ session: propSession }: CashierProps = {})
       event.type.startsWith('consultation.') ||
       event.type.startsWith('patient.') ||
       event.type.startsWith('intake.') ||
+      event.type.startsWith('therapy.') ||
       event.type.startsWith('queue.')
     ) {
       loadData();
@@ -278,7 +342,6 @@ export default function CashierView({ session: propSession }: CashierProps = {})
     toast.success(`প্যাকেজ (${packageCount} ${unitLabel}) সফলভাবে বিলে যুক্ত হয়েছে!`);
   };
 
-  // Helper to derive strictly FIXED doctor fee from doctor's consultationFeePaisa
   const getDoctorFixedFeeTaka = (intake: any) => {
     if (intake.doctorFee) return intake.doctorFee;
     const doc = staffList.find((s: any) => s.id === intake.doctorId || s.userId === intake.doctorId);
@@ -314,7 +377,6 @@ export default function CashierView({ session: propSession }: CashierProps = {})
 
       const pat = patients.find((p) => p.id === selectedPatientId);
 
-      // Launch strict HPC Custom Size Invoice Modal
       setInvoiceModalData({
         billNumber: res.billNumber || `BILL-${Date.now().toString().slice(-6)}`,
         patientName: pat?.nameEn || 'Patient',
@@ -372,7 +434,6 @@ export default function CashierView({ session: propSession }: CashierProps = {})
 
       toast.success('পেমেন্ট সফল! রোগীকে ডাক্তার কনসালটেশন কিউতে পাঠানো হয়েছে।');
 
-      // Automatically launch strict HPC Custom Size Invoice Print Modal with full payment
       const docName = res?.doctorName || selectedIntakeForPayment.doctorName || 'Doctor';
       const chamber = res?.chamberNumber || selectedIntakeForPayment.chamberRoomNumber || '101';
 
@@ -398,7 +459,7 @@ export default function CashierView({ session: propSession }: CashierProps = {})
         discountTaka: 0,
         totalTaka: fixedFee,
         paidTaka: fixedFee,
-        dueTaka: 0, // strictly ৳0 due
+        dueTaka: 0,
         paymentMethod: consultationPaymentMethod,
         txnId: consultationTxnId || undefined,
         createdAt: new Date().toISOString(),
@@ -411,6 +472,89 @@ export default function CashierView({ session: propSession }: CashierProps = {})
       toast.error(err?.message || 'কিউতে পাঠাতে ব্যর্থ হয়েছে');
     } finally {
       setAdmittingToQueue(false);
+    }
+  };
+
+  // Open Therapy Bill Payment Modal
+  const openTherapyPaymentModal = (bill: any) => {
+    setSelectedTherapyBillForPayment(bill);
+    setTherapyPaymentMethod('cash');
+    setTherapyTxnId('');
+  };
+
+  // Process Handler Locked Fixed Bill & Forward to Reception
+  const handleCollectTherapyBill = async () => {
+    if (!selectedTherapyBillForPayment) return;
+    const bill = selectedTherapyBillForPayment;
+    try {
+      setCollectingTherapyBill(true);
+
+      let createdBillRes: any = null;
+
+      // Create paid bill with fixed fee
+      createdBillRes = await api.billing.createBill({
+        patientId: bill.patientId,
+        visitId: bill.visitId || undefined,
+        items: [
+          {
+            itemType: 'therapy',
+            description: `Therapy Session (${bill.modalityName || bill.modalityCode}) [Locked by Handler]`,
+            unitPricePaisa: Math.round(Number(bill.feeTaka || 0) * 100),
+            quantity: 1,
+          },
+        ],
+        discountPaisa: 0,
+        paidPaisa: Math.round(Number(bill.feeTaka || 0) * 100),
+        paymentMethod: therapyPaymentMethod,
+        txnId: therapyTxnId || undefined,
+      });
+
+      // Automatically route visit to reception
+      if (bill.visitId) {
+        await api.visits.routePatient(bill.visitId, { location: 'reception' }).catch((err) => {
+          console.warn('Could not route patient to reception:', err);
+        });
+      }
+
+      toast.success('থেরাপি বিল গ্রহণ সম্পন্ন! রোগীকে চেকআউটের জন্য রিসেপশনে পাঠানো হয়েছে।');
+
+      const billNum = createdBillRes?.billNumber || createdBillRes?.bill?.billNumber || `BILL-${Date.now().toString().slice(-6)}`;
+      setInvoiceModalData({
+        billNumber: billNum,
+        patientName: bill.patientName,
+        patientNameBn: bill.patientNameBn,
+        mrn: bill.mrn || 'N/A',
+        phone: bill.phone,
+        ageYears: bill.ageYears,
+        gender: bill.gender,
+        cashierName: session?.displayName || 'Cashier Desk',
+        items: [
+          {
+            itemType: 'therapy',
+            description: `Therapy Session (${bill.modalityName || bill.modalityCode}) [Locked by Handler]`,
+            unitPriceTaka: bill.feeTaka,
+            quantity: 1,
+            totalTaka: bill.feeTaka,
+          },
+        ],
+        subtotalTaka: bill.feeTaka,
+        discountTaka: 0,
+        totalTaka: bill.feeTaka,
+        paidTaka: bill.feeTaka,
+        dueTaka: 0,
+        paymentMethod: therapyPaymentMethod,
+        txnId: therapyTxnId || undefined,
+        createdAt: new Date().toISOString(),
+      });
+      setIsInvoiceModalOpen(true);
+
+      setSelectedTherapyBillForPayment(null);
+      setTherapyTxnId('');
+      await loadData();
+    } catch (err: any) {
+      toast.error(`বিল গ্রহণ করতে ব্যর্থ: ${err?.message || 'Error collecting therapy bill'}`);
+    } finally {
+      setCollectingTherapyBill(false);
     }
   };
 
@@ -441,7 +585,7 @@ export default function CashierView({ session: propSession }: CashierProps = {})
         items: items.map((it: any) => ({
           itemType: it.itemType,
           description: it.description,
-          unitPriceTaka: it.unitPricePaisa ? Math.round(it.unitPricePaisa / 100) : it.unitPriceTaka || Math.round(it.totalPaisa / 100),
+          unitPriceTaka: it.unitPricePaisa ? Math.round(it.unitPricePaisa / 100) : it.unitPriceTaka || Math.round(b.totalPaisa / 100),
           quantity: it.quantity || 1,
           totalTaka: it.totalPaisa ? Math.round(it.totalPaisa / 100) : it.totalTaka || Math.round((it.unitPricePaisa || 0) * (it.quantity || 1) / 100),
         })),
@@ -549,6 +693,123 @@ export default function CashierView({ session: propSession }: CashierProps = {})
               </Button>
             )}
           </div>
+        </CardContent>
+      </Card>
+
+      {/* ============================================================== */}
+      {/* ⚡ FORWARDED FROM THERAPY HALL: LOCKED FIXED BILLS */}
+      {/* ============================================================== */}
+      <Card className="border-2 border-indigo-500/40 bg-gradient-to-r from-indigo-500/5 via-purple-500/5 to-transparent shadow-sm">
+        <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 gap-2">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-xl bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30">
+              <Activity className="size-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-base sm:text-lg font-bold flex items-center gap-1.5">
+                  <span>⚡ থেরাপি হল থেকে প্রেরিত বিলসমূহ (Billed from Therapy Hall)</span>
+                </CardTitle>
+                <Badge className="bg-indigo-600 text-white font-mono text-xs">
+                  {pendingTherapyBills.length} টি অপেক্ষমাণ
+                </Badge>
+              </div>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                থেরাপি হল হ্যান্ডলার কর্তৃক নির্ধারিত ফিক্সড বিল গ্রহণ করুন এবং রোগীকে রিসেপশনে চেক-আউটের জন্য পাঠান
+              </p>
+            </div>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={loadData}
+            disabled={loading}
+            className="h-8 text-xs gap-1.5 self-start sm:self-auto cursor-pointer"
+          >
+            <Clock className={`size-3.5 ${loading ? 'animate-spin' : ''}`} />
+            রিফ্রেশ
+          </Button>
+        </CardHeader>
+
+        <CardContent>
+          {pendingTherapyBills.length === 0 ? (
+            <div className="p-5 text-center rounded-xl border border-dashed border-border/80 bg-muted/20 text-muted-foreground text-xs space-y-1">
+              <CheckCircle2 className="size-6 mx-auto opacity-40 text-indigo-500" />
+              <p className="font-medium">বর্তমানে থেরাপি হল থেকে অপেক্ষমাণ কোনো বিল নেই</p>
+              <p className="text-[11px] text-muted-foreground/80">
+                হ্যান্ডলার থেরাপি হলের রোগীকে &quot;Send to Cashier&quot; বাটনে ক্লিক করে পাঠালে তা এখানে স্বয়ংক্রিয়ভাবে প্রদর্শিত হবে।
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5">
+              {pendingTherapyBills.map((rawBill) => {
+                const bill = normalizePendingTherapyBill(rawBill);
+                return (
+                  <div
+                    key={bill.id}
+                    className="p-4 rounded-xl border border-indigo-500/30 bg-card/90 hover:bg-card shadow-xs transition-all space-y-3 relative overflow-hidden"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-start gap-2.5">
+                        <div className="size-9 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-black text-sm font-mono shrink-0 border border-indigo-500/20">
+                          #{bill.tokenNumber.toString().padStart(2, '0')}
+                        </div>
+                        <div>
+                          <div className="font-bold text-sm sm:text-base text-foreground">
+                            {bill.patientName} {bill.patientNameBn ? `(${bill.patientNameBn})` : ''}
+                          </div>
+                          <div className="text-xs text-muted-foreground font-mono">
+                            MRN: {bill.mrn} {bill.phone ? `• ${bill.phone}` : ''}
+                          </div>
+                        </div>
+                      </div>
+                      <Badge variant="outline" className="border-indigo-500/50 text-indigo-600 dark:text-indigo-400 text-[10px] shrink-0 font-semibold flex items-center gap-1">
+                        <span>🔒 ফিক্সড ফি</span>
+                      </Badge>
+                    </div>
+
+                    {/* Modality & Locked Fixed Fee */}
+                    <div className="p-2.5 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-xs space-y-1.5">
+                      <div className="flex items-center justify-between font-semibold text-indigo-950 dark:text-indigo-200">
+                        <span className="flex items-center gap-1.5 truncate">
+                          <Activity className="size-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                          <span className="truncate">{bill.modalityName || bill.modalityCode}</span>
+                        </span>
+                        <div className="flex items-center gap-1 text-indigo-700 dark:text-indigo-300 font-mono font-bold text-sm bg-indigo-500/20 px-2 py-0.5 rounded-md">
+                          <span>🔒 ৳{bill.feeTaka}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                        <span>হ্যান্ডলার কর্তৃক নির্ধারিত</span>
+                        <span className="text-indigo-600 dark:text-indigo-400 font-semibold text-[10px]">
+                          ✓ পরিবর্তন নিষিদ্ধ (Locked)
+                        </span>
+                      </div>
+                    </div>
+
+                    {bill.notes && (
+                      <p className="text-[11px] text-muted-foreground line-clamp-1 italic bg-muted/40 px-2 py-1 rounded">
+                        নোট: {bill.notes}
+                      </p>
+                    )}
+
+                    {/* Action Button: Collect Fixed Bill */}
+                    <div className="pt-2 border-t border-border/50 flex justify-end">
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => openTherapyPaymentModal(bill)}
+                        className="w-full h-8 text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white gap-1.5 shadow-xs cursor-pointer"
+                      >
+                        <CreditCard className="size-3.5" />
+                        <span>বিল গ্রহণ করুন (Collect Fixed Bill)</span>
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -898,8 +1159,8 @@ export default function CashierView({ session: propSession }: CashierProps = {})
                                   type="button"
                                   variant="ghost"
                                   size="sm"
-                                  className="size-7 p-0 text-red-500 hover:text-red-700 hover:bg-red-500/10 cursor-pointer"
                                   onClick={() => handleRemoveItem(idx)}
+                                  className="h-7 w-7 p-0 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/20 cursor-pointer"
                                 >
                                   ✕
                                 </Button>
@@ -910,35 +1171,50 @@ export default function CashierView({ session: propSession }: CashierProps = {})
                       </table>
                     </div>
 
-                    {/* Financial Summary */}
-                    <div className="rounded-xl border border-border bg-muted/30 p-4 flex flex-col gap-2.5">
-                      <div className="flex justify-between items-center text-sm">
+                    {/* Financial Calculations */}
+                    <div className="flex flex-col gap-3 p-4 rounded-xl border border-border bg-muted/20">
+                      <div className="flex justify-between items-center text-xs sm:text-sm">
                         <span className="text-muted-foreground">Subtotal:</span>
-                        <strong className="text-foreground">৳{subtotalTaka}</strong>
+                        <span className="font-semibold text-foreground">৳{subtotalTaka}</span>
                       </div>
-                      <div className="flex justify-between items-center text-sm">
-                        <span className="text-muted-foreground">Discount (৳):</span>
+                      <div className="flex justify-between items-center gap-4">
+                        <span className="text-xs sm:text-sm text-muted-foreground">Discount (৳):</span>
                         <Input
                           type="number"
+                          min="0"
                           value={discountTaka}
                           onChange={(e) => {
                             const d = parseInt(e.target.value) || 0;
                             setDiscountTaka(d);
                             setPaidTaka(Math.max(0, subtotalTaka - d));
                           }}
-                          className="w-28 h-8 text-right text-xs"
+                          className="h-8 w-28 text-right text-xs"
                         />
                       </div>
-                      <div className="flex justify-between items-center border-t border-border pt-2 text-base font-bold">
-                        <span>Net Payable:</span>
-                        <span className="text-emerald-600 text-lg">৳{totalTaka}</span>
+                      <div className="flex justify-between items-center text-sm sm:text-base font-bold border-t border-border pt-2">
+                        <span>Total Payable:</span>
+                        <span className="text-emerald-600 dark:text-emerald-400">৳{totalTaka}</span>
+                      </div>
+                      <div className="flex justify-between items-center gap-4">
+                        <span className="text-xs sm:text-sm text-muted-foreground">Amount Paid (৳):</span>
+                        <Input
+                          type="number"
+                          min="0"
+                          value={paidTaka}
+                          onChange={(e) => setPaidTaka(parseInt(e.target.value) || 0)}
+                          className="h-8 w-28 text-right text-xs font-bold"
+                        />
+                      </div>
+                      <div className="flex justify-between items-center text-xs font-semibold text-red-500">
+                        <span>Due Amount:</span>
+                        <span>৳{dueTaka}</span>
                       </div>
                     </div>
 
-                    {/* Payment Recording using shadcn/ui Select */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Payment Method Selector */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div className="space-y-1.5">
-                        <Label className="text-xs font-semibold text-muted-foreground">Payment Method</Label>
+                        <Label className="text-xs font-semibold text-muted-foreground">Payment Method *</Label>
                         <Select value={paymentMethod} onValueChange={(val: any) => setPaymentMethod(val)}>
                           <SelectTrigger className="w-full">
                             <SelectValue placeholder="Payment Method" />
@@ -946,163 +1222,122 @@ export default function CashierView({ session: propSession }: CashierProps = {})
                           <SelectContent>
                             <SelectItem value="cash">Cash (নগদ)</SelectItem>
                             <SelectItem value="bkash">bKash (বিকাশ)</SelectItem>
-                            <SelectItem value="nagad">Nagad (নগদ অ্যাপ)</SelectItem>
+                            <SelectItem value="nagad">Nagad (নগদ)</SelectItem>
                             <SelectItem value="rocket">Rocket (রকেট)</SelectItem>
-                            <SelectItem value="card">POS Card (কার্ড)</SelectItem>
+                            <SelectItem value="card">Card (কার্ড / POS)</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
 
-                      <div className="space-y-1.5">
-                        <Label className="text-xs font-semibold text-muted-foreground">Amount Paid (৳)</Label>
-                        <Input
-                          type="number"
-                          value={paidTaka}
-                          onChange={(e) => setPaidTaka(parseInt(e.target.value) || 0)}
-                          className="h-9 font-mono"
-                        />
-                      </div>
+                      {paymentMethod !== 'cash' && (
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-semibold text-muted-foreground">
+                            Transaction / Slip ID *
+                          </Label>
+                          <Input
+                            type="text"
+                            placeholder="e.g. TRX-123456"
+                            value={txnId}
+                            onChange={(e) => setTxnId(e.target.value)}
+                            className="h-9 text-xs"
+                          />
+                        </div>
+                      )}
                     </div>
 
-                    {paymentMethod !== 'cash' && (
-                      <div className="space-y-1.5">
-                        <Label className="text-xs font-semibold text-muted-foreground">MFS / Bank Transaction ID</Label>
-                        <Input
-                          type="text"
-                          placeholder="e.g. TRX992812"
-                          value={txnId}
-                          onChange={(e) => setTxnId(e.target.value)}
-                          className="h-9 font-mono"
-                        />
-                      </div>
-                    )}
-
-                    {dueTaka > 0 && (
-                      <div className="text-red-600 text-xs sm:text-sm font-semibold bg-red-500/10 p-2.5 rounded-lg border border-red-500/20">
-                        ⚠️ Remaining Due to be recorded: ৳{dueTaka}
-                      </div>
-                    )}
-
+                    {/* Bill Generation Button */}
                     <Button
                       type="submit"
-                      size="lg"
-                      className="w-full mt-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 text-sm sm:text-base shadow-sm cursor-pointer"
+                      disabled={loading || billItems.length === 0}
+                      className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-10 shadow-xs cursor-pointer gap-2"
                     >
-                      🖨️ Settle Bill &amp; Print HPC Custom Invoice
+                      <CreditCard className="size-4" />
+                      Generate Bill &amp; Print Custom Size Receipt
                     </Button>
                   </form>
                 </CardContent>
               </Card>
             </div>
 
-            {/* Right Column: Bills Ledger & Dues */}
+            {/* Right Column: Invoice Ledger */}
             <div
               className={cn(
                 'flex flex-col gap-6 lg:col-span-5 xl:col-span-5',
                 mobileTab === 'billing' && 'hidden lg:flex'
               )}
             >
-              {/* Bills List Card */}
               <Card className="border border-border bg-card shadow-sm">
                 <CardHeader className="flex flex-row items-center justify-between pb-3">
-                  <CardTitle className="text-sm sm:text-base font-bold flex items-center gap-2">
-                    🧾 Settled Invoices ({bills.length})
+                  <CardTitle className="text-base sm:text-lg font-bold flex items-center gap-2">
+                    <FileText className="size-5 text-emerald-600" />
+                    <span>Recent Invoices &amp; Ledger</span>
                   </CardTitle>
                   <Button
-                    variant="outline"
+                    variant="ghost"
                     size="sm"
                     onClick={loadData}
                     disabled={loading}
-                    className="h-8 text-xs flex items-center gap-1 cursor-pointer"
+                    className="h-8 px-2 text-xs cursor-pointer"
                   >
-                    🔄 Refresh
+                    <Clock className={cn('size-3.5 mr-1', loading && 'animate-spin')} />
+                    Sync
                   </Button>
                 </CardHeader>
-                <CardContent>
-                  <div className="max-h-[300px] overflow-y-auto rounded-lg border border-border">
-                    <table className="w-full text-left text-xs sm:text-sm">
-                      <thead className="bg-muted/50 sticky top-0 border-b border-border text-muted-foreground font-semibold">
-                        <tr>
-                          <th className="p-2.5">Bill #</th>
-                          <th className="p-2.5">Patient</th>
-                          <th className="p-2.5">Total</th>
-                          <th className="p-2.5">Paid</th>
-                          <th className="p-2.5">Method</th>
-                          <th className="p-2.5 text-right">Action</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-border">
-                        {bills.slice(0, 20).map((b) => (
-                          <tr key={b.id} className="hover:bg-muted/30 transition-colors">
-                            <td className="p-2.5 font-bold text-foreground">{b.billNumber}</td>
-                            <td className="p-2.5 text-muted-foreground truncate max-w-[100px]">
-                              {b.patient?.nameEn || b.patientId}
-                            </td>
-                            <td className="p-2.5 font-semibold">৳{(b.totalPaisa / 100).toFixed(0)}</td>
-                            <td className="p-2.5 text-emerald-600 font-semibold">৳{(b.paidPaisa / 100).toFixed(0)}</td>
-                            <td className="p-2.5">
-                              <Badge variant="outline" className="text-xs uppercase">
-                                {b.paymentMethod}
-                              </Badge>
-                            </td>
-                            <td className="p-2.5 text-right">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleReprintBill(b)}
-                                className="h-7 px-2 text-xs gap-1 border-emerald-500/30 hover:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 cursor-pointer"
-                                title="প্রিন্ট HPC সাইজ ইনভয়েস (5.5in × 8.27in)"
-                              >
-                                <Printer className="size-3" />
-                                <span>রসিদ</span>
-                              </Button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </CardContent>
-              </Card>
 
-              {/* Dues Tracking Card */}
-              <Card className="border border-border bg-card shadow-sm">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm sm:text-base font-bold flex items-center gap-2 text-red-600">
-                    ⚠️ Outstanding Dues ({dues.length})
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {dues.length === 0 ? (
-                    <div className="text-muted-foreground text-center py-6 text-xs sm:text-sm">
-                      No pending patient dues.
+                <CardContent className="space-y-3">
+                  {bills.length === 0 ? (
+                    <div className="p-8 text-center text-xs text-muted-foreground border border-dashed border-border rounded-xl">
+                      No invoices recorded today.
                     </div>
                   ) : (
-                    <div className="max-h-[220px] overflow-y-auto rounded-lg border border-border">
-                      <table className="w-full text-left text-xs sm:text-sm">
-                        <thead className="bg-muted/50 sticky top-0 border-b border-border text-muted-foreground font-semibold">
-                          <tr>
-                            <th className="p-2.5">Patient</th>
-                            <th className="p-2.5">Due Amount</th>
-                            <th className="p-2.5 text-right">Status</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-border">
-                          {dues.map((d) => (
-                            <tr key={d.id} className="hover:bg-muted/30 transition-colors">
-                              <td className="p-2.5 font-medium text-foreground">
-                                {d.patient?.nameEn || d.patientId}
-                              </td>
-                              <td className="p-2.5 text-red-600 font-bold">
-                                ৳{(d.amountPaisa / 100).toFixed(0)}
-                              </td>
-                              <td className="p-2.5 text-right">
-                                <Badge variant="destructive">{d.status}</Badge>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                    <div className="space-y-2 max-h-[600px] overflow-y-auto pr-1">
+                      {bills.map((b) => (
+                        <div
+                          key={b.id}
+                          className="p-3 rounded-xl border border-border/60 bg-muted/10 hover:bg-muted/30 transition-all flex items-center justify-between gap-3 text-xs"
+                        >
+                          <div className="space-y-0.5 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono font-bold text-foreground">
+                                {b.billNumber}
+                              </span>
+                              <Badge
+                                variant="outline"
+                                className={cn(
+                                  'text-[10px] px-1.5 py-0 uppercase font-bold',
+                                  b.status === 'posted'
+                                    ? 'border-emerald-500/40 text-emerald-600 bg-emerald-500/10'
+                                    : 'border-amber-500/40 text-amber-600 bg-amber-500/10'
+                                )}
+                              >
+                                {b.status}
+                              </Badge>
+                            </div>
+                            <div className="text-muted-foreground truncate">
+                              {b.patient?.nameEn || 'Patient'} · MRN: {b.patient?.mrn || 'N/A'}
+                            </div>
+                            <div className="text-[10px] text-muted-foreground/70">
+                              Method: <strong className="uppercase">{b.paymentMethod || 'cash'}</strong> · {new Date(b.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </div>
+                          </div>
+
+                          <div className="flex flex-col items-end gap-1.5 shrink-0">
+                            <div className="font-mono font-bold text-sm text-foreground">
+                              ৳{((b.totalPaisa || 0) / 100).toFixed(0)}
+                            </div>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleReprintBill(b)}
+                              className="h-7 px-2 text-[11px] gap-1 cursor-pointer border-emerald-500/30 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/10"
+                            >
+                              <Printer className="size-3 text-emerald-600" />
+                              <span>Print</span>
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </CardContent>
@@ -1112,191 +1347,150 @@ export default function CashierView({ session: propSession }: CashierProps = {})
         </>
       )}
 
-      {/* PACKAGE PURCHASE & PRICING MODAL */}
+      {/* Package Selection Modal */}
       <Dialog open={showPackageModal} onOpenChange={setShowPackageModal}>
-        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto p-5 bg-background border-emerald-500/30" onClose={() => setShowPackageModal(false)}>
+        <DialogContent className="max-w-xl p-5 bg-background border-emerald-500/30" onClose={() => setShowPackageModal(false)}>
           <DialogHeader>
             <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-bold text-xs uppercase tracking-wider">
               <Sparkles className="size-4" />
-              <span>রিহ্যাবিলিটেশন ও ফিজিওথেরাপি প্যাকেজ বিক্রয়</span>
+              <span>প্যাকেজ বিলিং কনফিগারেশন (Therapy Packages)</span>
             </div>
             <DialogTitle className="text-lg font-bold">
-              Package Purchase &amp; Pricing Setup
+              প্যাকেজ নির্বাচন ও কনফিগারেশন
             </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground">
-              Configure per-session or per-day rehabilitation packages. Consultation and therapy are included during the entire package period.
+              সেশন ভিত্তিক বা দিন ভিত্তিক প্যাকেজ নির্বাচন করুন। প্যাকেজ চলাকালীন সব কনসালটেশন ও থেরাপি অন্তর্ভুক্ত থাকবে।
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-2 text-xs">
-            {/* Notice / Badge */}
-            <div className="p-3 rounded-xl border border-emerald-500/40 bg-emerald-500/10 text-emerald-900 dark:text-emerald-200 text-xs flex items-start gap-2.5">
-              <Sparkles className="size-4 shrink-0 text-emerald-600 dark:text-emerald-400 mt-0.5" />
-              <div className="flex-1 space-y-0.5">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-bold text-emerald-800 dark:text-emerald-300">
-                    Consultation &amp; Therapy included during package length
-                  </span>
-                  <Badge variant="outline" className="border-emerald-500/60 bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-[10px] uppercase font-bold tracking-wide">
-                    All-Inclusive
-                  </Badge>
-                </div>
-                <p className="text-[11px] text-muted-foreground leading-relaxed">
-                  প্যাকেজের কার্যকর মেয়াদের মধ্যে প্রয়োজনীয় সকল ডাক্তার ফলোআপ কনসালটেশন এবং নির্ধারিত ফিজিওথেরাপি সেশন সম্পূর্ণ অন্তর্ভুক্ত। কোনো অতিরিক্ত কনসালটেশন ফি দিতে হবে না।
-                </p>
+          <div className="space-y-4 py-2">
+            {/* Package Type Selector */}
+            <div className="grid grid-cols-2 gap-2 p-1 bg-muted rounded-xl border border-border">
+              <button
+                type="button"
+                onClick={() => {
+                  setPackageType('per_session');
+                  const preset = SESSION_PRESETS[1];
+                  setPackageTitle(preset.name);
+                  setPackageCount(preset.count);
+                  setPackagePriceTaka(preset.priceTaka);
+                  setPackageValidityDays(preset.validityDays);
+                }}
+                className={cn(
+                  'py-2 px-3 text-xs font-semibold rounded-lg transition-all text-center cursor-pointer',
+                  packageType === 'per_session'
+                    ? 'bg-card text-foreground shadow-xs'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                🔢 সেশন ভিত্তিক (Per Session)
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setPackageType('per_day');
+                  const preset = DAY_PRESETS[1];
+                  setPackageTitle(preset.name);
+                  setPackageCount(preset.count);
+                  setPackagePriceTaka(preset.priceTaka);
+                  setPackageValidityDays(preset.validityDays);
+                }}
+                className={cn(
+                  'py-2 px-3 text-xs font-semibold rounded-lg transition-all text-center cursor-pointer',
+                  packageType === 'per_day'
+                    ? 'bg-card text-foreground shadow-xs'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                📅 দিন ভিত্তিক (Per Day)
+              </button>
+            </div>
+
+            {/* Presets List */}
+            <div className="space-y-2">
+              <Label className="text-xs text-muted-foreground">জনপ্রিয় প্যাকেজসমূহ (Select a Preset):</Label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {(packageType === 'per_session' ? SESSION_PRESETS : DAY_PRESETS).map((preset) => {
+                  const isSelected = packageTitle === preset.name && packageCount === preset.count;
+                  return (
+                    <button
+                      key={preset.name}
+                      type="button"
+                      onClick={() => {
+                        setPackageTitle(preset.name);
+                        setPackageCount(preset.count);
+                        setPackagePriceTaka(preset.priceTaka);
+                        setPackageValidityDays(preset.validityDays);
+                      }}
+                      className={cn(
+                        'p-2.5 rounded-xl border text-left transition-all flex flex-col justify-between gap-1 cursor-pointer',
+                        isSelected
+                          ? 'border-emerald-500 bg-emerald-500/10 text-emerald-950 dark:text-emerald-100'
+                          : 'border-border/60 hover:border-emerald-500/40 bg-card'
+                      )}
+                    >
+                      <div className="flex items-start justify-between gap-1">
+                        <span className="font-semibold text-xs leading-snug">{preset.name}</span>
+                        {preset.tag && (
+                          <Badge variant="outline" className="text-[9px] px-1 py-0 border-emerald-500/40 text-emerald-600 shrink-0">
+                            {preset.tag}
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="flex items-center justify-between text-xs pt-1 border-t border-border/40 font-mono">
+                        <span className="text-muted-foreground">
+                          {preset.count} {packageType === 'per_session' ? 'সেশন' : 'দিন'}
+                        </span>
+                        <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                          ৳{preset.priceTaka}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
-            {/* 1. Model Selector: Per Session vs Per Day */}
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-muted-foreground">প্যাকেজ মডেল নির্বাচন করুন (Package Model) *</Label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPackageType('per_session');
-                    setPackageTitle(SESSION_PRESETS[1].name);
-                    setPackageCount(SESSION_PRESETS[1].count);
-                    setPackagePriceTaka(SESSION_PRESETS[1].priceTaka);
-                    setPackageValidityDays(SESSION_PRESETS[1].validityDays);
-                  }}
-                  className={cn(
-                    'p-3 rounded-xl border text-left transition-all flex flex-col gap-1 cursor-pointer',
-                    packageType === 'per_session'
-                      ? 'border-emerald-500 bg-emerald-500/10 text-emerald-900 dark:text-emerald-100 shadow-xs ring-1 ring-emerald-500'
-                      : 'border-border/70 hover:bg-muted/40 text-muted-foreground'
-                  )}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-sm text-foreground">Per Session (সেশন ভিত্তিক)</span>
-                    {packageType === 'per_session' && <CheckCircle2 className="size-4 text-emerald-500" />}
-                  </div>
-                  <div className="text-xs font-medium text-emerald-600 dark:text-emerald-400">
-                    x BDT per x sessions
-                  </div>
-                  <div className="text-[11px] text-muted-foreground">
-                    রোগী প্রতিটি থেরাপি সেশন গ্রহণ করলে ১টি করে ক্রেডিট শেষ হবে (যেমন ১০ বা ১৫ সেশন)।
-                  </div>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPackageType('per_day');
-                    setPackageTitle(DAY_PRESETS[1].name);
-                    setPackageCount(DAY_PRESETS[1].count);
-                    setPackagePriceTaka(DAY_PRESETS[1].priceTaka);
-                    setPackageValidityDays(DAY_PRESETS[1].validityDays);
-                  }}
-                  className={cn(
-                    'p-3 rounded-xl border text-left transition-all flex flex-col gap-1 cursor-pointer',
-                    packageType === 'per_day'
-                      ? 'border-emerald-500 bg-emerald-500/10 text-emerald-900 dark:text-emerald-100 shadow-xs ring-1 ring-emerald-500'
-                      : 'border-border/70 hover:bg-muted/40 text-muted-foreground'
-                  )}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-sm text-foreground">Per Day (দিন ভিত্তিক)</span>
-                    {packageType === 'per_day' && <CheckCircle2 className="size-4 text-emerald-500" />}
-                  </div>
-                  <div className="text-xs font-medium text-emerald-600 dark:text-emerald-400">
-                    x BDT per x visit days
-                  </div>
-                  <div className="text-[11px] text-muted-foreground">
-                    একই দিনে একাধিকবার ভিজিট করলেও ১ দিন গণনা হবে (multiple visits per day count as 1 day)।
-                  </div>
-                </button>
-              </div>
-            </div>
-
-            {/* 2. Preset Selection */}
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <Label className="text-xs font-semibold text-muted-foreground">
-                  প্রস্তাবিত প্রিসেট প্যাকেজ (Preset Packages)
-                </Label>
-                <span className="text-[11px] text-muted-foreground">ক্লিক করে নির্বাচন করুন</span>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                {(packageType === 'per_session' ? SESSION_PRESETS : DAY_PRESETS).map((preset) => (
-                  <button
-                    type="button"
-                    key={preset.name}
-                    onClick={() => {
-                      setPackageTitle(preset.name);
-                      setPackageCount(preset.count);
-                      setPackagePriceTaka(preset.priceTaka);
-                      setPackageValidityDays(preset.validityDays);
-                    }}
-                    className={cn(
-                      'p-2.5 rounded-lg border text-left transition-all flex flex-col gap-1 cursor-pointer',
-                      packageCount === preset.count && packagePriceTaka === preset.priceTaka
-                        ? 'border-emerald-500 bg-emerald-500/15 font-semibold ring-1 ring-emerald-500'
-                        : 'border-border/60 hover:bg-muted/30 text-muted-foreground'
-                    )}
-                  >
-                    <span className="text-xs font-bold text-foreground">
-                      {preset.count} {packageType === 'per_session' ? 'Sessions' : 'Days'}
-                    </span>
-                    <span className="text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400">
-                      ৳{preset.priceTaka}
-                    </span>
-                    {preset.tag && (
-                      <span className="text-[10px] text-muted-foreground/80 truncate">
-                        {preset.tag}
-                      </span>
-                    )}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* 3. Custom Editable Values */}
-            <div className="p-3 rounded-xl border border-border/70 bg-card/50 space-y-3">
-              <div className="text-xs font-semibold text-foreground flex items-center justify-between">
-                <span>কাস্টমাইজড তথ্য (Customizable Fields)</span>
-                <span className="text-[11px] font-normal text-muted-foreground">ইচ্ছা অনুযায়ী পরিবর্তনযোগ্য</span>
-              </div>
-
+            {/* Custom Configuration Details */}
+            <div className="p-3.5 rounded-xl border border-border/80 bg-muted/20 space-y-3">
               <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">প্যাকেজের নাম বা বিবরণ (Package Title)</Label>
+                <Label className="text-xs text-muted-foreground">প্যাকেজের নাম (Package Name / Label)</Label>
                 <Input
                   type="text"
                   value={packageTitle}
                   onChange={(e) => setPackageTitle(e.target.value)}
-                  placeholder="e.g. 10-Session Comprehensive Rehab"
-                  className="h-8 text-xs font-medium"
+                  className="h-8 text-xs font-semibold"
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-3 gap-2">
                 <div className="space-y-1.5">
                   <Label className="text-xs text-muted-foreground">
-                    {packageType === 'per_session' ? 'সেশন সংখ্যা (Sessions)' : 'ভিজিট দিন সংখ্যা (Days)'} *
+                    {packageType === 'per_session' ? 'সেশন সংখ্যা (Count)' : 'দিন সংখ্যা (Days)'}
                   </Label>
                   <Input
                     type="number"
                     min={1}
                     value={packageCount}
                     onChange={(e) => setPackageCount(parseInt(e.target.value) || 1)}
-                    className="h-8 text-xs font-mono font-bold"
+                    className="h-8 text-xs font-mono"
                   />
                   <p className="text-[10px] text-muted-foreground">
-                    {packageType === 'per_day' ? 'একাধিক ভিজিট = ১ দিন' : 'মোট অনুমোদিত সেশন'}
+                    {packageType === 'per_session' ? 'মোট থেরাপি সেশন' : 'ক্লিনিক ভিজিট দিন'}
                   </p>
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">মোট মূল্য (Total Price in ৳) *</Label>
+                  <Label className="text-xs text-muted-foreground">প্যাকেজ মূল্য (Price ৳)</Label>
                   <Input
                     type="number"
                     min={0}
                     value={packagePriceTaka}
                     onChange={(e) => setPackagePriceTaka(parseInt(e.target.value) || 0)}
-                    className="h-8 text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400"
+                    className="h-8 text-xs font-mono font-bold text-emerald-600"
                   />
                   <p className="text-[10px] text-muted-foreground">
-                    ≈ ৳{Math.round(packagePriceTaka / (packageCount || 1))} / {packageType === 'per_session' ? 'সেশন' : 'দিন'}
+                    মোট প্রদেয় ফি (৳)
                   </p>
                 </div>
 
@@ -1454,6 +1648,152 @@ export default function CashierView({ session: propSession }: CashierProps = {})
         intake={selectedIntakeForPrint}
       />
 
+      {/* ============================================================== */}
+      {/* THERAPY HALL FIXED BILL PAYMENT DIALOG */}
+      {/* ============================================================== */}
+      {selectedTherapyBillForPayment && (
+        <Dialog
+          open={!!selectedTherapyBillForPayment}
+          onOpenChange={(open) => {
+            if (!open) setSelectedTherapyBillForPayment(null);
+          }}
+        >
+          <DialogContent className="max-w-md p-5 bg-background border-indigo-500/30" onClose={() => setSelectedTherapyBillForPayment(null)}>
+            <DialogHeader>
+              <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 font-bold text-xs uppercase tracking-wider">
+                <Activity className="size-4" />
+                <span>থেরাপি বিল সংগ্রহ ও রিসেপশনে প্রেরণ</span>
+              </div>
+              <DialogTitle className="text-lg font-bold">
+                {selectedTherapyBillForPayment.patientName}
+                {selectedTherapyBillForPayment.patientNameBn ? ` (${selectedTherapyBillForPayment.patientNameBn})` : ''}
+              </DialogTitle>
+              <DialogDescription className="text-xs text-muted-foreground">
+                টোকেন #{selectedTherapyBillForPayment.tokenNumber} • MRN: {selectedTherapyBillForPayment.mrn} • মডালিটি: {selectedTherapyBillForPayment.modalityName || selectedTherapyBillForPayment.modalityCode}
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 py-3 text-xs">
+              {/* Patient Info Card */}
+              <div className="p-3 rounded-xl border border-border/60 bg-muted/30 grid grid-cols-2 gap-2 text-[11px]">
+                <div>
+                  <span className="text-muted-foreground">ফোন:</span>{' '}
+                  <span className="font-semibold text-foreground">{selectedTherapyBillForPayment.phone || 'N/A'}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">লিঙ্গ / বয়স:</span>{' '}
+                  <span className="font-semibold text-foreground">
+                    {selectedTherapyBillForPayment.gender === 'female' ? 'মহিলা' : 'পুরুষ'}
+                    {selectedTherapyBillForPayment.ageYears ? ` • ${selectedTherapyBillForPayment.ageYears} বছর` : ''}
+                  </span>
+                </div>
+                <div className="col-span-2">
+                  <span className="text-muted-foreground">থেরাপি সেবা:</span>{' '}
+                  <span className="font-bold text-indigo-600 dark:text-indigo-400">{selectedTherapyBillForPayment.modalityName}</span>
+                </div>
+              </div>
+
+              {/* STRICTLY LOCKED READ-ONLY FIXED FEE INPUT */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-semibold text-muted-foreground">
+                    নির্ধারিত ফিক্সড ফি (Fixed Fee ৳) *
+                  </Label>
+                  <Badge variant="outline" className="border-amber-500/50 bg-amber-500/10 text-amber-700 dark:text-amber-300 text-[10px] font-semibold gap-1">
+                    <ShieldCheck className="size-3 text-amber-600" />
+                    <span>Locked</span>
+                  </Badge>
+                </div>
+                <Input
+                  value={`৳${selectedTherapyBillForPayment.feeTaka}`}
+                  disabled
+                  readOnly
+                  className="bg-muted font-bold text-foreground cursor-not-allowed text-lg font-mono h-11"
+                />
+                <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-900 dark:text-amber-200 text-[11px] flex items-start gap-1.5 font-medium">
+                  <span>🔒</span>
+                  <span>হ্যান্ডলার কর্তৃক নির্ধারিত ফিক্সড ফি — ক্যাশিয়ার পরিবর্তন করতে পারবেন না (Locked by Handler)</span>
+                </div>
+              </div>
+
+              {/* Payment Method Selector */}
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-muted-foreground">পেমেন্ট মেথড (Payment Method) *</Label>
+                <Select
+                  value={therapyPaymentMethod}
+                  onValueChange={(val: any) => setTherapyPaymentMethod(val)}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="-- পেমেন্ট মেথড নির্বাচন করুন --" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="cash">Cash (নগদ)</SelectItem>
+                    <SelectItem value="bkash">bKash (বিকাশ)</SelectItem>
+                    <SelectItem value="nagad">Nagad (নগদ অ্যাপ)</SelectItem>
+                    <SelectItem value="rocket">Rocket (রকেট)</SelectItem>
+                    <SelectItem value="card">POS Card (কার্ড)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Txn ID Input if non-cash */}
+              {therapyPaymentMethod !== 'cash' && (
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-muted-foreground">
+                    ট্রানজ্যাকশন আইডি (Transaction ID / Card Ref)
+                  </Label>
+                  <Input
+                    type="text"
+                    placeholder="e.g. TRX-889123"
+                    value={therapyTxnId}
+                    onChange={(e) => setTherapyTxnId(e.target.value)}
+                    className="h-9 font-mono text-xs"
+                  />
+                </div>
+              )}
+
+              {/* Information Note */}
+              <div className="p-3 rounded-lg border border-indigo-500/20 bg-indigo-500/5 text-muted-foreground text-[11px] leading-relaxed flex items-start gap-2">
+                <Sparkles className="size-4 shrink-0 text-indigo-600 mt-0.5" />
+                <span>
+                  ফি গ্রহণ নিশ্চিত করামাত্র রোগীকে স্বয়ংক্রিয়ভাবে <strong>রিসেপশনে চেক-আউট ও ডিসচার্জের জন্য</strong> পাঠানো হবে এবং সাথে সাথে <strong>HPC সাইজ ইনভয়েস (5.5&quot; × 8.27&quot;)</strong> প্রিন্ট হবে।
+                </span>
+              </div>
+            </div>
+
+            <DialogFooter className="flex flex-row justify-between gap-2 pt-2 border-t border-border">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setSelectedTherapyBillForPayment(null)}
+                disabled={collectingTherapyBill}
+                className="flex-1 text-xs cursor-pointer"
+              >
+                বাতিল
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleCollectTherapyBill}
+                disabled={collectingTherapyBill}
+                className="flex-1 text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-bold gap-1.5 shadow-xs cursor-pointer"
+              >
+                {collectingTherapyBill ? (
+                  <>
+                    <Loader2 className="size-3.5 animate-spin" /> প্রক্রিয়াধীন...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="size-3.5" /> ফি গ্রহণ ও রিসেপশনে পাঠান (Collect &amp; Forward to Reception)
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
       {/* CONSULTATION FEE COLLECTION & QUEUE ADMISSION MODAL */}
       {selectedIntakeForPayment && (
         <Dialog
@@ -1478,7 +1818,6 @@ export default function CashierView({ session: propSession }: CashierProps = {})
             </DialogHeader>
 
             <div className="space-y-4 py-3 text-xs">
-              {/* FIXED & NON-CUSTOMIZABLE FEE DISPLAY BADGE */}
               <div className="p-3.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 flex items-center justify-between">
                 <div>
                   <div className="text-xs text-muted-foreground font-semibold flex items-center gap-1.5">
@@ -1499,7 +1838,6 @@ export default function CashierView({ session: propSession }: CashierProps = {})
                 </div>
               </div>
 
-              {/* Consultation Payment Method */}
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold text-muted-foreground">পেমেন্ট মেথড (Payment Method) *</Label>
                 <Select
@@ -1519,7 +1857,6 @@ export default function CashierView({ session: propSession }: CashierProps = {})
                 </Select>
               </div>
 
-              {/* Digital Txn ID if not cash */}
               {consultationPaymentMethod !== 'cash' && (
                 <div className="space-y-1.5">
                   <Label className="text-xs font-semibold text-muted-foreground">
@@ -1535,8 +1872,6 @@ export default function CashierView({ session: propSession }: CashierProps = {})
                 </div>
               )}
 
-              {/* Queue Priority Selection */}
-              {/* Queue Priority Selection & Fixed Doctor Consultation Queue */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label className="text-xs font-semibold text-muted-foreground">সিরিয়াল অগ্রাধিকার (Priority)</Label>

@@ -335,6 +335,18 @@ export const api = {
     purchasePackage: (data: any) =>
       apiFetch<any>('/therapy/packages/purchase', { method: 'POST', body: JSON.stringify(data) }),
     getCredits: (patientId: string) => apiFetch<any[]>(`/therapy/packages/patient/${patientId}`),
+    sendToCashier: (data: {
+      visitId: string;
+      patientId: string;
+      feeTaka: number;
+      modalityCode?: string;
+      notes?: string;
+    }) =>
+      apiFetch<any>('/therapy/send-to-cashier', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+    getPendingBills: () => apiFetch<any[]>('/therapy/pending-bills'),
   },
   billing: {
     getDrawerStatus: (cashierStaffId: string) =>
