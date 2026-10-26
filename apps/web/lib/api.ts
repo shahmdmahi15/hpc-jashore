@@ -334,6 +334,7 @@ export const api = {
     closeDrawer: (id: string, data: any) =>
       apiFetch<any>(`/billing/drawers/${id}/close`, { method: 'POST', body: JSON.stringify(data) }),
     getBills: () => apiFetch<any[]>('/billing/bills'),
+    getBill: (id: string) => apiFetch<any>(`/billing/bills/${id}`),
     createBill: (data: any) =>
       apiFetch<any>('/billing/bills', { method: 'POST', body: JSON.stringify(data) }),
     recordPayment: (data: any) =>

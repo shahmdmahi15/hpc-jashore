@@ -414,6 +414,52 @@ export default function CashierView({ session: propSession }: CashierProps = {})
     }
   };
 
+  const handleReprintBill = async (billRow: any) => {
+    try {
+      const full = await api.billing.getBill(billRow.id).catch(() => null);
+      const b = full?.bill || billRow;
+      const pat = full?.patient || billRow.patient || patients.find((p) => p.id === b.patientId);
+      const items = full?.items && full.items.length > 0 ? full.items : [
+        {
+          itemType: 'service',
+          description: 'HPC Center Medical Service / Billing',
+          unitPriceTaka: Math.round(b.totalPaisa / 100),
+          quantity: 1,
+          totalTaka: Math.round(b.totalPaisa / 100),
+        },
+      ];
+
+      setInvoiceModalData({
+        billNumber: b.billNumber,
+        patientName: pat?.nameEn || pat?.name || 'Patient',
+        patientNameBn: pat?.nameBn,
+        mrn: pat?.mrn || 'N/A',
+        phone: pat?.phone,
+        ageYears: pat?.ageYears,
+        gender: pat?.gender,
+        cashierName: full?.cashier?.displayName || session?.displayName || 'Cashier Desk',
+        items: items.map((it: any) => ({
+          itemType: it.itemType,
+          description: it.description,
+          unitPriceTaka: it.unitPricePaisa ? Math.round(it.unitPricePaisa / 100) : it.unitPriceTaka || Math.round(it.totalPaisa / 100),
+          quantity: it.quantity || 1,
+          totalTaka: it.totalPaisa ? Math.round(it.totalPaisa / 100) : it.totalTaka || Math.round((it.unitPricePaisa || 0) * (it.quantity || 1) / 100),
+        })),
+        subtotalTaka: Math.round((b.subtotalPaisa ?? b.totalPaisa) / 100),
+        discountTaka: Math.round((b.discountPaisa ?? 0) / 100),
+        totalTaka: Math.round(b.totalPaisa / 100),
+        paidTaka: Math.round(b.paidPaisa / 100),
+        dueTaka: Math.max(0, Math.round((b.totalPaisa - b.paidPaisa) / 100)),
+        paymentMethod: b.paymentMethod || 'CASH',
+        txnId: b.transactionReference || undefined,
+        createdAt: b.createdAt,
+      });
+      setIsInvoiceModalOpen(true);
+    } catch {
+      toast.error('ইনভয়েস বিবরণ লোড করতে সমস্যা হয়েছে');
+    }
+  };
+
   const handleOpenDrawer = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -981,7 +1027,8 @@ export default function CashierView({ session: propSession }: CashierProps = {})
                           <th className="p-2.5">Patient</th>
                           <th className="p-2.5">Total</th>
                           <th className="p-2.5">Paid</th>
-                          <th className="p-2.5 text-right">Method</th>
+                          <th className="p-2.5">Method</th>
+                          <th className="p-2.5 text-right">Action</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-border">
@@ -993,10 +1040,22 @@ export default function CashierView({ session: propSession }: CashierProps = {})
                             </td>
                             <td className="p-2.5 font-semibold">৳{(b.totalPaisa / 100).toFixed(0)}</td>
                             <td className="p-2.5 text-emerald-600 font-semibold">৳{(b.paidPaisa / 100).toFixed(0)}</td>
-                            <td className="p-2.5 text-right">
+                            <td className="p-2.5">
                               <Badge variant="outline" className="text-xs uppercase">
                                 {b.paymentMethod}
                               </Badge>
+                            </td>
+                            <td className="p-2.5 text-right">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleReprintBill(b)}
+                                className="h-7 px-2 text-xs gap-1 border-emerald-500/30 hover:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 cursor-pointer"
+                                title="প্রিন্ট HPC সাইজ ইনভয়েস (5.5in × 8.27in)"
+                              >
+                                <Printer className="size-3" />
+                                <span>রসিদ</span>
+                              </Button>
                             </td>
                           </tr>
                         ))}
