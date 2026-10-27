@@ -79,6 +79,8 @@ import { deleteTherapyBookingAction } from '../../lib/actions/therapy-slots';
 import { CreatePatientDialog } from '../patient/CreatePatientDialog';
 import { PatientIntakeFormModal } from '../patient/PatientIntakeFormModal';
 import { PatientTimelineModal } from '../patient/PatientTimelineModal';
+import { InstantConsultationCheckInModal } from './InstantConsultationCheckInModal';
+import { InstantTherapySlotCheckInModal } from './InstantTherapySlotCheckInModal';
 
 // Bengali digit formatter helper
 function toBnNum(num: number | string | null | undefined): string {
@@ -153,6 +155,8 @@ export function CheckInWorkstationView() {
   const [isCreatePatientOpen, setIsCreatePatientOpen] = useState(false);
   const [isIntakeFormOpen, setIsIntakeFormOpen] = useState(false);
   const [isTimelineOpen, setIsTimelineOpen] = useState(false);
+  const [isInstantConsultationOpen, setIsInstantConsultationOpen] = useState(false);
+  const [isInstantTherapyOpen, setIsInstantTherapyOpen] = useState(false);
   const [selectedClinicalStatus, setSelectedClinicalStatus] = useState<PatientClinicalStatus | null>(null);
   const [loadingClinicalStatus, setLoadingClinicalStatus] = useState(false);
   const [isIntakeWarningOpen, setIsIntakeWarningOpen] = useState(false);
@@ -1256,42 +1260,94 @@ export function CheckInWorkstationView() {
                     </div>
                   </div>
                 )}
-                <Button
-                  onClick={() => handlePerformCheckIn()}
-                  disabled={!selectedPatient || isPending || Boolean(activeExistingVisit)}
-                  className={`w-full h-11 text-sm font-bold gap-2 shadow-sm transition-all ${
-                    activeExistingVisit
-                      ? 'bg-muted text-muted-foreground cursor-not-allowed opacity-75'
-                      : 'bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer active:scale-95'
-                  }`}
-                >
-                  {isPending ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>{isBn ? 'চেক-ইন প্রক্রিয়াধীন...' : 'Processing Check-in...'}</span>
-                    </>
-                  ) : activeExistingVisit ? (
-                    <>
-                      <AlertTriangle className="w-4 h-4" />
-                      <span>
-                        {isBn ? 'ইতিমধ্যে চেক-ইন আছেন' : 'Already Checked In'}
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      <UserCheck className="w-4 h-4" />
-                      <span>
-                        {matchedBooking
-                          ? (isBn
-                              ? 'চেক-ইন সম্পন্ন করুন ও থেরাপি কিউতে যুক্ত করুন'
-                              : 'Complete Check-In & Queue for Therapy')
-                          : (isBn
-                              ? 'ওয়েটিং রুমে চেক-ইন সম্পন্ন করুন ও স্লিপ ইস্যু করুন'
-                              : 'Complete Check-In to Waiting Room & Issue Slip')}
-                      </span>
-                    </>
-                  )}
-                </Button>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+                  {/* Button 1: General / Detected Check-In */}
+                  <Button
+                    type="button"
+                    onClick={() => handlePerformCheckIn()}
+                    disabled={!selectedPatient || isPending || Boolean(activeExistingVisit)}
+                    className={`h-11 sm:h-12 text-xs sm:text-sm font-bold gap-2 shadow-sm transition-all rounded-xl ${
+                      activeExistingVisit
+                        ? 'bg-muted text-muted-foreground cursor-not-allowed opacity-75'
+                        : 'bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer active:scale-95 shadow-emerald-500/15'
+                    }`}
+                  >
+                    {isPending ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+                        <span className="truncate">{isBn ? 'প্রক্রিয়াধীন...' : 'Processing...'}</span>
+                      </>
+                    ) : activeExistingVisit ? (
+                      <>
+                        <AlertTriangle className="w-4 h-4 shrink-0" />
+                        <span className="truncate">{isBn ? 'ইতিমধ্যে চেক-ইন' : 'Already In'}</span>
+                      </>
+                    ) : (
+                      <>
+                        <UserCheck className="w-4 h-4 shrink-0" />
+                        <span className="truncate">
+                          {matchedBooking
+                            ? (isBn ? 'চেক-ইন ও থেরাপি কিউ' : 'Check-In & Therapy')
+                            : (isBn ? 'ওয়েটিং রুমে চেক-ইন' : 'Waiting Room Check-In')}
+                        </span>
+                      </>
+                    )}
+                  </Button>
+
+                  {/* Button 2: Instant Doctor Consultation Serial & Check-In */}
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      if (!selectedPatient) {
+                        toast.error(isBn ? 'অনুগ্রহ করে প্রথমে একজন রোগী নির্বাচন করুন' : 'Please select a patient first');
+                        return;
+                      }
+                      if (activeExistingVisit) {
+                        toast.error(isBn ? 'এই রোগী ইতিমধ্যে আজ চেক-ইন আছেন' : 'Patient already checked in today');
+                        return;
+                      }
+                      setIsInstantConsultationOpen(true);
+                    }}
+                    disabled={!selectedPatient || Boolean(activeExistingVisit)}
+                    className={`h-11 sm:h-12 text-xs sm:text-sm font-bold gap-2 shadow-sm transition-all rounded-xl ${
+                      activeExistingVisit || !selectedPatient
+                        ? 'bg-muted text-muted-foreground cursor-not-allowed opacity-60'
+                        : 'bg-blue-600 hover:bg-blue-700 text-white cursor-pointer active:scale-95 shadow-blue-500/15'
+                    }`}
+                  >
+                    <Stethoscope className="w-4 h-4 shrink-0 text-blue-200" />
+                    <span className="truncate">
+                      {isBn ? 'ডাক্তার সিরিয়াল ও চেক-ইন' : 'Consultation & Check-In'}
+                    </span>
+                  </Button>
+
+                  {/* Button 3: Instant Therapy Slot & Check-In */}
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      if (!selectedPatient) {
+                        toast.error(isBn ? 'অনুগ্রহ করে প্রথমে একজন রোগী নির্বাচন করুন' : 'Please select a patient first');
+                        return;
+                      }
+                      if (activeExistingVisit) {
+                        toast.error(isBn ? 'এই রোগী ইতিমধ্যে আজ চেক-ইন আছেন' : 'Patient already checked in today');
+                        return;
+                      }
+                      setIsInstantTherapyOpen(true);
+                    }}
+                    disabled={!selectedPatient || Boolean(activeExistingVisit)}
+                    className={`h-11 sm:h-12 text-xs sm:text-sm font-bold gap-2 shadow-sm transition-all rounded-xl ${
+                      activeExistingVisit || !selectedPatient
+                        ? 'bg-muted text-muted-foreground cursor-not-allowed opacity-60'
+                        : 'bg-teal-600 hover:bg-teal-700 text-white cursor-pointer active:scale-95 shadow-teal-500/15'
+                    }`}
+                  >
+                    <Activity className="w-4 h-4 shrink-0 text-teal-200" />
+                    <span className="truncate">
+                      {isBn ? 'থেরাপি স্লট ও চেক-ইন' : 'Therapy Slot & Check-In'}
+                    </span>
+                  </Button>
+                </div>
               </div>
             </Card>
           </div>
@@ -2165,6 +2221,16 @@ export function CheckInWorkstationView() {
               </div>
               <div className="text-[10px] text-zinc-600">চাঁচড়া ডালমিল মোড়, যশোর · hpc@toufiquzzaman.com</div>
               <div className="border-t border-b border-dashed border-zinc-400 py-2 my-1">
+                {slipModalData.serialNumber != null && (
+                  <div className="mb-1.5 pb-1 border-b border-dashed border-zinc-300">
+                    <div className="text-[10px] uppercase font-bold text-zinc-600">
+                      {isBn ? 'ডাক্তার কনসালটেশন সিরিয়াল' : 'DOCTOR SERIAL NO.'}
+                    </div>
+                    <div className="text-3xl font-black text-black">
+                      #{slipModalData.serialNumber}
+                    </div>
+                  </div>
+                )}
                 <div className="text-[10px] uppercase tracking-wider text-zinc-500 font-bold">
                   {isBn ? 'আগমনের সময়' : 'ARRIVAL TIME'}
                 </div>
@@ -2176,6 +2242,9 @@ export function CheckInWorkstationView() {
               <div className="text-left text-[11px] space-y-0.5 pt-1">
                 <div><strong>রোগী:</strong> {slipModalData.patientName}</div>
                 <div><strong>MRN:</strong> {slipModalData.mrn}</div>
+                {slipModalData.destination && (
+                  <div><strong>গন্তব্য / রুম:</strong> {slipModalData.destination}</div>
+                )}
                 {slipModalData.toldTime && <div><strong>Told Time:</strong> {slipModalData.toldTime}</div>}
                 {slipModalData.punctualityStatus && (
                   <div>
@@ -2302,6 +2371,62 @@ export function CheckInWorkstationView() {
         patientName={timelinePatient?.name}
         mrn={timelinePatient?.mrn}
         phone={timelinePatient?.phone}
+      />
+
+      {/* INSTANT CONSULTATION SERIAL & CHECK-IN MODAL */}
+      <InstantConsultationCheckInModal
+        open={isInstantConsultationOpen}
+        onOpenChange={setIsInstantConsultationOpen}
+        patient={selectedPatient}
+        onSuccess={(res) => {
+          setSlipModalData({
+            tokenNumber: res.tokenNumber,
+            serialNumber: res.serialNumber,
+            patientName: selectedPatient
+              ? (isBn ? selectedPatient.nameBn || selectedPatient.nameEn : selectedPatient.nameEn)
+              : 'Patient',
+            mrn: selectedPatient?.mrn || '',
+            destination: `ডাক্তার: ${res.doctorName} (সিরিয়াল #${res.serialNumber || 'N/A'})`,
+            toldTime: res.slotTime || null,
+            punctualityStatus: 'on_time',
+            delayMinutes: 0,
+            date: res.date,
+            time: new Date().toISOString(),
+          });
+          setSelectedPatient(null);
+          setSearchQuery('');
+          setCustomToldTime('');
+          setNotes('');
+          loadData();
+        }}
+      />
+
+      {/* INSTANT THERAPY SLOT & CHECK-IN MODAL */}
+      <InstantTherapySlotCheckInModal
+        open={isInstantTherapyOpen}
+        onOpenChange={setIsInstantTherapyOpen}
+        patient={selectedPatient}
+        onSuccess={(res) => {
+          setSlipModalData({
+            tokenNumber: res.tokenNumber,
+            serialNumber: null,
+            patientName: selectedPatient
+              ? (isBn ? selectedPatient.nameBn || selectedPatient.nameEn : selectedPatient.nameEn)
+              : 'Patient',
+            mrn: selectedPatient?.mrn || '',
+            destination: `থেরাপি রুম: ${res.roomName} (${res.slotHour})`,
+            toldTime: res.slotHour || null,
+            punctualityStatus: 'on_time',
+            delayMinutes: 0,
+            date: res.date,
+            time: new Date().toISOString(),
+          });
+          setSelectedPatient(null);
+          setSearchQuery('');
+          setCustomToldTime('');
+          setNotes('');
+          loadData();
+        }}
       />
     </div>
   );
