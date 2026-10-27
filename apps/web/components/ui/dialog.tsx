@@ -27,7 +27,8 @@ function Dialog({ open, onOpenChange, children }: DialogProps) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 md:p-6 overflow-y-auto print:static print:inset-auto print:block print:p-0 print:m-0 print:overflow-visible print:bg-transparent print:h-auto print:w-auto"
+      data-dialog-root="true"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 md:p-6 overflow-y-auto print:static print:inset-auto print:block print:!p-0 print:!m-0 print:overflow-visible print:!bg-transparent print:!border-none print:h-auto print:w-auto"
       style={{
         paddingTop: 'max(1.25rem, calc(env(safe-area-inset-top, 0px) + 0.75rem))',
         paddingBottom: 'max(1.25rem, calc(env(safe-area-inset-bottom, 0px) + 0.75rem))',
@@ -36,10 +37,10 @@ function Dialog({ open, onOpenChange, children }: DialogProps) {
       }}
     >
       <div
-        className="fixed inset-0 bg-black/80 backdrop-blur-sm transition-opacity animate-in fade-in print:hidden"
+        className="fixed inset-0 bg-black/80 backdrop-blur-sm transition-opacity animate-in fade-in print:hidden print:!hidden"
         onClick={() => onOpenChange(false)}
       />
-      <div className="relative z-50 w-full flex items-center justify-center pointer-events-none [&>*]:pointer-events-auto my-auto print:static print:block print:w-auto print:m-0 print:p-0">
+      <div className="relative z-50 w-full flex items-center justify-center pointer-events-none [&>*]:pointer-events-auto my-auto print:static print:block print:w-full print:!m-0 print:!p-0">
         {children}
       </div>
     </div>
@@ -52,9 +53,10 @@ const DialogContent = React.forwardRef<
 >(({ className, children, onClose, ...props }, ref) => (
   <div
     ref={ref}
+    data-dialog-content="true"
     className={cn(
       'relative w-full max-w-lg max-h-[calc(100dvh-max(2.5rem,calc(env(safe-area-inset-top,0px)+env(safe-area-inset-bottom,0px)+1.5rem)))] overflow-y-auto rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-4 sm:p-6 shadow-2xl animate-in zoom-in-95 duration-200 text-zinc-950 dark:text-white',
-      'print:static print:block print:max-w-none print:max-h-none print:overflow-visible print:border-none print:shadow-none print:p-0 print:m-0 print:bg-transparent print:transform-none print:animate-none',
+      'print:static print:block print:max-w-none print:max-h-none print:overflow-visible print:!border-none print:!shadow-none print:!p-0 print:!m-0 print:!bg-transparent print:transform-none print:animate-none',
       className
     )}
     {...props}

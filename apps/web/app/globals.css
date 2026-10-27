@@ -539,14 +539,27 @@ select:-webkit-autofill:active {
   footer,
   [data-sonner-toaster],
   .toaster,
-  button {
+  button,
+  div[class*="bg-black/80"],
+  div[class*="backdrop-blur"] {
     display: none !important;
   }
 
-  /* Universal Print Base resets */
+  /* Universal Print Base resets: Guarantee pure white paper regardless of .dark or [data-theme='dark'] */
+  :root,
   html,
-  body {
+  body,
+  .dark,
+  [data-theme='dark'] {
+    --background: #ffffff !important;
+    --foreground: #000000 !important;
+    --card: #ffffff !important;
+    --card-foreground: #000000 !important;
+    --popover: #ffffff !important;
+    --popover-foreground: #000000 !important;
+    --border: #d4d4d8 !important;
     background: #ffffff !important;
+    background-color: #ffffff !important;
     color: #000000 !important;
     margin: 0 !important;
     padding: 0 !important;
@@ -558,13 +571,16 @@ select:-webkit-autofill:active {
     print-color-adjust: exact !important;
   }
 
-  /* Strip all dialog / modal overlay / portal / flex containers during print so content is never centered or pushed down */
+  /* Strip all dialog / modal overlay / portal / flex containers during print so content is never centered awkwardly or pushed down */
   [role="dialog"],
   [data-radix-portal],
+  [data-dialog-root],
+  [data-dialog-content],
   div[class*="fixed inset-0"],
   div[class*="items-center"],
   div[class*="justify-center"],
-  div[class*="overflow-y-auto"] {
+  div[class*="overflow-y-auto"],
+  .sheet-report-wrapper {
     position: static !important;
     display: block !important;
     transform: none !important;
@@ -574,10 +590,20 @@ select:-webkit-autofill:active {
     max-width: none !important;
     min-height: 0 !important;
     padding: 0 !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
     margin: 0 !important;
     border: none !important;
+    border-width: 0 !important;
     background: transparent !important;
+    background-color: transparent !important;
     box-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    width: 100% !important;
+    height: auto !important;
   }
 
   /* Specialized Print Classes mandated by Directives */
@@ -600,7 +626,7 @@ select:-webkit-autofill:active {
     max-width: 190mm !important;
     height: auto !important;
     min-height: 0 !important;
-    margin: 0 !important;
+    margin: 0 auto !important;
     padding: 0 !important;
   }
 
@@ -655,9 +681,10 @@ select:-webkit-autofill:active {
   .sheet-report,
   .sheet-report-a4 {
     page: report-a4;
-    position: absolute !important;
-    left: 0 !important;
-    top: 0 !important;
+    position: relative !important;
+    left: auto !important;
+    right: auto !important;
+    top: auto !important;
     width: 100% !important;
     max-width: 190mm !important;
     height: auto !important;
@@ -665,7 +692,9 @@ select:-webkit-autofill:active {
     background: #ffffff !important;
     color: #000000 !important;
     padding: 0 !important;
-    margin: 0 !important;
+    margin: 0 auto !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
     box-shadow: none !important;
     border: none !important;
     font-family: var(--font-poppins, 'Poppins'), 'Hind Siliguri', 'Noto Sans Bengali', system-ui, sans-serif !important;
