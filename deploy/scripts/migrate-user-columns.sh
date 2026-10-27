@@ -177,6 +177,29 @@ for DB_FILE in "${DB_LOCATIONS[@]}"; do
       DROP TABLE IF EXISTS action_grants;
     "
 
+    # 8. Ensure chat_messages table and indexes exist
+    echo "💬 Ensuring chat_messages table and indexes exist..."
+    sqlite3 "$DB_FILE" "
+      CREATE TABLE IF NOT EXISTS chat_messages (
+        id TEXT PRIMARY KEY NOT NULL,
+        chat_date TEXT NOT NULL,
+        sender_user_id TEXT NOT NULL REFERENCES users(id),
+        sender_name TEXT NOT NULL,
+        sender_role TEXT NOT NULL,
+        content TEXT NOT NULL,
+        priority TEXT NOT NULL DEFAULT 'normal',
+        message_type TEXT NOT NULL DEFAULT 'text',
+        patient_id TEXT REFERENCES patients(id),
+        patient_mrn TEXT,
+        patient_name TEXT,
+        mentions TEXT,
+        metadata TEXT,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_chat_messages_date ON chat_messages(chat_date);
+    "
+
     # 5. Ensure medicines table has current_stock and mrp_paisa
     echo "💊 Ensuring medicines table has current_stock and mrp_paisa..."
     MED_COLS=$(sqlite3 "$DB_FILE" "PRAGMA table_info('medicines');" | awk -F'|' '{print $2}')

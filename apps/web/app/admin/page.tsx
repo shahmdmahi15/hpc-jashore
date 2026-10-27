@@ -20,6 +20,7 @@ import { PatientManagementView } from '../../components/patient/PatientManagemen
 import { CheckInWorkstationView } from '../../components/checkin/CheckInWorkstationView';
 import { CheckoutWorkstationView } from '../../components/checkout/CheckoutWorkstationView';
 import { ConsultationBookingView } from '../../components/consultation/ConsultationBookingView';
+import { ClinicRealtimeChatView } from '../../components/chat/ClinicRealtimeChatView';
 import { useLanguage } from '../../lib/i18n';
 import {
   ShieldCheck,
@@ -371,7 +372,11 @@ export default function AdminPage() {
               <ExtraSlotManagementView />
             </TabsContent>
 
-            {ADMIN_ROW2_TABS.filter((t) => t.id !== 'checkin' && t.id !== 'checkout' && t.id !== 'consultation_serial' && t.id !== 'therapy_slot' && t.id !== 'therapy_queue' && t.id !== 'patients' && t.id !== 'extra_slot').map((tab) => (
+            <TabsContent value="chat" className="mt-4 focus-visible:outline-none">
+              <ClinicRealtimeChatView />
+            </TabsContent>
+
+            {ADMIN_ROW2_TABS.filter((t) => t.id !== 'checkin' && t.id !== 'checkout' && t.id !== 'consultation_serial' && t.id !== 'therapy_slot' && t.id !== 'therapy_queue' && t.id !== 'patients' && t.id !== 'extra_slot' && t.id !== 'chat').map((tab) => (
               <TabsContent key={tab.id} value={tab.id} className="mt-4 focus-visible:outline-none">
                 <WorkstationTabPlaceholder
                   titleEn={tab.titleEn}

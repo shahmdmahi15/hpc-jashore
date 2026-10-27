@@ -414,6 +414,22 @@ export const api = {
     createExpense: (data: any) =>
       apiFetch<any>('/inventory/expenses', { method: 'POST', body: JSON.stringify(data) }),
   },
+  chat: {
+    getMessages: (date?: string) =>
+      apiFetch<any[]>(`/chat/messages${date ? `?date=${encodeURIComponent(date)}` : ''}`),
+    getDates: () => apiFetch<string[]>('/chat/dates'),
+    sendMessage: (data: {
+      content: string;
+      chatDate?: string;
+      priority?: 'normal' | 'urgent' | 'stat';
+      messageType?: 'text' | 'patient_mention' | 'clinical_handoff' | 'broadcast';
+      patientId?: string;
+      mentions?: string[];
+      metadata?: Record<string, any>;
+    }) => apiFetch<any>('/chat/messages', { method: 'POST', body: JSON.stringify(data) }),
+    searchMentions: (type: 'patient' | 'user', q: string) =>
+      apiFetch<any[]>(`/chat/search-mentions?type=${type}&q=${encodeURIComponent(q)}`),
+  },
   reports: {
     getTodaySummary: async () => {
       try {

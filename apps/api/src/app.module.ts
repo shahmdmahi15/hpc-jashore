@@ -7,6 +7,7 @@ import { AuthModule } from './auth/auth.module';
 import { BillingModule } from './billing/billing.module';
 import { BulletinsModule } from './bulletins/bulletins.module';
 import { CatalogModule } from './catalog/catalog.module';
+import { ChatModule } from './chat/chat.module';
 import { ClinicalModule } from './clinical/clinical.module';
 import configuration from './config/configuration';
 import { RequestIdMiddleware } from './common/request-id.middleware';
@@ -65,6 +66,7 @@ import { VisitsModule } from './visits/visits.module';
     RoomsModule,
     TherapySlotsModule,
     ConsultationBookingsModule,
+    ChatModule,
   ],
   controllers: [HealthController],
 })

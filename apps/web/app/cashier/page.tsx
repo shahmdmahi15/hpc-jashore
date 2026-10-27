@@ -11,6 +11,7 @@ import { TherapySlotBookingView } from '../../components/therapy/TherapySlotBook
 import { CheckInWorkstationView } from '../../components/checkin/CheckInWorkstationView';
 import { CheckoutWorkstationView } from '../../components/checkout/CheckoutWorkstationView';
 import { ConsultationBookingView } from '../../components/consultation/ConsultationBookingView';
+import { ClinicRealtimeChatView } from '../../components/chat/ClinicRealtimeChatView';
 import { useLanguage } from '../../lib/i18n';
 import {
   CreditCard,
@@ -167,7 +168,11 @@ export default function CashierPage() {
               <TherapySlotBookingView />
             </TabsContent>
 
-            {CASHIER_TABS.filter((t) => t.id !== 'checkin' && t.id !== 'checkout' && t.id !== 'dues' && t.id !== 'consultation_serial' && t.id !== 'patients' && t.id !== 'therapy_slot').map((tab) => (
+            <TabsContent value="chat" className="mt-4 focus-visible:outline-none">
+              <ClinicRealtimeChatView />
+            </TabsContent>
+
+            {CASHIER_TABS.filter((t) => t.id !== 'checkin' && t.id !== 'checkout' && t.id !== 'dues' && t.id !== 'consultation_serial' && t.id !== 'patients' && t.id !== 'therapy_slot' && t.id !== 'chat').map((tab) => (
               <TabsContent key={tab.id} value={tab.id} className="mt-4 focus-visible:outline-none">
                 <WorkstationTabPlaceholder
                   titleEn={tab.titleEn}

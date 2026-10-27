@@ -12,6 +12,7 @@ import { ExtraSlotManagementView } from '../../components/therapy/ExtraSlotManag
 import { CheckInWorkstationView } from '../../components/checkin/CheckInWorkstationView';
 import { CheckoutWorkstationView } from '../../components/checkout/CheckoutWorkstationView';
 import { ConsultationBookingView } from '../../components/consultation/ConsultationBookingView';
+import { ClinicRealtimeChatView } from '../../components/chat/ClinicRealtimeChatView';
 import { useLanguage } from '../../lib/i18n';
 import {
   Stethoscope,
@@ -171,7 +172,11 @@ export default function DoctorPage() {
               <ExtraSlotManagementView />
             </TabsContent>
 
-            {DOCTOR_TABS.filter((t) => t.id !== 'consultation_queue' && t.id !== 'checkin' && t.id !== 'checkout' && t.id !== 'consultation_serial' && t.id !== 'patients' && t.id !== 'therapy_slot' && t.id !== 'extra_slot').map((tab) => (
+            <TabsContent value="chat" className="mt-4 focus-visible:outline-none">
+              <ClinicRealtimeChatView />
+            </TabsContent>
+
+            {DOCTOR_TABS.filter((t) => t.id !== 'consultation_queue' && t.id !== 'checkin' && t.id !== 'checkout' && t.id !== 'consultation_serial' && t.id !== 'patients' && t.id !== 'therapy_slot' && t.id !== 'extra_slot' && t.id !== 'chat').map((tab) => (
               <TabsContent key={tab.id} value={tab.id} className="mt-4 focus-visible:outline-none">
                 <WorkstationTabPlaceholder
                   titleEn={tab.titleEn}

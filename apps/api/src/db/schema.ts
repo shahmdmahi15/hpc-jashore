@@ -13,6 +13,7 @@ export type Role =
   | 'admin'
   | 'doctor'
   | 'handler'
+  | 'therapist'
   | 'cashier'
   | 'receptionist';
 
@@ -903,6 +904,39 @@ export const patientAssessmentFiles = sqliteTable('patient_assessment_files', {
   improvement: text('improvement'),
   therapistSignature: text('therapist_signature'),
   status: text('status').notNull().default('active'),
+  ...timestamps,
+});
+
+export const CHAT_PRIORITIES = ['normal', 'urgent', 'stat'] as const;
+export type ChatPriority = (typeof CHAT_PRIORITIES)[number];
+
+export const CHAT_MESSAGE_TYPES = [
+  'text',
+  'patient_mention',
+  'clinical_handoff',
+  'broadcast',
+] as const;
+export type ChatMessageType = (typeof CHAT_MESSAGE_TYPES)[number];
+
+export const chatMessages = sqliteTable('chat_messages', {
+  id: text('id').primaryKey(),
+  chatDate: text('chat_date').notNull(), // 'YYYY-MM-DD'
+  senderUserId: text('sender_user_id')
+    .notNull()
+    .references(() => users.id),
+  senderName: text('sender_name').notNull(),
+  senderRole: text('sender_role').notNull(),
+  content: text('content').notNull(),
+  priority: text('priority').notNull().default('normal').$type<ChatPriority>(),
+  messageType: text('message_type')
+    .notNull()
+    .default('text')
+    .$type<ChatMessageType>(),
+  patientId: text('patient_id').references(() => patients.id),
+  patientMrn: text('patient_mrn'),
+  patientName: text('patient_name'),
+  mentions: text('mentions'), // JSON string array of user IDs/roles
+  metadata: text('metadata'), // JSON string
   ...timestamps,
 });
 
