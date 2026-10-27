@@ -14,7 +14,9 @@ import { DB, type Db } from '../db/db.module';
 import {
   bills,
   billItems,
+  cashDrawers,
   consultationBookings,
+  drawerEvents,
   dues,
   packageCredits,
   patientAssessmentFiles,
@@ -952,6 +954,19 @@ export class PatientsService {
     const feeTaka = Math.round(feePaisa / 100);
     const paymentMethod = dto.paymentMethod || 'cash';
 
+    // Strict Cash Drawer check: Cashier cannot collect consultation fee without an open drawer
+    const activeDrawerRows = await this.db
+      .select()
+      .from(cashDrawers)
+      .where(and(eq(cashDrawers.cashierStaffId, actor.sub), eq(cashDrawers.status, 'open')))
+      .limit(1);
+    const activeDrawer = activeDrawerRows[0];
+    if (!activeDrawer) {
+      throw new BadRequestException(
+        'ক্যাশ ড্রয়ার বন্ধ রয়েছে। কনসালটেশন ফি গ্রহণের পূর্বে অবশ্যই ক্যাশ ড্রয়ার খুলতে হবে। (Cash drawer is closed. Must open cash drawer before accepting consultation fee.)',
+      );
+    }
+
     // 3. Ensure Visit exists
     let visitId = intake.visitId;
     let tokenNumber = intake.tokenNumber;
@@ -1024,6 +1039,20 @@ export class PatientsService {
       updatedAt: now,
     };
     await this.db.insert(payments).values(paymentRow);
+
+    // Record cash in active drawer if payment is cash
+    if (cleanMethod === 'cash') {
+      await this.db.insert(drawerEvents).values({
+        id: randomUUID(),
+        drawerId: activeDrawer.id,
+        eventType: 'sale_cash',
+        amountPaisa: feePaisa,
+        description: `Consultation fee for ${doctorName} - ${billNumber}`,
+        staffId: actor.sub,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
 
     const createdBill = {
       ...billRow,

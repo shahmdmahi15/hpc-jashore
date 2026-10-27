@@ -209,11 +209,11 @@ export type Db = BetterSQLite3Database<typeof schema>;
             console.error('Error ensuring staff mirror table:', staffSyncErr);
           }
 
-          // Migrate cash_drawers table FK to reference users(id) instead of staff(id)
+          // Migrate cash_drawers table FK to reference users(id) instead of staff(id), shifts(id), desks(id)
           try {
             const cdFkList = sqlite.prepare("PRAGMA foreign_key_list(cash_drawers)").all() as Array<{ table: string; from: string }>;
-            const cdReferencesStaff = cdFkList.some((fk) => fk.table === 'staff');
-            if (cdReferencesStaff) {
+            const cdReferencesLegacy = cdFkList.some((fk) => fk.table === 'staff' || fk.table === 'shifts' || fk.table === 'desks');
+            if (cdReferencesLegacy) {
               sqlite.exec("PRAGMA foreign_keys = OFF;");
               sqlite.exec(`
                 CREATE TABLE IF NOT EXISTS _cash_drawers_migrated (
@@ -269,6 +269,23 @@ export type Db = BetterSQLite3Database<typeof schema>;
           } catch (deMigrateErr) {
             console.error('Error migrating drawer_events FK:', deMigrateErr);
             sqlite.exec("PRAGMA foreign_keys = ON;");
+          }
+
+          // Ensure legacy physical tables are completely dropped
+          try {
+            sqlite.exec(`
+              DROP TABLE IF EXISTS stock_moves;
+              DROP TABLE IF EXISTS inventory_items;
+              DROP TABLE IF EXISTS shifts;
+              DROP TABLE IF EXISTS desks;
+              DROP TABLE IF EXISTS attendance;
+              DROP TABLE IF EXISTS action_grants;
+              DROP TABLE IF EXISTS pin_credentials;
+              DROP TABLE IF EXISTS batches;
+              DROP TABLE IF EXISTS machines;
+            `);
+          } catch (dropErr) {
+            console.error('Error dropping legacy tables:', dropErr);
           }
 
           // Ensure packages and package_credits schema columns and presets exist idempotently

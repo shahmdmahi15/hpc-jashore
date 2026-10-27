@@ -33,46 +33,38 @@ export class CreateMedicineDto {
   @IsOptional()
   @IsString()
   strength?: string;
-
-  @ApiPropertyOptional({ example: 50 })
-  @IsOptional()
-  @IsInt()
-  @Min(1)
-  minStockAlert?: number;
-
-  @ApiPropertyOptional({ example: 100 })
-  @IsOptional()
-  @IsInt()
-  @Min(0)
-  currentStock?: number;
-
-  @ApiPropertyOptional({ example: 350, description: 'MRP per unit in paisa' })
-  @IsOptional()
-  @IsInt()
-  @Min(0)
-  mrpPaisa?: number;
 }
 
-export class DispenseMedicineDto {
-  @ApiProperty()
+export class UpdateMedicineDto {
+  @ApiPropertyOptional({ example: 'Tab. Ace Plus 500mg' })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  medicineId!: string;
+  brandName?: string;
 
-  @ApiProperty({ example: 14 })
+  @ApiPropertyOptional({ example: 'Paracetamol + Caffeine' })
+  @IsOptional()
+  @IsString()
+  genericName?: string;
+
+  @ApiPropertyOptional({ example: 'Square Pharmaceuticals PLC' })
+  @IsOptional()
+  @IsString()
+  manufacturer?: string;
+
+  @ApiPropertyOptional({ example: 'tablet' })
+  @IsOptional()
+  @IsString()
+  form?: string;
+
+  @ApiPropertyOptional({ example: '500mg + 65mg' })
+  @IsOptional()
+  @IsString()
+  strength?: string;
+
+  @ApiPropertyOptional({ example: 1 })
+  @IsOptional()
   @IsInt()
-  @Min(1)
-  quantity!: number;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  prescriptionItemId?: string;
-
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  note?: string;
+  isActive?: number;
 }
 
 export class CreateExpenseDto {

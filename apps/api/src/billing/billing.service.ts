@@ -218,6 +218,15 @@ export class BillingService {
     meta: { ip?: string | null; requestId?: string | null },
   ) {
     const effectiveCashierId = await this.resolveStaffId(cashierStaffId);
+
+    // Strict Cash Drawer check: Cashier cannot collect any bills without an open drawer
+    const activeDrawer = await this.getCurrentDrawer(effectiveCashierId);
+    if (!activeDrawer.hasActiveDrawer || !activeDrawer.drawer) {
+      throw new BadRequestException(
+        'ক্যাশ ড্রয়ার বন্ধ রয়েছে। বিল বা পেমেন্ট গ্রহণের পূর্বে অবশ্যই ক্যাশ ড্রয়ার খুলতে হবে। (Cash drawer is closed. Must open cash drawer before accepting payments.)',
+      );
+    }
+
     const billRows = await this.db.select().from(bills).where(eq(bills.id, billId));
     const bill = billRows[0];
     if (!bill) throw new NotFoundException('Bill not found');
@@ -282,23 +291,16 @@ export class BillingService {
 
     // Record cash in active drawer if payment is cash
     if (dto.method === 'cash') {
-      const activeDrawer = await this.db
-        .select()
-        .from(cashDrawers)
-        .where(and(eq(cashDrawers.cashierStaffId, effectiveCashierId), eq(cashDrawers.status, 'open')))
-        .limit(1);
-      if (activeDrawer[0]) {
-        await this.db.insert(drawerEvents).values({
-          id: randomUUID(),
-          drawerId: activeDrawer[0].id,
-          eventType: 'sale_cash',
-          amountPaisa: dto.amountPaisa,
-          description: `Bill payment for ${bill.billNumber}`,
-          staffId: effectiveCashierId,
-          createdAt: now,
-          updatedAt: now,
-        });
-      }
+      await this.db.insert(drawerEvents).values({
+        id: randomUUID(),
+        drawerId: activeDrawer.drawer.id,
+        eventType: 'sale_cash',
+        amountPaisa: dto.amountPaisa,
+        description: `Bill payment for ${bill.billNumber}`,
+        staffId: effectiveCashierId,
+        createdAt: now,
+        updatedAt: now,
+      });
     }
 
     const payload = {
@@ -486,7 +488,7 @@ export class BillingService {
         .from(cashDrawers)
         .where(and(eq(cashDrawers.cashierStaffId, effectiveCashierId), eq(cashDrawers.status, 'open')));
       if (existing.length > 0) {
-        throw new BadRequestException('You already have an open drawer shift. Close it first.');
+        throw new BadRequestException('You already have an open cash drawer. Close it first before opening a new one.');
       }
 
       const now = new Date().toISOString();

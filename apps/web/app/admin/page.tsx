@@ -11,6 +11,7 @@ import BulletinManagementView from '../../components/admin/BulletinManagementVie
 import { RoomManagementView } from '../../components/admin/RoomManagementView';
 import { TherapySlotConfigView } from '../../components/admin/TherapySlotConfigView';
 import { ConsultationConfigView } from '../../components/admin/ConsultationConfigView';
+import MedicineDirectoryView from '../../components/MedicineDirectoryView';
 import { TherapySlotBookingView } from '../../components/therapy/TherapySlotBookingView';
 import { ExtraSlotManagementView } from '../../components/therapy/ExtraSlotManagementView';
 import { TherapyQueueManagementTab } from '../../components/therapy/TherapyQueueManagementTab';
@@ -78,11 +79,11 @@ const ADMIN_ROW1_TABS = [
   },
   {
     id: 'consultation_serial_config',
-    titleEn: 'Consultation Serial Config',
-    titleBn: 'সিরিয়াল কনফিগারেশন',
+    titleEn: 'Doctor & Consultation Schedule Config',
+    titleBn: 'ডাক্তার ও সময় কনফিগারেশন',
     icon: Settings,
-    descriptionEn: 'Doctor fee schedules, slot durations, maximum daily quotas, and serial sequence counters.',
-    descriptionBn: 'ডাক্তার ভিজিট ফি, চেম্বার সময়সীমা, দৈনিক রোগী কোটা ও অটোমেটিক সিকোয়েন্স কাউন্টার।',
+    descriptionEn: 'Doctor fee schedules, slot durations, daily quotas, and consultation schedules.',
+    descriptionBn: 'ডাক্তার ভিজিট ফি, চেম্বার সময়সীমা, দৈনিক রোগী কোটা ও চেম্বার স্লট নির্ধারণ।',
   },
   {
     id: 'therapy_slot_config',
@@ -102,11 +103,11 @@ const ADMIN_ROW1_TABS = [
   },
   {
     id: 'medicine_directory',
-    titleEn: 'Medicine Directory',
-    titleBn: 'ওষুধ তালিকা ও ইনভেন্টরি',
+    titleEn: 'Prescription Medicine Directory',
+    titleBn: 'প্রেসক্রিপশন ওষুধ তালিকা (ডাইরেক্টরি)',
     icon: Pill,
-    descriptionEn: 'Pharmaceutical master list, generic names, current stock, and unit prices.',
-    descriptionBn: 'ওষুধের তালিকা, জেনেরিক নাম, স্টক ব্যালেন্স ও একক মূল্য নির্ধারণ।',
+    descriptionEn: 'Approved catalog of brand names, generics, forms, and strengths for doctor prescriptions (no selling/stock).',
+    descriptionBn: 'ডাক্তার চেম্বারে প্রেসক্রিপশন লিখার জন্য অনুমোদিত ওষুধের ব্র্যান্ড ও জেনেরিক ক্যাটালগ (ফার্মেসি বিক্রির জন্য নয়)।',
   },
   {
     id: 'audit_logs',
@@ -319,11 +320,15 @@ export default function AdminPage() {
               <TherapySlotConfigView />
             </TabsContent>
 
+            <TabsContent value="medicine_directory" className="mt-4 focus-visible:outline-none">
+              <MedicineDirectoryView />
+            </TabsContent>
+
             <TabsContent value="audit_logs" className="mt-4 focus-visible:outline-none">
               <AuditLogsTab />
             </TabsContent>
 
-            {ADMIN_ROW1_TABS.filter((t) => t.id !== 'overview' && t.id !== 'users_devices' && t.id !== 'bulletins' && t.id !== 'patients_emr' && t.id !== 'room_config' && t.id !== 'therapy_slot_config' && t.id !== 'consultation_serial_config' && t.id !== 'audit_logs').map((tab) => (
+            {ADMIN_ROW1_TABS.filter((t) => t.id !== 'overview' && t.id !== 'users_devices' && t.id !== 'bulletins' && t.id !== 'patients_emr' && t.id !== 'room_config' && t.id !== 'therapy_slot_config' && t.id !== 'consultation_serial_config' && t.id !== 'medicine_directory' && t.id !== 'audit_logs').map((tab) => (
               <TabsContent key={tab.id} value={tab.id} className="mt-4 focus-visible:outline-none">
                 <WorkstationTabPlaceholder
                   titleEn={tab.titleEn}

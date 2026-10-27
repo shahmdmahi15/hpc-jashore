@@ -402,6 +402,13 @@ export const api = {
   },
   inventory: {
     getMedicines: () => apiFetch<any[]>('/inventory/medicines'),
+    getMedicine: (id: string) => apiFetch<any>(`/inventory/medicines/${id}`),
+    createMedicine: (data: any) =>
+      apiFetch<any>('/inventory/medicines', { method: 'POST', body: JSON.stringify(data) }),
+    updateMedicine: (id: string, data: any) =>
+      apiFetch<any>(`/inventory/medicines/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    deleteMedicine: (id: string) =>
+      apiFetch<any>(`/inventory/medicines/${id}`, { method: 'DELETE' }),
     getAlerts: () => apiFetch<any>('/inventory/alerts'),
     getExpenses: () => apiFetch<any[]>('/inventory/expenses'),
     createExpense: (data: any) =>

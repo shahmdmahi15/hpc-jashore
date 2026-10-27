@@ -678,40 +678,6 @@ export const medicines = sqliteTable('medicines', {
   manufacturer: text('manufacturer'),
   form: text('form').notNull().default('tablet'),
   strength: text('strength'),
-  currentStock: integer('current_stock').notNull().default(0),
-  mrpPaisa: integer('mrp_paisa').notNull().default(0),
-  minStockAlert: integer('min_stock_alert').notNull().default(20),
-  isActive: integer('is_active').notNull().default(1),
-  ...timestamps,
-});
-
-export const stockMoves = sqliteTable('stock_moves', {
-  id: text('id').primaryKey(),
-  medicineId: text('medicine_id')
-    .notNull()
-    .references(() => medicines.id),
-  moveType: text('move_type')
-    .notNull()
-    .$type<'purchase' | 'dispense' | 'write_off' | 'return' | 'adjustment'>(),
-  quantity: integer('quantity').notNull(),
-  referenceType: text('reference_type'),
-  referenceId: text('reference_id'),
-  actorStaffId: text('actor_staff_id').references(() => users.id),
-  note: text('note'),
-  ...timestamps,
-});
-
-export const inventoryItems = sqliteTable('inventory_items', {
-  id: text('id').primaryKey(),
-  code: text('code').notNull().unique(),
-  name: text('name').notNull(),
-  category: text('category')
-    .notNull()
-    .$type<'consumables' | 'linen' | 'assets' | 'stationery'>(),
-  roomId: text('room_id').references(() => rooms.id),
-  quantity: integer('quantity').notNull().default(0),
-  unit: text('unit').notNull().default('pcs'),
-  minStockLevel: integer('min_stock_level').notNull().default(10),
   isActive: integer('is_active').notNull().default(1),
   ...timestamps,
 });

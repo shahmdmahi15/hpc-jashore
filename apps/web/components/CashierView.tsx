@@ -352,6 +352,11 @@ export default function CashierView({ session: propSession }: CashierProps = {})
 
   const handleCreateBill = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!activeDrawer?.isOpen) {
+      toast.error('ক্যাশ ড্রয়ার বন্ধ রয়েছে! বিল তৈরির পূর্বে অবশ্যই ক্যাশ ড্রয়ার খুলতে হবে। (Cash drawer is closed!)');
+      setShowOpenDrawerModal(true);
+      return;
+    }
     if (!selectedPatientId) {
       toast.error('অনুগ্রহ করে একজন রোগী নির্বাচন করুন (Select a patient)');
       return;
@@ -412,6 +417,11 @@ export default function CashierView({ session: propSession }: CashierProps = {})
   };
 
   const openPaymentModal = (intake: any) => {
+    if (!activeDrawer?.isOpen) {
+      toast.error('ক্যাশ ড্রয়ার বন্ধ রয়েছে! ফি সংগ্রহের পূর্বে অবশ্যই ক্যাশ ড্রয়ার খুলতে হবে। (Cash drawer is closed!)');
+      setShowOpenDrawerModal(true);
+      return;
+    }
     setSelectedIntakeForPayment(intake);
     setSelectedIntakePriority('normal');
     setConsultationPaymentMethod('cash');
@@ -419,6 +429,11 @@ export default function CashierView({ session: propSession }: CashierProps = {})
   };
 
   const handleAdmitToQueue = async () => {
+    if (!activeDrawer?.isOpen) {
+      toast.error('ক্যাশ ড্রয়ার বন্ধ রয়েছে! ফি সংগ্রহের পূর্বে অবশ্যই ক্যাশ ড্রয়ার খুলতে হবে।');
+      setShowOpenDrawerModal(true);
+      return;
+    }
     if (!selectedIntakeForPayment) return;
     const fixedFee = getDoctorFixedFeeTaka(selectedIntakeForPayment);
 
@@ -477,6 +492,11 @@ export default function CashierView({ session: propSession }: CashierProps = {})
 
   // Open Therapy Bill Payment Modal
   const openTherapyPaymentModal = (bill: any) => {
+    if (!activeDrawer?.isOpen) {
+      toast.error('ক্যাশ ড্রয়ার বন্ধ রয়েছে! বিল সংগ্রহের পূর্বে অবশ্যই ক্যাশ ড্রয়ার খুলতে হবে। (Cash drawer is closed!)');
+      setShowOpenDrawerModal(true);
+      return;
+    }
     setSelectedTherapyBillForPayment(bill);
     setTherapyPaymentMethod('cash');
     setTherapyTxnId('');
@@ -484,6 +504,11 @@ export default function CashierView({ session: propSession }: CashierProps = {})
 
   // Process Handler Locked Fixed Bill & Forward to Reception
   const handleCollectTherapyBill = async () => {
+    if (!activeDrawer?.isOpen) {
+      toast.error('ক্যাশ ড্রয়ার বন্ধ রয়েছে! বিল সংগ্রহের পূর্বে অবশ্যই ক্যাশ ড্রয়ার খুলতে হবে।');
+      setShowOpenDrawerModal(true);
+      return;
+    }
     if (!selectedTherapyBillForPayment) return;
     const bill = selectedTherapyBillForPayment;
     try {
@@ -610,7 +635,7 @@ export default function CashierView({ session: propSession }: CashierProps = {})
       await api.billing.openDrawer({
         openingCashPaisa: Math.max(0, openingCashTaka) * 100,
       });
-      toast.success('ক্যাশ ড্রয়ার সফলভাবে খোলা হয়েছে! (Cash Drawer Opened for shift)');
+      toast.success('ক্যাশ ড্রয়ার সফলভাবে খোলা হয়েছে! বিল গ্রহণ এখন সক্রিয়। (Cash Drawer Opened)');
       setShowOpenDrawerModal(false);
       loadData();
     } catch (err: any) {
@@ -626,7 +651,7 @@ export default function CashierView({ session: propSession }: CashierProps = {})
         closingCashActualPaisa: Math.max(0, closingCashActualTaka) * 100,
         varianceReason: closingReason || undefined,
       });
-      toast.success(`শিফট সমাপ্ত! Variance: ৳${((res.variancePaisa || 0) / 100).toFixed(2)}`);
+      toast.success(`ক্যাশ ড্রয়ার বন্ধ সম্পন্ন! বিল গ্রহণ লক করা হয়েছে। (Drawer closed - billing locked)`);
       setShowCloseDrawerModal(false);
       loadData();
     } catch (err: any) {
@@ -655,19 +680,21 @@ export default function CashierView({ session: propSession }: CashierProps = {})
                 )}
               />
               <span className="text-base sm:text-lg font-bold text-foreground">
-                Cash Drawer: {activeDrawer?.isOpen ? 'OPEN & ACTIVE' : 'CLOSED'}
+                ক্যাশ ড্রয়ার: {activeDrawer?.isOpen ? 'সক্রিয় ও খোলা (OPEN)' : 'বন্ধ (CLOSED - বিল গ্রহণ লক্ড)'}
               </span>
               <Badge variant={activeDrawer?.isOpen ? 'success' : 'destructive'} className="ml-1">
-                {activeDrawer?.isOpen ? 'Shift Active' : 'Offline'}
+                {activeDrawer?.isOpen ? 'ড্রয়ার খোলা (Active)' : 'লকড (Locked)'}
               </Badge>
             </div>
             <p className="text-xs sm:text-sm text-muted-foreground">
               {activeDrawer?.isOpen ? (
                 <span>
-                  Opening Float: <strong className="text-foreground">৳{((activeDrawer.drawer.openingCashPaisa || 0) / 100).toFixed(0)}</strong> · Cash Collected: <strong className="text-foreground">৳{((activeDrawer.cashCollectedPaisa || 0) / 100).toFixed(0)}</strong>
+                  ওপেনিং ক্যাশ: <strong className="text-foreground">৳{((activeDrawer.drawer.openingCashPaisa || 0) / 100).toFixed(0)}</strong> · ড্রয়ার ক্যাশ সংগ্রহ: <strong className="text-foreground">৳{((activeDrawer.cashCollectedPaisa || 0) / 100).toFixed(0)}</strong>
                 </span>
               ) : (
-                'Please open cash drawer to start accepting payments.'
+                <span className="text-red-600 dark:text-red-400 font-medium">
+                  ক্যাশ ড্রয়ার বন্ধ রয়েছে। বিল গ্রহণ বা ফি সংগ্রহের পূর্বে অবশ্যই ক্যাশ ড্রয়ার খুলতে হবে।
+                </span>
               )}
             </p>
           </div>
@@ -680,21 +707,43 @@ export default function CashierView({ session: propSession }: CashierProps = {})
                 onClick={() => setShowCloseDrawerModal(true)}
                 className="whitespace-nowrap border-red-500/30 text-red-600 hover:bg-red-500/10 cursor-pointer"
               >
-                🔒 Close Drawer &amp; Reconcile Shift
+                🔒 ক্যাশ ড্রয়ার বন্ধ করুন (Close Drawer)
               </Button>
             ) : (
               <Button
                 variant="default"
                 size="sm"
                 onClick={() => setShowOpenDrawerModal(true)}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold whitespace-nowrap cursor-pointer"
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold whitespace-nowrap cursor-pointer shadow-sm animate-pulse"
               >
-                🔓 Open Cash Drawer Float
+                🔓 ক্যাশ ড্রয়ার খুলুন (Open Drawer)
               </Button>
             )}
           </div>
         </CardContent>
       </Card>
+
+      {/* Prominent Red Alert when Drawer is Closed */}
+      {!activeDrawer?.isOpen && (
+        <div className="p-4 rounded-xl border border-red-500/40 bg-red-500/10 text-red-800 dark:text-red-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-center gap-3">
+            <Lock className="size-5 shrink-0 text-red-600 dark:text-red-400" />
+            <div>
+              <p className="font-bold text-sm sm:text-base">সতর্কবার্তা: ক্যাশ ড্রয়ার বন্ধ থাকায় বিলিং লক করা আছে (Cash Drawer Closed)</p>
+              <p className="text-xs opacity-90">
+                ড্রয়ার না খোলা পর্যন্ত ক্যাশিয়ার কোনো প্রকার কনসালটেশন ফি বা থেরাপি বিল গ্রহণ করতে পারবেন না। কাজ শুরু করতে ড্রয়ার ওপেন করুন।
+              </p>
+            </div>
+          </div>
+          <Button
+            size="sm"
+            onClick={() => setShowOpenDrawerModal(true)}
+            className="bg-red-600 hover:bg-red-700 text-white font-bold whitespace-nowrap cursor-pointer shadow-xs self-start sm:self-auto"
+          >
+            🔓 ড্রয়ার খুলুন (Open Float)
+          </Button>
+        </div>
+      )}
 
       {/* ============================================================== */}
       {/* ⚡ FORWARDED FROM THERAPY HALL: LOCKED FIXED BILLS */}
@@ -799,10 +848,25 @@ export default function CashierView({ session: propSession }: CashierProps = {})
                         type="button"
                         size="sm"
                         onClick={() => openTherapyPaymentModal(bill)}
-                        className="w-full h-8 text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white gap-1.5 shadow-xs cursor-pointer"
+                        disabled={!activeDrawer?.isOpen}
+                        className={cn(
+                          "w-full h-8 text-xs font-semibold gap-1.5 shadow-xs cursor-pointer",
+                          activeDrawer?.isOpen
+                            ? "bg-indigo-600 hover:bg-indigo-700 text-white"
+                            : "bg-muted text-muted-foreground cursor-not-allowed opacity-70"
+                        )}
                       >
-                        <CreditCard className="size-3.5" />
-                        <span>বিল গ্রহণ করুন (Collect Fixed Bill)</span>
+                        {activeDrawer?.isOpen ? (
+                          <>
+                            <CreditCard className="size-3.5" />
+                            <span>বিল গ্রহণ করুন (Collect Fixed Bill)</span>
+                          </>
+                        ) : (
+                          <>
+                            <Lock className="size-3.5 text-red-500" />
+                            <span>ক্যাশ ড্রয়ার বন্ধ (লকড)</span>
+                          </>
+                        )}
                       </Button>
                     </div>
                   </div>
@@ -955,10 +1019,25 @@ export default function CashierView({ session: propSession }: CashierProps = {})
                         type="button"
                         size="sm"
                         onClick={() => openPaymentModal(intake)}
-                        className="h-8 px-3 text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white gap-1.5 flex-1 shadow-xs cursor-pointer"
+                        disabled={!activeDrawer?.isOpen}
+                        className={cn(
+                          "h-8 px-3 text-xs font-semibold gap-1.5 flex-1 shadow-xs cursor-pointer",
+                          activeDrawer?.isOpen
+                            ? "bg-emerald-600 hover:bg-emerald-500 text-white"
+                            : "bg-muted text-muted-foreground cursor-not-allowed opacity-70"
+                        )}
                       >
-                        <CreditCard className="size-3.5" />
-                        <span>ফি গ্রহণ ও কিউ</span>
+                        {activeDrawer?.isOpen ? (
+                          <>
+                            <CreditCard className="size-3.5" />
+                            <span>ফি গ্রহণ ও কিউ</span>
+                          </>
+                        ) : (
+                          <>
+                            <Lock className="size-3.5 text-red-500" />
+                            <span>ড্রয়ার বন্ধ</span>
+                          </>
+                        )}
                       </Button>
                     </div>
                   </div>
@@ -1776,7 +1855,7 @@ export default function CashierView({ session: propSession }: CashierProps = {})
                 type="button"
                 size="sm"
                 onClick={handleCollectTherapyBill}
-                disabled={collectingTherapyBill}
+                disabled={collectingTherapyBill || !activeDrawer?.isOpen}
                 className="flex-1 text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-bold gap-1.5 shadow-xs cursor-pointer"
               >
                 {collectingTherapyBill ? (
@@ -1927,7 +2006,7 @@ export default function CashierView({ session: propSession }: CashierProps = {})
                 type="button"
                 size="sm"
                 onClick={handleAdmitToQueue}
-                disabled={admittingToQueue}
+                disabled={admittingToQueue || !activeDrawer?.isOpen}
                 className="flex-1 text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-bold gap-1.5 shadow-xs cursor-pointer"
               >
                 {admittingToQueue ? (
