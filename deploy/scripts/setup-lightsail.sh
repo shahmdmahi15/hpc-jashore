@@ -91,7 +91,7 @@ SMTP_HOST=smtp.gmail.com
 SMTP_PORT=465
 SMTP_USER=healthandpaincarejashore@gmail.com
 SMTP_PASS=
-SMTP_FROM="HPC Jashore" <healthandpaincarejashore@gmail.com>
+SMTP_FROM="HPC Jashore" <hpc@toufiquzzaman.com>
 EOF
   echo "Generated secure production JWT and Webhook secrets in apps/api/.env."
   echo "⚠️ Note your UPDATE_WEBHOOK_SECRET: $WEBHOOK_SEC"
@@ -137,4 +137,4 @@ echo "Web Health:  curl -I http://127.0.0.1:3000/"
 echo "PM2 Status:  pm2 status"
 echo ""
 echo "Next step: If you haven't issued SSL certificate yet, run:"
-echo "sudo certbot --nginx -d $DOMAIN --non-interactive --agree-tos -m healthandpaincarejashore@gmail.com"
+echo "sudo certbot --nginx -d $DOMAIN --non-interactive --agree-tos -m hpc@toufiquzzaman.com"

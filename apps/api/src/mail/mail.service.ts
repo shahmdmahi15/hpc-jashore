@@ -41,7 +41,7 @@ export class MailService {
     const from =
       this.config.get<string>('SMTP_FROM') ||
       process.env.SMTP_FROM ||
-      '"HPC Jashore" <no-reply@hpc.toufiquzzaman.com>';
+      '"HPC Jashore" <hpc@toufiquzzaman.com>';
 
     const html = `
       <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 16px; background-color: #ffffff; color: #1e293b;">
@@ -108,7 +108,7 @@ export class MailService {
     const from =
       this.config.get<string>('SMTP_FROM') ||
       process.env.SMTP_FROM ||
-      '"HPC Jashore" <no-reply@hpc.toufiquzzaman.com>';
+      '"HPC Jashore" <hpc@toufiquzzaman.com>';
 
     const html = `
       <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 16px; background-color: #ffffff; color: #1e293b;">

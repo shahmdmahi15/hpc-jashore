@@ -536,27 +536,33 @@ export function ClinicRealtimeChatView() {
       const data = await api.chat.searchMentions('patient', q);
       if (Array.isArray(data) && data.length > 0) {
         setPatientSuggestions(
-          data.map((p: any) => ({
-            id: p.id,
-            mrn: p.mrn,
-            name: p.name,
-            phone: p.phone,
-            gender: p.gender,
-            age: p.age,
-          }))
+          data.map((p: any) => {
+            const resolvedName = p.name || (p.nameBn && p.nameEn ? `${p.nameBn} (${p.nameEn})` : (p.nameBn || p.nameEn || p.fullName || 'Patient'));
+            return {
+              id: p.id,
+              mrn: p.mrn,
+              name: resolvedName,
+              phone: p.phone,
+              gender: p.gender,
+              age: p.age || p.ageYears,
+            };
+          })
         );
       } else {
         const res = await api.patients.list(q);
         if (Array.isArray(res)) {
           setPatientSuggestions(
-            res.slice(0, 8).map((p: any) => ({
-              id: p.id,
-              mrn: p.mrn,
-              name: p.name,
-              phone: p.phone,
-              gender: p.gender,
-              age: p.age,
-            }))
+            res.slice(0, 12).map((p: any) => {
+              const resolvedName = p.name || (p.nameBn && p.nameEn ? `${p.nameBn} (${p.nameEn})` : (p.nameBn || p.nameEn || p.fullName || 'Patient'));
+              return {
+                id: p.id,
+                mrn: p.mrn,
+                name: resolvedName,
+                phone: p.phone,
+                gender: p.gender,
+                age: p.age || p.ageYears,
+              };
+            })
           );
         }
       }
@@ -1092,26 +1098,29 @@ export function ClinicRealtimeChatView() {
                     key={pat.id}
                     type="button"
                     onClick={() => insertPatientMention(pat)}
-                    className="flex items-center justify-between p-2 rounded-xl hover:bg-muted text-left cursor-pointer transition-colors w-full border border-border/30"
+                    className="flex items-center justify-between p-2 rounded-xl hover:bg-muted text-left cursor-pointer transition-colors w-full border border-border/30 gap-2"
                   >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <div className="p-1 rounded-lg bg-teal-500/15 text-teal-600 dark:text-teal-400 shrink-0">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="p-1.5 rounded-lg bg-teal-500/15 text-teal-600 dark:text-teal-400 shrink-0">
                         <User className="size-4" />
                       </div>
                       <div className="min-w-0">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-xs font-bold text-foreground truncate">{pat.name}</span>
-                          <Badge variant="outline" className="text-[10px] py-0 font-mono text-teal-600 border-teal-500/30">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-xs font-bold text-foreground truncate">
+                            {pat.name}
+                          </span>
+                          <Badge variant="outline" className="text-[10px] py-0 font-mono text-teal-600 dark:text-teal-400 border-teal-500/30">
                             {pat.mrn}
                           </Badge>
                         </div>
-                        <p className="text-[10px] text-muted-foreground">
+                        <p className="text-[10px] text-muted-foreground truncate">
                           {pat.phone ? `${pat.phone} · ` : ''}
-                          {pat.gender || ''}
+                          {pat.gender ? (pat.gender === 'male' ? (isBn ? 'পুরুষ' : 'Male') : pat.gender === 'female' ? (isBn ? 'মহিলা' : 'Female') : pat.gender) : ''}
+                          {pat.age ? ` · ${pat.age} ${isBn ? 'বছর' : 'Y'}` : ''}
                         </p>
                       </div>
                     </div>
-                    <span className="text-[11px] font-semibold text-teal-600 dark:text-teal-400 shrink-0">
+                    <span className="text-[11px] font-semibold text-teal-600 dark:text-teal-400 shrink-0 px-2 py-1 rounded-md bg-teal-500/10 border border-teal-500/20">
                       {isBn ? 'সংযুক্ত করুন' : 'Attach'}
                     </span>
                   </button>
@@ -1186,65 +1195,86 @@ export function ClinicRealtimeChatView() {
         {/* Action Controls: Priority Selector, @ and # triggers */}
         <div className="flex items-center justify-between gap-2 flex-wrap text-xs pt-1">
           <div className="flex items-center gap-1.5 flex-wrap">
-            {/* Priority Selector */}
-            <div className="flex items-center gap-1">
+            {/* Priority Selector Pills */}
+            <div className="flex items-center gap-1.5">
               <span className="text-[11px] text-muted-foreground font-semibold hidden sm:inline">
                 {isBn ? 'অগ্রাধিকার:' : 'Priority:'}
               </span>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className={cn(
-                      'h-7 px-2 rounded-lg border text-xs font-semibold flex items-center gap-1 cursor-pointer',
-                      priority === 'stat' && 'border-red-500/50 bg-red-500/10 text-red-600 dark:text-red-400',
-                      priority === 'urgent' && 'border-amber-500/50 bg-amber-500/10 text-amber-600 dark:text-amber-400',
-                      priority === 'normal' && 'border-border text-muted-foreground'
-                    )}
-                  >
-                    {priority === 'stat' && <ShieldAlert className="size-3 text-red-500" />}
-                    {priority === 'urgent' && <AlertTriangle className="size-3 text-amber-500" />}
-                    <span>
-                      {priority === 'stat'
-                        ? isBn ? '⚡ STAT / জরুরি' : '⚡ STAT'
-                        : priority === 'urgent'
-                        ? isBn ? '📢 জরুরি' : 'Urgent'
-                        : isBn ? 'সাধারণ' : 'Normal'}
-                    </span>
-                    <ChevronDown className="size-3 opacity-60" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-48">
-                  <DropdownMenuLabel>{isBn ? 'বার্তার ধরন ও অগ্রাধিকার' : 'Message Priority'}</DropdownMenuLabel>
-                  <DropdownMenuItem onClick={() => { setPriority('normal'); setMessageType('text'); }}>
-                    <div className="flex items-center gap-2">
-                      <span className="size-2 rounded-full bg-zinc-400" />
-                      <span>{isBn ? 'সাধারণ বার্তা (Normal)' : 'Normal Priority'}</span>
-                    </div>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => { setPriority('urgent'); setMessageType('text'); }}>
-                    <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
-                      <AlertTriangle className="size-3.5" />
-                      <span className="font-semibold">{isBn ? '📢 জরুরি (Urgent)' : '📢 Urgent Attention'}</span>
-                    </div>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => { setPriority('stat'); setMessageType('text'); }}>
-                    <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
-                      <ShieldAlert className="size-3.5" />
-                      <span className="font-bold">{isBn ? '⚡ STAT / ইমার্জেন্সি' : '⚡ STAT / Emergency'}</span>
-                    </div>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => { setPriority('urgent'); setMessageType('clinical_handoff'); }}>
-                    <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400">
-                      <Sparkles className="size-3.5" />
-                      <span className="font-semibold">{isBn ? '📋 রোগী হস্তান্তর (Handoff)' : '📋 Clinical Handoff'}</span>
-                    </div>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <div className="flex items-center p-0.5 rounded-lg bg-muted/70 border border-border/60">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPriority('normal');
+                    setMessageType('text');
+                  }}
+                  className={cn(
+                    'px-2 py-0.5 rounded-md text-xs font-semibold transition-all cursor-pointer flex items-center gap-1',
+                    priority === 'normal' && messageType !== 'clinical_handoff'
+                      ? 'bg-background text-foreground shadow-xs font-bold'
+                      : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  <span className="size-1.5 rounded-full bg-zinc-400" />
+                  <span>{isBn ? 'সাধারণ' : 'Normal'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPriority('urgent');
+                    setMessageType('text');
+                  }}
+                  className={cn(
+                    'px-2 py-0.5 rounded-md text-xs font-bold transition-all cursor-pointer flex items-center gap-1',
+                    priority === 'urgent' && messageType !== 'clinical_handoff'
+                      ? 'bg-amber-500 text-white shadow-xs font-black'
+                      : 'text-amber-600 dark:text-amber-400 hover:bg-amber-500/10'
+                  )}
+                >
+                  <AlertTriangle className="size-3" />
+                  <span>{isBn ? '📢 জরুরি' : 'Urgent'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPriority('stat');
+                    setMessageType('text');
+                  }}
+                  className={cn(
+                    'px-2 py-0.5 rounded-md text-xs font-black transition-all cursor-pointer flex items-center gap-1',
+                    priority === 'stat'
+                      ? 'bg-red-600 text-white shadow-xs font-black animate-pulse'
+                      : 'text-red-600 dark:text-red-400 hover:bg-red-500/10'
+                  )}
+                >
+                  <ShieldAlert className="size-3" />
+                  <span>{isBn ? '⚡ STAT' : '⚡ STAT'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (messageType === 'clinical_handoff') {
+                      setMessageType('text');
+                      setPriority('normal');
+                    } else {
+                      setMessageType('clinical_handoff');
+                      setPriority('urgent');
+                    }
+                  }}
+                  className={cn(
+                    'px-2 py-0.5 rounded-md text-xs font-bold transition-all cursor-pointer flex items-center gap-1 hidden md:flex',
+                    messageType === 'clinical_handoff'
+                      ? 'bg-indigo-600 text-white shadow-xs font-bold'
+                      : 'text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/10'
+                  )}
+                  title={isBn ? 'ক্লিনিক্যাল হ্যান্ডঅফ হস্তান্তর' : 'Clinical Handoff'}
+                >
+                  <Activity className="size-3" />
+                  <span>{isBn ? 'হ্যান্ডঅফ' : 'Handoff'}</span>
+                </button>
+              </div>
             </div>
 
             {/* Quick @ Mention trigger button */}

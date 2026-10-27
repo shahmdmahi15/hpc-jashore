@@ -615,6 +615,10 @@ select:-webkit-autofill:active {
   .sheet-report-a4 *,
   .prescription-sheet-container,
   .prescription-sheet-container *,
+  .sheet-thermal-80mm,
+  .sheet-thermal-80mm *,
+  #hpc-thermal-80mm-slip,
+  #hpc-thermal-80mm-slip *,
   #hpc-intake-a4-sheet,
   #hpc-intake-a4-sheet * {
     visibility: visible !important;

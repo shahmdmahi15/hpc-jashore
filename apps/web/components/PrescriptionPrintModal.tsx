@@ -172,7 +172,7 @@ export default function PrescriptionPrintModal({
                     চাঁচরা পুলিশ ফাঁড়ির বিপরীতে, চাঁচরা ডালমিল মোড়, যশোর সদর, যশোর-৭৪০০
                   </p>
                   <p className="text-[8.5px] text-zinc-500 font-mono">
-                    হটলাইন: +৮৮০ ১৫১৫-৬১৫১৮৮ · E-mail: hpcjashore@gmail.com
+                    হটলাইন: +৮৮০ ১৫১৫-৬১৫১৮৮ · E-mail: hpc@toufiquzzaman.com
                   </p>
                 </div>
               </div>
@@ -354,7 +354,7 @@ export default function PrescriptionPrintModal({
                 Rx ID: {rxNumber} · MRN: {prescription.patient.mrn}
               </div>
               <div className="text-zinc-500 text-[8px] mt-0.5">
-                জরুরি প্রয়োজনে সেন্টারের হটলাইনে যোগাযোগ করুন: +৮৮০ ১৫১৫-৬১৫১৮৮
+                জরুরি প্রয়োজনে সেন্টারের হটলাইনে যোগাযোগ করুন: +৮৮০ ১৫১৫-৬১৫১৮৮ · E-mail: hpc@toufiquzzaman.com
               </div>
             </div>
 

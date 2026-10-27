@@ -451,8 +451,77 @@ export class TherapyService {
   }
 
   async getRooms() {
-    const allRooms = await this.db.select().from(rooms).orderBy(rooms.roomNumber);
-    return allRooms.map((r, idx) => {
+    // Strictly filter to ONLY therapy rooms and therapy halls
+    const rawRooms = await this.db
+      .select()
+      .from(rooms)
+      .where(and(eq(rooms.isActive, 1), isNull(rooms.deletedAt)))
+      .orderBy(rooms.roomNumber);
+
+    const therapyRooms = rawRooms.filter((r) => {
+      const type = (r.type || '').toLowerCase();
+      const name = (r.name || '').toLowerCase();
+      const id = (r.id || '').toLowerCase();
+
+      // Strictly exclude non-therapy rooms (doctor consultation chambers, waiting lounge, cashier, staff rooms)
+      if (
+        type === 'doctor_consultation_room' ||
+        type === 'waiting_room' ||
+        type === 'cashier_room' ||
+        type === 'staff_room' ||
+        type.includes('doctor') ||
+        type.includes('consultation') ||
+        type.includes('cashier') ||
+        name.includes('consultation') ||
+        name.includes('chamber') ||
+        name.includes('চেম্বার') ||
+        name.includes('cashier') ||
+        name.includes('waiting') ||
+        name.includes('reception')
+      ) {
+        return false;
+      }
+
+      // Allow therapy_room, therapy_hall, or dedicated therapy units
+      return (
+        type === 'therapy_room' ||
+        type === 'therapy_hall' ||
+        id === 'room-th-01' ||
+        id === 'room-th-02' ||
+        id === 'room-tr-01' ||
+        name.includes('therapy') ||
+        name.includes('hall') ||
+        name.includes('rehab') ||
+        name.includes('থেরাপি')
+      );
+    });
+
+    // If no therapy rooms found in database, provide fallback default therapy halls
+    const finalRooms = therapyRooms.length > 0 ? therapyRooms : [
+      {
+        id: 'room-th-01',
+        roomNumber: 'TH-01',
+        code: 'TH-01',
+        name: 'Male Physiotherapy & Rehab Hall',
+        type: 'therapy_hall',
+      },
+      {
+        id: 'room-th-02',
+        roomNumber: 'TH-02',
+        code: 'TH-02',
+        name: 'Female Physiotherapy & Rehab Hall',
+        type: 'therapy_hall',
+      },
+      {
+        id: 'room-tr-01',
+        roomNumber: 'TR-01',
+        code: 'TR-01',
+        name: 'Private Therapy Suite 1',
+        type: 'therapy_room',
+      },
+    ];
+
+    return finalRooms.map((r: any, idx: number) => {
       const roomNum = r.roomNumber || r.code || `${idx + 1}`;
       const hasNumber = /\d/.test(r.name || '');
       const baseName = r.name || 'Therapy Room';
@@ -463,7 +532,7 @@ export class TherapyService {
         displayName: `রুম ${roomNum} (${formattedName})`,
         code: String(roomNum),
         roomNumber: String(roomNum),
-        type: r.type,
+        type: r.type === 'private_room' ? 'therapy_room' : r.type,
         isOccupied: false,
         currentPatientName: null,
       };

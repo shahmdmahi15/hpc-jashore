@@ -2071,18 +2071,99 @@ export function CheckInWorkstationView() {
       {/* THERMAL 80MM SLIP PREVIEW MODAL */}
       {slipModalData && (
         <Dialog open={!!slipModalData} onOpenChange={(open: boolean) => { if (!open) setSlipModalData(null); }}>
-          <DialogContent className="max-w-[340px] sm:max-w-[360px] p-4">
-            <DialogHeader>
+          <DialogContent className="max-w-[340px] sm:max-w-[360px] p-4 print:p-0 print:border-none print:shadow-none print:bg-transparent">
+            {/* Embedded 80mm thermal print styles to guarantee STRICT 1-PAGE continuous receipt */}
+            <style dangerouslySetInnerHTML={{ __html: `
+              @page {
+                size: 80mm auto;
+                margin: 0mm;
+              }
+              @media print {
+                html,
+                body {
+                  width: 80mm !important;
+                  max-width: 80mm !important;
+                  margin: 0 !important;
+                  padding: 0 !important;
+                  background: #ffffff !important;
+                  color: #000000 !important;
+                  overflow: visible !important;
+                  -webkit-print-color-adjust: exact !important;
+                  print-color-adjust: exact !important;
+                }
+
+                .dialog-header-actions,
+                .print-hidden,
+                .print\\:hidden,
+                button,
+                header,
+                nav,
+                footer {
+                  display: none !important;
+                }
+
+                body * {
+                  visibility: hidden;
+                }
+
+                #hpc-thermal-80mm-slip,
+                #hpc-thermal-80mm-slip * {
+                  visibility: visible !important;
+                }
+
+                [role="dialog"],
+                div[class*="fixed inset-0"],
+                div[class*="items-center"],
+                div[class*="justify-center"] {
+                  position: static !important;
+                  display: block !important;
+                  transform: none !important;
+                  margin: 0 !important;
+                  padding: 0 !important;
+                  border: none !important;
+                  box-shadow: none !important;
+                  background: transparent !important;
+                  max-width: none !important;
+                  max-height: none !important;
+                  width: 80mm !important;
+                }
+
+                #hpc-thermal-80mm-slip {
+                  position: absolute !important;
+                  left: 0 !important;
+                  top: 0 !important;
+                  width: 74mm !important;
+                  max-width: 74mm !important;
+                  margin: 0 auto !important;
+                  padding: 3mm 2mm !important;
+                  box-sizing: border-box !important;
+                  background: #ffffff !important;
+                  color: #000000 !important;
+                  border: 1px dashed #71717a !important;
+                  border-radius: 0 !important;
+                  overflow: hidden !important;
+                  page-break-after: avoid !important;
+                  break-after: avoid !important;
+                  page-break-inside: avoid !important;
+                  break-inside: avoid !important;
+                }
+              }
+            ` }} />
+
+            <DialogHeader className="print:hidden print-hidden">
               <DialogTitle className="text-center text-sm font-bold">
                 {isBn ? '৮০মিমি আগমন স্লিপ প্রিভিউ' : '80mm Arrival Slip Preview'}
               </DialogTitle>
             </DialogHeader>
 
-            <div className="bg-white text-black p-4 rounded-md border border-dashed border-zinc-400 font-mono text-center space-y-2">
+            <div
+              id="hpc-thermal-80mm-slip"
+              className="sheet-thermal-80mm bg-white text-black p-4 rounded-md border border-dashed border-zinc-400 font-mono text-center space-y-2"
+            >
               <div className="font-bold text-xs text-zinc-900 leading-tight">
                 {isBn ? 'এইচপিসি হেলথ অ্যান্ড পেইন কেয়ার সেন্টার' : 'HPC Health & Pain Care Center'}
               </div>
-              <div className="text-[10px] text-zinc-600">Jashore, Bangladesh</div>
+              <div className="text-[10px] text-zinc-600">চাঁচড়া ডালমিল মোড়, যশোর · hpc@toufiquzzaman.com</div>
               <div className="border-t border-b border-dashed border-zinc-400 py-2 my-1">
                 <div className="text-[10px] uppercase tracking-wider text-zinc-500 font-bold">
                   {isBn ? 'আগমনের সময়' : 'ARRIVAL TIME'}
@@ -2113,18 +2194,15 @@ export function CheckInWorkstationView() {
               </div>
             </div>
 
-            <DialogFooter className="flex flex-row justify-between gap-2 pt-2">
-              <Button variant="outline" size="sm" onClick={() => setSlipModalData(null)} className="flex-1 text-xs">
+            <DialogFooter className="flex flex-row justify-between gap-2 pt-2 print:hidden print-hidden">
+              <Button variant="outline" size="sm" onClick={() => setSlipModalData(null)} className="flex-1 text-xs cursor-pointer">
                 {isBn ? 'বন্ধ করুন' : 'Close'}
               </Button>
               <Button
                 variant="default"
                 size="sm"
-                onClick={() => {
-                  window.print();
-                  setSlipModalData(null);
-                }}
-                className="flex-1 text-xs bg-emerald-600 hover:bg-emerald-700 text-white gap-1"
+                onClick={() => window.print()}
+                className="flex-1 text-xs bg-emerald-600 hover:bg-emerald-700 text-white gap-1 cursor-pointer"
               >
                 <Printer className="w-3.5 h-3.5" />
                 <span>{isBn ? 'প্রিন্ট' : 'Print'}</span>

@@ -299,11 +299,10 @@ export class ChatService {
    */
   async searchMentions(type: 'patient' | 'user', q: string) {
     const query = (q || '').trim();
-    if (!query) return [];
     const pattern = `%${query}%`;
 
     if (type === 'user') {
-      return this.db
+      const qb = this.db
         .select({
           id: users.id,
           displayName: users.displayName,
@@ -314,20 +313,23 @@ export class ChatService {
         })
         .from(users)
         .where(
-          and(
-            eq(users.isActive, 1),
-            or(
-              like(users.displayName, pattern),
-              like(users.email, pattern),
-              like(users.role, pattern),
-            ),
-          ),
+          query
+            ? and(
+                eq(users.isActive, 1),
+                or(
+                  like(users.displayName, pattern),
+                  like(users.email, pattern),
+                  like(users.role, pattern),
+                ),
+              )
+            : eq(users.isActive, 1),
         )
         .limit(20);
+      return qb;
     }
 
     if (type === 'patient') {
-      return this.db
+      const patientRows = await this.db
         .select({
           id: patients.id,
           mrn: patients.mrn,
@@ -339,17 +341,34 @@ export class ChatService {
         })
         .from(patients)
         .where(
-          and(
-            isNull(patients.deletedAt),
-            or(
-              like(patients.nameEn, pattern),
-              like(patients.nameBn, pattern),
-              like(patients.mrn, pattern),
-              like(patients.phone, pattern),
-            ),
-          ),
+          query
+            ? and(
+                isNull(patients.deletedAt),
+                or(
+                  like(patients.nameEn, pattern),
+                  like(patients.nameBn, pattern),
+                  like(patients.mrn, pattern),
+                  like(patients.phone, pattern),
+                ),
+              )
+            : isNull(patients.deletedAt),
         )
+        .orderBy(desc(patients.createdAt))
         .limit(20);
+
+      return patientRows.map((p) => {
+        const displayName = p.nameBn && p.nameEn ? `${p.nameBn} (${p.nameEn})` : (p.nameBn || p.nameEn || 'Patient');
+        return {
+          id: p.id,
+          mrn: p.mrn,
+          name: displayName,
+          nameEn: p.nameEn,
+          nameBn: p.nameBn,
+          phone: p.phone,
+          gender: p.gender,
+          age: p.ageYears,
+        };
+      });
     }
 
     return [];

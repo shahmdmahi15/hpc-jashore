@@ -115,13 +115,73 @@ export function TherapyQueueManagementTab() {
         api.therapy.getRooms(),
       ]);
 
+      // Strictly filter to ONLY therapy rooms and therapy halls
+      const isTherapyOnly = (r: RoomOption) => {
+        const type = (r.type || '').toLowerCase();
+        const name = (r.name || '').toLowerCase();
+        const id = (r.id || '').toLowerCase();
+
+        if (
+          type === 'doctor_consultation_room' ||
+          type === 'waiting_room' ||
+          type === 'cashier_room' ||
+          type === 'staff_room' ||
+          type.includes('doctor') ||
+          type.includes('consultation') ||
+          type.includes('cashier') ||
+          name.includes('consultation') ||
+          name.includes('chamber') ||
+          name.includes('চেম্বার') ||
+          name.includes('cashier') ||
+          name.includes('waiting') ||
+          name.includes('reception')
+        ) {
+          return false;
+        }
+
+        return (
+          type === 'therapy_room' ||
+          type === 'therapy_hall' ||
+          id.includes('th-') ||
+          id.includes('tr-') ||
+          name.includes('therapy') ||
+          name.includes('hall') ||
+          name.includes('rehab') ||
+          name.includes('থেরাপি')
+        );
+      };
+
+      const filteredRooms = (roomsRes || []).filter(isTherapyOnly);
+      const finalRooms = filteredRooms.length > 0 ? filteredRooms : [
+        {
+          id: 'room-th-01',
+          roomNumber: 'TH-01',
+          code: 'TH-01',
+          name: 'Male Physiotherapy & Rehab Hall (পুরুষ ফিজিওথেরাপি হল)',
+          type: 'therapy_hall',
+          capacity: 10,
+          currentOccupancy: 0,
+          isOccupied: false,
+        },
+        {
+          id: 'room-th-02',
+          roomNumber: 'TH-02',
+          code: 'TH-02',
+          name: 'Female Physiotherapy & Rehab Hall (মহিলা ফিজিওথেরাপি হল)',
+          type: 'therapy_hall',
+          capacity: 10,
+          currentOccupancy: 0,
+          isOccupied: false,
+        },
+      ];
+
       setWaitingPatients(queueRes?.waiting || []);
       setNowServingPatients(queueRes?.nowServing || []);
       setActiveSessions(queueRes?.activeSessions || []);
-      setRooms(roomsRes || []);
+      setRooms(finalRooms);
 
       // Pre-select first available room for waiting patients if not selected
-      const availableRooms = (roomsRes || []).filter((r: RoomOption) => !r.isOccupied);
+      const availableRooms = finalRooms.filter((r: RoomOption) => !r.isOccupied);
       if (availableRooms.length > 0) {
         setSelectedRooms((prev) => {
           const next = { ...prev };

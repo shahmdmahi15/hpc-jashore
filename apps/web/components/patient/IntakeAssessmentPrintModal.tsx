@@ -299,7 +299,7 @@ export function IntakeAssessmentPrintModal({
                         রোগীর প্রাথমিক তথ্য ও রিসেপশন ফরম
                       </h2>
                       <p className="text-[9px] text-zinc-600 mt-0.5">
-                        চাঁচরা পুলিশ ফাঁড়ির বিপরীতে, চাঁচরা ডালমিল মোড়, যশোর সদর, যশোর-৭৪০০
+                        চাঁচরা পুলিশ ফাঁড়ির বিপরীতে, চাঁচরা ডালমিল মোড়, যশোর সদর, যশোর-৭৪০০ · E-mail: hpc@toufiquzzaman.com
                       </p>
                     </div>
                   </div>
@@ -556,7 +556,7 @@ export function IntakeAssessmentPrintModal({
                   <strong>হেলথ অ্যান্ড পেইন কেয়ার সেন্টার (HPC)</strong> | চাঁচরা পুলিশ ফাঁড়ির বিপরীতে, চাঁচরা ডালমিল মোড়, যশোর সদর
                 </div>
                 <div className="font-semibold text-emerald-800">
-                  হটলাইন: +৮৮০ ১৫১৫-৬১৫১৮৮
+                  হটলাইন: +৮৮০ ১৫১৫-৬১৫১৮৮ · E-mail: hpc@toufiquzzaman.com
                 </div>
               </div>
             </div>
@@ -586,33 +586,37 @@ export function IntakeAssessmentPrintModal({
               print-color-adjust: exact !important;
             }
 
-            /* 2. Completely eliminate normal-flow page siblings (Next.js layout, header, tables) */
-            body > *:not([data-radix-portal]) {
-              display: none !important;
-            }
-
-            /* 3. Hide dialog backdrop, close button, and screen controls */
+            /* 2. Hide dialog backdrop, header actions, close button, and screen controls */
             [data-radix-dialog-overlay],
             [data-radix-dialog-close],
+            .dialog-header-actions,
+            .print-hidden,
             .print\\:hidden,
-            button {
+            button,
+            header,
+            nav,
+            footer {
               display: none !important;
             }
 
-            /* 4. Hide all elements by default */
+            /* 3. Hide all screen UI elements by default */
             body * {
               visibility: hidden;
             }
 
-            /* 5. Make the A4 sheet and its children fully visible */
+            /* 4. Make the A4 sheet and all its inner content visible */
             #hpc-intake-a4-sheet,
             #hpc-intake-a4-sheet * {
               visibility: visible !important;
             }
 
-            /* 6. Radix portal & dialog container reset */
+            /* 5. Reset dialog containers to zero layout impact */
+            [role="dialog"],
             [data-radix-portal],
-            [role="dialog"] {
+            div[class*="fixed inset-0"],
+            div[class*="items-center"],
+            div[class*="justify-center"],
+            div[class*="overflow-y-auto"] {
               position: static !important;
               display: block !important;
               transform: none !important;
@@ -620,12 +624,12 @@ export function IntakeAssessmentPrintModal({
               padding: 0 !important;
               border: none !important;
               box-shadow: none !important;
-              background: #ffffff !important;
+              background: transparent !important;
               max-width: none !important;
               max-height: none !important;
-              overflow: hidden !important;
+              overflow: visible !important;
               width: 100% !important;
-              height: 100% !important;
+              height: auto !important;
             }
 
             .sheet-report-wrapper {
@@ -634,24 +638,26 @@ export function IntakeAssessmentPrintModal({
               background: transparent !important;
               display: block !important;
               width: 100% !important;
-              height: 100% !important;
-              overflow: hidden !important;
+              height: auto !important;
+              overflow: visible !important;
             }
 
-            /* 7. Strict A4 Sheet: fits precisely in printable area (194mm × 284mm) */
+            /* 6. Strict Single A4 Sheet: anchors directly to printable canvas (194mm × 284mm) */
             #hpc-intake-a4-sheet {
-              position: static !important;
+              position: absolute !important;
+              left: 0 !important;
+              top: 0 !important;
               display: flex !important;
               flex-direction: column !important;
               justify-content: space-between !important;
               box-sizing: border-box !important;
-              width: 100% !important;
+              width: 194mm !important;
               max-width: 194mm !important;
               height: 284mm !important;
               max-height: 284mm !important;
-              margin: 0 auto !important;
-              padding: 0 !important;
-              border: none !important;
+              margin: 0 !important;
+              padding: 4mm 6mm !important;
+              border: 1px solid #d4d4d8 !important;
               box-shadow: none !important;
               background: #ffffff !important;
               color: #000000 !important;

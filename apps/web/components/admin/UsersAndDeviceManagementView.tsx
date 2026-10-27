@@ -1528,7 +1528,7 @@ export default function UsersAndDeviceManagementView() {
                 <Input
                   required
                   type="email"
-                  placeholder="name@hpcjashore.com"
+                  placeholder="user@toufiquzzaman.com"
                   value={createForm.email}
                   onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })}
                   className="rounded-xl h-10 text-xs sm:text-sm"

@@ -286,7 +286,7 @@ export default function InvoicePrintModal({
                   <strong className="text-zinc-800">ঠিকানা:</strong> চাঁচড়া পুলিশ ফাঁড়ির বিপরীতে, চাঁচড়া ডালমিল মোড়, যশোর সদর, যশোর-৭৪০০
                 </div>
                 <div className="font-mono text-[8px] text-zinc-600 mt-0.5">
-                  <strong className="text-zinc-800">হটলাইন / মোবাইল:</strong> +৮৮০ ১৫১৫-৬১৫১৮৮ · <strong className="text-zinc-800">E-mail:</strong> hpcjashore@gmail.com
+                  <strong className="text-zinc-800">হটলাইন / মোবাইল:</strong> +৮৮০ ১৫১৫-৬১৫১৮৮ · <strong className="text-zinc-800">E-mail:</strong> hpc@toufiquzzaman.com
                 </div>
               </div>
             </div>
