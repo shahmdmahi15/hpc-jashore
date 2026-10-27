@@ -567,4 +567,36 @@ export const api = {
       }>(`/audit${str ? `?${str}` : ''}`);
     },
   },
+  catalog: {
+    getModalities: () => apiFetch<any[]>('/modalities'),
+    createModality: (data: {
+      code: string;
+      nameEn: string;
+      nameBn: string;
+      defaultDurationMin: number;
+      defaultPricePaisa: number;
+    }) =>
+      apiFetch<any>('/modalities', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+    updateModality: (
+      id: string,
+      data: Partial<{
+        nameEn: string;
+        nameBn: string;
+        defaultDurationMin: number;
+        defaultPricePaisa: number;
+        isActive: boolean;
+      }>,
+    ) =>
+      apiFetch<any>(`/modalities/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      }),
+    deleteModality: (id: string) =>
+      apiFetch<any>(`/modalities/${id}`, {
+        method: 'DELETE',
+      }),
+  },
 };

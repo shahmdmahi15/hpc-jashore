@@ -1,5 +1,15 @@
-import { Body, Controller, Get, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { extractClientIp } from '../common/request-ip';
 import { JwtAccessAuthGuard } from '../auth/jwt.guard';
@@ -24,18 +34,21 @@ export class CatalogController {
   }
 
   @Get('modalities')
+  @ApiOperation({ summary: 'List all modalities ordered by code' })
   modalities() {
     return this.catalog.listModalities();
   }
 
   @Post('modalities')
   @Roles('admin')
+  @ApiOperation({ summary: 'Create a new therapy modality' })
   createModality(@CurrentUser() user: RequestUser, @Body() dto: CreateModalityDto, @Req() req: Request) {
     return this.catalog.createModality({ sub: user.sub, role: user.role }, dto, this.meta(req));
   }
 
   @Patch('modalities/:id')
   @Roles('admin')
+  @ApiOperation({ summary: 'Update an existing therapy modality' })
   updateModality(
     @CurrentUser() user: RequestUser,
     @Param('id') id: string,
@@ -43,5 +56,16 @@ export class CatalogController {
     @Req() req: Request,
   ) {
     return this.catalog.updateModality({ sub: user.sub, role: user.role }, id, dto, this.meta(req));
+  }
+
+  @Delete('modalities/:id')
+  @Roles('admin')
+  @ApiOperation({ summary: 'Delete or deactivate a therapy modality' })
+  deleteModality(
+    @CurrentUser() user: RequestUser,
+    @Param('id') id: string,
+    @Req() req: Request,
+  ) {
+    return this.catalog.deleteModality({ sub: user.sub, role: user.role }, id, this.meta(req));
   }
 }

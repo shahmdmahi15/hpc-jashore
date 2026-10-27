@@ -10,6 +10,7 @@ import UsersAndDeviceManagementView from '../../components/admin/UsersAndDeviceM
 import BulletinManagementView from '../../components/admin/BulletinManagementView';
 import { RoomManagementView } from '../../components/admin/RoomManagementView';
 import { TherapySlotConfigView } from '../../components/admin/TherapySlotConfigView';
+import { ModalitiesManagementView } from '../../components/admin/ModalitiesManagementView';
 import { ConsultationConfigView } from '../../components/admin/ConsultationConfigView';
 import MedicineDirectoryView from '../../components/MedicineDirectoryView';
 import { TherapySlotBookingView } from '../../components/therapy/TherapySlotBookingView';
@@ -93,6 +94,14 @@ const ADMIN_ROW1_TABS = [
     icon: Sliders,
     descriptionEn: 'Define therapy modalities, pricing catalog, default session durations, and slot capacities.',
     descriptionBn: 'মডালিটি মূল্য তালিকা, চিকিৎসা সময়কাল ও স্লট সময়সূচী নির্ধারণ।',
+  },
+  {
+    id: 'modalities',
+    titleEn: 'Modalities Management',
+    titleBn: 'মডালিটি ব্যবস্থাপনা',
+    icon: Sparkles,
+    descriptionEn: 'Clinical therapy modalities catalog, duration protocols, pricing in BDT, and equipment status.',
+    descriptionBn: 'থেরাপি মডালিটি ক্যাটালগ, সেশন সময়সীমা, মূল্য তালিকা (টাকা), সক্রিয় সরঞ্জাম এবং থেরাপি প্রটোকল।',
   },
   {
     id: 'room_config',
@@ -321,6 +330,10 @@ export default function AdminPage() {
               <TherapySlotConfigView />
             </TabsContent>
 
+            <TabsContent value="modalities" className="mt-4 focus-visible:outline-none">
+              <ModalitiesManagementView />
+            </TabsContent>
+
             <TabsContent value="medicine_directory" className="mt-4 focus-visible:outline-none">
               <MedicineDirectoryView />
             </TabsContent>
@@ -329,7 +342,7 @@ export default function AdminPage() {
               <AuditLogsTab />
             </TabsContent>
 
-            {ADMIN_ROW1_TABS.filter((t) => t.id !== 'overview' && t.id !== 'users_devices' && t.id !== 'bulletins' && t.id !== 'patients_emr' && t.id !== 'room_config' && t.id !== 'therapy_slot_config' && t.id !== 'consultation_serial_config' && t.id !== 'medicine_directory' && t.id !== 'audit_logs').map((tab) => (
+            {ADMIN_ROW1_TABS.filter((t) => t.id !== 'overview' && t.id !== 'users_devices' && t.id !== 'bulletins' && t.id !== 'patients_emr' && t.id !== 'room_config' && t.id !== 'therapy_slot_config' && t.id !== 'modalities' && t.id !== 'consultation_serial_config' && t.id !== 'medicine_directory' && t.id !== 'audit_logs').map((tab) => (
               <TabsContent key={tab.id} value={tab.id} className="mt-4 focus-visible:outline-none">
                 <WorkstationTabPlaceholder
                   titleEn={tab.titleEn}
