@@ -94,6 +94,7 @@ export function TherapyQueueManagementTab() {
   const [refreshing, setRefreshing] = useState(false);
   const [waitingPatients, setWaitingPatients] = useState<TherapyQueueItem[]>([]);
   const [nowServingPatients, setNowServingPatients] = useState<TherapyQueueItem[]>([]);
+  const [inTherapyPatients, setInTherapyPatients] = useState<TherapyQueueItem[]>([]);
   const [activeSessions, setActiveSessions] = useState<any[]>([]);
   const [rooms, setRooms] = useState<RoomOption[]>([]);
   const [selectedRooms, setSelectedRooms] = useState<Record<string, string>>({});
@@ -180,6 +181,7 @@ export function TherapyQueueManagementTab() {
 
       setWaitingPatients(queueRes?.waiting || []);
       setNowServingPatients(queueRes?.nowServing || []);
+      setInTherapyPatients(queueRes?.inSession || queueRes?.inTherapy || []);
       setActiveSessions(queueRes?.activeSessions || []);
       setRooms(finalRooms);
 
@@ -209,6 +211,10 @@ export function TherapyQueueManagementTab() {
 
   useEffect(() => {
     fetchData();
+    const interval = setInterval(() => {
+      fetchData(true);
+    }, 3000);
+    return () => clearInterval(interval);
   }, [fetchData]);
 
   // Realtime updates
@@ -313,9 +319,31 @@ export function TherapyQueueManagementTab() {
     }
   };
 
-  // Combine calling patients and waiting patients
+  const handleCompleteSession = async (patient: TherapyQueueItem) => {
+    try {
+      setCallingVisitId(patient.visitId);
+      const activeSession = activeSessions.find(
+        (as) => as.patientId === patient.patientId || as.visitId === patient.visitId,
+      );
+      if (activeSession?.sessionId) {
+        await api.therapy.completeSession(activeSession.sessionId, {
+          notes: 'Session completed by therapist',
+        });
+      }
+      toast.success(
+        `রোগী ${patient.patientNameBn || patient.patientNameEn} এর থেরাপি সেশন সফলভাবে সম্পন্ন হয়েছে!`,
+      );
+      await fetchData(true);
+    } catch (err: any) {
+      toast.error(err?.message || 'সেশন সম্পন্ন করতে ব্যর্থ হয়েছে');
+    } finally {
+      setCallingVisitId(null);
+    }
+  };
+
+  // Combine calling patients, waiting patients, and in-therapy patients
   const allQueuePatients = useMemo(() => {
-    const list = [...nowServingPatients, ...waitingPatients];
+    const list = [...nowServingPatients, ...waitingPatients, ...inTherapyPatients];
     return list.filter((p) => {
       const matchSearch =
         searchQuery === '' ||
@@ -329,17 +357,11 @@ export function TherapyQueueManagementTab() {
 
       return matchSearch && matchPriority && matchStatus;
     });
-  }, [nowServingPatients, waitingPatients, searchQuery, priorityFilter, statusFilter]);
+  }, [nowServingPatients, waitingPatients, inTherapyPatients, searchQuery, priorityFilter, statusFilter]);
 
-  const waitingOnlyCount = useMemo(
-    () => waitingPatients.filter((p) => p.status === 'waiting').length,
-    [waitingPatients],
-  );
+  const waitingOnlyCount = waitingPatients.length;
   const callingCount = nowServingPatients.length;
-  const inTherapyCount = useMemo(
-    () => waitingPatients.filter((p) => p.status === 'in_therapy').length,
-    [waitingPatients],
-  );
+  const inTherapyCount = inTherapyPatients.length;
 
   return (
     <div className="space-y-4">
@@ -513,9 +535,19 @@ export function TherapyQueueManagementTab() {
       ) : allQueuePatients.length === 0 ? (
         <Card className="p-12 text-center border-dashed border-border/80 bg-card/40">
           <Activity className="size-10 text-muted-foreground/40 mx-auto mb-3" />
-          <h3 className="text-base font-bold text-foreground">থেরাপি কিউতে কোনো রোগী অপেক্ষমাণ নেই</h3>
+          <h3 className="text-base font-bold text-foreground">
+            {statusFilter === 'in_therapy'
+              ? 'বর্তমানে কোনো রোগী থেরাপিতে নেই'
+              : statusFilter === 'calling'
+                ? 'বর্তমানে কোনো রোগীকে ডাকা হচ্ছে না'
+                : statusFilter === 'waiting'
+                  ? 'কোনো অপেক্ষমাণ রোগী নেই'
+                  : 'থেরাপি কিউতে কোনো রোগী নেই'}
+          </h3>
           <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
-            চেক-ইন বা রিসেপশন থেকে রোগীকে থেরাপির জন্য ফরোয়ার্ড করা হলে এখানে স্বয়ংক্রিয়ভাবে প্রদর্শিত হবে।
+            {statusFilter === 'in_therapy'
+              ? 'অপেক্ষমাণ রোগীকে ডেকে "থেরাপি শুরু করুন" চাপলে সেশন এখানে প্রদর্শিত হবে।'
+              : 'চেক-ইন বা রিসেপশন থেকে রোগীকে থেরাপির জন্য ফরোয়ার্ড করা হলে এখানে স্বয়ংক্রিয়ভাবে প্রদর্শিত হবে।'}
           </p>
         </Card>
       ) : (
@@ -745,6 +777,17 @@ export function TherapyQueueManagementTab() {
                         <span>ক্যাশিয়ার</span>
                       </Button>
                     </div>
+
+                    {/* Row 3: Complete Session Button */}
+                    <Button
+                      size="sm"
+                      onClick={() => handleCompleteSession(patient)}
+                      disabled={callingVisitId === patient.visitId}
+                      className="w-full h-8 text-xs bg-cyan-600 hover:bg-cyan-500 text-white gap-1.5 font-bold shadow-xs cursor-pointer active:scale-95"
+                    >
+                      <CheckCircle2 className="size-3.5" />
+                      <span>সেশন সমাপ্ত করুন (Complete Session)</span>
+                    </Button>
 
                     <Button
                       variant="ghost"

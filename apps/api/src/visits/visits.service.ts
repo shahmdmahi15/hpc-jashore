@@ -1719,19 +1719,16 @@ export class VisitsService {
       .where(
         and(
           eq(visits.visitDate, today),
+          sql`${visits.status} IN ('checked_in', 'waiting')`,
+          sql`${visits.status} NOT IN ('calling', 'in_therapy', 'completed', 'checked_out', 'cancelled')`,
+          sql`${visits.patientId} NOT IN (SELECT patient_id FROM therapy_sessions WHERE status = 'in_progress')`,
           or(
-            eq(visits.status, 'in_therapy'),
             and(
-              sql`${visits.status} IN ('checked_in', 'waiting')`,
-              or(
-                and(
-                  sql`${visits.therapyBookingId} IS NOT NULL`,
-                  sql`${visits.therapyBookingId} NOT IN (SELECT id FROM therapy_slot_bookings WHERE status = 'cancelled' OR deleted_at IS NOT NULL)`,
-                ),
-                sql`${visits.currentLocation} IN ('therapy_hall', 'Therapy Hall')`,
-                sql`${visits.patientId} IN (SELECT patient_id FROM therapy_slot_bookings WHERE booking_date = ${today} AND status NOT IN ('cancelled') AND deleted_at IS NULL)`,
-              ),
+              sql`${visits.therapyBookingId} IS NOT NULL`,
+              sql`${visits.therapyBookingId} NOT IN (SELECT id FROM therapy_slot_bookings WHERE status = 'cancelled' OR deleted_at IS NOT NULL)`,
             ),
+            sql`${visits.currentLocation} IN ('therapy_hall', 'Therapy Hall')`,
+            sql`${visits.patientId} IN (SELECT patient_id FROM therapy_slot_bookings WHERE booking_date = ${today} AND status NOT IN ('cancelled') AND deleted_at IS NULL)`,
           ),
         ),
       )

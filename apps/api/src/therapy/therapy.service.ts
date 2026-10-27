@@ -547,11 +547,34 @@ export class TherapyService {
       },
     ];
 
+    const today = new Date().toISOString().slice(0, 10);
+    const occupiedVisits = await this.db
+      .select({
+        roomId: visits.roomId,
+        patientNameEn: patients.nameEn,
+        patientNameBn: patients.nameBn,
+      })
+      .from(visits)
+      .innerJoin(patients, eq(visits.patientId, patients.id))
+      .where(
+        and(
+          eq(visits.visitDate, today),
+          sql`${visits.status} IN ('calling', 'in_therapy')`,
+        ),
+      );
+
+    const occupiedMap = new Map<string, string>();
+    for (const ov of occupiedVisits) {
+      const pName = ov.patientNameBn || ov.patientNameEn;
+      if (ov.roomId) occupiedMap.set(ov.roomId, pName);
+    }
+
     return finalRooms.map((r: any, idx: number) => {
       const roomNum = r.roomNumber || r.code || `${idx + 1}`;
       const hasNumber = /\d/.test(r.name || '');
       const baseName = r.name || 'Therapy Room';
       const formattedName = hasNumber ? baseName : `${baseName} ${roomNum}`;
+      const isOcc = occupiedMap.has(r.id);
       return {
         id: r.id,
         name: formattedName,
@@ -559,8 +582,8 @@ export class TherapyService {
         code: String(roomNum),
         roomNumber: String(roomNum),
         type: r.type === 'private_room' ? 'therapy_room' : r.type,
-        isOccupied: false,
-        currentPatientName: null,
+        isOccupied: isOcc,
+        currentPatientName: occupiedMap.get(r.id) || null,
       };
     });
   }
@@ -679,6 +702,16 @@ export class TherapyService {
         calledAt: (v as any).calledAt || null,
       };
 
+      const matchingSession = activeSessions.find((as) => as.patient.id === p.id);
+      if (matchingSession) {
+        item.modalityCode = matchingSession.session.modalityCode;
+        item.modalityName = matchingSession.modality?.nameEn || matchingSession.session.modalityCode;
+        item.modalityNameBn = matchingSession.modality?.nameBn || matchingSession.session.modalityCode;
+        (item as any).sessionId = matchingSession.session.id;
+        (item as any).durationMinutes = matchingSession.session.durationMinutes;
+        (item as any).startedAt = matchingSession.session.startedAt;
+      }
+
       if (isCalling) {
         nowServing.push(item);
       } else if (v.status !== 'checked_out' && v.status !== 'cancelled') {
@@ -694,24 +727,30 @@ export class TherapyService {
       waiting,
       nowServing,
       inSession: inTherapyPatients,
+      inTherapy: inTherapyPatients,
       activeSessions: [
-        ...activeSessions.map(({ session: s, patient: p, modality: m }) => ({
-          sessionId: s.id,
-          patientId: p.id,
-          patientNameEn: p.nameEn,
-          patientNameBn: p.nameBn,
-          mrn: p.mrn,
-          bedName: null,
-          modalityCode: s.modalityCode,
-          modalityNameEn: m?.nameEn || s.modalityCode,
-          modalityNameBn: m?.nameBn || s.modalityCode,
-          startedAt: s.startedAt,
-          durationMinutes: s.durationMinutes || 20,
-        })),
+        ...activeSessions.map(({ session: s, patient: p, modality: m }) => {
+          const matchingV = relevantVisits.find((rv) => rv.patient.id === p.id);
+          return {
+            sessionId: s.id,
+            visitId: matchingV?.visit.id || null,
+            patientId: p.id,
+            patientNameEn: p.nameEn,
+            patientNameBn: p.nameBn,
+            mrn: p.mrn,
+            bedName: matchingV?.visit.roomId || null,
+            modalityCode: s.modalityCode,
+            modalityNameEn: m?.nameEn || s.modalityCode,
+            modalityNameBn: m?.nameBn || s.modalityCode,
+            startedAt: s.startedAt,
+            durationMinutes: s.durationMinutes || 20,
+          };
+        }),
         ...inTherapyPatients
           .filter((it) => !activeSessions.some((as) => as.patient.id === it.patientId))
           .map((it) => ({
             sessionId: it.visitId,
+            visitId: it.visitId,
             patientId: it.patientId,
             patientNameEn: it.patientNameEn,
             patientNameBn: it.patientNameBn,

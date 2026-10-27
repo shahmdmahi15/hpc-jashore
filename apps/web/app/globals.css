@@ -653,8 +653,7 @@ select:-webkit-autofill:active {
 
   /* A4 Standard Reports (Doctor Prescriptions, Intakes, Pain Assessments, Daily Audits) */
   .sheet-report,
-  .sheet-report-a4,
-  #hpc-intake-a4-sheet {
+  .sheet-report-a4 {
     page: report-a4;
     position: absolute !important;
     left: 0 !important;
