@@ -173,14 +173,7 @@ export function IntakeAssessmentPrintModal({
   const pat = propPatient || initialPatient || fetchedPatient || raw.patient || {};
 
   const handlePrint = () => {
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'visible';
-    setTimeout(() => {
-      window.print();
-      setTimeout(() => {
-        document.body.style.overflow = prevOverflow;
-      }, 500);
-    }, 50);
+    window.print();
   };
 
   const patientName =
@@ -227,7 +220,7 @@ export function IntakeAssessmentPrintModal({
 
   return (
     <Dialog open={open} onOpenChange={(op) => !op && handleClose()}>
-      <DialogContent className="max-w-4xl max-h-[96vh] overflow-y-auto p-0 gap-0 border-emerald-500/40 bg-zinc-950/90 text-foreground backdrop-blur-xl print:!bg-transparent print:!border-none print:!shadow-none print:!p-0 print:!m-0 print:!max-w-none print:!max-h-none print:!overflow-visible print:!backdrop-blur-none">
+      <DialogContent className="max-w-4xl max-h-[96vh] overflow-y-auto p-0 gap-0 border-emerald-500/40 bg-zinc-950/90 text-foreground backdrop-blur-xl print:!bg-white print:!border-none print:!shadow-none print:!p-0 print:!m-0 print:!max-w-none print:!max-h-none print:!overflow-hidden print:!backdrop-blur-none">
         {/* Screen Toolbar (hidden during print) */}
         <div className="sticky top-0 z-20 flex items-center justify-between px-6 py-3.5 bg-zinc-900 border-b border-zinc-800 print:hidden">
           <div className="flex items-center gap-2.5">
@@ -239,7 +232,7 @@ export function IntakeAssessmentPrintModal({
                 রোগীর প্রাথমিক তথ্য ও রিসেপশন ফরম — A4 প্রিন্ট প্রিভিউ
               </DialogTitle>
               <p className="text-[11px] text-zinc-400">
-                A4 সাইজ পেপারে প্রিন্ট উপযোগী অফিসিয়াল ফরম্যাট (Strict A4 Paper Format)
+                একক A4 সাইজ পেপারে নিখুঁত প্রিন্ট ফরম্যাট (Strict Single A4 Sheet Format)
               </p>
             </div>
           </div>
@@ -268,23 +261,23 @@ export function IntakeAssessmentPrintModal({
         </div>
 
         {/* Paper Container Preview for screen */}
-        <div className="p-4 sm:p-8 bg-zinc-900/60 flex justify-center print:!p-0 print:!m-0 print:!block print:!bg-transparent">
+        <div className="sheet-report-wrapper p-4 sm:p-8 bg-zinc-900/60 flex justify-center print:!p-0 print:!m-0 print:!block print:!bg-transparent print:!w-full print:!h-full">
           {loading ? (
             <div className="py-20 flex flex-col items-center justify-center gap-2 text-zinc-400 print:hidden">
               <Loader2 className="size-7 animate-spin text-emerald-500" />
               <span className="text-xs">ইনটেক ফরম লোড হচ্ছে...</span>
             </div>
           ) : (
-            /* Printable A4 Sheet */
+            /* Printable A4 Sheet: Guaranteed to fit 1 Single A4 page */
             <div
               id="hpc-intake-a4-sheet"
-              className="sheet-report-a4 bg-white text-black shadow-2xl rounded-sm p-[8mm] w-[210mm] max-w-[210mm] text-[10.5px] leading-normal font-sans print:!shadow-none print:!border-none print:!p-0 print:!m-0 print:!w-full print:!max-w-[190mm]"
+              className="sheet-report-a4 bg-white text-black shadow-2xl rounded-sm p-[6mm] w-[210mm] max-w-[210mm] text-[10px] leading-snug font-sans mx-auto flex flex-col justify-between print:!shadow-none print:!border-none print:!p-0 print:!m-0 print:!w-full print:!max-w-[194mm] print:!h-[284mm] print:!max-h-[284mm] print:!min-h-0"
               style={{
                 fontFamily: "'Hind Siliguri', 'Noto Sans Bengali', var(--font-poppins), sans-serif",
               }}
             >
               {/* Header matching official HPC Bengali Form */}
-              <div className="border-b-2 border-emerald-700 pb-2 mb-2.5">
+              <div className="border-b-2 border-emerald-700 pb-2 mb-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
                     <div className="w-12 h-12 relative shrink-0">
@@ -293,7 +286,8 @@ export function IntakeAssessmentPrintModal({
                         alt="HPC Logo"
                         className="w-12 h-12 object-contain shrink-0"
                         onError={(e) => {
-                          (e.target as HTMLElement).style.display = 'none';
+                          const target = e.target as HTMLElement;
+                          target.style.display = 'none';
                         }}
                       />
                     </div>
@@ -304,16 +298,16 @@ export function IntakeAssessmentPrintModal({
                       <h2 className="text-xs font-bold text-zinc-900 mt-0.5">
                         রোগীর প্রাথমিক তথ্য ও রিসেপশন ফরম
                       </h2>
-                      <p className="text-[9.5px] text-zinc-600 mt-0.5">
+                      <p className="text-[9px] text-zinc-600 mt-0.5">
                         চাঁচরা পুলিশ ফাঁড়ির বিপরীতে, চাঁচরা ডালমিল মোড়, যশোর সদর, যশোর-৭৪০০
                       </p>
                     </div>
                   </div>
-                  <div className="text-right text-[10.5px] space-y-1 shrink-0">
-                    <div className="px-2 py-0.5 bg-zinc-100 rounded border border-zinc-300 font-mono font-bold text-[11px]">
+                  <div className="text-right text-[10px] space-y-1 shrink-0">
+                    <div className="px-2.5 py-0.5 bg-zinc-100 rounded border border-zinc-300 font-mono font-bold text-[11px]">
                       রোগীর আইডি: <span className="text-emerald-800">{mrn}</span>
                     </div>
-                    <div className="text-zinc-600">
+                    <div className="text-zinc-600 font-mono">
                       তারিখ: <strong className="text-black">{formatDateDDMMYYYY(formDate)}</strong>
                     </div>
                   </div>
@@ -321,14 +315,14 @@ export function IntakeAssessmentPrintModal({
               </div>
 
               {/* SECTION 1: Personal Information */}
-              <div className="mb-2 border border-zinc-300 rounded p-2 bg-zinc-50/40">
-                <div className="font-bold text-[11px] text-emerald-800 border-b border-zinc-200 pb-0.5 mb-1.5 uppercase">
+              <div className="mb-1.5 border border-zinc-300 rounded p-2 bg-zinc-50/40">
+                <div className="font-bold text-[10.5px] text-emerald-800 border-b border-zinc-200 pb-0.5 mb-1 uppercase">
                   ১. রোগীর ব্যক্তিগত তথ্য (Personal Information)
                 </div>
-                <div className="grid grid-cols-12 gap-y-1 gap-x-3 text-[10.5px]">
+                <div className="grid grid-cols-12 gap-y-1 gap-x-2 text-[10px]">
                   <div className="col-span-8">
                     <span className="text-zinc-600">রোগীর নাম:</span>{' '}
-                    <strong className="text-black text-xs">{patientName}</strong>
+                    <strong className="text-black text-[11px]">{patientName}</strong>
                   </div>
                   <div className="col-span-4">
                     <span className="text-zinc-600">বয়স:</span>{' '}
@@ -357,11 +351,11 @@ export function IntakeAssessmentPrintModal({
               </div>
 
               {/* SECTION 2: Initial Health Information */}
-              <div className="mb-2 border border-zinc-300 rounded p-2 bg-zinc-50/40">
-                <div className="font-bold text-[11px] text-emerald-800 border-b border-zinc-200 pb-0.5 mb-1.5 uppercase">
+              <div className="mb-1.5 border border-zinc-300 rounded p-2 bg-zinc-50/40">
+                <div className="font-bold text-[10.5px] text-emerald-800 border-b border-zinc-200 pb-0.5 mb-1 uppercase">
                   ২. প্রাথমিক স্বাস্থ্য তথ্য (Initial Health Information)
                 </div>
-                <div className="grid grid-cols-12 gap-y-1 gap-x-3 text-[10.5px]">
+                <div className="grid grid-cols-12 gap-y-1 gap-x-2 text-[10px]">
                   <div className="col-span-4">
                     <span className="text-zinc-600">রক্তচাপ (BP):</span>{' '}
                     <strong className="text-black font-mono">{bp}</strong>
@@ -386,10 +380,10 @@ export function IntakeAssessmentPrintModal({
                   </div>
 
                   <div className="col-span-12 pt-1 border-t border-zinc-200">
-                    <span className="text-zinc-600 block mb-0.5 font-semibold text-[10px]">
+                    <span className="text-zinc-600 block mb-0.5 font-semibold text-[9.5px]">
                       প্রধান সমস্যা / রোগের নাম (Chief Complaint):
                     </span>
-                    <div className="p-1.5 bg-white border border-zinc-300 rounded text-black font-medium min-h-[24px] text-[10.5px]">
+                    <div className="p-1.5 bg-white border border-zinc-300 rounded text-black font-medium min-h-[22px] text-[10px]">
                       {chiefComplaint}
                     </div>
                   </div>
@@ -397,11 +391,11 @@ export function IntakeAssessmentPrintModal({
               </div>
 
               {/* SECTION 3: Past Medical History */}
-              <div className="mb-2 border border-zinc-300 rounded p-2 bg-zinc-50/40">
-                <div className="font-bold text-[11px] text-emerald-800 border-b border-zinc-200 pb-0.5 mb-1.5 uppercase">
+              <div className="mb-1.5 border border-zinc-300 rounded p-2 bg-zinc-50/40">
+                <div className="font-bold text-[10.5px] text-emerald-800 border-b border-zinc-200 pb-0.5 mb-1 uppercase">
                   ৩. পূর্বের চিকিৎসা সংক্রান্ত তথ্য (Past Medical History)
                 </div>
-                <div className="space-y-1 text-[10.5px]">
+                <div className="space-y-1 text-[10px]">
                   <div className="flex items-start justify-between">
                     <div className="w-1/2">
                       <span className="text-zinc-700">আগে কোনো ডাক্তার দেখিয়েছেন কি?</span>
@@ -471,11 +465,11 @@ export function IntakeAssessmentPrintModal({
               </div>
 
               {/* SECTION 4: Discovery Source */}
-              <div className="mb-2 border border-zinc-300 rounded p-2 bg-zinc-50/40">
-                <div className="font-bold text-[11px] text-emerald-800 border-b border-zinc-200 pb-0.5 mb-1 uppercase">
+              <div className="mb-1.5 border border-zinc-300 rounded p-2 bg-zinc-50/40">
+                <div className="font-bold text-[10.5px] text-emerald-800 border-b border-zinc-200 pb-0.5 mb-1 uppercase">
                   ৪. আমাদের সেন্টারের কথা কীভাবে জেনেছেন? (Discovery Source)
                 </div>
-                <div className="flex flex-wrap items-center gap-y-0.5 text-[10.5px]">
+                <div className="flex flex-wrap items-center gap-y-0.5 text-[10px]">
                   <PrintCheckbox checked={isFacebook} label="Facebook" />
                   <PrintCheckbox checked={isGoogle} label="Google" />
                   <PrintCheckbox checked={isKnownPerson} label="পরিচিত ব্যক্তি" />
@@ -490,23 +484,23 @@ export function IntakeAssessmentPrintModal({
               </div>
 
               {/* SECTION 5: For Reception Use & Doctor Chamber Assignment */}
-              <div className="mb-2 border border-zinc-300 rounded p-2 bg-zinc-50/40">
-                <div className="font-bold text-[11px] text-emerald-800 border-b border-zinc-200 pb-0.5 mb-1 uppercase flex justify-between items-center">
+              <div className="mb-1.5 border border-zinc-300 rounded p-2 bg-zinc-50/40">
+                <div className="font-bold text-[10.5px] text-emerald-800 border-b border-zinc-200 pb-0.5 mb-1 uppercase flex justify-between items-center">
                   <span>৫. রিসেপশন ও চেম্বার এসাইনমেন্ট (For Reception Use)</span>
                   {raw.doctorFee && (
-                    <span className="font-mono text-emerald-900 font-bold">ফি: ৳{raw.doctorFee}</span>
+                    <span className="font-mono text-emerald-900 font-bold text-[10px]">কনসালটেশন ফি: ৳{raw.doctorFee}</span>
                   )}
                 </div>
-                <div className="grid grid-cols-12 gap-y-1 gap-x-3 text-[10.5px]">
+                <div className="grid grid-cols-12 gap-y-1 gap-x-2 text-[10px]">
                   <div className="col-span-6">
-                    <span className="text-zinc-600">রিসেপশনিস্টের নাম:</span>{' '}
+                    <span className="text-zinc-600">রিসেপশনিস্ট:</span>{' '}
                     <strong className="text-black">{raw.receptionistName || 'রিসেপশন ডেস্ক'}</strong>
                   </div>
                   <div className="col-span-6">
                     <span className="text-zinc-600">নির্ধারিত ডাক্তার:</span>{' '}
-                    <strong className="text-emerald-800">{raw.doctorName || 'ডাক্তার কনসালটেশন'}</strong>
+                    <strong className="text-emerald-800 font-bold">{raw.doctorName || 'ডাক্তার কনসালটেশন'}</strong>
                     {raw.chamberRoomNumber && (
-                      <span className="ml-1 text-zinc-700">(রুম {raw.chamberRoomNumber})</span>
+                      <span className="ml-1 text-zinc-700 font-semibold">(রুম {raw.chamberRoomNumber})</span>
                     )}
                   </div>
 
@@ -514,34 +508,50 @@ export function IntakeAssessmentPrintModal({
                     <span className="text-zinc-600">রেফারেন্স / বিশেষ নোট:</span>{' '}
                     <span className="text-black font-medium">{raw.specialNotes || '—'}</span>
                   </div>
-                  <div className="col-span-4 text-right">
-                    <div className="pt-2 border-b border-zinc-400 inline-block w-32 text-center text-[9.5px] text-zinc-500">
+                  <div className="col-span-4 text-right flex flex-col items-end justify-end">
+                    <div className="border-b border-zinc-400 w-32 mb-0.5"></div>
+                    <span className="text-[9px] text-zinc-500 w-32 text-center block">
                       রিসেপশন স্বাক্ষর
-                    </div>
+                    </span>
                   </div>
                 </div>
               </div>
 
               {/* SECTION 6: Doctor's Clinical Assessment & Impression Space */}
-              <div className="border border-emerald-700 rounded p-2 mb-2 bg-emerald-50/20">
-                <div className="font-bold text-emerald-900 text-[10px] mb-1 flex items-center justify-between">
+              <div className="border border-emerald-700/70 rounded p-2 mb-1.5 bg-emerald-50/20">
+                <div className="font-bold text-emerald-900 text-[10px] mb-1 flex items-center justify-between border-b border-emerald-200 pb-0.5">
                   <span>৬. কনসালট্যান্ট ডাক্তারের প্রাথমিক মূল্যায়ন ও মন্তব্য (Doctor&apos;s Clinical Assessment Space)</span>
-                  <span className="text-[9px] text-zinc-500">চেম্বারে ব্যবহারের জন্য</span>
+                  <span className="text-[9px] text-zinc-500 font-normal">চেম্বারে ব্যবহারের জন্য</span>
                 </div>
                 <div className="space-y-1.5 text-[9.5px]">
                   <div>
-                    <span className="text-zinc-600 block text-[9px]">সাময়িক পর্যবেক্ষণ ও ডায়াগনোসিস (Provisional Diagnosis):</span>
-                    <div className="border-b border-dashed border-zinc-400 h-4"></div>
+                    <span className="text-zinc-600 font-semibold block text-[9px] mb-0.5">
+                      সাময়িক পর্যবেক্ষণ ও ডায়াগনোসিস (Provisional Diagnosis):
+                    </span>
+                    <div className="border-b border-dashed border-zinc-400 h-3.5"></div>
+                    <div className="border-b border-dashed border-zinc-400 h-3.5"></div>
                   </div>
                   <div>
-                    <span className="text-zinc-600 block text-[9px]">প্রস্তাবিত ফিজিওথেরাপি ও পরীক্ষা নির্দেশনা (Recommended Therapy / Advice):</span>
-                    <div className="border-b border-dashed border-zinc-400 h-4"></div>
+                    <span className="text-zinc-600 font-semibold block text-[9px] mb-0.5">
+                      প্রস্তাবিত ফিজিওথেরাপি ও পরীক্ষা নির্দেশনা (Recommended Therapy / Advice):
+                    </span>
+                    <div className="border-b border-dashed border-zinc-400 h-3.5"></div>
+                    <div className="border-b border-dashed border-zinc-400 h-3.5"></div>
+                  </div>
+                  <div className="flex justify-between items-end pt-1">
+                    <div className="text-[9px] text-zinc-500 font-mono">
+                      তারিখ: .......................................
+                    </div>
+                    <div className="text-right">
+                      <div className="border-b border-zinc-500 w-36 mb-0.5"></div>
+                      <span className="text-[9px] text-zinc-600 font-medium">ডাক্তারের স্বাক্ষর ও সিল</span>
+                    </div>
                   </div>
                 </div>
               </div>
 
               {/* Footer with HPC branding & hotline */}
-              <div className="mt-auto pt-1.5 border-t-2 border-emerald-700 flex flex-col sm:flex-row items-center justify-between text-[9.5px] text-zinc-600 gap-1">
+              <div className="mt-auto pt-1.5 border-t-2 border-emerald-700 flex flex-col sm:flex-row items-center justify-between text-[9px] text-zinc-600 gap-1">
                 <div>
                   <strong>হেলথ অ্যান্ড পেইন কেয়ার সেন্টার (HPC)</strong> | চাঁচরা পুলিশ ফাঁড়ির বিপরীতে, চাঁচরা ডালমিল মোড়, যশোর সদর
                 </div>
@@ -553,46 +563,105 @@ export function IntakeAssessmentPrintModal({
           )}
         </div>
 
-        {/* Embedded print style to guarantee A4 portrait mode */}
+        {/* Embedded print style to guarantee STRICT 1-PAGE A4 portrait mode */}
         <style dangerouslySetInnerHTML={{ __html: `
           @page {
             size: A4 portrait;
-            margin: 8mm 10mm;
+            margin: 6mm 8mm;
           }
           @media print {
+            /* 1. Strict 1-page canvas bounds on html and body */
             html,
             body {
-              background: #ffffff !important;
-              color: #000000 !important;
+              width: 210mm !important;
+              height: 297mm !important;
+              max-width: 210mm !important;
+              max-height: 297mm !important;
               margin: 0 !important;
               padding: 0 !important;
-              overflow: visible !important;
-              height: auto !important;
-              min-height: 0 !important;
+              overflow: hidden !important;
+              background: #ffffff !important;
+              color: #000000 !important;
               -webkit-print-color-adjust: exact !important;
               print-color-adjust: exact !important;
             }
-            body * {
-              visibility: hidden !important;
+
+            /* 2. Completely eliminate normal-flow page siblings (Next.js layout, header, tables) */
+            body > *:not([data-radix-portal]) {
+              display: none !important;
             }
+
+            /* 3. Hide dialog backdrop, close button, and screen controls */
+            [data-radix-dialog-overlay],
+            [data-radix-dialog-close],
+            .print\\:hidden,
+            button {
+              display: none !important;
+            }
+
+            /* 4. Hide all elements by default */
+            body * {
+              visibility: hidden;
+            }
+
+            /* 5. Make the A4 sheet and its children fully visible */
             #hpc-intake-a4-sheet,
             #hpc-intake-a4-sheet * {
               visibility: visible !important;
             }
-            #hpc-intake-a4-sheet {
-              position: absolute !important;
-              left: 0 !important;
-              top: 0 !important;
-              width: 100% !important;
-              max-width: 190mm !important;
+
+            /* 6. Radix portal & dialog container reset */
+            [data-radix-portal],
+            [role="dialog"] {
+              position: static !important;
+              display: block !important;
+              transform: none !important;
               margin: 0 !important;
               padding: 0 !important;
-              box-shadow: none !important;
               border: none !important;
+              box-shadow: none !important;
+              background: #ffffff !important;
+              max-width: none !important;
+              max-height: none !important;
+              overflow: hidden !important;
+              width: 100% !important;
+              height: 100% !important;
+            }
+
+            .sheet-report-wrapper {
+              padding: 0 !important;
+              margin: 0 !important;
+              background: transparent !important;
+              display: block !important;
+              width: 100% !important;
+              height: 100% !important;
+              overflow: hidden !important;
+            }
+
+            /* 7. Strict A4 Sheet: fits precisely in printable area (194mm × 284mm) */
+            #hpc-intake-a4-sheet {
+              position: static !important;
+              display: flex !important;
+              flex-direction: column !important;
+              justify-content: space-between !important;
+              box-sizing: border-box !important;
+              width: 100% !important;
+              max-width: 194mm !important;
+              height: 284mm !important;
+              max-height: 284mm !important;
+              margin: 0 auto !important;
+              padding: 0 !important;
+              border: none !important;
+              box-shadow: none !important;
               background: #ffffff !important;
               color: #000000 !important;
-              height: auto !important;
-              min-height: 0 !important;
+              overflow: hidden !important;
+              page-break-before: avoid !important;
+              page-break-after: avoid !important;
+              page-break-inside: avoid !important;
+              break-before: avoid !important;
+              break-after: avoid !important;
+              break-inside: avoid !important;
             }
           }
         ` }} />
