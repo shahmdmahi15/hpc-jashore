@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Activity,
   AlertTriangle,
+  ArrowRightLeft,
   Building2,
   Calendar,
   CheckCircle2,
@@ -25,6 +26,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { cn } from '../../lib/utils';
 import { api } from '../../lib/api';
 import { useRealtime } from '../../lib/use-realtime';
 import { PatientTimelineModal } from '../patient/PatientTimelineModal';
@@ -106,6 +108,7 @@ export function TherapyQueueManagementTab() {
   const [plansPatient, setPlansPatient] = useState<TherapyQueueItem | null>(null);
   const [startSessionPatient, setStartSessionPatient] = useState<TherapyQueueItem | null>(null);
   const [sendToCashierPatient, setSendToCashierPatient] = useState<TherapyQueueItem | null>(null);
+  const [switchRoomPatient, setSwitchRoomPatient] = useState<TherapyQueueItem | null>(null);
 
   const fetchData = useCallback(async (isSilent = false) => {
     if (!isSilent) setRefreshing(true);
@@ -641,7 +644,17 @@ export function TherapyQueueManagementTab() {
                       <span>থেরাপি শুরু করুন (Mark in Therapy)</span>
                     </Button>
 
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-3 gap-1.5">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setSwitchRoomPatient(patient)}
+                        className="h-8 text-xs border-indigo-500/40 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/10 gap-1 font-semibold cursor-pointer active:scale-95"
+                      >
+                        <ArrowRightLeft className="size-3.5" />
+                        <span>রুম বদল</span>
+                      </Button>
+
                       <Button
                         size="sm"
                         variant="outline"
@@ -650,7 +663,7 @@ export function TherapyQueueManagementTab() {
                         className="h-8 text-xs border-amber-500/40 text-amber-500 hover:bg-amber-500/10 gap-1 font-semibold cursor-pointer active:scale-95"
                       >
                         <Volume2 className="size-3.5" />
-                        <span>পুনরায় ডাকুন (Recall)</span>
+                        <span>ডাকুন</span>
                       </Button>
 
                       <Button
@@ -661,7 +674,7 @@ export function TherapyQueueManagementTab() {
                         className="h-8 text-xs border-red-500/40 text-red-500 hover:bg-red-500/10 gap-1 font-semibold cursor-pointer active:scale-95"
                       >
                         <XCircle className="size-3.5" />
-                        <span>কল বাতিল (Cancel Call)</span>
+                        <span>বাতিল</span>
                       </Button>
                     </div>
                   </div>
@@ -701,13 +714,13 @@ export function TherapyQueueManagementTab() {
                       </Button>
                     </div>
 
-                    {/* Row 2: Start Session & Send to Cashier */}
-                    <div className="grid grid-cols-2 gap-2">
+                    {/* Row 2: Start Session & Switch Room & Send to Cashier */}
+                    <div className="grid grid-cols-3 gap-1.5">
                       <Button
                         size="sm"
                         variant="outline"
                         onClick={() => setStartSessionPatient(patient)}
-                        className="h-9 text-xs border-amber-500/40 text-amber-500 hover:bg-amber-500/10 gap-1.5 font-semibold cursor-pointer active:scale-95"
+                        className="h-9 text-xs border-amber-500/40 text-amber-500 hover:bg-amber-500/10 gap-1 font-semibold cursor-pointer active:scale-95"
                       >
                         <Play className="size-3.5 text-amber-400" />
                         <span>সেশন শুরু</span>
@@ -715,11 +728,21 @@ export function TherapyQueueManagementTab() {
 
                       <Button
                         size="sm"
+                        variant="outline"
+                        onClick={() => setSwitchRoomPatient(patient)}
+                        className="h-9 text-xs border-indigo-500/40 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/10 gap-1 font-semibold cursor-pointer active:scale-95"
+                      >
+                        <ArrowRightLeft className="size-3.5" />
+                        <span>রুম বদল</span>
+                      </Button>
+
+                      <Button
+                        size="sm"
                         onClick={() => setSendToCashierPatient(patient)}
-                        className="h-9 text-xs bg-emerald-600 hover:bg-emerald-500 text-white gap-1.5 font-bold shadow-md shadow-emerald-600/20 cursor-pointer active:scale-95"
+                        className="h-9 text-xs bg-emerald-600 hover:bg-emerald-500 text-white gap-1 font-bold shadow-md shadow-emerald-600/20 cursor-pointer active:scale-95"
                       >
                         <CreditCard className="size-3.5" />
-                        <span>ক্যাশিয়ারে পাঠান</span>
+                        <span>ক্যাশিয়ার</span>
                       </Button>
                     </div>
 
@@ -848,6 +871,17 @@ export function TherapyQueueManagementTab() {
           if (!open) setSendToCashierPatient(null);
         }}
         patient={sendToCashierPatient}
+        onSuccess={() => fetchData(true)}
+      />
+
+      {/* Switch Therapy Room Modal */}
+      <SwitchTherapyRoomModal
+        open={!!switchRoomPatient}
+        onOpenChange={(open) => {
+          if (!open) setSwitchRoomPatient(null);
+        }}
+        patient={switchRoomPatient}
+        rooms={rooms}
         onSuccess={() => fetchData(true)}
       />
     </div>
@@ -1293,7 +1327,7 @@ export function AllPlansModal({
 }
 
 // -----------------------------------------------------------------------------
-// Start Therapy Session Modal Component
+// Start Therapy Session Modal Component (Strict Doctor Plan Enforcement)
 // -----------------------------------------------------------------------------
 interface StartTherapySessionModalProps {
   open: boolean;
@@ -1308,18 +1342,66 @@ export function StartTherapySessionModal({
   patient,
   onSuccess,
 }: StartTherapySessionModalProps) {
-  const [modalityCode, setModalityCode] = useState('IFT');
+  const [loadingData, setLoadingData] = useState(false);
+  const [doctorPlans, setDoctorPlans] = useState<any[]>([]);
+  const [modalitiesCatalog, setModalitiesCatalog] = useState<any[]>([]);
+  const [selectedModalityCode, setSelectedModalityCode] = useState('IFT');
+  const [selectedPlanId, setSelectedPlanId] = useState<string | undefined>(undefined);
   const [durationMinutes, setDurationMinutes] = useState(15);
+  const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (patient) {
-      setModalityCode(patient.modalityCode || 'IFT');
-      setDurationMinutes(15);
-    }
-  }, [patient]);
+    if (!open || !patient) return;
+
+    setDurationMinutes(15);
+    setNotes('');
+
+    const loadData = async () => {
+      try {
+        setLoadingData(true);
+        const [plansRes, catalogRes] = await Promise.all([
+          api.therapy.getPlans(patient.patientId).catch(() => []),
+          api.catalog.getModalities().catch(() => []),
+        ]);
+
+        const activeDoctorPlans = (plansRes || []).filter((p: any) => p.status === 'active');
+        const activeCatalog = (catalogRes || []).filter(
+          (m: any) => m.isActive !== 0 && m.isActive !== false,
+        );
+
+        setDoctorPlans(activeDoctorPlans);
+        setModalitiesCatalog(activeCatalog);
+
+        if (activeDoctorPlans.length > 0) {
+          // Rule: Doctor prescribed treatment plan MUST be used!
+          setSelectedModalityCode(activeDoctorPlans[0].modalityCode);
+          setSelectedPlanId(activeDoctorPlans[0].id);
+          if (activeDoctorPlans[0].defaultDurationMin) {
+            setDurationMinutes(activeDoctorPlans[0].defaultDurationMin);
+          }
+        } else {
+          // Rule: If NO doctor treatment plan exists for today, handler can choose any modality from catalog
+          setSelectedPlanId(undefined);
+          if (activeCatalog.length > 0) {
+            setSelectedModalityCode(activeCatalog[0].code);
+          } else {
+            setSelectedModalityCode(patient.modalityCode || 'IFT');
+          }
+        }
+      } catch (err: any) {
+        console.warn('Failed to load doctor plans or modalities catalog:', err?.message);
+      } finally {
+        setLoadingData(false);
+      }
+    };
+
+    loadData();
+  }, [open, patient]);
 
   if (!patient) return null;
+
+  const hasDoctorPlans = doctorPlans.length > 0;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1327,11 +1409,16 @@ export function StartTherapySessionModal({
       setSubmitting(true);
       await api.therapy.startSession({
         patientId: patient.patientId,
-        modalityCode,
-        durationMinutes,
+        modalityCode: selectedModalityCode,
+        durationMinutes: Number(durationMinutes) || 15,
+        roomId: patient.assignedRoomId || undefined,
+        visitId: patient.visitId,
+        planId: selectedPlanId || undefined,
+        notes: notes.trim() || undefined,
       });
+
       toast.success(
-        `রোগী ${patient.patientNameBn || patient.patientNameEn} এর ${modalityCode} সেশন (${durationMinutes} মিনিট) শুরু হয়েছে!`,
+        `রোগী ${patient.patientNameBn || patient.patientNameEn} এর ${selectedModalityCode} সেশন (${durationMinutes} মিনিট) সফলভাবে শুরু হয়েছে! কিউ থেকে সরানো হয়েছে।`,
       );
       onOpenChange(false);
       onSuccess();
@@ -1344,7 +1431,7 @@ export function StartTherapySessionModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[95vw] max-w-md p-0 overflow-hidden border-border bg-card shadow-2xl rounded-2xl">
+      <DialogContent className="w-[95vw] max-w-lg p-0 overflow-hidden border-border bg-card shadow-2xl rounded-2xl">
         <DialogHeader className="p-4 sm:p-5 border-b border-border bg-muted/40">
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-500 border border-amber-500/20">
@@ -1352,7 +1439,7 @@ export function StartTherapySessionModal({
             </div>
             <div>
               <DialogTitle className="text-base sm:text-lg font-bold text-foreground">
-                থেরাপি সেশন শুরু করুন (Start Session)
+                থেরাপি সেশন শুরু করুন (Start Therapy Session)
               </DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground mt-0.5">
                 রোগী: <strong className="text-foreground">{patient.patientNameBn || patient.patientNameEn}</strong> (MRN: {patient.mrn})
@@ -1362,46 +1449,372 @@ export function StartTherapySessionModal({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="p-4 sm:p-5 space-y-4">
-          <div className="space-y-1.5">
-            <Label className="text-xs font-bold text-foreground">মডালিটি নির্বাচন (Modality)</Label>
-            <Select value={modalityCode} onValueChange={setModalityCode}>
-              <SelectTrigger className="h-10 text-xs sm:text-sm bg-card">
-                <SelectValue placeholder="মডালিটি বেছে নিন" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="IFT">IFT (Interferential Therapy)</SelectItem>
-                <SelectItem value="UST">UST (Ultrasound Therapy)</SelectItem>
-                <SelectItem value="TRACTION">Traction (Cervical / Lumbar)</SelectItem>
-                <SelectItem value="SWD">SWD (Shortwave Diathermy)</SelectItem>
-                <SelectItem value="TENS">TENS (Electrical Nerve Stimulation)</SelectItem>
-                <SelectItem value="EXERCISE">Therapeutic Exercise</SelectItem>
-                <SelectItem value="IRR">IRR (Infrared Radiation)</SelectItem>
-                <SelectItem value="WAX">Wax Bath Therapy</SelectItem>
-                <SelectItem value="PHYSIO">Physiotherapy & Rehab</SelectItem>
-              </SelectContent>
-            </Select>
+          {loadingData ? (
+            <div className="py-8 text-center text-xs text-muted-foreground flex items-center justify-center gap-2">
+              <RefreshCw className="size-4 animate-spin text-amber-500" />
+              <span>ট্রিটমেন্ট প্ল্যান ও ক্যাটালগ যাচাই করা হচ্ছে...</span>
+            </div>
+          ) : (
+            <>
+              {/* Doctor Plan Rule Status Banner */}
+              {hasDoctorPlans ? (
+                <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-xs space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400">
+                      <Sparkles className="size-3.5" />
+                      <span>ডাক্তার কর্তৃক নির্ধারিত ট্রিটমেন্ট প্ল্যান প্রযোজ্য</span>
+                    </span>
+                    <Badge className="bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 border-emerald-500/30 text-[10px]">
+                      {doctorPlans.length} টি নির্ধারিত
+                    </Badge>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    ডাক্তারের প্রেসক্রিপশন অনুযায়ী নিচে থেকে নির্ধারিত থেরাপি মডালিটি নির্বাচন করুন।
+                  </p>
+                </div>
+              ) : (
+                <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-400 text-xs flex items-start gap-2.5">
+                  <AlertTriangle className="size-4 shrink-0 mt-0.5 text-amber-500" />
+                  <div className="leading-relaxed">
+                    <strong>আজকের জন্য ডাক্তারের কোনো নির্দিষ্ট প্ল্যান নেই:</strong>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      থেরাপি ক্যাটালগ থেকে রোগীর জন্য যেকোনো সক্রিয় মডালিটি নির্বাচন করে সেশন শুরু করতে পারেন।
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Modality Selector */}
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold text-foreground flex items-center justify-between">
+                  <span>মডালিটি নির্বাচন (Select Modality) *</span>
+                  {hasDoctorPlans && (
+                    <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400">
+                      ডাক্তারের প্ল্যান সীমাবদ্ধ
+                    </span>
+                  )}
+                </Label>
+
+                {hasDoctorPlans ? (
+                  <div className="space-y-1.5 max-h-44 overflow-y-auto p-1">
+                    {doctorPlans.map((plan) => {
+                      const isSelected = selectedModalityCode === plan.modalityCode;
+                      return (
+                        <button
+                          key={plan.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedModalityCode(plan.modalityCode);
+                            setSelectedPlanId(plan.id);
+                            if (plan.defaultDurationMin) {
+                              setDurationMinutes(plan.defaultDurationMin);
+                            }
+                          }}
+                          className={cn(
+                            'w-full p-2.5 rounded-xl border text-left transition-all flex items-center justify-between text-xs cursor-pointer',
+                            isSelected
+                              ? 'border-emerald-500 bg-emerald-500/10 text-foreground font-bold shadow-xs'
+                              : 'border-border bg-card hover:bg-muted/50 text-foreground'
+                          )}
+                        >
+                          <div>
+                            <div className="flex items-center gap-1.5">
+                              <span>{plan.modalityNameBn || plan.modalityNameEn || plan.modalityCode}</span>
+                              <span className="font-mono text-[10px] text-muted-foreground">
+                                ({plan.modalityCode})
+                              </span>
+                            </div>
+                            <div className="text-[10px] text-muted-foreground mt-0.5">
+                              সেশন অগ্রগতি: <strong>{plan.completedSessions || 0} / {plan.totalSessionsPrescribed}</strong>
+                              {plan.frequency ? ` • ${plan.frequency}` : ''}
+                            </div>
+                          </div>
+
+                          <Badge
+                            className={cn(
+                              'text-[10px]',
+                              isSelected
+                                ? 'bg-emerald-600 text-white'
+                                : 'bg-muted text-muted-foreground border border-border'
+                            )}
+                          >
+                            {isSelected ? 'নির্বাচিত' : 'বাছাই করুন'}
+                          </Badge>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <Select
+                    value={selectedModalityCode}
+                    onValueChange={(val) => {
+                      setSelectedModalityCode(val);
+                      setSelectedPlanId(undefined);
+                      const mod = modalitiesCatalog.find((m) => m.code === val);
+                      if (mod?.defaultDurationMin) {
+                        setDurationMinutes(mod.defaultDurationMin);
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="h-10 text-xs sm:text-sm bg-card">
+                      <SelectValue placeholder="ক্যাটালগ থেকে মডালিটি বেছে নিন" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {modalitiesCatalog.length > 0 ? (
+                        modalitiesCatalog.map((mod) => (
+                          <SelectItem key={mod.code} value={mod.code} className="text-xs">
+                            {mod.nameEn} ({mod.code}) {mod.nameBn ? `• ${mod.nameBn}` : ''}
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <>
+                          <SelectItem value="IFT">IFT (Interferential Therapy)</SelectItem>
+                          <SelectItem value="UST">UST (Ultrasound Therapy)</SelectItem>
+                          <SelectItem value="TRACTION">Traction (Cervical / Lumbar)</SelectItem>
+                          <SelectItem value="SWD">SWD (Shortwave Diathermy)</SelectItem>
+                          <SelectItem value="TENS">TENS (Electrical Stimulation)</SelectItem>
+                          <SelectItem value="EXERCISE">Therapeutic Exercise</SelectItem>
+                          <SelectItem value="IRR">IRR (Infrared Radiation)</SelectItem>
+                          <SelectItem value="WAX">Wax Bath Therapy</SelectItem>
+                          <SelectItem value="PHYSIO">Physiotherapy & Rehab</SelectItem>
+                        </>
+                      )}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+
+              {/* Duration Selector */}
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold text-foreground flex items-center justify-between">
+                  <span>সেশন সময়কাল (Duration in Minutes)</span>
+                  <span className="font-mono font-bold text-amber-500 dark:text-amber-400">
+                    {durationMinutes} মিনিট
+                  </span>
+                </Label>
+                <div className="grid grid-cols-5 gap-2 pt-1">
+                  {[10, 15, 20, 30, 45].map((mins) => (
+                    <button
+                      key={mins}
+                      type="button"
+                      onClick={() => setDurationMinutes(mins)}
+                      className={cn(
+                        'h-9 rounded-lg font-mono text-xs font-bold border transition-all cursor-pointer',
+                        durationMinutes === mins
+                          ? 'bg-amber-500/20 border-amber-500 text-amber-500 dark:text-amber-400 shadow-xs'
+                          : 'border-border bg-muted/40 text-muted-foreground hover:text-foreground'
+                      )}
+                    >
+                      {mins}মি
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Session Notes */}
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold text-foreground">
+                  সেশন নোট / মন্তব্য (ঐচ্ছিক)
+                </Label>
+                <Input
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="যেমন: রোগীর সহ্যক্ষমতা ভালো, মৃদু ব্যথা..."
+                  className="h-8 text-xs bg-card"
+                />
+              </div>
+            </>
+          )}
+
+          <DialogFooter className="pt-2 flex flex-row items-center justify-end gap-2 border-t border-border/50">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={submitting}
+              className="h-9 text-xs"
+            >
+              বাতিল
+            </Button>
+            <Button
+              type="submit"
+              disabled={submitting || loadingData}
+              className="h-9 text-xs font-bold bg-amber-500 hover:bg-amber-400 text-black gap-1.5 shadow-md shadow-amber-500/20 active:scale-95"
+            >
+              {submitting ? (
+                <RefreshCw className="size-3.5 animate-spin" />
+              ) : (
+                <Play className="size-3.5 fill-current" />
+              )}
+              <span>সেশন টাইমার চালু করুন</span>
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// -----------------------------------------------------------------------------
+// Switch Therapy Room Modal Component (Empty Room Verification)
+// -----------------------------------------------------------------------------
+interface SwitchTherapyRoomModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  patient: TherapyQueueItem | null;
+  rooms: RoomOption[];
+  onSuccess: () => void;
+}
+
+export function SwitchTherapyRoomModal({
+  open,
+  onOpenChange,
+  patient,
+  rooms,
+  onSuccess,
+}: SwitchTherapyRoomModalProps) {
+  const [selectedRoomId, setSelectedRoomId] = useState<string>('');
+  const [submitting, setSubmitting] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (patient) {
+      // Pick first unoccupied room that is not current room
+      const empty = rooms.find((r) => !r.isOccupied && r.id !== patient.assignedRoomId);
+      if (empty) {
+        setSelectedRoomId(empty.id);
+      } else {
+        setSelectedRoomId('');
+      }
+    }
+  }, [patient, rooms]);
+
+  if (!patient) return null;
+
+  const handleSwitch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedRoomId) {
+      toast.error('দয়া করে একটি ফাঁকা থেরাপি রুম নির্বাচন করুন');
+      return;
+    }
+
+    const targetRoom = rooms.find((r) => r.id === selectedRoomId);
+    if (targetRoom?.isOccupied) {
+      toast.error('নির্বাচিত রুমটি বর্তমানে ব্যস্ত। অনুগ্রহ করে একটি ফাঁকা রুম বেছে নিন।');
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      await api.therapy.switchRoom({
+        visitId: patient.visitId,
+        targetRoomId: selectedRoomId,
+      });
+
+      toast.success(
+        `রোগী ${patient.patientNameBn || patient.patientNameEn} কে সফলভাবে ${targetRoom?.name || 'নতুন রুমে'} স্থানান্তর করা হয়েছে!`
+      );
+      onOpenChange(false);
+      onSuccess();
+    } catch (err: any) {
+      toast.error(err?.message || 'রুম স্থানান্তর করতে ব্যর্থ হয়েছে');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const currentRoomName = patient.assignedRoomName || 'Therapy Room';
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="w-[95vw] max-w-md p-0 overflow-hidden border-border bg-card shadow-2xl rounded-2xl">
+        <DialogHeader className="p-4 sm:p-5 border-b border-border bg-muted/40">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-indigo-500/10 text-indigo-500 border border-indigo-500/20">
+              <ArrowRightLeft className="size-5" />
+            </div>
+            <div>
+              <DialogTitle className="text-base sm:text-lg font-bold text-foreground">
+                থেরাপি রুম পরিবর্তন (Switch Therapy Room)
+              </DialogTitle>
+              <DialogDescription className="text-xs text-muted-foreground mt-0.5">
+                রোগীকে অন্য একটি ফাঁকা থেরাপি রুম বা হলে স্থানান্তর করুন
+              </DialogDescription>
+            </div>
+          </div>
+        </DialogHeader>
+
+        <form onSubmit={handleSwitch} className="p-4 sm:p-5 space-y-4">
+          {/* Patient Details */}
+          <div className="p-3 rounded-xl bg-muted/40 border border-border/80 flex items-center justify-between gap-3 text-xs">
+            <div>
+              <div className="font-bold text-foreground sm:text-sm">
+                {patient.patientNameBn || patient.patientNameEn}
+              </div>
+              <div className="text-muted-foreground font-mono">MRN: {patient.mrn}</div>
+            </div>
+            <div className="text-right">
+              <div className="text-muted-foreground">বর্তমান রুম:</div>
+              <Badge variant="outline" className="font-bold text-foreground">
+                {currentRoomName}
+              </Badge>
+            </div>
           </div>
 
-          <div className="space-y-1.5">
-            <Label className="text-xs font-bold text-foreground flex items-center justify-between">
-              <span>সেশন সময়কাল (Duration in Minutes)</span>
-              <span className="font-mono font-bold text-amber-400">{durationMinutes} মিনিট</span>
+          {/* Room Selector */}
+          <div className="space-y-2">
+            <Label className="text-xs font-bold text-foreground">
+              নতুন ফাঁকা থেরাপি রুম নির্বাচন করুন (Target Empty Room) *
             </Label>
-            <div className="grid grid-cols-5 gap-2 pt-1">
-              {[10, 15, 20, 30, 45].map((mins) => (
-                <button
-                  key={mins}
-                  type="button"
-                  onClick={() => setDurationMinutes(mins)}
-                  className={`h-9 rounded-lg font-mono text-xs font-bold border transition-all cursor-pointer ${
-                    durationMinutes === mins
-                      ? 'bg-amber-500/20 border-amber-500 text-amber-400 shadow-xs'
-                      : 'border-border bg-muted/40 text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  {mins}মি
-                </button>
-              ))}
+            <div className="space-y-1.5 max-h-56 overflow-y-auto p-1">
+              {rooms.map((room) => {
+                const isCurrent = room.id === patient.assignedRoomId;
+                const isOccupied = room.isOccupied;
+                const isSelected = selectedRoomId === room.id;
+                const disabled = isCurrent || isOccupied;
+
+                return (
+                  <button
+                    key={room.id}
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => setSelectedRoomId(room.id)}
+                    className={cn(
+                      'w-full p-2.5 rounded-xl border text-left transition-all flex items-center justify-between text-xs',
+                      isSelected
+                        ? 'border-indigo-500 bg-indigo-500/10 text-foreground font-bold shadow-xs'
+                        : disabled
+                        ? 'border-border/40 bg-muted/20 opacity-60 cursor-not-allowed text-muted-foreground'
+                        : 'border-border bg-card hover:bg-muted/50 text-foreground cursor-pointer'
+                    )}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Building2 className={cn('size-4', isSelected ? 'text-indigo-500' : 'text-muted-foreground')} />
+                      <div>
+                        <div>{room.name || `Therapy Room ${room.roomNumber}`}</div>
+                        <div className="text-[10px] text-muted-foreground font-mono">
+                          কোড: {room.roomNumber || room.code} • টাইপ: {room.type}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      {isCurrent ? (
+                        <Badge variant="outline" className="text-[10px] text-muted-foreground">
+                          বর্তমান রুম
+                        </Badge>
+                      ) : isOccupied ? (
+                        <Badge variant="destructive" className="text-[10px]">
+                          ব্যস্ত (Occupied)
+                        </Badge>
+                      ) : (
+                        <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 text-[10px]">
+                          ফাঁকা (Empty)
+                        </Badge>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -1417,15 +1830,15 @@ export function StartTherapySessionModal({
             </Button>
             <Button
               type="submit"
-              disabled={submitting}
-              className="h-9 text-xs font-bold bg-amber-500 hover:bg-amber-400 text-black gap-1.5 shadow-md shadow-amber-500/20"
+              disabled={submitting || !selectedRoomId}
+              className="h-9 text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white gap-1.5 shadow-md shadow-indigo-600/20 active:scale-95"
             >
               {submitting ? (
                 <RefreshCw className="size-3.5 animate-spin" />
               ) : (
-                <Play className="size-3.5 fill-current" />
+                <ArrowRightLeft className="size-3.5" />
               )}
-              <span>সেশন টাইমার চালু করুন</span>
+              <span>রুম স্থানান্তর নিশ্চিত করুন</span>
             </Button>
           </DialogFooter>
         </form>

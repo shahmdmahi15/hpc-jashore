@@ -382,6 +382,28 @@ export const api = {
         body: JSON.stringify(data),
       }),
     getPendingBills: () => apiFetch<any[]>('/therapy/pending-bills'),
+    switchRoom: (data: { visitId: string; targetRoomId: string }) =>
+      apiFetch<any>('/therapy/switch-room', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+    getPlans: (patientId: string) =>
+      apiFetch<any[]>(`/therapy/plans/patient/${patientId}`),
+    createPlans: (data: {
+      patientId: string;
+      visitId?: string;
+      consultationId?: string;
+      plans: Array<{
+        modalityCode: string;
+        totalSessionsPrescribed: number;
+        frequency?: string;
+        notes?: string;
+      }>;
+    }) =>
+      apiFetch<any>('/therapy/plans', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
   },
   billing: {
     getDrawerStatus: (cashierStaffId: string) =>

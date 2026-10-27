@@ -419,6 +419,38 @@ export class ClinicalService {
       }
     }
 
+    // Persist consultation clinical notes if provided
+    if (dto.chiefComplaints || dto.diagnosis || dto.painScore !== undefined || dto.objectiveNotes || dto.followUpDate) {
+      if (consultId) {
+        await this.db
+          .update(consultations)
+          .set({
+            chiefComplaints: dto.chiefComplaints ?? undefined,
+            diagnosisIcdJson: dto.diagnosis ? JSON.stringify([dto.diagnosis]) : undefined,
+            painScoreVas: dto.painScore ?? undefined,
+            soapNotesJson: dto.objectiveNotes ? JSON.stringify({ objective: dto.objectiveNotes }) : undefined,
+            followUpDate: dto.followUpDate ?? undefined,
+            updatedAt: now,
+          })
+          .where(eq(consultations.id, consultId));
+      } else {
+        consultId = randomUUID();
+        await this.db.insert(consultations).values({
+          id: consultId,
+          visitId: dto.visitId,
+          patientId: dto.patientId,
+          doctorId: effectiveDoctorId,
+          chiefComplaints: dto.chiefComplaints ?? null,
+          diagnosisIcdJson: dto.diagnosis ? JSON.stringify([dto.diagnosis]) : null,
+          painScoreVas: dto.painScore ?? null,
+          soapNotesJson: dto.objectiveNotes ? JSON.stringify({ objective: dto.objectiveNotes }) : null,
+          followUpDate: dto.followUpDate ?? null,
+          createdAt: now,
+          updatedAt: now,
+        });
+      }
+    }
+
     const rxRow = {
       id: rxId,
       consultationId: consultId,
@@ -457,8 +489,8 @@ export class ClinicalService {
           visitId: dto.visitId,
           patientId: dto.patientId,
           doctorId: effectiveDoctorId,
-          modalityCode: mod.modalityCode ?? mod.modalityId ?? mod.name,
-          totalSessionsPrescribed: Number(mod.totalSessions ?? mod.sessions ?? 10),
+          modalityCode: mod.modalityCode ?? mod.modalityId ?? mod.code ?? mod.name,
+          totalSessionsPrescribed: Number(mod.totalSessionsPrescribed ?? mod.sessionsPrescribed ?? mod.totalSessions ?? mod.sessions ?? 10),
           completedSessions: 0,
           frequency: mod.frequency ?? 'daily',
           notes: mod.notes ?? null,

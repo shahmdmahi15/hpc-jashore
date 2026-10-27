@@ -30,11 +30,13 @@ import type {
   CancelTherapyCallDto,
   CompleteSessionDto,
   CreatePackageDto,
+  CreateTherapyPlansDto,
   MarkInTherapyDto,
   PurchasePackageDto,
   RecallTherapyPatientDto,
   SendToCashierDto,
   StartSessionDto,
+  SwitchTherapyRoomDto,
 } from './dto';
 
 @Injectable()
@@ -77,6 +79,7 @@ export class TherapyService {
     }
 
     const now = new Date().toISOString();
+    const today = now.slice(0, 10);
     const sessionId = randomUUID();
     const row = {
       id: sessionId,
@@ -88,14 +91,37 @@ export class TherapyService {
       status: 'in_progress' as const,
       startedAt: now,
       endedAt: null,
-      durationMinutes: 0,
-      outcomeNote: null,
+      durationMinutes: dto.durationMinutes ?? 0,
+      outcomeNote: dto.notes ?? null,
       painScoreAfter: null,
       isOvertime: 0,
       createdAt: now,
       updatedAt: now,
     };
     await this.db.insert(therapySessions).values(row);
+
+    // Update patient's active visit for today: status = 'in_therapy', currentLocation = 'therapy_hall'
+    if (dto.visitId) {
+      await this.db
+        .update(visits)
+        .set({
+          status: 'in_therapy' as any,
+          currentLocation: 'therapy_hall',
+          roomId: dto.roomId ?? undefined,
+          updatedAt: now,
+        })
+        .where(eq(visits.id, dto.visitId));
+    } else {
+      await this.db
+        .update(visits)
+        .set({
+          status: 'in_therapy' as any,
+          currentLocation: 'therapy_hall',
+          roomId: dto.roomId ?? undefined,
+          updatedAt: now,
+        })
+        .where(and(eq(visits.patientId, dto.patientId), eq(visits.visitDate, today)));
+    }
 
     const payload = {
       sessionId,
@@ -616,8 +642,11 @@ export class TherapyService {
       .leftJoin(modalities, eq(therapySessions.modalityCode, modalities.code))
       .where(eq(therapySessions.status, 'in_progress'));
 
+    const activePatientIds = new Set(activeSessions.map((s) => s.patient.id));
+
     const nowServing: any[] = [];
     const waiting: any[] = [];
+    const inTherapyPatients: any[] = [];
 
     for (const { visit: v, patient: p, booking: b } of relevantVisits) {
       const isCalling = (v as any).status === 'calling';
@@ -633,7 +662,11 @@ export class TherapyService {
         gender: p.gender,
         ageYears: p.ageYears,
         priority: v.priority || 'normal',
-        status: isCalling ? 'calling' : v.status === 'in_therapy' ? 'in_therapy' : 'waiting',
+        status: isCalling
+          ? 'calling'
+          : v.status === 'in_therapy' || activePatientIds.has(p.id)
+          ? 'in_therapy'
+          : 'waiting',
         assignedRoomId: (v as any).calledRoomId || v.roomId || null,
         assignedRoomName: (v as any).calledRoomName || null,
         modalityCode: 'PHYSIO',
@@ -649,11 +682,13 @@ export class TherapyService {
       if (isCalling) {
         nowServing.push(item);
       } else if (v.status !== 'checked_out' && v.status !== 'cancelled') {
-        waiting.push(item);
+        if (activePatientIds.has(p.id) || v.status === 'in_therapy') {
+          inTherapyPatients.push(item);
+        } else {
+          waiting.push(item);
+        }
       }
     }
-
-    const inTherapyPatients = waiting.filter((item) => item.status === 'in_therapy');
 
     return {
       waiting,
@@ -1312,5 +1347,165 @@ export class TherapyService {
         items: bItems,
       };
     });
+  }
+
+  async switchRoom(
+    actor: { sub?: string; role?: string },
+    dto: SwitchTherapyRoomDto,
+    meta: { ip?: string | null; requestId?: string | null },
+  ) {
+    const roomRows = await this.db.select().from(rooms).where(eq(rooms.id, dto.targetRoomId));
+    const room = roomRows[0];
+    if (!room) {
+      throw new NotFoundException('Target room not found');
+    }
+
+    const type = (room.type || '').toLowerCase();
+    const name = (room.name || '').toLowerCase();
+    const isTherapy =
+      type === 'therapy_room' ||
+      type === 'therapy_hall' ||
+      room.id === 'room-th-01' ||
+      room.id === 'room-th-02' ||
+      room.id === 'room-tr-01' ||
+      name.includes('therapy') ||
+      name.includes('hall') ||
+      name.includes('rehab') ||
+      name.includes('থেরাপি');
+
+    if (!isTherapy) {
+      throw new BadRequestException('Target room must be a therapy room or hall');
+    }
+
+    const today = new Date().toISOString().slice(0, 10);
+    const occupiedVisits = await this.db
+      .select()
+      .from(visits)
+      .where(
+        and(
+          eq(visits.visitDate, today),
+          or(
+            eq(visits.roomId, dto.targetRoomId),
+            sql`(visits.called_room_id = ${dto.targetRoomId})`,
+          ),
+          sql`${visits.status} IN ('calling', 'in_therapy')`,
+          sql`${visits.id} != ${dto.visitId}`,
+        ),
+      );
+
+    if (occupiedVisits.length > 0) {
+      throw new BadRequestException('Target room is currently occupied. Please choose an empty room.');
+    }
+
+    const now = new Date().toISOString();
+    await this.db
+      .update(visits)
+      .set({
+        roomId: dto.targetRoomId,
+        updatedAt: now,
+      })
+      .where(eq(visits.id, dto.visitId));
+
+    try {
+      (this.db as any).session?.client
+        ?.prepare(
+          'UPDATE visits SET room_id = ?, called_room_id = ?, called_room_name = ?, updated_at = ? WHERE id = ?',
+        )
+        ?.run(dto.targetRoomId, dto.targetRoomId, room.name, now, dto.visitId);
+    } catch {}
+
+    const payload = {
+      visitId: dto.visitId,
+      roomId: dto.targetRoomId,
+      targetRoomId: dto.targetRoomId,
+      roomName: room.name,
+      switchedAt: now,
+    };
+
+    this.gateway.emit('clinic:global', 'therapy.room_switched', payload);
+    this.realtime?.publish('therapy.room_switched', payload);
+
+    await this.audit.log({
+      actorUserId: actor.sub,
+      actorRole: actor.role,
+      action: 'therapy.switch_room',
+      entity: 'visits',
+      entityId: dto.visitId,
+      after: payload,
+      ip: meta.ip,
+      requestId: meta.requestId,
+    });
+
+    return { ok: true, roomId: dto.targetRoomId, roomName: room.name };
+  }
+
+  async getPatientPlans(patientId: string) {
+    const rows = await this.db
+      .select({
+        plan: therapyPlans,
+        modality: modalities,
+      })
+      .from(therapyPlans)
+      .leftJoin(modalities, eq(therapyPlans.modalityCode, modalities.code))
+      .where(
+        and(
+          eq(therapyPlans.patientId, patientId),
+          eq(therapyPlans.status, 'active'),
+        ),
+      )
+      .orderBy(desc(therapyPlans.createdAt));
+
+    return rows.map((r) => ({
+      ...r.plan,
+      modalityNameEn: r.modality?.nameEn || r.plan.modalityCode,
+      modalityNameBn: r.modality?.nameBn || r.plan.modalityCode,
+      defaultDurationMin: r.modality?.defaultDurationMin || 20,
+    }));
+  }
+
+  async createPlans(
+    actor: { sub?: string; role?: string },
+    dto: CreateTherapyPlansDto,
+    meta: { ip?: string | null; requestId?: string | null },
+  ) {
+    const now = new Date().toISOString();
+    const createdPlans = [];
+
+    for (const plan of dto.plans) {
+      const row = {
+        id: randomUUID(),
+        consultationId: dto.consultationId ?? null,
+        visitId: dto.visitId ?? null,
+        patientId: dto.patientId,
+        doctorId: actor.sub || 'doctor',
+        modalityCode: plan.modalityCode,
+        totalSessionsPrescribed: plan.totalSessionsPrescribed ?? 10,
+        completedSessions: 0,
+        frequency: plan.frequency ?? 'daily',
+        notes: plan.notes ?? null,
+        status: 'active' as const,
+        createdAt: now,
+        updatedAt: now,
+      };
+      await this.db.insert(therapyPlans).values(row);
+      createdPlans.push(row);
+    }
+
+    const payload = { patientId: dto.patientId, plans: createdPlans };
+    this.gateway.emit('clinic:global', 'therapy.plan_created', payload);
+    this.realtime?.publish('therapy.plan_created', payload);
+
+    await this.audit.log({
+      actorUserId: actor.sub,
+      actorRole: actor.role,
+      action: 'therapy.plans_create',
+      entity: 'therapy_plans',
+      entityId: dto.patientId,
+      after: payload,
+      ip: meta.ip,
+      requestId: meta.requestId,
+    });
+
+    return createdPlans;
   }
 }

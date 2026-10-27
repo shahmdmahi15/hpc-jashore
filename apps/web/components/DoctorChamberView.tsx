@@ -49,6 +49,8 @@ import { PatientPrescriptionsListModal } from './patient/PatientPrescriptionsLis
 import { IntakeAssessmentPrintModal } from './patient/IntakeAssessmentPrintModal';
 import { PatientIntakeFormModal } from './patient/PatientIntakeFormModal';
 import { PrescriptionBuilderSection } from './doctor/PrescriptionBuilderSection';
+import { PrescriptionBuilderModal } from './doctor/PrescriptionBuilderModal';
+import { TreatmentPlanBuilderModal } from './doctor/TreatmentPlanBuilderModal';
 import { DoctorDispositionModal } from './doctor/DoctorDispositionModal';
 import { TherapyQueueManagementTab } from './therapy/TherapyQueueManagementTab';
 import {
@@ -208,6 +210,8 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
   // Prescription & Disposition States
   const [isPrescriptionsListModalOpen, setIsPrescriptionsListModalOpen] = useState(false);
   const [isDispositionModalOpen, setIsDispositionModalOpen] = useState(false);
+  const [isTreatmentPlanModalOpen, setIsTreatmentPlanModalOpen] = useState(false);
+  const [isPrescriptionModalOpen, setIsPrescriptionModalOpen] = useState(false);
   const [followUpDate, setFollowUpDate] = useState<string>('');
   const [savingRx, setSavingRx] = useState(false);
 
@@ -398,7 +402,7 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
     return () => clearInterval(interval);
   }, [selectedDoctorId]);
 
-  // Load intake form whenever activeSerial changes
+  // Load intake form and active therapy plans whenever activeSerial changes
   useEffect(() => {
     if (activeSerial?.patientId) {
       api.patients
@@ -414,6 +418,24 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
           }
         })
         .catch(() => setActiveIntakeForm(null));
+
+      // Fetch active therapy plans for active patient
+      api.therapy
+        .getPlans(activeSerial.patientId)
+        .then((plans) => {
+          if (Array.isArray(plans) && plans.length > 0) {
+            setPrescribedMods(
+              plans.map((p) => ({
+                modalityCode: p.modalityCode || p.code,
+                modalityName: p.modalityName || p.modality?.nameEn || p.code,
+                sessionsPrescribed: p.totalSessionsPrescribed || 10,
+                frequency: p.frequency || 'daily',
+                notes: p.notes,
+              }))
+            );
+          }
+        })
+        .catch(() => {});
     } else {
       setActiveIntakeForm(null);
     }
@@ -543,9 +565,8 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
     ]);
     setAdvice('');
     setFollowUpDate('');
-    toast.info('নতুন প্রেসক্রিপশন শুরু করা হয়েছে');
-    const el = document.getElementById('prescription-section');
-    if (el) el.scrollIntoView({ behavior: 'smooth' });
+    setIsPrescriptionModalOpen(true);
+    toast.info('নতুন প্রেসক্রিপশন উইন্ডো খোলা হয়েছে');
   };
 
   const handleClonePrescription = (rx: any) => {
@@ -561,9 +582,63 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
     if (rx.followUpDate) {
       setFollowUpDate(rx.followUpDate);
     }
+    setIsPrescriptionModalOpen(true);
     toast.success('পূর্বের প্রেসক্রিপশনের ওষুধ ও নির্দেশাবলী লোড করা হয়েছে!');
-    const el = document.getElementById('prescription-section');
-    if (el) el.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const handlePlansSaved = (plans: any[]) => {
+    setPrescribedMods(
+      plans.map((p) => ({
+        modalityCode: p.modalityCode,
+        modalityName: p.modalityName || p.modalityNameBn || p.modalityCode,
+        sessionsPrescribed: p.totalSessionsPrescribed || 10,
+        frequency: p.frequency || 'daily',
+        notes: p.notes,
+      }))
+    );
+    loadQueue(undefined, true);
+  };
+
+  const handlePrescriptionSavedAndPrint = (rxData: any) => {
+    if (rxData?.medicines) {
+      setPrescribedMeds(rxData.medicines);
+    }
+    if (rxData?.advice) {
+      setAdvice(rxData.advice);
+    }
+    if (rxData?.followUpDate) {
+      setFollowUpDate(rxData.followUpDate);
+    }
+    setPrintData({
+      rxNumber:
+        rxData?.rxNumber ||
+        `RX-${new Date().getFullYear()}-${String(activeSerial?.serialNumber || 1).padStart(4, '0')}`,
+      serialNumber: activeSerial?.serialNumber,
+      patient: {
+        nameEn: activeSerial?.patient?.nameEn || activeSerial?.patient?.nameBn || 'Patient',
+        nameBn: activeSerial?.patient?.nameBn,
+        mrn: activeSerial?.patient?.mrn || 'N/A',
+        phone: activeSerial?.patient?.phone || '',
+        ageYears: activeSerial?.patient?.ageYears,
+        gender: activeSerial?.patient?.gender || 'male',
+        bloodGroup: activeSerial?.patient?.bloodGroup,
+      },
+      doctor: {
+        name: session?.displayName || 'Consultant Doctor',
+        specialization: 'Physiotherapist & Pain Specialist',
+      },
+      clinicalNotes: {
+        chiefComplaints,
+        diagnosis,
+        painScore,
+      },
+      medicines: rxData?.medicines || prescribedMeds,
+      modalities: prescribedMods,
+      advice: rxData?.advice || advice,
+      followUpDate: rxData?.followUpDate || followUpDate,
+      createdAt: new Date().toISOString(),
+    });
+    loadQueue(undefined, true);
   };
 
   const handleSaveAndPrint = async () => {
@@ -1303,7 +1378,7 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
                       type="button"
                       variant="outline"
                       size="sm"
-                      onClick={handleResetNewPrescription}
+                      onClick={() => setIsPrescriptionModalOpen(true)}
                       className="h-11 text-xs font-bold border-emerald-500/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 flex flex-col items-center justify-center p-1 gap-0.5 active:scale-95 cursor-pointer"
                     >
                       <Plus className="size-4 shrink-0" />
@@ -1327,11 +1402,7 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
                       type="button"
                       variant="outline"
                       size="sm"
-                      onClick={() => {
-                        const el = document.getElementById('therapy-plan-section');
-                        if (el) el.scrollIntoView({ behavior: 'smooth' });
-                        toast.info('থেরাপি মডালিটি ও প্ল্যানিং সেকশন নির্বাচন করা হয়েছে');
-                      }}
+                      onClick={() => setIsTreatmentPlanModalOpen(true)}
                       className="h-11 text-xs font-bold border-cyan-500/40 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-500/10 flex flex-col items-center justify-center p-1 gap-0.5 active:scale-95 cursor-pointer"
                     >
                       <HeartPulse className="size-4 shrink-0" />
@@ -1697,136 +1768,405 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
                 </CardContent>
               </Card>
 
-              {/* Therapy Modalities Prescribing Section */}
-              <Card id="therapy-plan-section" className="border-border shadow-sm">
-                <CardHeader className="flex flex-row items-center justify-between pb-3 flex-wrap gap-3">
-                  <CardTitle className="text-base sm:text-lg font-bold flex items-center gap-2">
-                    ⚡ Prescribed Therapy Modalities
-                  </CardTitle>
-                  <div className="flex gap-1.5 flex-wrap">
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => handleAddModality('IFT', 'Interferential Therapy (IFT)')}
-                      className="text-xs font-semibold"
-                    >
-                      + IFT
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => handleAddModality('UST', 'Ultrasound Therapy (UST)')}
-                      className="text-xs font-semibold"
-                    >
-                      + Ultrasound
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => handleAddModality('SWD', 'Shortwave Diathermy (SWD)')}
-                      className="text-xs font-semibold"
-                    >
-                      + Shortwave
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => handleAddModality('EXE', 'Therapeutic Exercise')}
-                      className="text-xs font-semibold"
-                    >
-                      + Exercise
-                    </Button>
-                  </div>
-                </CardHeader>
-
-                <CardContent className="p-0">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Modality</TableHead>
-                        <TableHead className="w-32">Prescribed Sessions</TableHead>
-                        <TableHead className="w-36">Frequency</TableHead>
-                        <TableHead className="w-16 text-right">Remove</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {prescribedMods.map((m) => (
-                        <TableRow key={m.modalityCode}>
-                          <TableCell className="font-bold text-foreground">
-                            {m.modalityName}
-                          </TableCell>
-                          <TableCell>
-                            <Input
-                              type="number"
-                              className="w-24 h-8"
-                              value={m.sessionsPrescribed}
-                              onChange={(e) => {
-                                const val = parseInt(e.target.value) || 1;
-                                setPrescribedMods(
-                                  prescribedMods.map((it) =>
-                                    it.modalityCode === m.modalityCode ? { ...it, sessionsPrescribed: val } : it,
-                                  ),
-                                );
-                              }}
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Select
-                              value={m.frequency}
-                              onValueChange={(val: string) => {
-                                setPrescribedMods(
-                                  prescribedMods.map((it) =>
-                                    it.modalityCode === m.modalityCode ? { ...it, frequency: val } : it,
-                                  ),
-                                );
-                              }}
-                            >
-                              <SelectTrigger className="w-32 h-8 text-xs">
-                                <SelectValue placeholder="Frequency" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="daily">Daily</SelectItem>
-                                <SelectItem value="alternate_days">Alt. Days</SelectItem>
-                                <SelectItem value="weekly">Weekly</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </TableCell>
-                          <TableCell className="text-right">
+              {/* ================================================================= */}
+              {/* MODULAR CLINICAL WORKSTATION (POPUP DRIVEN TILES)                 */}
+              {/* ================================================================= */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* 1. MEDICINE PRESCRIPTION CARD */}
+                <Card className="border-border shadow-xs hover:border-emerald-500/50 transition-all flex flex-col justify-between">
+                  <CardHeader className="pb-2.5">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <div className="flex items-center gap-2">
+                        <div className="size-8 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold">
+                          ℞
+                        </div>
+                        <div>
+                          <CardTitle className="text-base font-bold text-foreground">
+                            মেডিসিন প্রেসক্রিপশন
+                          </CardTitle>
+                          <p className="text-[11px] text-muted-foreground">Medicine Prescription (5.5" × 8.27")</p>
+                        </div>
+                      </div>
+                      <Badge className={cn(
+                        "text-[10px] font-bold font-mono",
+                        prescribedMeds.length > 0
+                          ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30"
+                          : "bg-muted text-muted-foreground"
+                      )}>
+                        {prescribedMeds.length > 0 ? `${prescribedMeds.length}টি ঔষধ নির্ধারিত` : 'ঔষধ খালি'}
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-3 pb-3 flex-1 flex flex-col justify-between">
+                    {prescribedMeds.length > 0 ? (
+                      <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                        {prescribedMeds.map((med, idx) => (
+                          <div
+                            key={idx}
+                            className="text-xs p-2 rounded-lg bg-muted/40 border border-border/50 flex items-center justify-between gap-2"
+                          >
+                            <div className="truncate">
+                              <span className="font-bold text-foreground">{med.brandName || med.medicineName || 'ঔষধ'}</span>
+                              <span className="text-[11px] text-muted-foreground ml-1.5 font-mono">
+                                ({med.dosage} • {med.duration || `${med.durationDays || 7} দিন`})
+                              </span>
+                            </div>
                             <Button
-                              variant="destructive"
+                              type="button"
+                              variant="ghost"
                               size="sm"
-                              className="size-7 p-0 ml-auto"
-                              onClick={() => handleRemoveModality(m.modalityCode)}
+                              className="size-6 p-0 text-muted-foreground hover:text-rose-600"
+                              onClick={() => handleRemoveMedicine(idx)}
                             >
                               ✕
                             </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </CardContent>
-              </Card>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="p-4 rounded-xl border border-dashed border-border/70 bg-muted/20 text-center space-y-1">
+                        <p className="text-xs font-semibold text-foreground">কোনো ঔষধ অন্তর্ভুক্ত নেই</p>
+                        <p className="text-[11px] text-muted-foreground">
+                          পেইন কিলার বা আনুষঙ্গিক ঔষধ প্রেসক্রাইব করতে বিল্ডার পপআপ খুলুন।
+                        </p>
+                      </div>
+                    )}
 
-              {/* Super Robust Prescription Builder Section (HPC 5.50" x 8.27" Paper) */}
-              <div id="prescription-section">
-                <PrescriptionBuilderSection
-                  medicines={prescribedMeds}
-                  onChangeMedicines={setPrescribedMeds}
-                  advice={advice}
-                  onChangeAdvice={setAdvice}
-                  followUpDate={followUpDate}
-                  onChangeFollowUpDate={setFollowUpDate}
-                  onSaveAndPrint={handleSaveAndPrint}
-                  onOpenAllPrescriptions={() => setIsPrescriptionsListModalOpen(true)}
-                  onResetNewPrescription={handleResetNewPrescription}
-                  saving={savingRx}
-                />
+                    <div className="flex items-center gap-2 pt-2 border-t border-border/60 flex-wrap">
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => setIsPrescriptionModalOpen(true)}
+                        className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold gap-1.5 flex-1 min-w-[140px] cursor-pointer active:scale-95 shadow-xs"
+                      >
+                        <Plus className="size-3.5" />
+                        <span>{prescribedMeds.length > 0 ? 'প্রেসক্রিপশন এডিট করুন' : 'প্রেসক্রিপশন বিল্ডার খুলুন'}</span>
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setIsPrescriptionsListModalOpen(true)}
+                        className="text-xs font-semibold border-border/80 text-muted-foreground hover:text-foreground cursor-pointer"
+                      >
+                        <History className="size-3.5 mr-1" />
+                        <span>ইতিহাস</span>
+                      </Button>
+                      {prescribedMeds.length > 0 && (
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          onClick={handleSaveAndPrint}
+                          disabled={savingRx}
+                          className="text-xs font-bold gap-1 cursor-pointer"
+                        >
+                          <Printer className="size-3.5" />
+                          <span>প্রিন্ট</span>
+                        </Button>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* 2. THERAPY TREATMENT PLAN CARD */}
+                <Card id="therapy-plan-section" className="border-border shadow-xs hover:border-cyan-500/50 transition-all flex flex-col justify-between">
+                  <CardHeader className="pb-2.5">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <div className="flex items-center gap-2">
+                        <div className="size-8 rounded-lg bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 flex items-center justify-center font-bold">
+                          ⚡
+                        </div>
+                        <div>
+                          <CardTitle className="text-base font-bold text-foreground">
+                            থেরাপি ট্রিটমেন্ট প্ল্যান
+                          </CardTitle>
+                          <p className="text-[11px] text-muted-foreground">Therapy Modalities & Sessions (A4 Plan)</p>
+                        </div>
+                      </div>
+                      <Badge className={cn(
+                        "text-[10px] font-bold font-mono",
+                        prescribedMods.length > 0
+                          ? "bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border-cyan-500/30"
+                          : "bg-muted text-muted-foreground"
+                      )}>
+                        {prescribedMods.length > 0 ? `${prescribedMods.length}টি মডালিটি নির্ধারিত` : 'প্ল্যান খালি'}
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-3 pb-3 flex-1 flex flex-col justify-between">
+                    {prescribedMods.length > 0 ? (
+                      <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                        {prescribedMods.map((mod) => (
+                          <div
+                            key={mod.modalityCode}
+                            className="text-xs p-2 rounded-lg bg-muted/40 border border-border/50 flex items-center justify-between gap-2"
+                          >
+                            <div className="truncate">
+                              <span className="font-bold text-foreground">{mod.modalityName || mod.modalityCode}</span>
+                              <span className="text-[11px] text-cyan-700 dark:text-cyan-300 ml-1.5 font-mono font-semibold">
+                                ({mod.sessionsPrescribed || mod.totalSessionsPrescribed || 10} সেশন • {mod.frequency || 'daily'})
+                              </span>
+                            </div>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="size-6 p-0 text-muted-foreground hover:text-rose-600"
+                              onClick={() => handleRemoveModality(mod.modalityCode)}
+                            >
+                              ✕
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="p-4 rounded-xl border border-dashed border-border/70 bg-muted/20 text-center space-y-1">
+                        <p className="text-xs font-semibold text-foreground">কোনো থেরাপি মডালিটি নির্বাচিত নেই</p>
+                        <p className="text-[11px] text-muted-foreground">
+                          হ্যান্ডলার শুধুমাত্র ডাক্তারের নির্ধারিত ট্রিটমেন্ট প্ল্যান অনুযায়ী থেরাপি দিতে পারবেন।
+                        </p>
+                      </div>
+                    )}
+
+                    <div className="flex items-center gap-2 pt-2 border-t border-border/60 flex-wrap">
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => setIsTreatmentPlanModalOpen(true)}
+                        className="bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold gap-1.5 flex-1 min-w-[140px] cursor-pointer active:scale-95 shadow-xs"
+                      >
+                        <HeartPulse className="size-3.5" />
+                        <span>{prescribedMods.length > 0 ? 'ট্রিটমেন্ট প্ল্যান এডিট করুন' : 'ট্রিটমেন্ট প্ল্যান বিল্ডার খুলুন'}</span>
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setIsFilesListModalOpen(true)}
+                        className="text-xs font-semibold border-border/80 text-muted-foreground hover:text-foreground cursor-pointer"
+                      >
+                        <FolderOpen className="size-3.5 mr-1" />
+                        <span>ফাইল ও প্ল্যান</span>
+                      </Button>
+                      {prescribedMods.length > 0 && (
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => setIsTreatmentPlanModalOpen(true)}
+                          className="text-xs font-bold gap-1 cursor-pointer"
+                        >
+                          <Printer className="size-3.5" />
+                          <span>A4 প্রিন্ট</span>
+                        </Button>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* 3. CLINICAL ASSESSMENT FILES CARD */}
+                <Card className="border-border shadow-xs hover:border-purple-500/50 transition-all flex flex-col justify-between">
+                  <CardHeader className="pb-2.5">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <div className="flex items-center gap-2">
+                        <div className="size-8 rounded-lg bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center font-bold">
+                          📁
+                        </div>
+                        <div>
+                          <CardTitle className="text-base font-bold text-foreground">
+                            ক্লিনিক্যাল ফাইল ও মূল্যায়ন
+                          </CardTitle>
+                          <p className="text-[11px] text-muted-foreground">Physiotherapy Evaluation & Records</p>
+                        </div>
+                      </div>
+                      <Badge className={cn(
+                        "text-[10px] font-bold font-mono",
+                        assessmentFilesCount > 0
+                          ? "bg-purple-500/15 text-purple-700 dark:text-purple-300 border-purple-500/30"
+                          : "bg-muted text-muted-foreground"
+                      )}>
+                        {assessmentFilesCount > 0 ? `${assessmentFilesCount}টি ফাইল সংরক্ষিত` : 'ফাইল নেই'}
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-3 pb-3 flex-1 flex flex-col justify-between">
+                    <div className="p-3 rounded-xl bg-muted/30 border border-border/50 text-xs space-y-1">
+                      <div className="flex justify-between items-center">
+                        <span className="font-semibold text-muted-foreground">ব্যথা মূল্যায়ন ফরম (Pain Sheet):</span>
+                        <span className="font-mono font-bold text-foreground">
+                          {assessmentFilesCount > 0 ? 'সংরক্ষিত আছে' : 'রেকর্ড করা হয়নি'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center text-[11px] text-muted-foreground">
+                        <span>বর্তমান VAS স্কোর:</span>
+                        <span className="font-black text-rose-600 font-mono">{painScore}/10</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 pt-2 border-t border-border/60 flex-wrap">
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => setIsNewAssessmentModalOpen(true)}
+                        className="bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold gap-1.5 flex-1 min-w-[140px] cursor-pointer active:scale-95 shadow-xs"
+                      >
+                        <FilePlus className="size-3.5" />
+                        <span>নতুন ফাইল তৈরি করুন</span>
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setIsFilesListModalOpen(true)}
+                        className="text-xs font-semibold border-border/80 text-muted-foreground hover:text-foreground cursor-pointer"
+                      >
+                        <FolderOpen className="size-3.5 mr-1" />
+                        <span>সকল ফাইল ({assessmentFilesCount})</span>
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* 4. INTAKE & VITALS SPOTLIGHT CARD */}
+                <Card className="border-border shadow-xs hover:border-teal-500/50 transition-all flex flex-col justify-between">
+                  <CardHeader className="pb-2.5">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <div className="flex items-center gap-2">
+                        <div className="size-8 rounded-lg bg-teal-500/10 text-teal-600 dark:text-teal-400 flex items-center justify-center font-bold">
+                          🩺
+                        </div>
+                        <div>
+                          <CardTitle className="text-base font-bold text-foreground">
+                            ইনটেক ও ভাইটালস রিপোর্ট
+                          </CardTitle>
+                          <p className="text-[11px] text-muted-foreground">Patient Intake & Vitals Overview</p>
+                        </div>
+                      </div>
+                      <Badge className={cn(
+                        "text-[10px] font-bold font-mono",
+                        activeIntakeForm
+                          ? "bg-teal-500/15 text-teal-700 dark:text-teal-300 border-teal-500/30"
+                          : "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30"
+                      )}>
+                        {activeIntakeForm ? 'ইনটেক সম্পন্ন' : 'ইনটেক অপেক্ষমাণ'}
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-3 pb-3 flex-1 flex flex-col justify-between">
+                    <div className="p-3 rounded-xl bg-muted/30 border border-border/50 text-xs space-y-1">
+                      {activeIntakeForm ? (
+                        <div className="grid grid-cols-3 gap-2 text-center">
+                          <div className="p-1.5 rounded-lg bg-card border border-border/60">
+                            <span className="text-[10px] text-muted-foreground font-bold block">BP</span>
+                            <span className="font-bold font-mono text-xs">{activeIntakeForm.bpSystolic ? `${activeIntakeForm.bpSystolic}/${activeIntakeForm.bpDiastolic || '--'}` : '—'}</span>
+                          </div>
+                          <div className="p-1.5 rounded-lg bg-card border border-border/60">
+                            <span className="text-[10px] text-muted-foreground font-bold block">RBS</span>
+                            <span className="font-bold font-mono text-xs">{activeIntakeForm.bloodSugar || '—'}</span>
+                          </div>
+                          <div className="p-1.5 rounded-lg bg-card border border-border/60">
+                            <span className="text-[10px] text-muted-foreground font-bold block">Pulse</span>
+                            <span className="font-bold font-mono text-xs">{activeIntakeForm.pulseRate || '—'}</span>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-[11px] text-muted-foreground text-center py-2">
+                          আজকের ভিজিটের কোনো ইনটেক ভাইটালস পাওয়া যায়নি।
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-2 pt-2 border-t border-border/60 flex-wrap">
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedIntakePatient(activeSerial);
+                          setIsCreateIntakeModalOpen(true);
+                        }}
+                        className="bg-teal-600 hover:bg-teal-500 text-white text-xs font-bold gap-1.5 flex-1 min-w-[140px] cursor-pointer active:scale-95 shadow-xs"
+                      >
+                        <FileText className="size-3.5" />
+                        <span>{activeIntakeForm ? 'ইনটেক সংশোধন করুন' : 'ইনটেক ফরম পূরণ করুন'}</span>
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedIntakePatient(activeSerial);
+                          setIsIntakePrintModalOpen(true);
+                        }}
+                        className="text-xs font-semibold border-border/80 text-muted-foreground hover:text-foreground cursor-pointer"
+                      >
+                        <Printer className="size-3.5 mr-1" />
+                        <span>A4 প্রিন্ট</span>
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
+
+              {/* ================================================================= */}
+              {/* DISPOSITION & COMPLETE CONSULTATION PROMINENT BAR                 */}
+              {/* ================================================================= */}
+              <Card className="border-2 border-emerald-500/40 bg-gradient-to-r from-emerald-500/10 via-emerald-500/5 to-transparent p-4 sm:p-5 rounded-2xl shadow-sm">
+                <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+                  <div className="space-y-1 text-center md:text-left">
+                    <h3 className="text-base sm:text-lg font-black text-foreground flex items-center gap-2 justify-center md:justify-start">
+                      <CheckCircle className="size-5 text-emerald-600 dark:text-emerald-400" />
+                      <span>কনসালটেশন সমাপ্তি ও পরবর্তী ডেস্কে প্রেরণ (Send Patient)</span>
+                    </h3>
+                    <p className="text-xs text-muted-foreground max-w-xl">
+                      প্রেসক্রিপশন ও থেরাপি ট্রিটমেন্ট প্ল্যান প্রস্তুত হলে রোগীকে থেরাপি হল বা ক্যাশ কাউন্টারে পাঠান।
+                    </p>
+                    <div className="flex items-center gap-3 pt-1 flex-wrap justify-center md:justify-start text-xs font-semibold">
+                      <span className={cn(
+                        "flex items-center gap-1",
+                        assessmentFilesCount > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"
+                      )}>
+                        {assessmentFilesCount > 0 ? "✓" : "○"} মূল্যায়ন ফাইল ({assessmentFilesCount})
+                      </span>
+                      <span className={cn(
+                        "flex items-center gap-1",
+                        prescribedMods.length > 0 ? "text-cyan-600 dark:text-cyan-400" : "text-muted-foreground"
+                      )}>
+                        {prescribedMods.length > 0 ? "✓" : "○"} থেরাপি প্ল্যান ({prescribedMods.length})
+                      </span>
+                      <span className={cn(
+                        "flex items-center gap-1",
+                        prescribedMeds.length > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground"
+                      )}>
+                        {prescribedMeds.length > 0 ? "✓" : "○"} প্রেসক্রিপশন ({prescribedMeds.length})
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2.5 flex-wrap justify-center md:justify-end">
+                    <Button
+                      type="button"
+                      size="lg"
+                      onClick={() => setIsDispositionModalOpen(true)}
+                      className="h-11 px-6 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-sm gap-2 shadow-md shadow-emerald-500/20 active:scale-95 cursor-pointer"
+                    >
+                      <Send className="size-4" />
+                      <span>রিসিপশন বা থেরাপি ডেস্কে পাঠান</span>
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="lg"
+                      onClick={handleSaveAndPrint}
+                      disabled={savingRx}
+                      className="h-11 px-4 border-border/80 font-bold text-xs gap-1.5 cursor-pointer active:scale-95"
+                    >
+                      <Printer className="size-4 text-emerald-600 dark:text-emerald-400" />
+                      <span>সংরক্ষণ ও প্রিন্ট</span>
+                    </Button>
+                  </div>
+                </div>
+              </Card>
             </>
           )}
         </div>
@@ -1933,14 +2273,52 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
             hasAssessmentFile={assessmentFilesCount > 0}
             hasTreatmentPlan={prescribedMods.length > 0}
             onOpenFileModal={() => setIsNewAssessmentModalOpen(true)}
-            onOpenPlanSection={() => {
-              const el = document.getElementById('therapy-plan-section');
-              if (el) el.scrollIntoView({ behavior: 'smooth' });
-            }}
+            onOpenPlanSection={() => setIsTreatmentPlanModalOpen(true)}
             onRoutingSuccess={() => {
               loadQueue();
               setActiveSerial(null);
             }}
+          />
+
+          {/* POPUP: THERAPY TREATMENT PLAN BUILDER MODAL */}
+          <TreatmentPlanBuilderModal
+            open={isTreatmentPlanModalOpen}
+            onOpenChange={setIsTreatmentPlanModalOpen}
+            patient={activeSerial?.patient}
+            visitId={activeSerial?.visitId || activeSerial?.id}
+            onPlansSaved={handlePlansSaved}
+            initialPlans={prescribedMods.map((m) => ({
+              modalityCode: m.modalityCode,
+              modalityName: m.modalityName,
+              totalSessionsPrescribed: m.sessionsPrescribed || 10,
+              frequency: m.frequency || 'daily',
+              notes: m.notes,
+            }))}
+          />
+
+          {/* POPUP: MEDICINE PRESCRIPTION BUILDER MODAL */}
+          <PrescriptionBuilderModal
+            open={isPrescriptionModalOpen}
+            onOpenChange={setIsPrescriptionModalOpen}
+            patient={activeSerial?.patient}
+            visitId={activeSerial?.visitId || activeSerial?.id}
+            doctorId={activeSerial?.doctorId || session?.staffId || session?.userId}
+            chiefComplaints={chiefComplaints}
+            diagnosis={diagnosis}
+            painScore={painScore}
+            objectiveNotes={objectiveNotes}
+            medicines={prescribedMeds}
+            onChangeMedicines={setPrescribedMeds}
+            advice={advice}
+            onChangeAdvice={setAdvice}
+            followUpDate={followUpDate}
+            onChangeFollowUpDate={setFollowUpDate}
+            onSaveSuccess={(rx) => {
+              if (rx?.medicines) setPrescribedMeds(rx.medicines);
+              loadQueue(undefined, true);
+            }}
+            onSaveAndPrint={handlePrescriptionSavedAndPrint}
+            onOpenAllPrescriptions={() => setIsPrescriptionsListModalOpen(true)}
           />
         </>
       )}

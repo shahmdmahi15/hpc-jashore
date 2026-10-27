@@ -252,6 +252,31 @@ export class CreateStandalonePrescriptionDto {
 
   @ApiPropertyOptional()
   @IsOptional()
+  @IsString()
+  chiefComplaints?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  diagnosis?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsInt()
+  painScore?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  objectiveNotes?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  followUpDate?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsArray()
   medicines?: any[];
 

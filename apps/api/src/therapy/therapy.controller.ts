@@ -20,11 +20,13 @@ import {
   CancelTherapyCallDto,
   CompleteSessionDto,
   CreatePackageDto,
+  CreateTherapyPlansDto,
   MarkInTherapyDto,
   PurchasePackageDto,
   RecallTherapyPatientDto,
   SendToCashierDto,
   StartSessionDto,
+  SwitchTherapyRoomDto,
 } from './dto';
 import { TherapyService } from './therapy.service';
 
@@ -109,6 +111,40 @@ export class TherapyController {
   @Roles('admin', 'doctor', 'cashier', 'receptionist', 'handler')
   getRooms() {
     return this.therapy.getRooms();
+  }
+
+  @Post('switch-room')
+  @Roles('admin', 'doctor', 'handler')
+  switchRoom(
+    @CurrentUser() user: RequestUser,
+    @Body() dto: SwitchTherapyRoomDto,
+    @Req() req: Request,
+  ) {
+    return this.therapy.switchRoom(
+      { sub: user.sub, role: user.role },
+      dto,
+      this.meta(req),
+    );
+  }
+
+  @Get('plans/patient/:patientId')
+  @Roles('admin', 'doctor', 'handler')
+  getPatientPlans(@Param('patientId') patientId: string) {
+    return this.therapy.getPatientPlans(patientId);
+  }
+
+  @Post('plans')
+  @Roles('admin', 'doctor')
+  createPlans(
+    @CurrentUser() user: RequestUser,
+    @Body() dto: CreateTherapyPlansDto,
+    @Req() req: Request,
+  ) {
+    return this.therapy.createPlans(
+      { sub: user.sub, role: user.role },
+      dto,
+      this.meta(req),
+    );
   }
 
   @Post('call-patient')

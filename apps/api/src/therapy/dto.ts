@@ -36,6 +36,26 @@ export class StartSessionDto {
   @IsOptional()
   @IsString()
   therapistStaffId?: string;
+
+  @ApiPropertyOptional({ description: 'Session duration in minutes' })
+  @IsOptional()
+  @IsInt()
+  durationMinutes?: number;
+
+  @ApiPropertyOptional({ description: 'Therapy room UUID' })
+  @IsOptional()
+  @IsString()
+  roomId?: string;
+
+  @ApiPropertyOptional({ description: 'Active visit UUID' })
+  @IsOptional()
+  @IsString()
+  visitId?: string;
+
+  @ApiPropertyOptional({ description: 'Session notes' })
+  @IsOptional()
+  @IsString()
+  notes?: string;
 }
 
 export class CompleteSessionDto {
@@ -314,4 +334,42 @@ export class SendToCashierDto {
   @IsOptional()
   @IsString()
   notes?: string;
+}
+
+export class SwitchTherapyRoomDto {
+  @ApiProperty({ description: 'Visit UUID to switch room' })
+  @IsString()
+  @IsNotEmpty()
+  visitId!: string;
+
+  @ApiProperty({ description: 'Target Room UUID' })
+  @IsString()
+  @IsNotEmpty()
+  targetRoomId!: string;
+}
+
+export class CreateTherapyPlansDto {
+  @ApiProperty({ description: 'Patient UUID' })
+  @IsString()
+  @IsNotEmpty()
+  patientId!: string;
+
+  @ApiPropertyOptional({ description: 'Visit UUID' })
+  @IsOptional()
+  @IsString()
+  visitId?: string;
+
+  @ApiPropertyOptional({ description: 'Consultation UUID' })
+  @IsOptional()
+  @IsString()
+  consultationId?: string;
+
+  @ApiProperty({ description: 'Array of therapy plans' })
+  @IsArray()
+  plans!: Array<{
+    modalityCode: string;
+    totalSessionsPrescribed: number;
+    frequency?: string;
+    notes?: string;
+  }>;
 }
