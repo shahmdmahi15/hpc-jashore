@@ -86,12 +86,12 @@ JWT_REFRESH_SECRET=$JWT_REFRESH
 GRANT_SECRET=$GRANT_KEY
 UPDATE_WEBHOOK_SECRET=$WEBHOOK_SEC
 
-CORS_ORIGINS=https://hpc.toufiquzzaman.com,http://localhost:3000
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=465
-SMTP_USER=healthandpaincarejashore@gmail.com
+CORS_ORIGINS=https://hpc.toufiquzzaman.com,http://hpc.toufiquzzaman.com,http://localhost:3000
+SMTP_HOST=smtp.resend.com
+SMTP_PORT=587
+SMTP_USER=resend
 SMTP_PASS=
-SMTP_FROM="HPC Jashore" <hpc@toufiquzzaman.com>
+SMTP_FROM="HPC Jashore <no-reply@hpc.toufiquzzaman.com>"
 EOF
   echo "Generated secure production JWT and Webhook secrets in apps/api/.env."
   echo "⚠️ Note your UPDATE_WEBHOOK_SECRET: $WEBHOOK_SEC"

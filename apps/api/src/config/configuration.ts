@@ -103,16 +103,16 @@ export default () => {
       .filter(Boolean),
     smtp: {
       host: env.SMTP_HOST || process.env.SMTP_HOST || 'smtp.resend.com',
-      port: Number(env.SMTP_PORT || process.env.SMTP_PORT || 465),
-      user: env.SMTP_USER || process.env.SMTP_USER || '',
+      port: Number(env.SMTP_PORT || process.env.SMTP_PORT || 587),
+      user: env.SMTP_USER || process.env.SMTP_USER || 'resend',
       pass: env.SMTP_PASS || process.env.SMTP_PASS || '',
-      from: env.SMTP_FROM || process.env.SMTP_FROM || '"HPC Jashore" <hpc@toufiquzzaman.com>',
+      from: env.SMTP_FROM || process.env.SMTP_FROM || '"HPC Jashore <no-reply@hpc.toufiquzzaman.com>"',
     },
     SMTP_HOST: env.SMTP_HOST || process.env.SMTP_HOST || 'smtp.resend.com',
-    SMTP_PORT: env.SMTP_PORT || process.env.SMTP_PORT || '465',
-    SMTP_USER: env.SMTP_USER || process.env.SMTP_USER || '',
+    SMTP_PORT: env.SMTP_PORT || process.env.SMTP_PORT || '587',
+    SMTP_USER: env.SMTP_USER || process.env.SMTP_USER || 'resend',
     SMTP_PASS: env.SMTP_PASS || process.env.SMTP_PASS || '',
-    SMTP_FROM: env.SMTP_FROM || process.env.SMTP_FROM || '"HPC Jashore" <hpc@toufiquzzaman.com>',
+    SMTP_FROM: env.SMTP_FROM || process.env.SMTP_FROM || '"HPC Jashore <no-reply@hpc.toufiquzzaman.com>"',
   };
 };
 

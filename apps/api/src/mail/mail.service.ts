@@ -80,9 +80,9 @@ export class MailService {
 
         <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 24px 0;" />
 
-        <div style="font-size: 11px; color: #94a3b8; text-align: center;">
-          <p style="margin: 2px 0;">Health &amp; Pain Care Center, Mujib Sarak, Jashore</p>
-          <p style="margin: 2px 0;">Cell: 01711-XXXXXX · Automated clinical dispatch system</p>
+        <div style="font-size: 11px; color: #94a3b8; text-align: center; line-height: 1.5;">
+          <p style="margin: 2px 0; font-weight: 600; color: #475569;">এইচপিসি হেলথ অ্যান্ড পেইন কেয়ার সেন্টার, চাঁচড়া পুলিশ ফাঁড়ির বিপরীতে, চাঁচড়া ডালমিল মোড়, যশোর সদর, যশোর-৭৪০০</p>
+          <p style="margin: 2px 0;">হটলাইন: +৮৮০ ১৫১৫-৬১৫১৮৮ · ই-মেইল: hpc@toufiquzzaman.com</p>
         </div>
       </div>
     `;
@@ -90,6 +90,7 @@ export class MailService {
     try {
       const info = await this.transporter.sendMail({
         from,
+        replyTo: 'hpc@toufiquzzaman.com',
         to: email,
         subject: `HPC Jashore - Password Reset Code: ${pin}`,
         text: `Reset your password directly: https://hpc.toufiquzzaman.com/auth/reset-password?email=${encodeURIComponent(email)}&code=${pin}\n\nYour 6-digit code is: ${pin}`,
@@ -140,8 +141,9 @@ export class MailService {
         </p>
 
         <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 24px 0;" />
-        <div style="font-size: 11px; color: #94a3b8; text-align: center;">
-          <p style="margin: 2px 0;">Health &amp; Pain Care Center, Mujib Sarak, Jashore</p>
+        <div style="font-size: 11px; color: #94a3b8; text-align: center; line-height: 1.5;">
+          <p style="margin: 2px 0; font-weight: 600; color: #475569;">এইচপিসি হেলথ অ্যান্ড পেইন কেয়ার সেন্টার, চাঁচড়া পুলিশ ফাঁড়ির বিপরীতে, চাঁচড়া ডালমিল মোড়, যশোর সদর, যশোর-৭৪০০</p>
+          <p style="margin: 2px 0;">হটলাইন: +৮৮০ ১৫১৫-৬১৫১৮৮ · ই-মেইল: hpc@toufiquzzaman.com</p>
         </div>
       </div>
     `;
@@ -149,6 +151,7 @@ export class MailService {
     try {
       const info = await this.transporter.sendMail({
         from,
+        replyTo: 'hpc@toufiquzzaman.com',
         to: email,
         subject: `HPC Jashore - Email Verification Code: ${code}`,
         text: `Your email verification code is: ${code}`,
