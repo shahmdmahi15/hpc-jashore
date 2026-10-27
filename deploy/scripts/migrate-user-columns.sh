@@ -98,13 +98,83 @@ for DB_FILE in "${DB_LOCATIONS[@]}"; do
     sqlite3 "$DB_FILE" "UPDATE users SET is_approved = 1, approval_status = 'approved' WHERE role = 'admin';"
     echo "✅ Admin users marked as approved."
 
-    # 4. Cleanly drop obsolete tables: shifts, attendance, machines, batches
-    echo "🧹 Safely dropping obsolete tables (shifts, attendance, machines, batches)..."
+    # 4. Safety stubs for legacy shifts and desks (prevents any 'no such table: main.shifts' errors)
+    echo "🛡️ Ensuring safety stubs for shifts and desks..."
     sqlite3 "$DB_FILE" "
-      DROP TABLE IF EXISTS shifts;
+      CREATE TABLE IF NOT EXISTS shifts (id TEXT PRIMARY KEY NOT NULL, name TEXT);
+      CREATE TABLE IF NOT EXISTS desks (id TEXT PRIMARY KEY NOT NULL, name TEXT);
+    "
+
+    # 5. Cleanly rebuild cash_drawers table (remove shifts, desks, staff FKs)
+    echo "💰 Rebuilding cash_drawers table without legacy shifts/desks foreign keys..."
+    sqlite3 "$DB_FILE" "
+      PRAGMA foreign_keys = OFF;
+      CREATE TABLE IF NOT EXISTS _cash_drawers_clean (
+        id TEXT PRIMARY KEY NOT NULL,
+        cashier_staff_id TEXT NOT NULL REFERENCES users(id),
+        desk_id TEXT,
+        opened_at TEXT NOT NULL,
+        closed_at TEXT,
+        opening_cash_paisa INTEGER NOT NULL,
+        closing_cash_actual_paisa INTEGER,
+        closing_cash_expected_paisa INTEGER,
+        variance_paisa INTEGER,
+        variance_reason TEXT,
+        status TEXT NOT NULL DEFAULT 'open',
+        closed_by_admin_id TEXT REFERENCES users(id),
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      INSERT OR IGNORE INTO _cash_drawers_clean (
+        id, cashier_staff_id, desk_id, opened_at, closed_at,
+        opening_cash_paisa, closing_cash_actual_paisa, closing_cash_expected_paisa,
+        variance_paisa, variance_reason, status, closed_by_admin_id, created_at, updated_at
+      )
+      SELECT 
+        id, cashier_staff_id, desk_id, opened_at, closed_at,
+        opening_cash_paisa, closing_cash_actual_paisa, closing_cash_expected_paisa,
+        variance_paisa, variance_reason, status, closed_by_admin_id, created_at, updated_at
+      FROM cash_drawers;
+      DROP TABLE cash_drawers;
+      ALTER TABLE _cash_drawers_clean RENAME TO cash_drawers;
+      PRAGMA foreign_keys = ON;
+    "
+
+    # 6. Cleanly rebuild drawer_events table (FK to cash_drawers and users)
+    echo "💰 Rebuilding drawer_events table without legacy staff FK..."
+    sqlite3 "$DB_FILE" "
+      PRAGMA foreign_keys = OFF;
+      CREATE TABLE IF NOT EXISTS _drawer_events_clean (
+        id TEXT PRIMARY KEY NOT NULL,
+        drawer_id TEXT NOT NULL REFERENCES cash_drawers(id),
+        event_type TEXT NOT NULL,
+        amount_paisa INTEGER NOT NULL,
+        description TEXT,
+        staff_id TEXT REFERENCES users(id),
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      INSERT OR IGNORE INTO _drawer_events_clean (
+        id, drawer_id, event_type, amount_paisa, description, staff_id, created_at, updated_at
+      )
+      SELECT 
+        id, drawer_id, event_type, amount_paisa, description, staff_id, created_at, updated_at
+      FROM drawer_events;
+      DROP TABLE drawer_events;
+      ALTER TABLE _drawer_events_clean RENAME TO drawer_events;
+      PRAGMA foreign_keys = ON;
+    "
+
+    # 7. Cleanly drop obsolete tables: stock_moves, inventory_items, attendance, machines, batches, etc.
+    echo "🧹 Safely dropping obsolete tables (stock_moves, inventory_items, attendance, machines, batches)..."
+    sqlite3 "$DB_FILE" "
+      DROP TABLE IF EXISTS stock_moves;
+      DROP TABLE IF EXISTS inventory_items;
       DROP TABLE IF EXISTS attendance;
       DROP TABLE IF EXISTS machines;
       DROP TABLE IF EXISTS batches;
+      DROP TABLE IF EXISTS pin_credentials;
+      DROP TABLE IF EXISTS action_grants;
     "
 
     # 5. Ensure medicines table has current_stock and mrp_paisa

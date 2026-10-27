@@ -209,12 +209,21 @@ export type Db = BetterSQLite3Database<typeof schema>;
             console.error('Error ensuring staff mirror table:', staffSyncErr);
           }
 
+          // Safety stubs for legacy shifts and desks (prevents dangling FK crashes like 'no such table: main.shifts')
+          try {
+            sqlite.exec("CREATE TABLE IF NOT EXISTS shifts (id TEXT PRIMARY KEY NOT NULL, name TEXT);");
+            sqlite.exec("CREATE TABLE IF NOT EXISTS desks (id TEXT PRIMARY KEY NOT NULL, name TEXT);");
+          } catch (stubsErr) {
+            console.error('Error creating safety stubs for shifts/desks:', stubsErr);
+          }
+
           // Migrate cash_drawers table FK to reference users(id) instead of staff(id), shifts(id), desks(id)
           try {
             const cdFkList = sqlite.prepare("PRAGMA foreign_key_list(cash_drawers)").all() as Array<{ table: string; from: string }>;
             const cdReferencesLegacy = cdFkList.some((fk) => fk.table === 'staff' || fk.table === 'shifts' || fk.table === 'desks');
             if (cdReferencesLegacy) {
               sqlite.exec("PRAGMA foreign_keys = OFF;");
+              sqlite.exec("DROP TABLE IF EXISTS _cash_drawers_migrated;");
               sqlite.exec(`
                 CREATE TABLE IF NOT EXISTS _cash_drawers_migrated (
                   id TEXT PRIMARY KEY NOT NULL,
@@ -233,7 +242,18 @@ export type Db = BetterSQLite3Database<typeof schema>;
                   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
                 );
               `);
-              sqlite.exec("INSERT OR IGNORE INTO _cash_drawers_migrated SELECT * FROM cash_drawers;");
+              sqlite.exec(`
+                INSERT OR IGNORE INTO _cash_drawers_migrated (
+                  id, cashier_staff_id, desk_id, opened_at, closed_at,
+                  opening_cash_paisa, closing_cash_actual_paisa, closing_cash_expected_paisa,
+                  variance_paisa, variance_reason, status, closed_by_admin_id, created_at, updated_at
+                )
+                SELECT 
+                  id, cashier_staff_id, desk_id, opened_at, closed_at,
+                  opening_cash_paisa, closing_cash_actual_paisa, closing_cash_expected_paisa,
+                  variance_paisa, variance_reason, status, closed_by_admin_id, created_at, updated_at
+                FROM cash_drawers;
+              `);
               sqlite.exec("DROP TABLE cash_drawers;");
               sqlite.exec("ALTER TABLE _cash_drawers_migrated RENAME TO cash_drawers;");
               sqlite.exec("PRAGMA foreign_keys = ON;");
@@ -249,6 +269,7 @@ export type Db = BetterSQLite3Database<typeof schema>;
             const deReferencesStaff = deFkList.some((fk) => fk.table === 'staff');
             if (deReferencesStaff) {
               sqlite.exec("PRAGMA foreign_keys = OFF;");
+              sqlite.exec("DROP TABLE IF EXISTS _drawer_events_migrated;");
               sqlite.exec(`
                 CREATE TABLE IF NOT EXISTS _drawer_events_migrated (
                   id TEXT PRIMARY KEY NOT NULL,
@@ -261,7 +282,14 @@ export type Db = BetterSQLite3Database<typeof schema>;
                   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
                 );
               `);
-              sqlite.exec("INSERT OR IGNORE INTO _drawer_events_migrated SELECT * FROM drawer_events;");
+              sqlite.exec(`
+                INSERT OR IGNORE INTO _drawer_events_migrated (
+                  id, drawer_id, event_type, amount_paisa, description, staff_id, created_at, updated_at
+                )
+                SELECT 
+                  id, drawer_id, event_type, amount_paisa, description, staff_id, created_at, updated_at
+                FROM drawer_events;
+              `);
               sqlite.exec("DROP TABLE drawer_events;");
               sqlite.exec("ALTER TABLE _drawer_events_migrated RENAME TO drawer_events;");
               sqlite.exec("PRAGMA foreign_keys = ON;");
@@ -276,8 +304,6 @@ export type Db = BetterSQLite3Database<typeof schema>;
             sqlite.exec(`
               DROP TABLE IF EXISTS stock_moves;
               DROP TABLE IF EXISTS inventory_items;
-              DROP TABLE IF EXISTS shifts;
-              DROP TABLE IF EXISTS desks;
               DROP TABLE IF EXISTS attendance;
               DROP TABLE IF EXISTS action_grants;
               DROP TABLE IF EXISTS pin_credentials;
