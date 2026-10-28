@@ -205,14 +205,25 @@ export function IntakeAssessmentPrintModal({
   const handlePrint = async () => {
     setIsPrinting(true);
     try {
-      // 1. Primary method: Isolated iframe print (guaranteed 1 single page, no blank pages)
-      await printElementViaIframe('hpc-intake-a4-sheet', {
-        pageTitle: `HPC_Intake_${mrn}`,
-        pageSize: 'A4 portrait',
-        pageMargin: '6mm 8mm',
-      });
+      const isMobile =
+        typeof navigator !== 'undefined' &&
+        (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent) ||
+          (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
+
+      if (isMobile) {
+        // On iOS / Android devices, top-level window print with CSS isolation
+        // triggers native AirPrint / Android print dialog cleanly without iframe clipping
+        document.body.classList.add('printing-intake-a4');
+        window.print();
+      } else {
+        // On desktop, isolated iframe print prevents any background dashboard bleed
+        await printElementViaIframe('hpc-intake-a4-sheet', {
+          pageTitle: `HPC_Intake_${mrn}`,
+          pageSize: 'A4 portrait',
+          pageMargin: '6mm 8mm',
+        });
+      }
     } catch {
-      // 2. Fallback to native window.print with isolated body class
       document.body.classList.add('printing-intake-a4');
       window.print();
     } finally {
@@ -223,11 +234,21 @@ export function IntakeAssessmentPrintModal({
   const handleDownloadPdf = async () => {
     setIsExportingPdf(true);
     try {
-      await generateElementPdf('hpc-intake-a4-sheet', {
+      const { url } = await generateElementPdf('hpc-intake-a4-sheet', {
         filename: `HPC_Intake_${mrn}_${new Date().toISOString().split('T')[0]}.pdf`,
         format: 'a4',
         scale: 2.5,
       });
+
+      const isMobile =
+        typeof navigator !== 'undefined' &&
+        (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent) ||
+          (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
+
+      // On mobile Safari/Chrome, opening the PDF blob allows the user to immediately view and print via native iOS Share/Print sheet!
+      if (isMobile && url) {
+        window.open(url, '_blank');
+      }
     } catch (err: any) {
       console.error('Failed to export PDF:', err);
     } finally {
@@ -282,76 +303,93 @@ export function IntakeAssessmentPrintModal({
         className="max-w-4xl max-h-[96vh] overflow-y-auto p-0 gap-0 border-border bg-card text-foreground shadow-2xl backdrop-blur-xl print:!bg-transparent print:!border-none print:!shadow-none print:!p-0 print:!m-0 print:!max-w-none print:!max-h-none print:!overflow-visible print:!backdrop-blur-none"
       >
         {/* Screen Toolbar (strictly hidden during print) */}
-        <div className="sticky top-0 z-20 flex items-center justify-between px-6 py-3 bg-card/95 backdrop-blur-md border-b border-border print:hidden">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-lg bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
-              <FileText className="size-4" />
-            </div>
-            <div>
-              <DialogTitle className="text-sm font-bold text-foreground">
-                রোগীর প্রাথমিক তথ্য ও রিসেপশন ফরম — A4 প্রিন্ট প্রিভিউ
-              </DialogTitle>
-              <p className="text-[11px] text-muted-foreground">
-                একক A4 সাইজ পেপারে নিখুঁত প্রিন্ট ফরম্যাট (Guaranteed Single A4 Sheet)
-              </p>
-            </div>
-          </div>
+        <div className="sticky top-0 z-20 px-3 sm:px-6 py-2.5 sm:py-3 bg-card/95 backdrop-blur-md border-b border-border print:hidden space-y-2 sm:space-y-0">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
+            <div className="flex items-center justify-between sm:justify-start gap-2.5">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="p-1.5 sm:p-2 rounded-lg bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 shrink-0">
+                  <FileText className="size-4" />
+                </div>
+                <div className="min-w-0">
+                  <DialogTitle className="text-xs sm:text-sm font-bold text-foreground truncate">
+                    রোগীর প্রাথমিক তথ্য ও রিসেপশন ফরম — A4 প্রিন্ট
+                  </DialogTitle>
+                  <p className="text-[10px] sm:text-[11px] text-muted-foreground truncate hidden xs:block">
+                    একক A4 সাইজ পেপারে নিখুঁত প্রিন্ট ফরম্যাট (Guaranteed Single A4 Sheet)
+                  </p>
+                </div>
+              </div>
 
-          <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={handleClose}
-              className="text-xs h-8 border-border text-foreground hover:bg-muted cursor-pointer"
-            >
-              <X className="size-3.5 mr-1" />
-              বন্ধ করুন
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={handleDownloadPdf}
-              disabled={isExportingPdf}
-              className="text-xs h-8 border-emerald-600/40 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 font-semibold gap-1.5 cursor-pointer"
-            >
-              {isExportingPdf ? (
-                <>
-                  <Loader2 className="size-3.5 animate-spin text-emerald-600" />
-                  পিডিএফ তৈরি হচ্ছে...
-                </>
-              ) : (
-                <>
-                  <Download className="size-3.5 text-emerald-600 dark:text-emerald-400" />
-                  পিডিএফ ডাউনলোড (A4 PDF)
-                </>
-              )}
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              onClick={handlePrint}
-              disabled={isPrinting}
-              className="text-xs h-8 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold shadow-md shadow-emerald-500/20 gap-1.5 cursor-pointer"
-            >
-              {isPrinting ? (
-                <>
-                  <Loader2 className="size-3.5 animate-spin" />
-                  প্রিন্টার লোড হচ্ছে...
-                </>
-              ) : (
-                <>
-                  <Printer className="size-3.5" />
-                  প্রিন্ট করুন (Print A4)
-                </>
-              )}
-            </Button>
+              {/* Close button visible on the right of title on mobile */}
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={handleClose}
+                className="sm:hidden text-xs h-7 px-2 border border-border/60 text-foreground hover:bg-muted cursor-pointer shrink-0"
+              >
+                <X className="size-3.5 mr-1" />
+                বন্ধ
+              </Button>
+            </div>
+
+            {/* Action Buttons: Full-width responsive grid on mobile, inline on desktop */}
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleClose}
+                className="hidden sm:inline-flex text-xs h-8 border-border text-foreground hover:bg-muted cursor-pointer"
+              >
+                <X className="size-3.5 mr-1" />
+                বন্ধ করুন
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleDownloadPdf}
+                disabled={isExportingPdf}
+                className="flex-1 sm:flex-initial text-[11px] sm:text-xs h-8 border-emerald-600/40 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 font-semibold gap-1.5 cursor-pointer shadow-2xs"
+              >
+                {isExportingPdf ? (
+                  <>
+                    <Loader2 className="size-3.5 animate-spin text-emerald-600" />
+                    <span>পিডিএফ হচ্ছে...</span>
+                  </>
+                ) : (
+                  <>
+                    <Download className="size-3.5 text-emerald-600 dark:text-emerald-400" />
+                    <span>A4 পিডিএফ</span>
+                  </>
+                )}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                onClick={handlePrint}
+                disabled={isPrinting}
+                className="flex-1 sm:flex-initial text-[11px] sm:text-xs h-8 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold shadow-md shadow-emerald-500/20 gap-1.5 cursor-pointer"
+              >
+                {isPrinting ? (
+                  <>
+                    <Loader2 className="size-3.5 animate-spin" />
+                    <span>প্রিন্টার লোড...</span>
+                  </>
+                ) : (
+                  <>
+                    <Printer className="size-3.5" />
+                    <span>প্রিন্ট (A4)</span>
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
         </div>
 
-        {/* Paper Container Preview for screen */}
-        <div className="sheet-report-wrapper p-4 sm:p-6 bg-muted/40 flex justify-center print:!p-0 print:!m-0 print:!block print:!bg-transparent print:!w-full print:!h-auto">
+        {/* Paper Container Preview for screen: Allows smooth horizontal panning on mobile */}
+        <div className="sheet-report-wrapper p-2 sm:p-6 bg-muted/40 flex justify-start sm:justify-center overflow-x-auto print:!p-0 print:!m-0 print:!block print:!bg-transparent print:!w-full print:!h-auto">
           {loading ? (
             <div className="py-20 flex flex-col items-center justify-center gap-2 text-muted-foreground print:hidden">
               <Loader2 className="size-7 animate-spin text-emerald-500" />

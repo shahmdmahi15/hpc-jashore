@@ -54,16 +54,17 @@ export async function printElementViaIframe(
         stylesHtml += node.outerHTML;
       });
 
-      // 2. Create hidden isolated iframe
+      // 2. Create isolated iframe anchored at top-left with full A4 viewport geometry
+      // This prevents iOS/Safari WebKit from anchoring print outputs to the bottom or 0x0
       const iframe = document.createElement('iframe');
       iframe.style.position = 'fixed';
-      iframe.style.right = '0';
-      iframe.style.bottom = '0';
-      iframe.style.width = '0';
-      iframe.style.height = '0';
+      iframe.style.top = '0';
+      iframe.style.left = '0';
+      iframe.style.width = '210mm';
+      iframe.style.height = '297mm';
       iframe.style.border = 'none';
-      iframe.style.opacity = '0';
-      iframe.style.pointerEvents = 'none';
+      iframe.style.visibility = 'hidden';
+      iframe.style.zIndex = '-9999';
       iframe.setAttribute('aria-hidden', 'true');
       document.body.appendChild(iframe);
 
