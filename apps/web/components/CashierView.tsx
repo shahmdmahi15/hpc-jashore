@@ -43,6 +43,11 @@ import {
   AlertTriangle,
   Activity,
   Lock,
+  ArrowDownLeft,
+  ArrowUpRight,
+  Receipt,
+  Coins,
+  RotateCcw,
 } from 'lucide-react';
 
 interface PackagePreset {
@@ -157,6 +162,13 @@ export default function CashierView({ session: propSession }: CashierProps = {})
   const [therapyPartialPaidTaka, setTherapyPartialPaidTaka] = useState<number>(0);
   const [includePreviousDue, setIncludePreviousDue] = useState<boolean>(true);
 
+  // Doctor Chamber Adjustments State (Cases 1, 2, 3: Refunds & Extra Fee Collections)
+  const [pendingDoctorAdjustments, setPendingDoctorAdjustments] = useState<any[]>([]);
+  const [selectedAdjustmentForProcessing, setSelectedAdjustmentForProcessing] = useState<any>(null);
+  const [adjustmentProcessingMethod, setAdjustmentProcessingMethod] = useState<'cash' | 'bkash' | 'nagad' | 'rocket' | 'card'>('cash');
+  const [adjustmentTxnId, setAdjustmentTxnId] = useState('');
+  const [processingAdjustment, setProcessingAdjustment] = useState(false);
+
   // Modals
   const [isTimelineOpen, setIsTimelineOpen] = useState(false);
   const [timelinePatient, setTimelinePatient] = useState<{ id: string; name?: string } | null>(null);
@@ -238,7 +250,7 @@ export default function CashierView({ session: propSession }: CashierProps = {})
   const loadData = async () => {
     try {
       setLoading(true);
-      const [bList, dList, pList, sList, intakes, therapyBills] = await Promise.all([
+      const [bList, dList, pList, sList, intakes, therapyBills, todayVisits] = await Promise.all([
         api.billing.getBills().catch(() => []),
         api.billing.getDues().catch(() => []),
         api.patients.list().catch(() => []),
@@ -257,6 +269,7 @@ export default function CashierView({ session: propSession }: CashierProps = {})
             return [];
           }
         }),
+        api.visits.getToday().catch(() => []),
       ]);
       setBills(bList || []);
       setDues(dList || []);
@@ -264,6 +277,13 @@ export default function CashierView({ session: propSession }: CashierProps = {})
       setStaffList(sList || []);
       setForwardedIntakes(intakes || []);
       setPendingTherapyBills(therapyBills || []);
+
+      const adjustments = (todayVisits || []).filter(
+        (v: any) =>
+          v.consultationAdjustmentStatus === 'pending' &&
+          (v.currentLocation === 'cashier' || v.currentLocation === 'Cashier')
+      );
+      setPendingDoctorAdjustments(adjustments);
 
       if (pList && pList.length > 0 && !selectedPatientId) {
         setSelectedPatientId(pList[0].id);
@@ -493,6 +513,60 @@ export default function CashierView({ session: propSession }: CashierProps = {})
       toast.error(err?.message || 'কিউতে পাঠাতে ব্যর্থ হয়েছে');
     } finally {
       setAdmittingToQueue(false);
+    }
+  };
+
+  // Open Doctor Consultation Adjustment Modal (Refund or Payment Collection)
+  const handleOpenAdjustmentModal = (adj: any) => {
+    if (!activeDrawer?.isOpen) {
+      toast.error('ক্যাশ ড্রয়ার বন্ধ রয়েছে! লেনদেনের পূর্বে অবশ্যই ক্যাশ ড্রয়ার খুলতে হবে। (Cash drawer is closed!)');
+      setShowOpenDrawerModal(true);
+      return;
+    }
+    setSelectedAdjustmentForProcessing(adj);
+    setAdjustmentProcessingMethod('cash');
+    setAdjustmentTxnId('');
+  };
+
+  // Process Doctor Consultation Adjustment & Issue Invoice
+  const handleProcessAdjustment = async (status: 'completed' | 'rejected') => {
+    if (!selectedAdjustmentForProcessing) return;
+    if (status === 'completed' && !activeDrawer?.isOpen) {
+      toast.error('ক্যাশ ড্রয়ার বন্ধ রয়েছে! লেনদেনের পূর্বে অবশ্যই ক্যাশ ড্রয়ার খুলতে হবে।');
+      setShowOpenDrawerModal(true);
+      return;
+    }
+
+    try {
+      setProcessingAdjustment(true);
+      const res = await api.visits.processConsultationAdjustment(selectedAdjustmentForProcessing.id, {
+        status,
+        paymentMethod: adjustmentProcessingMethod,
+        txnId: adjustmentTxnId || undefined,
+      });
+
+      if (status === 'completed') {
+        const isRefund = selectedAdjustmentForProcessing.consultationAdjustmentType === 'refund';
+        toast.success(
+          isRefund
+            ? 'রিফান্ড সফলভাবে সম্পন্ন হয়েছে এবং রোগীকে রিসেপশনে পাঠানো হয়েছে!'
+            : 'ফি আদায় সফলভাবে সম্পন্ন হয়েছে এবং রোগীকে রিসেপশনে পাঠানো হয়েছে!'
+        );
+
+        if (res?.invoiceData) {
+          setInvoiceModalData(res.invoiceData);
+          setIsInvoiceModalOpen(true);
+        }
+      } else {
+        toast.info('অনুরোধ বাতিল করা হয়েছে এবং রোগীকে রিসেপশনে পাঠানো হয়েছে।');
+      }
+
+      setSelectedAdjustmentForProcessing(null);
+      await loadData();
+    } catch (err: any) {
+      toast.error(err?.message || 'প্রক্রিয়া সম্পন্ন করতে ব্যর্থ হয়েছে');
+    } finally {
+      setProcessingAdjustment(false);
     }
   };
 
@@ -922,6 +996,184 @@ export default function CashierView({ session: propSession }: CashierProps = {})
                           <>
                             <Lock className="size-3.5 text-red-500" />
                             <span>ক্যাশ ড্রয়ার বন্ধ (লকড)</span>
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* ============================================================== */}
+      {/* FORWARDED FROM DOCTOR CHAMBER: CONSULTATION REFUNDS & ADJUSTMENTS */}
+      {/* ============================================================== */}
+      <Card className="border-2 border-cyan-500/40 bg-gradient-to-r from-cyan-500/5 via-blue-500/5 to-transparent shadow-sm">
+        <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 gap-2">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-xl bg-cyan-500/20 text-cyan-600 dark:text-cyan-400 border border-cyan-500/30">
+              <Receipt className="size-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-base sm:text-lg font-bold">
+                  ডাক্তার চেম্বার থেকে আগত অনুরোধ (Doctor Chamber Adjustments)
+                </CardTitle>
+                <Badge
+                  className={`font-mono text-xs ${
+                    pendingDoctorAdjustments.length > 0
+                      ? 'bg-cyan-600 text-white animate-pulse'
+                      : 'bg-muted text-muted-foreground'
+                  }`}
+                >
+                  {pendingDoctorAdjustments.length} টি অনুরোধ অপেক্ষমাণ
+                </Badge>
+              </div>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                ডাক্তার চেম্বার থেকে প্রেরিত রিফান্ড অথবা অতিরিক্ত ফি আদায় সম্পন্ন করে ইনভয়েস প্রিন্ট দিন ও রোগীকে রিসেপশনে পাঠান
+              </p>
+            </div>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={loadData}
+            disabled={loading}
+            className="h-8 text-xs gap-1.5 self-start sm:self-auto cursor-pointer"
+          >
+            <Clock className={`size-3.5 ${loading ? 'animate-spin' : ''}`} />
+            রিফ্রেশ
+          </Button>
+        </CardHeader>
+
+        <CardContent>
+          {pendingDoctorAdjustments.length === 0 ? (
+            <div className="p-6 text-center rounded-xl border border-dashed border-border/80 bg-muted/20 text-muted-foreground text-xs space-y-1">
+              <Receipt className="size-6 mx-auto opacity-40 text-cyan-500" />
+              <p className="font-medium">বর্তমানে ডাক্তার চেম্বার থেকে অপেক্ষমাণ কোনো রিফান্ড বা ফি অনুরোধ নেই</p>
+              <p className="text-[11px] text-muted-foreground/80">
+                ডাক্তার যখন কোনো রোগীর কনসালটেশন ফি রিফান্ড বা ফি আদায়ের অনুরোধ করবেন, তা এখানে রিয়েলটাইমে দৃশ্যমান হবে।
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5">
+              {pendingDoctorAdjustments.map((adj) => {
+                const isRefund = adj.consultationAdjustmentType === 'refund';
+                const amountTaka = Math.round((adj.consultationAdjustmentAmountPaisa || 0) / 100);
+                const prevPaidTaka = Math.round((adj.consultationFeePaidPaisa || 0) / 100);
+                const p = adj.patient || {};
+                const docName = adj.doctor?.fullName || 'ডাক্তার';
+
+                return (
+                  <div
+                    key={adj.id}
+                    className={`p-4 rounded-xl border shadow-xs transition-all space-y-3 bg-card/90 hover:bg-card ${
+                      isRefund
+                        ? 'border-amber-500/40 hover:border-amber-500'
+                        : 'border-cyan-500/40 hover:border-cyan-500'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-bold text-foreground text-sm">
+                            {p.nameEn || 'Patient'}
+                          </span>
+                          {p.nameBn && (
+                            <span className="text-xs text-muted-foreground font-medium">
+                              ({p.nameBn})
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 text-xs font-mono text-muted-foreground mt-0.5">
+                          <span>MRN: <strong className="text-foreground">{p.mrn || 'N/A'}</strong></span>
+                          <span>·</span>
+                          <span>ফোন: <strong className="text-foreground">{p.phone || 'N/A'}</strong></span>
+                        </div>
+                      </div>
+
+                      <Badge
+                        className={`text-[10px] font-bold ${
+                          isRefund
+                            ? 'bg-amber-600 hover:bg-amber-600 text-white'
+                            : 'bg-cyan-600 hover:bg-cyan-600 text-white'
+                        }`}
+                      >
+                        {isRefund ? 'রিফান্ড অনুরোধ' : 'ফি আদায় অনুরোধ'}
+                      </Badge>
+                    </div>
+
+                    {/* Amount & Doctor Info Box */}
+                    <div className="p-2.5 rounded-lg border border-border/80 bg-muted/40 space-y-1 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground">অনুরোধের পরিমাণ:</span>
+                        <span className={`font-mono font-bold text-sm ${isRefund ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                          {isRefund ? `- ৳${amountTaka}` : `+ ৳${amountTaka}`}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                        <span>ডাক্তার: {docName}</span>
+                        <span>পূর্বে পরিশোধিত: ৳{prevPaidTaka}</span>
+                      </div>
+                    </div>
+
+                    {/* Reason */}
+                    {adj.consultationAdjustmentReason && (
+                      <div className="text-xs text-muted-foreground border-t border-border/50 pt-2 space-y-0.5">
+                        <p>
+                          <strong className="text-foreground">ডাক্তারের কারণ:</strong> {adj.consultationAdjustmentReason}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Action buttons */}
+                    <div className="flex items-center gap-2 pt-2 border-t border-border/50">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          setSelectedAdjustmentForProcessing(adj);
+                          handleProcessAdjustment('rejected');
+                        }}
+                        disabled={processingAdjustment}
+                        className="h-8 px-2.5 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
+                      >
+                        বাতিল
+                      </Button>
+
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => handleOpenAdjustmentModal(adj)}
+                        disabled={!activeDrawer?.isOpen || processingAdjustment}
+                        className={cn(
+                          "h-8 px-3 text-xs font-semibold gap-1.5 flex-1 shadow-xs cursor-pointer text-white",
+                          isRefund
+                            ? "bg-amber-600 hover:bg-amber-500"
+                            : "bg-cyan-600 hover:bg-cyan-500",
+                          !activeDrawer?.isOpen && "opacity-70 cursor-not-allowed"
+                        )}
+                      >
+                        {activeDrawer?.isOpen ? (
+                          isRefund ? (
+                            <>
+                              <ArrowDownLeft className="size-3.5" />
+                              <span>রিফান্ড করুন (৳{amountTaka})</span>
+                            </>
+                          ) : (
+                            <>
+                              <CreditCard className="size-3.5" />
+                              <span>ফি গ্রহণ করুন (৳{amountTaka})</span>
+                            </>
+                          )
+                        ) : (
+                          <>
+                            <Lock className="size-3.5 text-red-500" />
+                            <span>ড্রয়ার বন্ধ</span>
                           </>
                         )}
                       </Button>
@@ -2201,6 +2453,157 @@ export default function CashierView({ session: propSession }: CashierProps = {})
                 ) : (
                   <>
                     <CheckCircle className="size-3.5" /> ফি গ্রহণ, কনসালটেশন কিউ ও ইনভয়েস
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* DOCTOR CHAMBER ADJUSTMENT PAYMENT / REFUND MODAL */}
+      {selectedAdjustmentForProcessing && (
+        <Dialog
+          open={Boolean(selectedAdjustmentForProcessing)}
+          onOpenChange={(open) => {
+            if (!open) setSelectedAdjustmentForProcessing(null);
+          }}
+        >
+          <DialogContent className="max-w-md bg-card border-border">
+            <DialogHeader className="pb-2 border-b border-border">
+              <div className="flex items-center gap-2">
+                {selectedAdjustmentForProcessing.consultationAdjustmentType === 'refund' ? (
+                  <div className="p-2 rounded-xl bg-amber-500/20 text-amber-600 border border-amber-500/30">
+                    <ArrowDownLeft className="size-5" />
+                  </div>
+                ) : (
+                  <div className="p-2 rounded-xl bg-cyan-500/20 text-cyan-600 border border-cyan-500/30">
+                    <ArrowUpRight className="size-5" />
+                  </div>
+                )}
+                <div>
+                  <DialogTitle className="text-base font-bold">
+                    {selectedAdjustmentForProcessing.consultationAdjustmentType === 'refund'
+                      ? 'কনসালটেশন ফি রিফান্ড প্রদান'
+                      : 'কনসালটেশন ফি সংগ্রহ ও ইনভয়েস'}
+                  </DialogTitle>
+                  <DialogDescription className="text-xs text-muted-foreground">
+                    রোগী: {selectedAdjustmentForProcessing.patient?.nameEn || 'Patient'}{' '}
+                    (MRN: {selectedAdjustmentForProcessing.patient?.mrn || 'N/A'})
+                  </DialogDescription>
+                </div>
+              </div>
+            </DialogHeader>
+
+            <div className="space-y-3.5 py-2">
+              {/* Amount Display */}
+              <div
+                className={`p-3.5 rounded-xl border text-center space-y-1 ${
+                  selectedAdjustmentForProcessing.consultationAdjustmentType === 'refund'
+                    ? 'border-amber-500/40 bg-amber-500/10'
+                    : 'border-cyan-500/40 bg-cyan-500/10'
+                }`}
+              >
+                <div className="text-xs font-medium text-muted-foreground">
+                  {selectedAdjustmentForProcessing.consultationAdjustmentType === 'refund'
+                    ? 'রিফান্ডের পরিমাণ (ক্যাশ ফেরত)'
+                    : 'আদায়ের পরিমাণ'}
+                </div>
+                <div
+                  className={`text-2xl font-black font-mono ${
+                    selectedAdjustmentForProcessing.consultationAdjustmentType === 'refund'
+                      ? 'text-amber-600 dark:text-amber-400'
+                      : 'text-cyan-600 dark:text-cyan-400'
+                  }`}
+                >
+                  ৳{Math.round((selectedAdjustmentForProcessing.consultationAdjustmentAmountPaisa || 0) / 100)}
+                </div>
+                {selectedAdjustmentForProcessing.consultationAdjustmentReason && (
+                  <div className="text-xs text-muted-foreground pt-1 border-t border-border/40 mt-1">
+                    কারণ: {selectedAdjustmentForProcessing.consultationAdjustmentReason}
+                  </div>
+                )}
+              </div>
+
+              {/* Payment Method Selector */}
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-foreground">
+                  {selectedAdjustmentForProcessing.consultationAdjustmentType === 'refund'
+                    ? 'রিফান্ড প্রদানের মাধ্যম *'
+                    : 'পেমেন্ট মাধ্যম *'}
+                </Label>
+                <Select
+                  value={adjustmentProcessingMethod}
+                  onValueChange={(val: any) => setAdjustmentProcessingMethod(val)}
+                >
+                  <SelectTrigger className="h-9 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="cash">নগদ (Cash Drawer)</SelectItem>
+                    <SelectItem value="bkash">বিকাশ (bKash)</SelectItem>
+                    <SelectItem value="nagad">নগদ (Nagad)</SelectItem>
+                    <SelectItem value="rocket">রকেট (Rocket)</SelectItem>
+                    <SelectItem value="card">কার্ড / পিওএস (Card)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {adjustmentProcessingMethod !== 'cash' && (
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-foreground">
+                    ট্রানজেকশন আইডি (Txn ID)
+                  </Label>
+                  <Input
+                    placeholder="e.g. 9J28DA10K"
+                    value={adjustmentTxnId}
+                    onChange={(e) => setAdjustmentTxnId(e.target.value)}
+                    className="h-9 text-xs font-mono"
+                  />
+                </div>
+              )}
+
+              <div className="p-2.5 rounded-lg border border-border bg-muted/30 text-[11px] text-muted-foreground flex items-center justify-between">
+                <span>ক্যাশ ড্রয়ার স্ট্যাটাস:</span>
+                <span className={`font-bold ${activeDrawer?.isOpen ? 'text-emerald-600' : 'text-red-500'}`}>
+                  {activeDrawer?.isOpen ? '✓ ড্রয়ার উন্মুক্ত (Open)' : '✕ ড্রয়ার বন্ধ (Closed)'}
+                </span>
+              </div>
+            </div>
+
+            <DialogFooter className="flex flex-row justify-between gap-2 pt-2 border-t border-border">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setSelectedAdjustmentForProcessing(null)}
+                disabled={processingAdjustment}
+                className="flex-1 text-xs cursor-pointer"
+              >
+                বাতিল
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => handleProcessAdjustment('completed')}
+                disabled={processingAdjustment || !activeDrawer?.isOpen}
+                className={`flex-1 text-xs font-bold gap-1.5 shadow-xs text-white cursor-pointer ${
+                  selectedAdjustmentForProcessing.consultationAdjustmentType === 'refund'
+                    ? 'bg-amber-600 hover:bg-amber-500'
+                    : 'bg-cyan-600 hover:bg-cyan-500'
+                }`}
+              >
+                {processingAdjustment ? (
+                  <>
+                    <Loader2 className="size-3.5 animate-spin" /> সম্পন্ন হচ্ছে...
+                  </>
+                ) : selectedAdjustmentForProcessing.consultationAdjustmentType === 'refund' ? (
+                  <>
+                    <ArrowDownLeft className="size-3.5" /> রিফান্ড দিন ও রিসিট প্রিন্ট
+                  </>
+                ) : (
+                  <>
+                    <CreditCard className="size-3.5" /> ফি গ্রহণ ও ইনভয়েস প্রিন্ট
                   </>
                 )}
               </Button>

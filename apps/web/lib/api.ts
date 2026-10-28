@@ -341,6 +341,22 @@ export const api = {
       if (status) q.set('status', status);
       return apiFetch<any>(`/visits/checkout/active?${q.toString()}`);
     },
+    requestConsultationAdjustment: (
+      visitId: string,
+      data: { adjustmentType: 'refund' | 'payment_collection'; amountTaka: number; reason: string }
+    ) =>
+      apiFetch<any>(`/visits/${visitId}/consultation-adjustment/request`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+    processConsultationAdjustment: (
+      visitId: string,
+      data: { status: 'completed' | 'rejected'; paymentMethod?: string; txnId?: string; notes?: string }
+    ) =>
+      apiFetch<any>(`/visits/${visitId}/consultation-adjustment/process`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
     getTvSnapshot: () => apiFetch<any>('/visits/tv/snapshot'),
   },
   clinical: {

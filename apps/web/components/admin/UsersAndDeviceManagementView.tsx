@@ -66,6 +66,16 @@ import {
   TableHeader,
   TableRow,
 } from '../ui/table';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '../ui/alert-dialog';
 import { toast } from 'sonner';
 import { useLanguage } from '../../lib/i18n';
 import {
@@ -196,6 +206,13 @@ export default function UsersAndDeviceManagementView() {
     theme: 'dark' as 'dark' | 'light',
     language: 'bn' as 'bn' | 'en',
   });
+
+  const [confirmDialog, setConfirmDialog] = useState<{
+    title: string;
+    description: string;
+    confirmText: string;
+    onConfirm: () => void;
+  } | null>(null);
 
   // Load all initial data
   const loadData = async () => {
@@ -576,56 +593,72 @@ export default function UsersAndDeviceManagementView() {
     }
   };
 
-  // Handle Revoke TV
-  const handleRevokeTv = async (tv: TvDeviceRecord) => {
-    if (!confirm(isBn ? 'আপনি কি নিশ্চিতভাবে এই টিভি সংযোগ বাতিল করতে চান?' : 'Are you sure you want to revoke this TV screen?')) {
-      return;
-    }
-
-    startTransition(async () => {
-      const res = await revokeTvDeviceAction(tv.id);
-      if (res.success) {
-        toast.success(isBn ? 'টিভি সংযোগ বিচ্ছিন্ন করা হয়েছে' : 'TV device revoked');
-        setTvDevices((prev) =>
-          prev.map((d) => (d.id === tv.id ? { ...d, status: 'revoked', secretToken: null, isOnline: false } : d)),
-        );
-      } else {
-        toast.error(res.error || (isBn ? 'বাতিল করা যায়নি' : 'Failed to revoke TV'));
-      }
+  // Handle Revoke TV - Shadcn AlertDialog trigger
+  const handleRevokeTv = (tv: TvDeviceRecord) => {
+    setConfirmDialog({
+      title: isBn ? 'টিভি সংযোগ বিচ্ছিন্নকরণ' : 'Revoke TV Screen',
+      description: isBn
+        ? `আপনি কি নিশ্চিতভাবে "${tv.deviceName}" টিভি সংযোগ বাতিল করতে চান?`
+        : `Are you sure you want to revoke "${tv.deviceName}" TV screen?`,
+      confirmText: isBn ? 'সংযোগ বিচ্ছিন্ন করুন' : 'Revoke Screen',
+      onConfirm: () => {
+        startTransition(async () => {
+          const res = await revokeTvDeviceAction(tv.id);
+          if (res.success) {
+            toast.success(isBn ? 'টিভি সংযোগ বিচ্ছিন্ন করা হয়েছে' : 'TV device revoked');
+            setTvDevices((prev) =>
+              prev.map((d) => (d.id === tv.id ? { ...d, status: 'revoked', secretToken: null, isOnline: false } : d)),
+            );
+          } else {
+            toast.error(res.error || (isBn ? 'বাতিল করা যায়নি' : 'Failed to revoke TV'));
+          }
+        });
+      },
     });
   };
 
-  // Handle Delete TV
-  const handleDeleteTv = async (tv: TvDeviceRecord) => {
-    if (!confirm(isBn ? 'আপনি কি স্থায়ীভাবে এই ডিভাইসটি মুছে ফেলতে চান?' : 'Permanently remove this TV display?')) {
-      return;
-    }
-
-    startTransition(async () => {
-      const res = await deleteTvDeviceAction(tv.id);
-      if (res.success) {
-        toast.success(isBn ? 'টিভি মুছে ফেলা হয়েছে' : 'TV device deleted');
-        setTvDevices((prev) => prev.filter((d) => d.id !== tv.id));
-      } else {
-        toast.error(res.error || (isBn ? 'মুছে ফেলা যায়নি' : 'Failed to delete TV'));
-      }
+  // Handle Delete TV - Shadcn AlertDialog trigger
+  const handleDeleteTv = (tv: TvDeviceRecord) => {
+    setConfirmDialog({
+      title: isBn ? 'টিভি ডিভাইস মুছে ফেলা' : 'Delete TV Device',
+      description: isBn
+        ? `আপনি কি স্থায়ীভাবে "${tv.deviceName}" ডিভাইসটি মুছে ফেলতে চান?`
+        : `Permanently remove "${tv.deviceName}" TV display?`,
+      confirmText: isBn ? 'মুছে ফেলুন' : 'Delete TV',
+      onConfirm: () => {
+        startTransition(async () => {
+          const res = await deleteTvDeviceAction(tv.id);
+          if (res.success) {
+            toast.success(isBn ? 'টিভি মুছে ফেলা হয়েছে' : 'TV device deleted');
+            setTvDevices((prev) => prev.filter((d) => d.id !== tv.id));
+          } else {
+            toast.error(res.error || (isBn ? 'মুছে ফেলা যায়নি' : 'Failed to delete TV'));
+          }
+        });
+      },
     });
   };
 
-  // Handle Revoke Session
-  const handleRevokeSession = async (session: UserSessionRecord) => {
-    if (!confirm(isBn ? 'এই সেশনটি কি বাতিল করবেন?' : 'Revoke this login session?')) {
-      return;
-    }
-
-    startTransition(async () => {
-      const res = await revokeSessionAction(session.id);
-      if (res.success) {
-        toast.success(isBn ? 'সেশন সফলভাবে বাতিল করা হয়েছে' : 'Session revoked');
-        setSessions((prev) => prev.filter((s) => s.id !== session.id));
-      } else {
-        toast.error(res.error || (isBn ? 'বাতিল করা যায়নি' : 'Failed to revoke session'));
-      }
+  // Handle Revoke Session - Shadcn AlertDialog trigger
+  const handleRevokeSession = (session: UserSessionRecord) => {
+    const sessionInfo = session.ip || session.deviceLabel || 'IP';
+    setConfirmDialog({
+      title: isBn ? 'লগইন সেশন বাতিল' : 'Revoke Login Session',
+      description: isBn
+        ? `আপনি কি নিশ্চিতভাবে এই লগইন সেশনটি (${sessionInfo}) বাতিল করবেন? এর ফলে ওই ডিভাইস থেকে ব্যবহারকারী লগআউট হয়ে যাবে।`
+        : `Revoke this login session (${sessionInfo})? The user will be logged out on that device.`,
+      confirmText: isBn ? 'সেশন বাতিল করুন' : 'Revoke Session',
+      onConfirm: () => {
+        startTransition(async () => {
+          const res = await revokeSessionAction(session.id);
+          if (res.success) {
+            toast.success(isBn ? 'সেশন সফলভাবে বাতিল করা হয়েছে' : 'Session revoked');
+            setSessions((prev) => prev.filter((s) => s.id !== session.id));
+          } else {
+            toast.error(res.error || (isBn ? 'বাতিল করা যায়নি' : 'Failed to revoke session'));
+          }
+        });
+      },
     });
   };
 
@@ -2048,6 +2081,36 @@ export default function UsersAndDeviceManagementView() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* CONFIRM ACTION ALERT DIALOG */}
+      <AlertDialog
+        open={Boolean(confirmDialog)}
+        onOpenChange={(open) => {
+          if (!open) setConfirmDialog(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{confirmDialog?.title}</AlertDialogTitle>
+            <AlertDialogDescription>{confirmDialog?.description}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>
+              {isBn ? 'বাতিল' : 'Cancel'}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                const action = confirmDialog?.onConfirm;
+                setConfirmDialog(null);
+                if (action) action();
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {confirmDialog?.confirmText || (isBn ? 'নিশ্চিত করুন' : 'Confirm')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

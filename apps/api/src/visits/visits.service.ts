@@ -10,6 +10,9 @@ import { AuditService } from '../audit/audit.service';
 import { DB, type Db } from '../db/db.module';
 import {
   bills,
+  billItems,
+  cashDrawers,
+  drawerEvents,
   consultationBookings,
   consultations,
   dues,
@@ -38,6 +41,8 @@ import type {
   CheckOutDto,
   RoutePatientDto,
   SendToDoctorQueueDto,
+  RequestConsultationAdjustmentDto,
+  ProcessConsultationAdjustmentDto,
 } from './dto';
 
 const todayDateString = () => new Date().toISOString().slice(0, 10);
@@ -2064,5 +2069,251 @@ export class VisitsService {
         doctor: v.doctor ? { id: v.doctor.id, fullName: v.doctor.displayName } : null,
       })),
     };
+  }
+
+  async requestConsultationAdjustment(
+    actor: { sub: string; role: string },
+    visitId: string,
+    dto: RequestConsultationAdjustmentDto,
+  ) {
+    const rows = await this.db
+      .select({
+        visit: visits,
+        patient: patients,
+        doctor: users,
+      })
+      .from(visits)
+      .innerJoin(patients, eq(visits.patientId, patients.id))
+      .leftJoin(users, eq(visits.doctorId, users.id))
+      .where(eq(visits.id, visitId));
+    const item = rows[0];
+    if (!item) throw new NotFoundException('Visit not found');
+
+    const amountPaisa = Math.round(dto.amountTaka * 100);
+    const now = new Date().toISOString();
+
+    await this.db
+      .update(visits)
+      .set({
+        currentLocation: 'Cashier',
+        consultationAdjustmentType: dto.adjustmentType,
+        consultationAdjustmentAmountPaisa: amountPaisa,
+        consultationAdjustmentReason: dto.reason,
+        consultationAdjustmentStatus: 'pending',
+        updatedAt: now,
+      })
+      .where(eq(visits.id, visitId));
+
+    // Complete any open consultation serials for this visit so doctor chamber is freed
+    await this.db
+      .update(serials)
+      .set({ status: 'completed', completedAt: now, updatedAt: now })
+      .where(
+        and(
+          eq(serials.visitId, visitId),
+          inArray(serials.status, ['waiting', 'called', 'in_chamber']),
+        ),
+      );
+
+    const payload = {
+      visitId,
+      patientId: item.patient.id,
+      patientName: item.patient.nameEn,
+      patientNameBn: item.patient.nameBn,
+      mrn: item.patient.mrn,
+      phone: item.patient.phone,
+      doctorName: item.doctor?.displayName || 'Doctor',
+      adjustmentType: dto.adjustmentType,
+      amountTaka: dto.amountTaka,
+      amountPaisa,
+      reason: dto.reason,
+      consultationFeePaidPaisa: item.visit.consultationFeePaidPaisa || 0,
+      currentLocation: 'Cashier',
+    };
+
+    this.gateway.emit('clinic:global', 'consultation.adjustment_requested', payload);
+    this.gateway.emit('clinic:global', 'patient.routed', payload);
+    this.gateway.emit('clinic:global', 'tv:updated', { source: 'consultation.adjustment', visitId });
+    this.realtime.publish('consultation.adjustment_requested', payload);
+    this.realtime.publish('patient.routed', payload);
+
+    return { ok: true, ...payload };
+  }
+
+  async processConsultationAdjustment(
+    actor: { sub: string; role: string },
+    visitId: string,
+    dto: ProcessConsultationAdjustmentDto,
+  ) {
+    const rows = await this.db
+      .select({
+        visit: visits,
+        patient: patients,
+        doctor: users,
+      })
+      .from(visits)
+      .innerJoin(patients, eq(visits.patientId, patients.id))
+      .leftJoin(users, eq(visits.doctorId, users.id))
+      .where(eq(visits.id, visitId));
+    const item = rows[0];
+    if (!item) throw new NotFoundException('Visit not found');
+    const now = new Date().toISOString();
+
+    if (dto.status === 'rejected') {
+      await this.db
+        .update(visits)
+        .set({
+          consultationAdjustmentStatus: 'rejected',
+          currentLocation: 'reception',
+          updatedAt: now,
+        })
+        .where(eq(visits.id, visitId));
+
+      const payload = {
+        visitId,
+        patientId: item.patient.id,
+        status: 'rejected',
+        currentLocation: 'reception',
+      };
+      this.gateway.emit('clinic:global', 'consultation.adjustment_processed', payload);
+      this.gateway.emit('clinic:global', 'patient.routed', payload);
+      this.realtime.publish('consultation.adjustment_processed', payload);
+      this.realtime.publish('patient.routed', payload);
+      return { ok: true, ...payload };
+    }
+
+    const adjType = item.visit.consultationAdjustmentType;
+    const adjAmountPaisa = item.visit.consultationAdjustmentAmountPaisa || 0;
+    const adjAmountTaka = Math.round(adjAmountPaisa / 100);
+    const prevPaidPaisa = item.visit.consultationFeePaidPaisa || 0;
+    let nextPaidPaisa = prevPaidPaisa;
+
+    if (adjType === 'refund') {
+      nextPaidPaisa = Math.max(0, prevPaidPaisa - adjAmountPaisa);
+    } else if (adjType === 'payment_collection') {
+      nextPaidPaisa = prevPaidPaisa + adjAmountPaisa;
+    }
+
+    // Find active cash drawer for recording drawer payout / sale
+    const openDrawers = await this.db
+      .select()
+      .from(cashDrawers)
+      .where(eq(cashDrawers.status, 'open'))
+      .orderBy(desc(cashDrawers.openedAt))
+      .limit(1);
+
+    if (openDrawers[0]) {
+      const drawer = openDrawers[0];
+      const eventType = adjType === 'refund' ? 'payout' : 'sale_cash';
+      await this.db.insert(drawerEvents).values({
+        id: randomUUID(),
+        drawerId: drawer.id,
+        eventType,
+        amountPaisa: adjAmountPaisa,
+        description: `Consultation Adjustment (${adjType}) - Patient: ${item.patient.nameEn} (MRN: ${item.patient.mrn}) - Reason: ${item.visit.consultationAdjustmentReason || 'N/A'}`,
+        staffId: actor.sub,
+        createdAt: now,
+        updatedAt: now,
+      });
+      this.gateway.emit('clinic:global', 'drawer.event_created', { drawerId: drawer.id });
+    }
+
+    // Create an official bill record for this adjustment
+    const billNumber = `INV-${Date.now().toString().slice(-6)}`;
+    const billId = randomUUID();
+    const isRefund = adjType === 'refund';
+
+    await this.db.insert(bills).values({
+      id: billId,
+      billNumber,
+      visitId,
+      patientId: item.patient.id,
+      cashierStaffId: actor.sub,
+      subtotalPaisa: isRefund ? -adjAmountPaisa : adjAmountPaisa,
+      discountPaisa: 0,
+      totalPaisa: isRefund ? -adjAmountPaisa : adjAmountPaisa,
+      paidPaisa: isRefund ? -adjAmountPaisa : adjAmountPaisa,
+      duePaisa: 0,
+      status: 'posted',
+      paymentMethod: dto.paymentMethod || 'cash',
+      notes: `Consultation Adjustment: ${adjType}. Reason: ${item.visit.consultationAdjustmentReason || 'None'}`,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await this.db.insert(billItems).values({
+      id: randomUUID(),
+      billId,
+      itemType: 'consultation',
+      description: isRefund
+        ? `কনসালটেশন ফি রিফান্ড (${item.doctor?.displayName || 'ডাক্তার'}) - কারণ: ${item.visit.consultationAdjustmentReason || 'N/A'}`
+        : `কনসালটেশন ফি (${item.doctor?.displayName || 'ডাক্তার'}) - ${item.visit.consultationAdjustmentReason || 'N/A'}`,
+      unitPricePaisa: isRefund ? -adjAmountPaisa : adjAmountPaisa,
+      quantity: 1,
+      discountPaisa: 0,
+      totalPaisa: isRefund ? -adjAmountPaisa : adjAmountPaisa,
+    });
+
+    // Update visit
+    await this.db
+      .update(visits)
+      .set({
+        consultationFeePaidPaisa: nextPaidPaisa,
+        consultationAdjustmentStatus: 'completed',
+        currentLocation: 'reception',
+        updatedAt: now,
+      })
+      .where(eq(visits.id, visitId));
+
+    const invoiceData = {
+      billNumber,
+      patientName: item.patient.nameEn,
+      patientNameBn: item.patient.nameBn || undefined,
+      mrn: item.patient.mrn,
+      phone: item.patient.phone || undefined,
+      ageYears: item.patient.ageYears || undefined,
+      gender: item.patient.gender || undefined,
+      cashierName: actor.role || 'Cashier Desk',
+      items: [
+        {
+          itemType: 'consultation',
+          description: isRefund
+            ? `কনসালটেশন ফি রিফান্ড (${item.doctor?.displayName || 'ডাক্তার'}) - ${item.visit.consultationAdjustmentReason || 'N/A'}`
+            : `কনসালটেশন ফি (${item.doctor?.displayName || 'ডাক্তার'}) - ${item.visit.consultationAdjustmentReason || 'N/A'}`,
+          unitPriceTaka: isRefund ? -adjAmountTaka : adjAmountTaka,
+          quantity: 1,
+          totalTaka: isRefund ? -adjAmountTaka : adjAmountTaka,
+        },
+      ],
+      subtotalTaka: isRefund ? -adjAmountTaka : adjAmountTaka,
+      discountTaka: 0,
+      totalTaka: isRefund ? -adjAmountTaka : adjAmountTaka,
+      paidTaka: isRefund ? -adjAmountTaka : adjAmountTaka,
+      dueTaka: 0,
+      paymentMethod: dto.paymentMethod || 'cash',
+      txnId: dto.txnId || undefined,
+      notes: item.visit.consultationAdjustmentReason || undefined,
+      createdAt: now,
+    };
+
+    const payload = {
+      visitId,
+      patientId: item.patient.id,
+      billNumber,
+      adjustmentType: adjType,
+      amountTaka: adjAmountTaka,
+      status: 'completed',
+      currentLocation: 'reception',
+      invoiceData,
+    };
+
+    this.gateway.emit('clinic:global', 'consultation.adjustment_processed', payload);
+    this.gateway.emit('clinic:global', 'patient.routed', payload);
+    this.gateway.emit('clinic:global', 'bill.created', { billNumber });
+    this.realtime.publish('consultation.adjustment_processed', payload);
+    this.realtime.publish('patient.routed', payload);
+    this.realtime.publish('bill.created', { billNumber });
+
+    return { ok: true, ...payload };
   }
 }

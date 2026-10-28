@@ -56,7 +56,19 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../ui/dialog';
+import { Alert, AlertTitle, AlertDescription } from '../ui/alert';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '../ui/alert-dialog';
 import { toast } from 'sonner';
+import { api } from '../../lib/api';
 import { useLanguage } from '../../lib/i18n';
 import { useRealtime } from '../../lib/use-realtime';
 import {
@@ -158,6 +170,8 @@ export function CheckInWorkstationView() {
   const [isInstantConsultationOpen, setIsInstantConsultationOpen] = useState(false);
   const [isInstantTherapyOpen, setIsInstantTherapyOpen] = useState(false);
   const [selectedClinicalStatus, setSelectedClinicalStatus] = useState<PatientClinicalStatus | null>(null);
+  const [savedIntakePatientIds, setSavedIntakePatientIds] = useState<Set<string>>(new Set());
+  const [bookingToCancel, setBookingToCancel] = useState<{ id: string; slotTime?: string } | null>(null);
   const [loadingClinicalStatus, setLoadingClinicalStatus] = useState(false);
   const [isIntakeWarningOpen, setIsIntakeWarningOpen] = useState(false);
   const [pendingCheckInParams, setPendingCheckInParams] = useState<{
@@ -355,11 +369,29 @@ export function CheckInWorkstationView() {
     }
     let active = true;
     setLoadingClinicalStatus(true);
+
+    // Direct check for today's intake form
+    api.patients.listIntakeForms({ patientId: selectedPatient.id })
+      .then((forms: any) => {
+        if (!active) return;
+        const todayStr = new Date().toISOString().slice(0, 10);
+        const hasToday = (forms || []).some(
+          (f: any) => f.date === todayStr || (f.createdAt && f.createdAt.slice(0, 10) === todayStr)
+        );
+        if (hasToday) {
+          setSavedIntakePatientIds((prev) => new Set([...Array.from(prev), selectedPatient.id]));
+        }
+      })
+      .catch(() => {});
+
     getPatientClinicalStatusAction(selectedPatient.id)
       .then((res) => {
         if (!active) return;
         if (res.success && res.data) {
           setSelectedClinicalStatus(res.data);
+          if (res.data.intakeCompletedToday) {
+            setSavedIntakePatientIds((prev) => new Set([...Array.from(prev), selectedPatient.id]));
+          }
         } else {
           setSelectedClinicalStatus(null);
         }
@@ -440,17 +472,16 @@ export function CheckInWorkstationView() {
     );
   }, [selectedPatient, data?.recentCheckIns]);
 
-  // Handle Cancel Booking directly from Check-In view with instant optimistic UI update
-  const handleCancelBooking = async (bookingId: string) => {
-    if (
-      !confirm(
-        isBn
-          ? 'আপনি কি নিশ্চিত যে এই থেরাপি বুকিংটি বাতিল করতে চান?'
-          : 'Are you sure you want to cancel this therapy booking?',
-      )
-    ) {
-      return;
-    }
+  // Handle Cancel Booking directly from Check-In view with Shadcn AlertDialog confirmation
+  const handleCancelBooking = (bookingId: string) => {
+    setBookingToCancel({ id: bookingId });
+  };
+
+  const handleConfirmCancelBooking = async () => {
+    if (!bookingToCancel) return;
+    const bookingId = bookingToCancel.id;
+    setBookingToCancel(null);
+
     // Optimistically remove from state so matchedBooking disappears instantly
     setData((prev) =>
       prev
@@ -946,53 +977,56 @@ export function CheckInWorkstationView() {
 
                   {/* Recognition Advisory Alerts */}
                   {selectedClinicalStatus?.patientType === 'brand_new' && (
-                    <div className="p-2.5 rounded-lg border border-blue-500/30 bg-blue-500/15 text-blue-900 dark:text-blue-200 text-xs flex items-start gap-2">
-                      <Sparkles className="size-3.5 text-blue-500 shrink-0 mt-0.5" />
+                    <Alert variant="info" className="p-2.5 text-xs">
+                      <Sparkles className="size-3.5 text-sky-500 shrink-0" />
                       <div className="space-y-0.5">
-                        <p className="font-semibold">
+                        <AlertTitle className="text-xs font-semibold">
                           {isBn ? 'নতুন রোগীর প্রাথমিক তথ্য পূরণ আবশ্যক' : 'New Patient Intake Form Required'}
-                        </p>
-                        <p className="text-[11px] opacity-90">
+                        </AlertTitle>
+                        <AlertDescription className="text-[11px] opacity-90">
                           {isBn
                             ? 'এই রোগীর কোনো পূর্ববর্তী ইনটেক বা কনসালটেশন রেকর্ড নেই। ডাক্তার দেখানোর পূর্বে রিসেপশন ইনটেক ফরম পূরণ করুন।'
                             : 'Patient has no previous intake or consultation history. Please fill initial intake form.'}
-                        </p>
+                        </AlertDescription>
                       </div>
-                    </div>
+                    </Alert>
                   )}
 
                   {selectedClinicalStatus?.patientType === 'lapsed_reintake' && (
-                    <div className="p-2.5 rounded-lg border border-amber-500/40 bg-amber-500/15 text-amber-900 dark:text-amber-200 text-xs flex items-start gap-2">
-                      <AlertTriangle className="size-3.5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                    <Alert variant="warning" className="p-2.5 text-xs">
+                      <AlertTriangle className="size-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
                       <div className="space-y-0.5">
-                        <p className="font-bold flex items-center gap-1.5">
+                        <AlertTitle className="text-xs font-bold flex items-center gap-1.5">
                           <span>{isBn ? '৩+ মাস বিরতি — পুনর্বার মূল্যায়ন প্রয়োজন' : '3+ Months Inactivity — Re-Intake Required'}</span>
                           {selectedClinicalStatus.daysSinceLastActivity && (
                             <span className="font-mono text-[10px] px-1 rounded bg-amber-500/20">
                               {selectedClinicalStatus.daysSinceLastActivity} {isBn ? 'দিন' : 'days'}
                             </span>
                           )}
-                        </p>
-                        <p className="text-[11px] opacity-90">
+                        </AlertTitle>
+                        <AlertDescription className="text-[11px] opacity-90">
                           {isBn
                             ? 'রোগী ৩ মাসের অধিক সময় পর সেন্টারে এসেছেন। পূর্বের তথ্য সিস্টেমে সংরক্ষিত আছে—অনুগ্রহ করে আজকের নতুন ভাইটালস ও বর্তমান সমস্যার জন্য পুনর্বার মূল্যায়ন ফরম পূরণ করুন।'
                             : 'Patient returned after >90 days gap. System demographic data exists; please complete re-intake with today’s vitals.'}
-                        </p>
+                        </AlertDescription>
                       </div>
-                    </div>
+                    </Alert>
                   )}
 
                   {/* Quick Patient Actions: Intake Form & Timeline */}
                   <div className="pt-2 flex flex-wrap items-center gap-2 border-t border-border/40">
-                    {selectedClinicalStatus?.intakeCompletedToday ? (
+                    {Boolean(
+                      selectedClinicalStatus?.intakeCompletedToday ||
+                      (selectedPatient && savedIntakePatientIds.has(selectedPatient.id))
+                    ) ? (
                       <Button
                         type="button"
                         size="sm"
                         onClick={() => setIsIntakeFormOpen(true)}
-                        className="h-7 px-2.5 text-xs font-semibold text-white gap-1.5 rounded-lg shadow-2xs bg-teal-600 hover:bg-teal-500"
+                        className="h-7 px-2.5 text-xs font-semibold text-white gap-1.5 rounded-lg shadow-2xs bg-emerald-600 hover:bg-emerald-500"
                       >
-                        <Eye className="w-3.5 h-3.5" />
-                        <span>{isBn ? 'ইনটেক ফরম দেখুন / এডিট' : 'View / Edit Intake Form'}</span>
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        <span>{isBn ? '✓ ইনটেক ফরম সম্পন্ন (দেখুন/এডিট)' : '✓ Intake Completed (View/Edit)'}</span>
                       </Button>
                     ) : (
                       <Button
@@ -2351,15 +2385,20 @@ export function CheckInWorkstationView() {
         onSuccess={() => {
           loadData();
           if (selectedPatient?.id) {
-            getPatientClinicalStatusAction(selectedPatient.id).then((r) => {
-              if (r.success && r.data) setSelectedClinicalStatus(r.data);
+            const patId = selectedPatient.id;
+            setSavedIntakePatientIds((prev) => new Set([...Array.from(prev), patId]));
+            setSelectedClinicalStatus((prev) =>
+              prev ? { ...prev, intakeCompletedToday: true } : prev
+            );
+            getPatientClinicalStatusAction(patId).then((r) => {
+              if (r.success && r.data) {
+                setSelectedClinicalStatus(r.data);
+                if (r.data.intakeCompletedToday) {
+                  setSavedIntakePatientIds((prev) => new Set([...Array.from(prev), patId]));
+                }
+              }
             });
           }
-          toast.success(
-            selectedClinicalStatus?.patientType === 'lapsed_reintake'
-              ? (isBn ? '৩+ মাস পর পুনর্বার মূল্যায়ন ফরম সংরক্ষিত হয়েছে!' : 'Re-intake form saved successfully!')
-              : (isBn ? 'রোগীর প্রাথমিক তথ্য সংরক্ষিত হয়েছে এবং ক্যাশিয়ারের কাছে পাঠানো হয়েছে!' : 'Intake form saved & forwarded to cashier successfully!')
-          );
         }}
       />
 
@@ -2428,6 +2467,38 @@ export function CheckInWorkstationView() {
           loadData();
         }}
       />
+
+      {/* CONFIRM CANCEL BOOKING ALERT DIALOG */}
+      <AlertDialog
+        open={Boolean(bookingToCancel)}
+        onOpenChange={(open) => {
+          if (!open) setBookingToCancel(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {isBn ? 'থেরাপি বুকিং বাতিল' : 'Cancel Therapy Booking'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {isBn
+                ? 'আপনি কি নিশ্চিত যে এই থেরাপি বুকিংটি বাতিল করতে চান? এটি বাতিল করলে নির্ধারিত স্লটটি পুনরায় খালি হবে।'
+                : 'Are you sure you want to cancel this therapy booking? The slot will become available for other patients.'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>
+              {isBn ? 'না, রাখুন' : 'Keep Booking'}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmCancelBooking}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isBn ? 'হ্যাঁ, বাতিল করুন' : 'Yes, Cancel Booking'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

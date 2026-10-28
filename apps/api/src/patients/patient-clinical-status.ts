@@ -1,6 +1,6 @@
 // apps/api/src/patients/patient-clinical-status.ts
 import { NotFoundException } from '@nestjs/common';
-import { and, desc, eq, isNull, sql } from 'drizzle-orm';
+import { and, desc, eq, isNull, or, sql } from 'drizzle-orm';
 import type { Db } from '../db/db.module';
 import {
   consultationBookings,
@@ -155,7 +155,15 @@ export async function getPatientClinicalStatus(
   const todayIntakeRows = await db
     .select({ id: patientIntakeForms.id, date: patientIntakeForms.date })
     .from(patientIntakeForms)
-    .where(and(eq(patientIntakeForms.patientId, patientId), eq(patientIntakeForms.date, todayStr)))
+    .where(
+      and(
+        eq(patientIntakeForms.patientId, patientId),
+        or(
+          eq(patientIntakeForms.date, todayStr),
+          sql`${patientIntakeForms.createdAt} LIKE ${todayStr + '%'}`,
+        ),
+      ),
+    )
     .orderBy(desc(patientIntakeForms.createdAt))
     .limit(1);
 

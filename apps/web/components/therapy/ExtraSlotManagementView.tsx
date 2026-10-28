@@ -52,6 +52,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '../ui/alert-dialog';
 import { Textarea } from '../ui/textarea';
 import { toast } from 'sonner';
 import { useLanguage } from '../../lib/i18n';
@@ -131,6 +141,7 @@ export function ExtraSlotManagementView() {
   // Book Modal state
   const [isBookModalOpen, setIsBookModalOpen] = useState(false);
   const [modalSlotHour, setModalSlotHour] = useState<SlotHour | undefined>(undefined);
+  const [bookingToCancelId, setBookingToCancelId] = useState<string | null>(null);
 
   // Load Extra Slot Data
   const loadData = useCallback(async () => {
@@ -237,11 +248,15 @@ export function ExtraSlotManagementView() {
     });
   };
 
-  // Handle Cancel Booking - ONE single button action
+  // Handle Cancel Booking - Shadcn AlertDialog trigger
   const handleCancelBooking = (bookingId: string) => {
-    if (!confirm(isBn ? 'আপনি কি নিশ্চিত যে এই অতিরিক্ত স্লট বুকিং বাতিল করতে চান?' : 'Are you sure you want to cancel this extra slot booking?')) {
-      return;
-    }
+    setBookingToCancelId(bookingId);
+  };
+
+  const handleConfirmCancelBooking = () => {
+    if (!bookingToCancelId) return;
+    const bookingId = bookingToCancelId;
+    setBookingToCancelId(null);
 
     setActionInProgressId(bookingId);
     startTransition(async () => {
@@ -1041,6 +1056,38 @@ export function ExtraSlotManagementView() {
           loadData();
         }}
       />
+
+      {/* CONFIRM CANCEL EXTRA SLOT BOOKING ALERT DIALOG */}
+      <AlertDialog
+        open={Boolean(bookingToCancelId)}
+        onOpenChange={(open) => {
+          if (!open) setBookingToCancelId(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {isBn ? 'অতিরিক্ত স্লট বুকিং বাতিল' : 'Cancel Extra Slot Booking'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {isBn
+                ? 'আপনি কি নিশ্চিত যে এই অতিরিক্ত স্লট বুকিং বাতিল করতে চান? এটি বাতিল করলে নির্ধারিত অতিরিক্ত স্লটটি খালি হবে।'
+                : 'Are you sure you want to cancel this extra slot booking?'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>
+              {isBn ? 'না, রাখুন' : 'Keep Booking'}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmCancelBooking}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isBn ? 'হ্যাঁ, বাতিল করুন' : 'Yes, Cancel Booking'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

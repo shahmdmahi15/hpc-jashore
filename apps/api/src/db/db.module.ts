@@ -964,6 +964,21 @@ export type Db = BetterSQLite3Database<typeof schema>;
             if (!visitColNames.has('cleared_by')) {
               sqlite.exec("ALTER TABLE visits ADD COLUMN cleared_by TEXT");
             }
+            if (!visitColNames.has('consultation_fee_paid_paisa')) {
+              sqlite.exec("ALTER TABLE visits ADD COLUMN consultation_fee_paid_paisa INTEGER DEFAULT 0");
+            }
+            if (!visitColNames.has('consultation_adjustment_type')) {
+              sqlite.exec("ALTER TABLE visits ADD COLUMN consultation_adjustment_type TEXT DEFAULT 'none'");
+            }
+            if (!visitColNames.has('consultation_adjustment_amount_paisa')) {
+              sqlite.exec("ALTER TABLE visits ADD COLUMN consultation_adjustment_amount_paisa INTEGER DEFAULT 0");
+            }
+            if (!visitColNames.has('consultation_adjustment_reason')) {
+              sqlite.exec("ALTER TABLE visits ADD COLUMN consultation_adjustment_reason TEXT");
+            }
+            if (!visitColNames.has('consultation_adjustment_status')) {
+              sqlite.exec("ALTER TABLE visits ADD COLUMN consultation_adjustment_status TEXT DEFAULT 'none'");
+            }
           } catch {}
 
           // Ensure doctor configuration and fee columns directly on users table
@@ -1138,6 +1153,21 @@ export type Db = BetterSQLite3Database<typeof schema>;
             }
             if (!visitColNames.has('cleared_by')) {
               sqlite.exec("ALTER TABLE visits ADD COLUMN cleared_by TEXT");
+            }
+            if (!visitColNames.has('consultation_fee_paid_paisa')) {
+              sqlite.exec("ALTER TABLE visits ADD COLUMN consultation_fee_paid_paisa INTEGER DEFAULT 0");
+            }
+            if (!visitColNames.has('consultation_adjustment_type')) {
+              sqlite.exec("ALTER TABLE visits ADD COLUMN consultation_adjustment_type TEXT DEFAULT 'none'");
+            }
+            if (!visitColNames.has('consultation_adjustment_amount_paisa')) {
+              sqlite.exec("ALTER TABLE visits ADD COLUMN consultation_adjustment_amount_paisa INTEGER DEFAULT 0");
+            }
+            if (!visitColNames.has('consultation_adjustment_reason')) {
+              sqlite.exec("ALTER TABLE visits ADD COLUMN consultation_adjustment_reason TEXT");
+            }
+            if (!visitColNames.has('consultation_adjustment_status')) {
+              sqlite.exec("ALTER TABLE visits ADD COLUMN consultation_adjustment_status TEXT DEFAULT 'none'");
             }
           } catch {}
 

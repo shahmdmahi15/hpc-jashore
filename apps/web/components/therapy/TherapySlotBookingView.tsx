@@ -49,6 +49,16 @@ import {
   TableHeader,
   TableRow,
 } from '../ui/table';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '../ui/alert-dialog';
 import { toast } from 'sonner';
 import { useLanguage } from '../../lib/i18n';
 import {
@@ -150,6 +160,7 @@ export function TherapySlotBookingView() {
   const [isBookModalOpen, setIsBookModalOpen] = useState(false);
   const [modalSlotHour, setModalSlotHour] = useState<SlotHour | undefined>(undefined);
   const [actionInProgressId, setActionInProgressId] = useState<string | null>(null);
+  const [bookingToCancelId, setBookingToCancelId] = useState<string | null>(null);
 
   // Debounce search
   useEffect(() => {
@@ -198,11 +209,15 @@ export function TherapySlotBookingView() {
     loadData();
   }, [loadData]);
 
-  // Quick cancel handler
-  const handleCancelBooking = async (id: string) => {
-    if (!confirm(isBn ? 'আপনি কি নিশ্চিত যে এই থেরাপি বুকিংটি বাতিল করতে চান?' : 'Are you sure you want to cancel this booking?')) {
-      return;
-    }
+  // Quick cancel handler - Shadcn AlertDialog trigger
+  const handleCancelBooking = (id: string) => {
+    setBookingToCancelId(id);
+  };
+
+  const handleConfirmCancelBooking = async () => {
+    if (!bookingToCancelId) return;
+    const id = bookingToCancelId;
+    setBookingToCancelId(null);
 
     setActionInProgressId(id);
     try {
@@ -981,6 +996,38 @@ export function TherapySlotBookingView() {
           loadData();
         }}
       />
+
+      {/* CONFIRM CANCEL THERAPY BOOKING ALERT DIALOG */}
+      <AlertDialog
+        open={Boolean(bookingToCancelId)}
+        onOpenChange={(open) => {
+          if (!open) setBookingToCancelId(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {isBn ? 'থেরাপি বুকিং বাতিল' : 'Cancel Therapy Booking'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {isBn
+                ? 'আপনি কি নিশ্চিত যে এই থেরাপি বুকিংটি বাতিল করতে চান? এটি বাতিল করলে নির্ধারিত স্লটটি পুনরায় খালি হবে।'
+                : 'Are you sure you want to cancel this booking? The slot will become available for other patients.'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>
+              {isBn ? 'না, রাখুন' : 'Keep Booking'}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmCancelBooking}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isBn ? 'হ্যাঁ, বাতিল করুন' : 'Yes, Cancel Booking'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

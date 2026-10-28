@@ -1,7 +1,7 @@
 // apps/web/components/consultation/ConsultationBookingView.tsx
 'use client';
 
-import React, { useState, useEffect, useTransition, useCallback } from 'react';
+import React, { useState, useEffect, useTransition, useCallback, useMemo } from 'react';
 import {
   Stethoscope,
   Plus,
@@ -134,12 +134,29 @@ export function ConsultationBookingView({ defaultDoctorId }: ConsultationBooking
   const [queueFeeType, setQueueFeeType] = useState<'free' | 'paid'>('free');
   const [queueFeeAmount, setQueueFeeAmount] = useState<number>(500);
   const [freePatientSearch, setFreePatientSearch] = useState<string>('');
-  const [freePatientResults, setFreePatientResults] = useState<PatientRecord[]>([]);
+  const [checkedInVisits, setCheckedInVisits] = useState<any[]>([]);
+  const [loadingCheckedIn, setLoadingCheckedIn] = useState<boolean>(false);
   const [selectedFreePatient, setSelectedFreePatient] = useState<PatientRecord | null>(null);
   const [freeDoctorId, setFreeDoctorId] = useState<string>('');
   const [freeReason, setFreeReason] = useState<string>('রিপোর্ট দেখানো (Show Investigation Report)');
   const [freeNotes, setFreeNotes] = useState<string>('');
   const [freeSubmitting, setFreeSubmitting] = useState<boolean>(false);
+
+  // Load today's active checked-in patients for the queue modal
+  useEffect(() => {
+    if (isFreeQueueModalOpen) {
+      setLoadingCheckedIn(true);
+      api.visits.getToday()
+        .then((res: any) => {
+          const active = (res || []).filter(
+            (v: any) => v.status !== 'checked_out' && v.status !== 'cancelled' && v.patient
+          );
+          setCheckedInVisits(active);
+        })
+        .catch(() => setCheckedInVisits([]))
+        .finally(() => setLoadingCheckedIn(false));
+    }
+  }, [isFreeQueueModalOpen]);
 
   // Load Initial Doctors
   useEffect(() => {
@@ -263,18 +280,21 @@ export function ConsultationBookingView({ defaultDoctorId }: ConsultationBooking
     });
   };
 
-  // Free Queue Patient Search
-  const handleFreePatientSearchChange = async (query: string) => {
-    setFreePatientSearch(query);
-    if (query.trim().length >= 2) {
-      const res = await searchPatientsAction({ query: query.trim() });
-      if (res.success && res.data?.items) {
-        setFreePatientResults(res.data.items);
-      }
-    } else {
-      setFreePatientResults([]);
-    }
-  };
+  // Filter checked-in visits based on search
+  const filteredCheckedInVisits = useMemo(() => {
+    const q = freePatientSearch.toLowerCase().trim();
+    if (!q) return checkedInVisits;
+    return checkedInVisits.filter((v: any) => {
+      const p = v.patient;
+      if (!p) return false;
+      return (
+        p.nameEn?.toLowerCase().includes(q) ||
+        (p.nameBn && p.nameBn.includes(q)) ||
+        p.mrn?.toLowerCase().includes(q) ||
+        (p.phone && p.phone.includes(q))
+      );
+    });
+  }, [checkedInVisits, freePatientSearch]);
 
   // Doctor Selection change for Direct Queue
   const handleQueueDoctorChange = (docId: string) => {
@@ -301,19 +321,22 @@ export function ConsultationBookingView({ defaultDoctorId }: ConsultationBooking
 
     try {
       setFreeSubmitting(true);
-      // 1. Check or create visit
-      const visitRes = await api.visits.getToday();
-      let activeVisit = (visitRes || []).find(
-        (v: any) => v.patientId === selectedFreePatient.id && v.status !== 'checked_out' && v.status !== 'cancelled'
-      );
+      // 1. Verify checked-in visit exists
+      let activeVisit = checkedInVisits.find((v: any) => v.patientId === selectedFreePatient.id);
+      if (!activeVisit) {
+        const visitRes = await api.visits.getToday();
+        activeVisit = (visitRes || []).find(
+          (v: any) => v.patientId === selectedFreePatient.id && v.status !== 'checked_out' && v.status !== 'cancelled'
+        );
+      }
 
       if (!activeVisit) {
-        activeVisit = await api.visits.checkIn({
-          patientId: selectedFreePatient.id,
-          doctorId: docId,
-          priority: 'normal',
-          notes: queueFeeType === 'free' ? `Free Consultation: ${freeReason}` : `Paid Consultation (৳${queueFeeAmount}): ${freeReason}`,
-        });
+        toast.error(
+          language === 'bn'
+            ? 'রোগী চেক-ইন অবস্থায় নেই। অনুগ্রহ করে প্রথমে রিসেপশনে চেক-ইন করুন।'
+            : 'Patient is not checked in. Please check-in at reception first.'
+        );
+        return;
       }
 
       // 2. Send to doctor queue (supports isFree and feeTaka)
@@ -1424,11 +1447,16 @@ export function ConsultationBookingView({ defaultDoctorId }: ConsultationBooking
               </div>
             </div>
 
-            {/* 1. Patient Selection */}
+            {/* 1. Patient Selection - Show Only Today's Checked-in Patients */}
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-foreground">
-                {language === 'bn' ? 'রোগী নির্বাচন করুন *' : 'Select Patient *'}
-              </Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-semibold text-foreground">
+                  {language === 'bn' ? 'উপস্থিত চেক-ইন করা রোগী নির্বাচন করুন *' : 'Select Checked-In Patient *'}
+                </Label>
+                <Badge variant="secondary" className="text-[10px] font-mono">
+                  {loadingCheckedIn ? '...' : `${filteredCheckedInVisits.length} ${language === 'bn' ? 'জন উপস্থিত' : 'present'}`}
+                </Badge>
+              </div>
               {selectedFreePatient ? (
                 <div className="p-2.5 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-between">
                   <div>
@@ -1454,32 +1482,59 @@ export function ConsultationBookingView({ defaultDoctorId }: ConsultationBooking
                   <div className="relative">
                     <Search className="size-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
                     <Input
-                      placeholder={language === 'bn' ? 'রোগীর নাম, ফোন নম্বর বা MRN দিয়ে খুঁজুন...' : 'Search by patient name, phone, or MRN...'}
+                      placeholder={language === 'bn' ? 'চেক-ইন করা রোগীর নাম, ফোন বা MRN দিয়ে খুঁজুন...' : 'Search checked-in patients by name, phone, or MRN...'}
                       value={freePatientSearch}
-                      onChange={(e) => handleFreePatientSearchChange(e.target.value)}
+                      onChange={(e) => setFreePatientSearch(e.target.value)}
                       className="pl-8 h-9 text-xs"
                     />
                   </div>
-                  {freePatientResults.length > 0 && (
-                    <div className="max-h-36 overflow-y-auto border border-border rounded-xl divide-y divide-border/60 bg-background">
-                      {freePatientResults.map((p) => (
-                        <div
-                          key={p.id}
-                          onClick={() => {
-                            setSelectedFreePatient(p);
-                            setFreePatientResults([]);
-                          }}
-                          className="p-2 hover:bg-muted/50 cursor-pointer flex items-center justify-between transition-colors"
-                        >
-                          <div>
-                            <span className="font-bold text-foreground">{p.nameEn}</span>
-                            <span className="text-muted-foreground ml-1.5 font-mono text-[11px]">({p.phone})</span>
+                  {loadingCheckedIn ? (
+                    <div className="p-4 text-center text-xs text-muted-foreground flex items-center justify-center gap-2">
+                      <RefreshCw className="size-3.5 animate-spin" />
+                      <span>{language === 'bn' ? 'আজকের চেক-ইন করা রোগী খোঁজা হচ্ছে...' : 'Loading checked-in patients...'}</span>
+                    </div>
+                  ) : filteredCheckedInVisits.length > 0 ? (
+                    <div className="max-h-44 overflow-y-auto border border-border rounded-xl divide-y divide-border/60 bg-background">
+                      {filteredCheckedInVisits.map((v: any) => {
+                        const p = v.patient;
+                        return (
+                          <div
+                            key={v.id}
+                            onClick={() => {
+                              setSelectedFreePatient(p);
+                              setFreePatientSearch('');
+                            }}
+                            className="p-2.5 hover:bg-muted/50 cursor-pointer flex items-center justify-between transition-colors"
+                          >
+                            <div>
+                              <div className="font-bold text-foreground text-xs flex items-center gap-1.5">
+                                <span>{p.nameEn}</span>
+                                {p.nameBn && <span className="font-normal text-muted-foreground">({p.nameBn})</span>}
+                              </div>
+                              <div className="text-muted-foreground font-mono text-[11px] mt-0.5">
+                                <span>{p.phone}</span>
+                                {v.tokenNumber && <span className="ml-2 font-bold text-cyan-600">টোকেন: {v.tokenNumber}</span>}
+                              </div>
+                            </div>
+                            <Badge variant="outline" className="text-[10px] font-mono bg-emerald-500/10 text-emerald-600 border-emerald-500/30">
+                              MRN: {p.mrn}
+                            </Badge>
                           </div>
-                          <Badge variant="outline" className="text-[10px] font-mono">
-                            {p.mrn}
-                          </Badge>
-                        </div>
-                      ))}
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="p-4 rounded-xl border border-dashed border-border/80 bg-muted/20 text-center space-y-1">
+                      <p className="text-xs font-semibold text-muted-foreground">
+                        {language === 'bn'
+                          ? 'আজকের উপস্থিত কোনো চেক-ইন করা রোগী পাওয়া যায়নি'
+                          : 'No checked-in patients found'}
+                      </p>
+                      <p className="text-[11px] text-muted-foreground/80">
+                        {language === 'bn'
+                          ? 'ডাক্তারের পরামর্শ কিউতে পাঠানোর জন্য রোগীকে প্রথমে রিসেপশনে চেক-ইন করুন।'
+                          : 'Please check-in the patient at the reception desk first.'}
+                      </p>
                     </div>
                   )}
                 </div>

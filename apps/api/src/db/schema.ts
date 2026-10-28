@@ -370,6 +370,15 @@ export const visits = sqliteTable('visits', {
   dischargeNotes: text('discharge_notes'),
   nextFollowUpDate: text('next_follow_up_date'),
   clearedBy: text('cleared_by').references(() => users.id),
+  consultationFeePaidPaisa: integer('consultation_fee_paid_paisa').default(0),
+  consultationAdjustmentType: text('consultation_adjustment_type')
+    .$type<'none' | 'refund' | 'payment_collection'>()
+    .default('none'),
+  consultationAdjustmentAmountPaisa: integer('consultation_adjustment_amount_paisa').default(0),
+  consultationAdjustmentReason: text('consultation_adjustment_reason'),
+  consultationAdjustmentStatus: text('consultation_adjustment_status')
+    .$type<'none' | 'pending' | 'completed' | 'rejected'>()
+    .default('none'),
   notes: text('notes'),
   ...timestamps,
 });

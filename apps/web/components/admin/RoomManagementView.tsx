@@ -59,6 +59,16 @@ import {
   TableHeader,
   TableRow,
 } from '../ui/table';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '../ui/alert-dialog';
 import { toast } from 'sonner';
 import { useLanguage } from '../../lib/i18n';
 import { useRealtime } from '../../lib/use-realtime';
@@ -241,6 +251,7 @@ export function RoomManagementView() {
   const [selectedRoomForEdit, setSelectedRoomForEdit] = useState<RoomRecord | null>(null);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [roomToDelete, setRoomToDelete] = useState<RoomRecord | null>(null);
 
   // Debounce search
   useEffect(() => {
@@ -322,13 +333,15 @@ export function RoomManagementView() {
     }
   };
 
-  // Handle Delete
-  const handleDeleteRoom = async (room: RoomRecord) => {
-    const confirmMessage = isBn
-      ? `আপনি কি নিশ্চিতভাবে রুম '${room.roomNumber} - ${room.name}' মুছে ফেলতে চান?`
-      : `Are you sure you want to delete room '${room.roomNumber} - ${room.name}'?`;
+  // Handle Delete - Shadcn AlertDialog trigger
+  const handleDeleteRoom = (room: RoomRecord) => {
+    setRoomToDelete(room);
+  };
 
-    if (!window.confirm(confirmMessage)) return;
+  const handleConfirmDeleteRoom = async () => {
+    if (!roomToDelete) return;
+    const room = roomToDelete;
+    setRoomToDelete(null);
 
     setDeletingId(room.id);
     const res = await deleteRoomAction(room.id);
@@ -1034,6 +1047,38 @@ export function RoomManagementView() {
           fetchRooms();
         }}
       />
+
+      {/* CONFIRM DELETE ROOM ALERT DIALOG */}
+      <AlertDialog
+        open={Boolean(roomToDelete)}
+        onOpenChange={(open) => {
+          if (!open) setRoomToDelete(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {isBn ? 'রুম মুছে ফেলা' : 'Delete Room'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {isBn
+                ? `আপনি কি নিশ্চিতভাবে রুম '${roomToDelete?.roomNumber} - ${roomToDelete?.name}' মুছে ফেলতে চান? এটি মুছে ফেললে এই রুমে আর কোনো নতুন সেশন বা কিউ নির্ধারণ করা যাবে না।`
+                : `Are you sure you want to delete room '${roomToDelete?.roomNumber} - ${roomToDelete?.name}'?`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>
+              {isBn ? 'বাতিল' : 'Cancel'}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDeleteRoom}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isBn ? 'মুছে ফেলুন' : 'Delete Room'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

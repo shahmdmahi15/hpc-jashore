@@ -131,3 +131,40 @@ export class CallSerialDto {
   @IsString()
   chamberCode?: string;
 }
+
+export class RequestConsultationAdjustmentDto {
+  @ApiProperty({ enum: ['refund', 'payment_collection'] })
+  @IsIn(['refund', 'payment_collection'])
+  adjustmentType!: 'refund' | 'payment_collection';
+
+  @ApiProperty({ description: 'Adjustment amount in taka' })
+  @IsInt()
+  @Min(1)
+  amountTaka!: number;
+
+  @ApiProperty({ description: 'Reason for adjustment' })
+  @IsString()
+  @IsNotEmpty()
+  reason!: string;
+}
+
+export class ProcessConsultationAdjustmentDto {
+  @ApiProperty({ enum: ['completed', 'rejected'] })
+  @IsIn(['completed', 'rejected'])
+  status!: 'completed' | 'rejected';
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  paymentMethod?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  txnId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  notes?: string;
+}

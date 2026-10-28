@@ -22,6 +22,8 @@ import {
   CheckOutDto,
   RoutePatientDto,
   SendToDoctorQueueDto,
+  RequestConsultationAdjustmentDto,
+  ProcessConsultationAdjustmentDto,
 } from './dto';
 import { VisitsService } from './visits.service';
 
@@ -204,5 +206,37 @@ export class VisitsController {
   @Get('tv/snapshot')
   tvSnapshot() {
     return this.visits.getTvSnapshot();
+  }
+
+  @Post(':id/consultation-adjustment/request')
+  @ApiBearerAuth()
+  @UseGuards(JwtAccessAuthGuard, RolesGuard)
+  @Roles('admin', 'doctor')
+  requestConsultationAdjustment(
+    @CurrentUser() user: RequestUser,
+    @Param('id') visitId: string,
+    @Body() dto: RequestConsultationAdjustmentDto,
+  ) {
+    return this.visits.requestConsultationAdjustment(
+      { sub: user.sub, role: user.role },
+      visitId,
+      dto,
+    );
+  }
+
+  @Post(':id/consultation-adjustment/process')
+  @ApiBearerAuth()
+  @UseGuards(JwtAccessAuthGuard, RolesGuard)
+  @Roles('admin', 'cashier')
+  processConsultationAdjustment(
+    @CurrentUser() user: RequestUser,
+    @Param('id') visitId: string,
+    @Body() dto: ProcessConsultationAdjustmentDto,
+  ) {
+    return this.visits.processConsultationAdjustment(
+      { sub: user.sub, role: user.role },
+      visitId,
+      dto,
+    );
   }
 }

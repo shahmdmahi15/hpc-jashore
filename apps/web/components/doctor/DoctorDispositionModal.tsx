@@ -12,6 +12,16 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
 import {
@@ -25,6 +35,11 @@ import {
   ArrowRight,
   Sparkles,
   Calendar,
+  RotateCcw,
+  Coins,
+  ArrowDownLeft,
+  ArrowUpRight,
+  Receipt,
 } from 'lucide-react';
 
 export interface DoctorDispositionModalProps {
@@ -57,9 +72,15 @@ export function DoctorDispositionModal({
   const [pendingDuePaisa, setPendingDuePaisa] = useState<number>(0);
   const [dueDetails, setDueDetails] = useState<any[]>([]);
 
+  // Consultation Fee & Adjustment States
+  const [consultationFeePaidPaisa, setConsultationFeePaidPaisa] = useState<number>(0);
+  const [adjustmentType, setAdjustmentType] = useState<'refund' | 'payment_collection'>('refund');
+  const [adjustmentAmountTaka, setAdjustmentAmountTaka] = useState<number>(500);
+  const [adjustmentReason, setAdjustmentReason] = useState<string>('');
+
   const patientId = patient?.id;
 
-  // Check pending dues whenever modal opens
+  // Check pending dues and consultation fee whenever modal opens
   useEffect(() => {
     if (open && patientId) {
       checkPatientDues();
@@ -69,16 +90,86 @@ export function DoctorDispositionModal({
   const checkPatientDues = async () => {
     setCheckingDues(true);
     try {
-      const res = await api.billing.getPatientBilling(patientId);
-      const duesList = (res?.dues || []).filter((d: any) => d.status === 'pending' && (d.amountPaisa || 0) > 0);
+      const [billingRes, visitsToday] = await Promise.all([
+        api.billing.getPatientBilling(patientId).catch(() => null),
+        api.visits.getToday().catch(() => []),
+      ]);
+
+      const currentVisit = (visitsToday || []).find(
+        (v: any) => v.id === visitId || v.patientId === patientId
+      );
+      const paidPaisa =
+        currentVisit?.consultationFeePaidPaisa ??
+        (billingRes?.bills?.find((b: any) =>
+          b.items?.some((it: any) => it.itemType === 'consultation')
+        )?.paidPaisa || 0);
+
+      setConsultationFeePaidPaisa(paidPaisa);
+
+      const duesList = (billingRes?.dues || []).filter(
+        (d: any) => d.status === 'pending' && (d.amountPaisa || 0) > 0
+      );
       setDueDetails(duesList);
       const totalPaisa = duesList.reduce((acc: number, d: any) => acc + (d.amountPaisa || 0), 0);
       setPendingDuePaisa(totalPaisa);
+
+      // Default adjustment values based on paid amount
+      const paidTaka = Math.round(paidPaisa / 100);
+      if (paidTaka > 0) {
+        setAdjustmentType('refund');
+        setAdjustmentAmountTaka(paidTaka);
+        setAdjustmentReason('পরামর্শ ফি রিফান্ড/ছাড়');
+      } else {
+        setAdjustmentType('payment_collection');
+        setAdjustmentAmountTaka(500);
+        setAdjustmentReason('কনসালটেশন ফি গ্রহণ');
+      }
     } catch (err: any) {
       console.error('Error checking patient dues:', err);
       setPendingDuePaisa(0);
     } finally {
       setCheckingDues(false);
+    }
+  };
+
+  // Route to Cashier with Consultation Adjustment (Refund or Payment Collection)
+  const handleRouteToCashierAdjustment = async () => {
+    if (!visitId) {
+      toast.error('ভিজিট আইডি পাওয়া যায়নি');
+      return;
+    }
+    if (adjustmentAmountTaka <= 0) {
+      toast.error('সঠিক টাকার পরিমাণ দিন');
+      return;
+    }
+    if (!adjustmentReason.trim()) {
+      toast.error('অনুরোধের কারণ উল্লেখ করুন');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await api.visits.requestConsultationAdjustment(visitId, {
+        adjustmentType,
+        amountTaka: Number(adjustmentAmountTaka),
+        reason: adjustmentReason.trim(),
+      });
+      if (activeSerialId) {
+        try {
+          await api.visits.completeSerial(activeSerialId);
+        } catch {}
+      }
+      toast.success(
+        adjustmentType === 'refund'
+          ? `ক্যাশিয়ারের কাছে ৳${adjustmentAmountTaka} রিফান্ড অনুরোধ পাঠানো হয়েছে!`
+          : `ক্যাশিয়ারের কাছে ৳${adjustmentAmountTaka} ফি আদায়ের অনুরোধ পাঠানো হয়েছে!`
+      );
+      onOpenChange(false);
+      onRoutingSuccess();
+    } catch (err: any) {
+      toast.error(`ক্যাশিয়ারে পাঠাতে ব্যর্থ: ${err.message}`);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -172,11 +263,28 @@ export function DoctorDispositionModal({
               </DialogDescription>
             </div>
 
-            {/* Dues Live Status Badge */}
-            <div className="text-right">
+            {/* Dues & Consultation Fee Live Status Badges */}
+            <div className="flex flex-wrap items-center gap-2 justify-end">
+              <Badge
+                variant="outline"
+                className={`text-xs font-mono font-bold ${
+                  Math.round(consultationFeePaidPaisa / 100) >= 500
+                    ? 'text-emerald-700 bg-emerald-500/10 border-emerald-500/30'
+                    : Math.round(consultationFeePaidPaisa / 100) === 0
+                    ? 'text-blue-700 bg-blue-500/10 border-blue-500/30'
+                    : 'text-amber-700 bg-amber-500/10 border-amber-500/30'
+                }`}
+              >
+                {Math.round(consultationFeePaidPaisa / 100) >= 500
+                  ? `✓ ফি পরিশোধিত: ৳${Math.round(consultationFeePaidPaisa / 100)}`
+                  : Math.round(consultationFeePaidPaisa / 100) === 0
+                  ? 'ফি: ফ্রি (৳০ পরিশোধিত)'
+                  : `আংশিক ফি: ৳${Math.round(consultationFeePaidPaisa / 100)}`}
+              </Badge>
+
               {checkingDues ? (
                 <Badge variant="outline" className="text-xs font-mono animate-pulse">
-                  বকেয়া যাচাই হচ্ছে...
+                  বকেয়া যাচাই...
                 </Badge>
               ) : pendingDuePaisa > 0 ? (
                 <Badge variant="destructive" className="text-xs font-mono font-bold">
@@ -184,14 +292,289 @@ export function DoctorDispositionModal({
                 </Badge>
               ) : (
                 <Badge variant="outline" className="text-xs font-mono font-bold text-emerald-600 border-emerald-500/30 bg-emerald-500/10">
-                  বকেয়া নেই (Clear)
+                  বকেয়া নেই
                 </Badge>
               )}
             </div>
           </div>
         </DialogHeader>
 
-        {/* 2 Routing Options */}
+        {/* SECTION: DOCTOR -> CASHIER FEE ADJUSTMENT & REFUND ROUTING (Cases 1, 2, 3) */}
+        <Card className="border-2 border-cyan-500/40 bg-cyan-500/5 dark:bg-cyan-950/20 shadow-xs my-1">
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Receipt className="size-5 text-cyan-600 dark:text-cyan-400" />
+                <CardTitle className="text-sm sm:text-base font-bold text-foreground">
+                  ক্যাশিয়ারে পাঠান — ফি ও রিফান্ড সমন্বয় (Doctor Chamber Fee Adjustment)
+                </CardTitle>
+              </div>
+              <Badge className="bg-cyan-600 text-white font-mono text-[10px]">
+                {Math.round(consultationFeePaidPaisa / 100) >= 500
+                  ? 'কেস ১: সম্পূর্ণ পরিশোধিত'
+                  : Math.round(consultationFeePaidPaisa / 100) === 0
+                  ? 'কেস ২: ফ্রি কনসালটেশন'
+                  : 'কেস ৩: আংশিক পরিশোধিত'}
+              </Badge>
+            </div>
+            <p className="text-xs text-muted-foreground leading-relaxed mt-1">
+              ডাক্তারের সিদ্ধান্ত অনুযায়ী ক্যাশিয়ারে রিফান্ড বা ফি আদায়ের অনুরোধ পাঠানো হবে। ক্যাশিয়ার তা সম্পন্ন করে ইনভয়েস রিসিট প্রিন্ট দেবেন এবং রোগীকে রিসেপশনে পাঠিয়ে দেবেন।
+            </p>
+          </CardHeader>
+
+          <CardContent className="space-y-3 pt-1">
+            {/* Case 1: Full Paid -> Refund Request (Full or Partial) */}
+            {Math.round(consultationFeePaidPaisa / 100) >= 500 && (
+              <div className="space-y-3 p-3 rounded-xl border border-cyan-500/30 bg-background/80">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-cyan-800 dark:text-cyan-200">
+                    <ArrowDownLeft className="size-4 text-cyan-600" />
+                    <span>কেস ১: সম্পূর্ণ পরিশোধিত (৳{Math.round(consultationFeePaidPaisa / 100)}) — রিফান্ড অনুরোধ</span>
+                  </div>
+                  <Badge variant="outline" className="text-[10px] text-cyan-700 font-mono">
+                    রিফান্ড প্রযোজ্য
+                  </Badge>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-[11px] font-semibold text-foreground">রিফান্ডের ধরন</Label>
+                    <Select
+                      value={adjustmentAmountTaka === Math.round(consultationFeePaidPaisa / 100) ? 'full' : 'partial'}
+                      onValueChange={(val) => {
+                        setAdjustmentType('refund');
+                        if (val === 'full') {
+                          setAdjustmentAmountTaka(Math.round(consultationFeePaidPaisa / 100));
+                        } else {
+                          setAdjustmentAmountTaka(Math.max(100, Math.round(consultationFeePaidPaisa / 100) / 2));
+                        }
+                      }}
+                    >
+                      <SelectTrigger className="h-8 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="full">সম্পূর্ণ রিফান্ড (৳{Math.round(consultationFeePaidPaisa / 100)})</SelectItem>
+                        <SelectItem value="partial">আংশিক রিফান্ড (নির্দিষ্ট পরিমাণ)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-[11px] font-semibold text-foreground">রিফান্ডের পরিমাণ (টাকা) *</Label>
+                    <div className="relative">
+                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground">৳</span>
+                      <Input
+                        type="number"
+                        min={1}
+                        max={Math.round(consultationFeePaidPaisa / 100)}
+                        value={adjustmentAmountTaka}
+                        onChange={(e) => setAdjustmentAmountTaka(Number(e.target.value) || 0)}
+                        className="pl-6 h-8 text-xs font-bold font-mono"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-semibold text-foreground">রিফান্ডের কারণ *</Label>
+                  <Select value={adjustmentReason} onValueChange={setAdjustmentReason}>
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="-- কারণ নির্বাচন করুন --" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="পরামর্শ ফি সম্পূর্ণ মওকুফ">পরামর্শ ফি সম্পূর্ণ মওকুফ (Fee Waived)</SelectItem>
+                      <SelectItem value="রোগী পরামর্শে সন্তুষ্ট নন / চিকিৎসা না নিয়ে প্রস্থান">রোগী পরামর্শে সন্তুষ্ট নন / চিকিৎসা না নিয়ে প্রস্থান</SelectItem>
+                      <SelectItem value="ডাক্তারের বিশেষ আংশিক ছাড়">ডাক্তারের বিশেষ আংশিক ছাড় (Special Discount)</SelectItem>
+                      <SelectItem value="ভুলবশত সংগৃহীত অতিরিক্ত ফি ফেরত">ভুলবশত সংগৃহীত অতিরিক্ত ফি ফেরত (Excess Fee Return)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <Button
+                  type="button"
+                  onClick={handleRouteToCashierAdjustment}
+                  disabled={loading || adjustmentAmountTaka <= 0 || !adjustmentReason}
+                  className="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs h-9 gap-1.5 shadow-sm active:scale-98 cursor-pointer"
+                >
+                  <ArrowDownLeft className="size-3.5" />
+                  <span>ক্যাশিয়ারে রিফান্ড অনুরোধ পাঠান (৳{adjustmentAmountTaka})</span>
+                  <ArrowRight className="size-3.5 ml-auto" />
+                </Button>
+              </div>
+            )}
+
+            {/* Case 2: Free / ৳0 Paid -> Payment Request */}
+            {Math.round(consultationFeePaidPaisa / 100) === 0 && (
+              <div className="space-y-3 p-3 rounded-xl border border-cyan-500/30 bg-background/80">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-cyan-800 dark:text-cyan-200">
+                    <ArrowUpRight className="size-4 text-cyan-600" />
+                    <span>কেস ২: ফ্রি কনসালটেশন (৳০) — ফি আদায়ের অনুরোধ</span>
+                  </div>
+                  <Badge variant="outline" className="text-[10px] text-emerald-600 font-mono">
+                    ফি গ্রহণ
+                  </Badge>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-[11px] font-semibold text-foreground">ধার্যকৃত ফি (টাকা) *</Label>
+                    <div className="relative">
+                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground">৳</span>
+                      <Input
+                        type="number"
+                        min={1}
+                        value={adjustmentAmountTaka}
+                        onChange={(e) => {
+                          setAdjustmentType('payment_collection');
+                          setAdjustmentAmountTaka(Number(e.target.value) || 0);
+                        }}
+                        className="pl-6 h-8 text-xs font-bold font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-[11px] font-semibold text-foreground">ফি আদায়ের কারণ *</Label>
+                    <Select value={adjustmentReason} onValueChange={(r) => { setAdjustmentType('payment_collection'); setAdjustmentReason(r); }}>
+                      <SelectTrigger className="h-8 text-xs">
+                        <SelectValue placeholder="-- কারণ নির্বাচন করুন --" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="নিয়মিত কনসালটেশন ফি গ্রহণ">নিয়মিত কনসালটেশন ফি গ্রহণ</SelectItem>
+                        <SelectItem value="বিশেষজ্ঞ পরামর্শ ও মূল্যায়ন ফি">বিশেষজ্ঞ পরামর্শ ও মূল্যায়ন ফি</SelectItem>
+                        <SelectItem value="ইনভেস্টিগেশন পর্যালোচনা ও দ্বিতীয় মতামত">ইনভেস্টিগেশন পর্যালোচনা ও দ্বিতীয় মতামত</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <Button
+                  type="button"
+                  onClick={handleRouteToCashierAdjustment}
+                  disabled={loading || adjustmentAmountTaka <= 0 || !adjustmentReason}
+                  className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs h-9 gap-1.5 shadow-sm active:scale-98 cursor-pointer"
+                >
+                  <ArrowUpRight className="size-3.5" />
+                  <span>ক্যাশিয়ারে ফি আদায় অনুরোধ পাঠান (৳{adjustmentAmountTaka})</span>
+                  <ArrowRight className="size-3.5 ml-auto" />
+                </Button>
+              </div>
+            )}
+
+            {/* Case 3: Partial Paid -> Refund or Payment Choice */}
+            {Math.round(consultationFeePaidPaisa / 100) > 0 && Math.round(consultationFeePaidPaisa / 100) < 500 && (
+              <div className="space-y-3 p-3 rounded-xl border border-cyan-500/30 bg-background/80">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-cyan-800 dark:text-cyan-200">
+                    <Coins className="size-4 text-cyan-600" />
+                    <span>কেস ৩: আংশিক পরিশোধিত (৳{Math.round(consultationFeePaidPaisa / 100)}) — রিফান্ড অথবা বাকি ফি আদায়</span>
+                  </div>
+                  <Badge variant="outline" className="text-[10px] text-amber-600 font-mono">
+                    সমন্বয়
+                  </Badge>
+                </div>
+
+                {/* Choice Buttons */}
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAdjustmentType('refund');
+                      setAdjustmentAmountTaka(Math.round(consultationFeePaidPaisa / 100));
+                      setAdjustmentReason('আংশিক পরিশোধিত ফি ফেরত');
+                    }}
+                    className={`p-2 rounded-lg border text-left text-xs font-bold transition-all ${
+                      adjustmentType === 'refund'
+                        ? 'border-cyan-500 bg-cyan-500/10 text-cyan-800 dark:text-cyan-200 shadow-2xs'
+                        : 'border-border text-muted-foreground hover:bg-muted/40'
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <ArrowDownLeft className="size-3.5 text-cyan-600" />
+                      <span>টাকা রিফান্ড (পরিশোধিত ৳{Math.round(consultationFeePaidPaisa / 100)})</span>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAdjustmentType('payment_collection');
+                      setAdjustmentAmountTaka(Math.max(100, 500 - Math.round(consultationFeePaidPaisa / 100)));
+                      setAdjustmentReason('বাকি কনসালটেশন ফি আদায়');
+                    }}
+                    className={`p-2 rounded-lg border text-left text-xs font-bold transition-all ${
+                      adjustmentType === 'payment_collection'
+                        ? 'border-emerald-500 bg-emerald-500/10 text-emerald-800 dark:text-emerald-200 shadow-2xs'
+                        : 'border-border text-muted-foreground hover:bg-muted/40'
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <ArrowUpRight className="size-3.5 text-emerald-600" />
+                      <span>বাকি ফি আদায় (৳{Math.max(100, 500 - Math.round(consultationFeePaidPaisa / 100))})</span>
+                    </div>
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-[11px] font-semibold text-foreground">
+                      {adjustmentType === 'refund' ? 'রিফান্ডের পরিমাণ (টাকা) *' : 'আদায়ের পরিমাণ (টাকা) *'}
+                    </Label>
+                    <div className="relative">
+                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground">৳</span>
+                      <Input
+                        type="number"
+                        min={1}
+                        max={adjustmentType === 'refund' ? Math.round(consultationFeePaidPaisa / 100) : 10000}
+                        value={adjustmentAmountTaka}
+                        onChange={(e) => setAdjustmentAmountTaka(Number(e.target.value) || 0)}
+                        className="pl-6 h-8 text-xs font-bold font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-[11px] font-semibold text-foreground">অনুরোধের কারণ *</Label>
+                    <Input
+                      value={adjustmentReason}
+                      onChange={(e) => setAdjustmentReason(e.target.value)}
+                      placeholder="কারণ উল্লেখ করুন..."
+                      className="h-8 text-xs"
+                    />
+                  </div>
+                </div>
+
+                <Button
+                  type="button"
+                  onClick={handleRouteToCashierAdjustment}
+                  disabled={loading || adjustmentAmountTaka <= 0 || !adjustmentReason}
+                  className={`w-full text-white font-bold text-xs h-9 gap-1.5 shadow-sm active:scale-98 cursor-pointer ${
+                    adjustmentType === 'refund'
+                      ? 'bg-cyan-600 hover:bg-cyan-500'
+                      : 'bg-emerald-600 hover:bg-emerald-500'
+                  }`}
+                >
+                  {adjustmentType === 'refund' ? (
+                    <>
+                      <ArrowDownLeft className="size-3.5" />
+                      <span>ক্যাশিয়ারে রিফান্ড অনুরোধ পাঠান (৳{adjustmentAmountTaka})</span>
+                    </>
+                  ) : (
+                    <>
+                      <ArrowUpRight className="size-3.5" />
+                      <span>ক্যাশিয়ারে ফি আদায় অনুরোধ পাঠান (৳{adjustmentAmountTaka})</span>
+                    </>
+                  )}
+                  <ArrowRight className="size-3.5 ml-auto" />
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* 2 Standard Routing Options */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 my-2">
           {/* OPTION 1: NO THERAPY NEEDED */}
           <Card className="border border-border/80 bg-card hover:border-emerald-500/40 transition-all flex flex-col justify-between shadow-xs">

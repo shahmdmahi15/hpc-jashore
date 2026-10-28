@@ -16,6 +16,16 @@ import {
   DialogTitle,
 } from './ui/dialog';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from './ui/alert-dialog';
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -68,6 +78,7 @@ export default function MedicineDirectoryView() {
 
   // Add / Edit Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [medicineToDelete, setMedicineToDelete] = useState<{ id: string; name: string } | null>(null);
   const [editingMed, setEditingMed] = useState<Medicine | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -151,8 +162,14 @@ export default function MedicineDirectoryView() {
     }
   };
 
-  const handleDelete = async (id: string, name: string) => {
-    if (!confirm(`আপনি কি নিশ্চিত যে "${name}" ওষুধ তালিকা থেকে মুছে ফেলতে চান?`)) return;
+  const handleDelete = (id: string, name: string) => {
+    setMedicineToDelete({ id, name });
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!medicineToDelete) return;
+    const { id } = medicineToDelete;
+    setMedicineToDelete(null);
     try {
       await api.inventory.deleteMedicine(id);
       toast.success('ওষুধ সফলভাবে ডিরেক্টরি থেকে মুছে ফেলা হয়েছে!');
@@ -460,6 +477,32 @@ export default function MedicineDirectoryView() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* CONFIRM DELETE MEDICINE ALERT DIALOG */}
+      <AlertDialog
+        open={Boolean(medicineToDelete)}
+        onOpenChange={(open) => {
+          if (!open) setMedicineToDelete(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>ওষুধ তালিকা থেকে মুছে ফেলা</AlertDialogTitle>
+            <AlertDialogDescription>
+              আপনি কি নিশ্চিত যে &ldquo;{medicineToDelete?.name}&rdquo; ওষুধ তালিকা থেকে মুছে ফেলতে চান? এটি মুছে ফেললে প্রেসক্রিপশন তৈরির সময় এই ওষুধের নাম সাজেশন তালিকায় প্রদর্শিত হবে না।
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>বাতিল</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              মুছে ফেলুন
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

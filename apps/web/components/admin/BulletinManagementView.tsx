@@ -39,6 +39,16 @@ import {
   TableHeader,
   TableRow,
 } from '../ui/table';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '../ui/alert-dialog';
 import { toast } from 'sonner';
 import { useLanguage } from '../../lib/i18n';
 import { useRealtime } from '../../lib/use-realtime';
@@ -80,6 +90,7 @@ export default function BulletinManagementView() {
     isActive: true,
     priority: 0,
   });
+  const [bulletinToDelete, setBulletinToDelete] = useState<BulletinRecord | null>(null);
 
   const loadBulletins = async () => {
     setIsLoading(true);
@@ -213,16 +224,14 @@ export default function BulletinManagementView() {
     });
   };
 
-  const handleDelete = async (b: BulletinRecord) => {
-    if (
-      !confirm(
-        isBn
-          ? `আপনি কি নিশ্চিতভাবে "${b.title}" বুলেটিনটি মুছে ফেলতে চান?`
-          : `Are you sure you want to delete bulletin "${b.title}"?`,
-      )
-    ) {
-      return;
-    }
+  const handleDelete = (b: BulletinRecord) => {
+    setBulletinToDelete(b);
+  };
+
+  const handleConfirmDelete = () => {
+    if (!bulletinToDelete) return;
+    const b = bulletinToDelete;
+    setBulletinToDelete(null);
 
     startTransition(async () => {
       const res = await deleteBulletinAction(b.id);
@@ -669,6 +678,38 @@ export default function BulletinManagementView() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* CONFIRM DELETE BULLETIN ALERT DIALOG */}
+      <AlertDialog
+        open={Boolean(bulletinToDelete)}
+        onOpenChange={(open) => {
+          if (!open) setBulletinToDelete(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {isBn ? 'বুলেটিন মুছে ফেলা' : 'Delete Bulletin'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {isBn
+                ? `আপনি কি নিশ্চিতভাবে "${bulletinToDelete?.title}" বুলেটিনটি মুছে ফেলতে চান? এটি মুছে ফেললে টিভি ও ওয়েব ডিসপ্লে থেকে তাৎক্ষণিকভাবে সরে যাবে।`
+                : `Are you sure you want to delete bulletin "${bulletinToDelete?.title}"?`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>
+              {isBn ? 'বাতিল' : 'Cancel'}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isBn ? 'মুছে ফেলুন' : 'Delete Bulletin'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
