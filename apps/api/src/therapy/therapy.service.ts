@@ -17,7 +17,6 @@ import {
   patients,
   patientTimelineEvents,
   rooms,
-  staff,
   therapyPlans,
   therapySessions,
   therapySlotBookings,
@@ -95,38 +94,21 @@ export class TherapyService {
       }
     }
 
-    // 2. Validate therapist staff ID against staff table (SQLite enforces REFERENCES staff(id))
+    // 2. Validate therapist staff ID against users table (user acts as staff)
     let effectiveTherapistId: string | null = null;
     const targetStaffId = dto.therapistStaffId || therapistStaffId;
     if (targetStaffId) {
       try {
-        const staffRows = await this.db.select({ id: staff.id }).from(staff).where(eq(staff.id, targetStaffId));
-        if (staffRows[0]) {
-          effectiveTherapistId = staffRows[0].id;
-        } else {
-          // If targetStaffId is not in staff, check if it's a user and mirror into staff
-          const userRows = await this.db.select().from(users).where(eq(users.id, targetStaffId));
-          if (userRows[0]) {
-            try {
-              (this.db as any).session?.client
-                ?.prepare('INSERT OR IGNORE INTO staff (id, user_id, full_name, role, is_active, created_at, updated_at) VALUES (?, ?, ?, ?, 1, ?, ?)')
-                ?.run(userRows[0].id, userRows[0].id, userRows[0].displayName || userRows[0].email, userRows[0].role, now, now);
-              effectiveTherapistId = userRows[0].id;
-            } catch {
-              effectiveTherapistId = null;
-            }
-          }
-        }
+        const userRows = await this.db.select({ id: users.id }).from(users).where(eq(users.id, targetStaffId));
+        if (userRows[0]) effectiveTherapistId = userRows[0].id;
       } catch {
         effectiveTherapistId = null;
       }
     }
-
-    // If still not verified in staff table, leave null so SQLite FK constraint never fails
-    if (effectiveTherapistId) {
+    if (!effectiveTherapistId) {
       try {
-        const verifyInStaff = await this.db.select({ id: staff.id }).from(staff).where(eq(staff.id, effectiveTherapistId));
-        if (!verifyInStaff[0]) effectiveTherapistId = null;
+        const anyUser = await this.db.select({ id: users.id }).from(users).limit(1);
+        effectiveTherapistId = anyUser[0]?.id ?? null;
       } catch {
         effectiveTherapistId = null;
       }

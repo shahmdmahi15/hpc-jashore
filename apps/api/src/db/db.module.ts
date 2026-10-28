@@ -75,30 +75,91 @@ export type Db = BetterSQLite3Database<typeof schema>;
             sqlite.exec("ALTER TABLE users ADD COLUMN custom_time_slots TEXT");
           }
 
-          // Ensure machines and beds tables exist for legacy foreign keys
-          sqlite.exec(`
-            CREATE TABLE IF NOT EXISTS machines (
-              id TEXT PRIMARY KEY NOT NULL,
-              name TEXT NOT NULL,
-              modality_code TEXT,
-              is_active INTEGER NOT NULL DEFAULT 1
-            );
-            CREATE TABLE IF NOT EXISTS beds (
-              id TEXT PRIMARY KEY NOT NULL,
-              name TEXT NOT NULL,
-              is_active INTEGER NOT NULL DEFAULT 1
-            );
-          `);
-
-          // Ensure staff table exists and is synced from users
+          // Automatically modernize therapy_sessions to remove legacy staff/bed/machine foreign keys
+          // and reference users(id) cleanly without losing any data.
           try {
-            sqlite.exec(`
-              INSERT OR IGNORE INTO staff (id, user_id, full_name, role, is_active, created_at, updated_at)
-              SELECT id, id, COALESCE(display_name, email, 'Staff User'), role, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
-              FROM users;
-            `);
-          } catch (staffErr) {
-            console.error('Error syncing staff in db.module:', staffErr);
+            const sessSql = sqlite.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='therapy_sessions'").get() as { sql: string } | undefined;
+            if (sessSql && (sessSql.sql.includes("REFERENCES `staff`") || sessSql.sql.includes("REFERENCES `machines`") || sessSql.sql.includes("REFERENCES `beds`") || sessSql.sql.includes('REFERENCES staff') || sessSql.sql.includes('REFERENCES machines') || sessSql.sql.includes('REFERENCES beds'))) {
+              sqlite.exec(`
+                PRAGMA foreign_keys = OFF;
+
+                CREATE TABLE IF NOT EXISTS therapy_sessions_modern (
+                  id TEXT PRIMARY KEY NOT NULL,
+                  plan_id TEXT REFERENCES therapy_plans(id) ON UPDATE NO ACTION ON DELETE NO ACTION,
+                  patient_id TEXT NOT NULL REFERENCES patients(id) ON UPDATE NO ACTION ON DELETE NO ACTION,
+                  therapist_staff_id TEXT REFERENCES users(id) ON UPDATE NO ACTION ON DELETE NO ACTION,
+                  bed_id TEXT,
+                  modality_code TEXT NOT NULL REFERENCES modalities(code) ON UPDATE NO ACTION ON DELETE NO ACTION,
+                  status TEXT NOT NULL DEFAULT 'scheduled',
+                  started_at TEXT,
+                  ended_at TEXT,
+                  duration_minutes INTEGER NOT NULL DEFAULT 0,
+                  outcome_note TEXT,
+                  pain_score_after INTEGER,
+                  is_overtime INTEGER NOT NULL DEFAULT 0,
+                  created_at TEXT NOT NULL,
+                  updated_at TEXT NOT NULL
+                );
+
+                INSERT OR IGNORE INTO therapy_sessions_modern (
+                  id, plan_id, patient_id, therapist_staff_id, bed_id, modality_code, status,
+                  started_at, ended_at, duration_minutes, outcome_note, pain_score_after, is_overtime, created_at, updated_at
+                )
+                SELECT
+                  id, plan_id, patient_id, therapist_staff_id, bed_id, modality_code, status,
+                  started_at, ended_at, duration_minutes, outcome_note, pain_score_after, is_overtime, created_at, updated_at
+                FROM therapy_sessions;
+
+                DROP TABLE therapy_sessions;
+                ALTER TABLE therapy_sessions_modern RENAME TO therapy_sessions;
+
+                PRAGMA foreign_keys = ON;
+              `);
+            }
+          } catch (migErr) {
+            console.error('Error modernizing therapy_sessions schema:', migErr);
+          }
+
+          // Same for therapy_plans if it references legacy staff
+          try {
+            const planSql = sqlite.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='therapy_plans'").get() as { sql: string } | undefined;
+            if (planSql && (planSql.sql.includes("REFERENCES `staff`") || planSql.sql.includes('REFERENCES staff'))) {
+              sqlite.exec(`
+                PRAGMA foreign_keys = OFF;
+
+                CREATE TABLE IF NOT EXISTS therapy_plans_modern (
+                  id TEXT PRIMARY KEY NOT NULL,
+                  consultation_id TEXT REFERENCES consultations(id) ON UPDATE NO ACTION ON DELETE NO ACTION,
+                  visit_id TEXT REFERENCES visits(id) ON UPDATE NO ACTION ON DELETE NO ACTION,
+                  patient_id TEXT NOT NULL REFERENCES patients(id) ON UPDATE NO ACTION ON DELETE NO ACTION,
+                  doctor_id TEXT NOT NULL,
+                  modality_code TEXT NOT NULL REFERENCES modalities(code) ON UPDATE NO ACTION ON DELETE NO ACTION,
+                  total_sessions_prescribed INTEGER NOT NULL DEFAULT 1,
+                  completed_sessions INTEGER NOT NULL DEFAULT 0,
+                  frequency TEXT DEFAULT 'daily',
+                  notes TEXT,
+                  status TEXT NOT NULL DEFAULT 'active',
+                  created_at TEXT NOT NULL,
+                  updated_at TEXT NOT NULL
+                );
+
+                INSERT OR IGNORE INTO therapy_plans_modern (
+                  id, consultation_id, visit_id, patient_id, doctor_id, modality_code,
+                  total_sessions_prescribed, completed_sessions, frequency, notes, status, created_at, updated_at
+                )
+                SELECT
+                  id, consultation_id, visit_id, patient_id, doctor_id, modality_code,
+                  total_sessions_prescribed, completed_sessions, frequency, notes, status, created_at, updated_at
+                FROM therapy_plans;
+
+                DROP TABLE therapy_plans;
+                ALTER TABLE therapy_plans_modern RENAME TO therapy_plans;
+
+                PRAGMA foreign_keys = ON;
+              `);
+            }
+          } catch (migErr) {
+            console.error('Error modernizing therapy_plans schema:', migErr);
           }
 
           // Ensure modalities table is populated with standard clinical modalities

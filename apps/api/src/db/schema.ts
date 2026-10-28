@@ -58,18 +58,6 @@ export const users = sqliteTable('users', {
   ...timestamps,
 });
 
-export const staff = sqliteTable('staff', {
-  id: text('id').primaryKey(),
-  userId: text('user_id').references(() => users.id),
-  fullName: text('full_name').notNull(),
-  role: text('role').notNull(),
-  phone: text('phone'),
-  specialization: text('specialization'),
-  feeOverridePaisa: integer('fee_override_paisa'),
-  isActive: integer('is_active').notNull().default(1),
-  ...timestamps,
-});
-
 // Long-lived refresh sessions (device list + remote logout + rotation chain).
 export const refreshSessions = sqliteTable('refresh_sessions', {
   id: text('id').primaryKey(),
