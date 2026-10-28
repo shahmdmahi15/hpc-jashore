@@ -15,7 +15,9 @@ import {
   FileText,
   X,
   Loader2,
+  Download,
 } from 'lucide-react';
+import { printElementViaIframe, generateElementPdf } from '@/lib/print-pdf';
 
 export interface IntakeAssessmentData {
   mrn?: string;
@@ -190,14 +192,47 @@ export function IntakeAssessmentPrintModal({
     };
   }, [open]);
 
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
+  const [isPrinting, setIsPrinting] = useState(false);
+
   if (!open) return null;
 
   const raw = data || intake || intakeForm || initialForm || fetchedForm || {};
   const pat = propPatient || initialPatient || fetchedPatient || raw.patient || {};
 
-  const handlePrint = () => {
-    document.body.classList.add('printing-intake-a4');
-    window.print();
+  const mrn = raw.mrn || pat.mrn || 'HPC-2026-XXXX';
+
+  const handlePrint = async () => {
+    setIsPrinting(true);
+    try {
+      // 1. Primary method: Isolated iframe print (guaranteed 1 single page, no blank pages)
+      await printElementViaIframe('hpc-intake-a4-sheet', {
+        pageTitle: `HPC_Intake_${mrn}`,
+        pageSize: 'A4 portrait',
+        pageMargin: '6mm 8mm',
+      });
+    } catch {
+      // 2. Fallback to native window.print with isolated body class
+      document.body.classList.add('printing-intake-a4');
+      window.print();
+    } finally {
+      setIsPrinting(false);
+    }
+  };
+
+  const handleDownloadPdf = async () => {
+    setIsExportingPdf(true);
+    try {
+      await generateElementPdf('hpc-intake-a4-sheet', {
+        filename: `HPC_Intake_${mrn}_${new Date().toISOString().split('T')[0]}.pdf`,
+        format: 'a4',
+        scale: 2.5,
+      });
+    } catch (err: any) {
+      console.error('Failed to export PDF:', err);
+    } finally {
+      setIsExportingPdf(false);
+    }
   };
 
   const patientName =
@@ -207,8 +242,6 @@ export function IntakeAssessmentPrintModal({
     pat.nameBn ||
     pat.nameEn ||
     '—';
-
-  const mrn = raw.mrn || pat.mrn || 'HPC-2026-XXXX';
   const age = raw.ageYears || pat.ageYears ? `${raw.ageYears || pat.ageYears} বছর` : '—';
   const phone = raw.phone || pat.phone || '—';
   const isMale = (raw.gender || pat.gender) === 'male';
@@ -277,12 +310,42 @@ export function IntakeAssessmentPrintModal({
             </Button>
             <Button
               type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleDownloadPdf}
+              disabled={isExportingPdf}
+              className="text-xs h-8 border-emerald-600/40 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 font-semibold gap-1.5 cursor-pointer"
+            >
+              {isExportingPdf ? (
+                <>
+                  <Loader2 className="size-3.5 animate-spin text-emerald-600" />
+                  পিডিএফ তৈরি হচ্ছে...
+                </>
+              ) : (
+                <>
+                  <Download className="size-3.5 text-emerald-600 dark:text-emerald-400" />
+                  পিডিএফ ডাউনলোড (A4 PDF)
+                </>
+              )}
+            </Button>
+            <Button
+              type="button"
               size="sm"
               onClick={handlePrint}
+              disabled={isPrinting}
               className="text-xs h-8 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold shadow-md shadow-emerald-500/20 gap-1.5 cursor-pointer"
             >
-              <Printer className="size-3.5" />
-              প্রিন্ট করুন (Print A4)
+              {isPrinting ? (
+                <>
+                  <Loader2 className="size-3.5 animate-spin" />
+                  প্রিন্টার লোড হচ্ছে...
+                </>
+              ) : (
+                <>
+                  <Printer className="size-3.5" />
+                  প্রিন্ট করুন (Print A4)
+                </>
+              )}
             </Button>
           </div>
         </div>
