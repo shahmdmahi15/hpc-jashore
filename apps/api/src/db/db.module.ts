@@ -75,6 +75,32 @@ export type Db = BetterSQLite3Database<typeof schema>;
             sqlite.exec("ALTER TABLE users ADD COLUMN custom_time_slots TEXT");
           }
 
+          // Ensure machines and beds tables exist for legacy foreign keys
+          sqlite.exec(`
+            CREATE TABLE IF NOT EXISTS machines (
+              id TEXT PRIMARY KEY NOT NULL,
+              name TEXT NOT NULL,
+              modality_code TEXT,
+              is_active INTEGER NOT NULL DEFAULT 1
+            );
+            CREATE TABLE IF NOT EXISTS beds (
+              id TEXT PRIMARY KEY NOT NULL,
+              name TEXT NOT NULL,
+              is_active INTEGER NOT NULL DEFAULT 1
+            );
+          `);
+
+          // Ensure staff table exists and is synced from users
+          try {
+            sqlite.exec(`
+              INSERT OR IGNORE INTO staff (id, user_id, full_name, role, is_active, created_at, updated_at)
+              SELECT id, id, COALESCE(display_name, email, 'Staff User'), role, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+              FROM users;
+            `);
+          } catch (staffErr) {
+            console.error('Error syncing staff in db.module:', staffErr);
+          }
+
           // Ensure modalities table is populated with standard clinical modalities
           try {
             const standardModalities = [
