@@ -18,6 +18,7 @@ import {
   Lock,
   PhoneCall,
   Play,
+  Printer,
   RefreshCw,
   Search,
   Send,
@@ -33,6 +34,7 @@ import { useRealtime } from '../../lib/use-realtime';
 import { PatientTimelineModal } from '../patient/PatientTimelineModal';
 import { PatientFilesListModal } from '../patient/PatientFilesListModal';
 import { TreatmentPlanBuilderModal } from '../doctor/TreatmentPlanBuilderModal';
+import { TreatmentPlanPrintModal, parsePlanNotes } from '../doctor/TreatmentPlanPrintModal';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
@@ -1313,6 +1315,7 @@ export function AllPlansModal({
   const [prescriptions, setPrescriptions] = useState<any[]>([]);
   const [packages, setPackages] = useState<any[]>([]);
   const [plans, setPlans] = useState<any[]>([]);
+  const [showPrintPlanModal, setShowPrintPlanModal] = useState(false);
 
   useEffect(() => {
     if (open && patient?.patientId) {
@@ -1320,12 +1323,15 @@ export function AllPlansModal({
       Promise.all([
         api.prescriptions.getByPatientId(patient.patientId).catch(() => []),
         api.therapy.getCredits(patient.patientId).catch(() => []),
+        api.therapy.getPlans(patient.patientId, 'all').catch(() => []),
         api.clinical.getConsultation(patient.visitId).catch(() => null),
       ])
-        .then(([rxList, credits, consult]) => {
+        .then(([rxList, credits, therapyPlansList, consult]) => {
           setPrescriptions(Array.isArray(rxList) ? rxList : []);
           setPackages(Array.isArray(credits) ? credits : []);
-          if (consult?.therapyPlans && Array.isArray(consult.therapyPlans)) {
+          if (Array.isArray(therapyPlansList) && therapyPlansList.length > 0) {
+            setPlans(therapyPlansList);
+          } else if (consult?.therapyPlans && Array.isArray(consult.therapyPlans)) {
             setPlans(consult.therapyPlans);
           } else {
             setPlans([]);
@@ -1338,90 +1344,126 @@ export function AllPlansModal({
   if (!patient) return null;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[95vw] max-w-2xl max-h-[85vh] flex flex-col p-0 overflow-hidden border-border bg-card shadow-2xl rounded-2xl">
-        <DialogHeader className="p-4 sm:p-5 border-b border-border bg-muted/40 shrink-0">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-cyan-500/10 text-cyan-500 border border-cyan-500/20">
-                <ClipboardList className="size-5" />
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="w-[95vw] max-w-2xl max-h-[85vh] flex flex-col p-0 overflow-hidden border-border bg-card shadow-2xl rounded-2xl">
+          <DialogHeader className="p-4 sm:p-5 border-b border-border bg-muted/40 shrink-0">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-cyan-500/10 text-cyan-500 border border-cyan-500/20">
+                  <ClipboardList className="size-5" />
+                </div>
+                <div>
+                  <DialogTitle className="text-base sm:text-lg font-bold text-foreground">
+                    সকল থেরাপি প্ল্যান ও প্রেসক্রিপশন (All Plans)
+                  </DialogTitle>
+                  <DialogDescription className="text-xs text-muted-foreground mt-0.5">
+                    রোগী: <strong className="text-foreground">{patient.patientNameBn || patient.patientNameEn}</strong> · MRN:{' '}
+                    <strong className="text-foreground">{patient.mrn}</strong>
+                  </DialogDescription>
+                </div>
               </div>
-              <div>
-                <DialogTitle className="text-base sm:text-lg font-bold text-foreground">
-                  সকল থেরাপি প্ল্যান ও প্রেসক্রিপশন (All Plans)
-                </DialogTitle>
-                <DialogDescription className="text-xs text-muted-foreground mt-0.5">
-                  রোগী: <strong className="text-foreground">{patient.patientNameBn || patient.patientNameEn}</strong> · MRN:{' '}
-                  <strong className="text-foreground">{patient.mrn}</strong>
-                </DialogDescription>
-              </div>
-            </div>
-            {onOpenPlanBuilder && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => onOpenPlanBuilder(patient)}
-                className="h-8 text-xs border-emerald-500/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 gap-1.5 shrink-0"
-              >
-                <Sparkles className="size-3.5 text-emerald-500" />
-                <span>প্ল্যান তৈরি / প্রিন্ট (A4)</span>
-              </Button>
-            )}
-          </div>
-        </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
-          {loading ? (
-            <div className="p-12 text-center text-sm text-muted-foreground flex flex-col items-center gap-2">
-              <RefreshCw className="size-6 animate-spin text-cyan-500" />
-              <span>প্ল্যান ও প্রেসক্রিপশন লোড হচ্ছে...</span>
-            </div>
-          ) : (
-            <>
-              {/* Prescribed Modalities / Therapy Plans */}
-              <div className="space-y-2.5">
-                <h4 className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
-                  <Activity className="size-3.5 text-emerald-400" />
-                  <span>নির্দেশিত মডালিটি ও থেরাপি তালিকা (Prescribed Modalities)</span>
-                </h4>
+              <div className="flex items-center gap-2">
+                {plans.length > 0 && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setShowPrintPlanModal(true)}
+                    className="h-8 text-xs border-emerald-500/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 gap-1.5 shrink-0 cursor-pointer"
+                  >
+                    <Printer className="size-3.5" />
+                    <span>A4 প্রিন্ট</span>
+                  </Button>
+                )}
 
-                {plans.length > 0 ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                    {plans.map((pl: any, idx: number) => (
-                      <div
-                        key={pl.id || idx}
-                        className="p-3 rounded-xl border border-emerald-500/30 bg-emerald-500/5 space-y-1.5"
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="font-bold text-sm text-foreground">{pl.modalityCode}</span>
-                          <Badge variant="outline" className="border-emerald-500/50 text-emerald-400 text-[10px]">
-                            {pl.status || 'Active'}
-                          </Badge>
-                        </div>
-                        <div className="text-xs text-muted-foreground flex items-center justify-between font-mono">
-                          <span>সেশন: {pl.completedSessions || 0} / {pl.totalSessionsPrescribed || 10}</span>
-                          <span>ফ্রিকোয়েন্সি: {pl.frequency || 'Daily'}</span>
-                        </div>
-                        {pl.notes && (
-                          <div className="text-[11px] text-foreground/80 bg-background/60 p-1.5 rounded border border-border/40 mt-1">
-                            {pl.notes}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="p-3.5 rounded-xl border border-dashed border-border/80 bg-muted/20 text-xs text-muted-foreground flex items-center gap-2.5">
-                    <Sparkles className="size-4 text-cyan-400 shrink-0" />
-                    <div>
-                      <p className="font-semibold text-foreground">
-                        {patient.modalityNameBn || patient.modalityName || 'কম্প্রিহেনসিভ ফিজিওথেরাপি রিহ্যাব (IFT + UST)'}
-                      </p>
-                      <p className="text-[11px] text-muted-foreground">স্ট্যান্ডার্ড ফিজিওথেরাপি ও ইলেকট্রোথেরাপি প্রোটোকল প্রযোজ্য</p>
-                    </div>
-                  </div>
+                {onOpenPlanBuilder && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => onOpenPlanBuilder(patient)}
+                    className="h-8 text-xs border-cyan-500/40 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-500/10 gap-1.5 shrink-0 cursor-pointer"
+                  >
+                    <Sparkles className="size-3.5 text-cyan-500" />
+                    <span>প্ল্যান এডিটর</span>
+                  </Button>
                 )}
               </div>
+            </div>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
+            {loading ? (
+              <div className="p-12 text-center text-sm text-muted-foreground flex flex-col items-center gap-2">
+                <RefreshCw className="size-6 animate-spin text-cyan-500" />
+                <span>প্ল্যান ও প্রেসক্রিপশন লোড হচ্ছে...</span>
+              </div>
+            ) : (
+              <>
+                {/* Prescribed Modalities / Therapy Plans */}
+                <div className="space-y-2.5">
+                  <h4 className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
+                    <Activity className="size-3.5 text-emerald-400" />
+                    <span>নির্দেশিত মডালিটি ও থেরাপি তালিকা (Prescribed Modalities)</span>
+                  </h4>
+
+                  {plans.length > 0 ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      {plans.map((pl: any, idx: number) => {
+                        const parsed = parsePlanNotes(pl.notes);
+                        const duration = pl.durationMinutes || parsed.durationMin || pl.defaultDurationMin || 15;
+                        const noteText = parsed.clinicalNote || (pl.notes && !pl.notes.startsWith('{') ? pl.notes : '');
+                        const seqNum = pl.sequenceOrder || parsed.sequence || idx + 1;
+
+                        return (
+                          <div
+                            key={pl.id || idx}
+                            className="p-3 rounded-xl border border-emerald-500/30 bg-emerald-500/5 space-y-1.5"
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="font-bold text-sm text-foreground flex items-center gap-1.5">
+                                <span className="text-emerald-600 dark:text-emerald-400 font-mono text-xs">
+                                  ধাপ {seqNum}:
+                                </span>
+                                <span>{pl.modalityNameBn || pl.modalityNameEn || pl.modalityCode}</span>
+                              </span>
+                              <Badge variant="outline" className="border-emerald-500/50 text-emerald-600 dark:text-emerald-400 text-[10px]">
+                                {pl.status || 'Active'}
+                              </Badge>
+                            </div>
+                            <div className="text-xs text-muted-foreground flex items-center justify-between font-mono">
+                              <span>সময়: <strong>{duration} মিনিট</strong></span>
+                              <span>সেশন: {pl.completedSessions || 0} / {pl.totalSessionsPrescribed || 10}</span>
+                            </div>
+                            <div className="text-[11px] text-muted-foreground font-mono">
+                              ফ্রিকোয়েন্সি:{' '}
+                              {pl.frequency === 'daily'
+                                ? 'প্রতিদিন'
+                                : pl.frequency === 'alternate_days'
+                                ? 'একদিন পরপর'
+                                : (pl.frequency || 'প্রতিদিন')}
+                            </div>
+                            {noteText && (
+                              <div className="text-[11px] text-foreground/80 bg-background/60 p-1.5 rounded border border-border/40 mt-1 italic">
+                                {noteText}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="p-3.5 rounded-xl border border-dashed border-border/80 bg-muted/20 text-xs text-muted-foreground flex items-center gap-2.5">
+                      <Sparkles className="size-4 text-cyan-400 shrink-0" />
+                      <div>
+                        <p className="font-semibold text-foreground">
+                          {patient.modalityNameBn || patient.modalityName || 'কম্প্রিহেনসিভ ফিজিওথেরাপি রিহ্যাব (IFT + UST)'}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground">স্ট্যান্ডার্ড ফিজিওথেরাপি ও ইলেকট্রোথেরাপি প্রোটোকল প্রযোজ্য</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
 
               {/* Package Credits / Active Subscriptions */}
               {packages.length > 0 && (
@@ -1533,6 +1575,17 @@ export function AllPlansModal({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    {showPrintPlanModal && (
+      <TreatmentPlanPrintModal
+        open={showPrintPlanModal}
+        onOpenChange={setShowPrintPlanModal}
+        onClose={() => setShowPrintPlanModal(false)}
+        patient={patient}
+        plans={plans}
+      />
+    )}
+  </>
   );
 }
 
@@ -1587,13 +1640,13 @@ export function StartTherapySessionModal({
             if (p.notes) {
               try {
                 const parsed =
-                  typeof p.notes === 'string' && p.notes.startsWith('{')
+                  typeof p.notes === 'string' && p.notes.trim().startsWith('{')
                     ? JSON.parse(p.notes)
                     : null;
                 if (parsed) {
                   if (parsed.sequence) seq = Number(parsed.sequence);
                   if (parsed.durationMin) dur = Number(parsed.durationMin);
-                  if (parsed.clinicalNote) noteText = parsed.clinicalNote;
+                  noteText = (parsed.clinicalNote || parsed.note || '').trim();
                 }
               } catch {
                 // ignore

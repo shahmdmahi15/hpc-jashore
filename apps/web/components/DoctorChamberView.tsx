@@ -51,6 +51,7 @@ import { PatientIntakeFormModal } from './patient/PatientIntakeFormModal';
 import { PrescriptionBuilderSection } from './doctor/PrescriptionBuilderSection';
 import { PrescriptionBuilderModal } from './doctor/PrescriptionBuilderModal';
 import { TreatmentPlanBuilderModal } from './doctor/TreatmentPlanBuilderModal';
+import { PatientPlansListModal } from './doctor/PatientPlansListModal';
 import { DoctorDispositionModal } from './doctor/DoctorDispositionModal';
 import { TherapyQueueManagementTab } from './therapy/TherapyQueueManagementTab';
 import {
@@ -225,6 +226,8 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
   const [isPrescriptionsListModalOpen, setIsPrescriptionsListModalOpen] = useState(false);
   const [isDispositionModalOpen, setIsDispositionModalOpen] = useState(false);
   const [isTreatmentPlanModalOpen, setIsTreatmentPlanModalOpen] = useState(false);
+  const [isPreviousPlansModalOpen, setIsPreviousPlansModalOpen] = useState(false);
+  const [initialPlansForBuilder, setInitialPlansForBuilder] = useState<any[]>([]);
   const [isPrescriptionModalOpen, setIsPrescriptionModalOpen] = useState(false);
   const [followUpDate, setFollowUpDate] = useState<string>('');
   const [savingRx, setSavingRx] = useState(false);
@@ -1725,7 +1728,10 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
                       type="button"
                       variant="outline"
                       size="sm"
-                      onClick={() => setIsTreatmentPlanModalOpen(true)}
+                      onClick={() => {
+                        setInitialPlansForBuilder([]);
+                        setIsTreatmentPlanModalOpen(true);
+                      }}
                       className="h-11 text-xs font-bold border-cyan-500/40 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-500/10 flex flex-col items-center justify-center p-1 gap-0.5 active:scale-95 cursor-pointer"
                     >
                       <HeartPulse className="size-4 shrink-0" />
@@ -1737,8 +1743,8 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
                       type="button"
                       variant="outline"
                       size="sm"
-                      onClick={() => setIsFilesListModalOpen(true)}
-                      className="h-11 text-xs font-bold border-border/80 text-foreground hover:bg-muted/80 flex flex-col items-center justify-center p-1 gap-0.5 active:scale-95 cursor-pointer"
+                      onClick={() => setIsPreviousPlansModalOpen(true)}
+                      className="h-11 text-xs font-bold border-cyan-500/40 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-500/10 flex flex-col items-center justify-center p-1 gap-0.5 active:scale-95 cursor-pointer"
                     >
                       <Activity className="size-4 shrink-0 text-cyan-500" />
                       <span className="truncate w-full text-center">পূর্বের প্ল্যান</span>
@@ -2622,13 +2628,32 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
             patient={activeSerial?.patient}
             visitId={activeSerial?.visitId || activeSerial?.id}
             onPlansSaved={handlePlansSaved}
-            initialPlans={prescribedMods.map((m) => ({
-              modalityCode: m.modalityCode,
-              modalityName: m.modalityName,
-              totalSessionsPrescribed: m.sessionsPrescribed || 10,
-              frequency: m.frequency || 'daily',
-              notes: m.notes,
-            }))}
+            initialPlans={
+              initialPlansForBuilder.length > 0
+                ? initialPlansForBuilder
+                : prescribedMods.map((m) => ({
+                    modalityCode: m.modalityCode,
+                    modalityName: m.modalityName,
+                    totalSessionsPrescribed: m.sessionsPrescribed || 10,
+                    frequency: m.frequency || 'daily',
+                    notes: m.notes,
+                  }))
+            }
+          />
+
+          {/* POPUP: PATIENT PREVIOUS & CURRENT THERAPY PLANS LIST MODAL */}
+          <PatientPlansListModal
+            open={isPreviousPlansModalOpen}
+            onOpenChange={setIsPreviousPlansModalOpen}
+            patient={activeSerial?.patient || activeSerial}
+            onOpenPlanBuilder={(pat, plansToLoad) => {
+              if (plansToLoad && plansToLoad.length > 0) {
+                setInitialPlansForBuilder(plansToLoad);
+              } else {
+                setInitialPlansForBuilder([]);
+              }
+              setIsTreatmentPlanModalOpen(true);
+            }}
           />
 
           {/* POPUP: MEDICINE PRESCRIPTION BUILDER MODAL */}

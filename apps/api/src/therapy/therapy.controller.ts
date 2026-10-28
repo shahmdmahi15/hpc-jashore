@@ -135,8 +135,11 @@ export class TherapyController {
 
   @Get('plans/patient/:patientId')
   @Roles('admin', 'doctor', 'handler')
-  getPatientPlans(@Param('patientId') patientId: string) {
-    return this.therapy.getPatientPlans(patientId);
+  getPatientPlans(
+    @Param('patientId') patientId: string,
+    @Query('status') status?: string,
+  ) {
+    return this.therapy.getPatientPlans(patientId, status);
   }
 
   @Post('plans')

@@ -426,8 +426,8 @@ export const api = {
         method: 'POST',
         body: JSON.stringify(data),
       }),
-    getPlans: (patientId: string) =>
-      apiFetch<any[]>(`/therapy/plans/patient/${patientId}`),
+    getPlans: (patientId: string, status?: string) =>
+      apiFetch<any[]>(`/therapy/plans/patient/${patientId}${status ? `?status=${status}` : ''}`),
     createPlans: (data: {
       patientId: string;
       visitId?: string;

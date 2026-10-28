@@ -1735,7 +1735,12 @@ export class TherapyService {
     return { ok: true, roomId: room.id, roomName: room.name };
   }
 
-  async getPatientPlans(patientId: string) {
+  async getPatientPlans(patientId: string, status?: string) {
+    const conditions = [eq(therapyPlans.patientId, patientId)];
+    if (status && status !== 'all') {
+      conditions.push(eq(therapyPlans.status, status as any));
+    }
+
     const rows = await this.db
       .select({
         plan: therapyPlans,
@@ -1743,12 +1748,7 @@ export class TherapyService {
       })
       .from(therapyPlans)
       .leftJoin(modalities, eq(therapyPlans.modalityCode, modalities.code))
-      .where(
-        and(
-          eq(therapyPlans.patientId, patientId),
-          eq(therapyPlans.status, 'active'),
-        ),
-      )
+      .where(and(...conditions))
       .orderBy(desc(therapyPlans.createdAt));
 
     return rows.map((r) => ({
