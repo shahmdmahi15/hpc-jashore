@@ -828,6 +828,27 @@ export type Db = BetterSQLite3Database<typeof schema>;
             if (!visitColNames.has('room_id')) {
               sqlite.exec("ALTER TABLE visits ADD COLUMN room_id TEXT");
             }
+            if (!visitColNames.has('called_room_id')) {
+              sqlite.exec("ALTER TABLE visits ADD COLUMN called_room_id TEXT");
+            }
+            if (!visitColNames.has('called_room_name')) {
+              sqlite.exec("ALTER TABLE visits ADD COLUMN called_room_name TEXT");
+            }
+            if (!visitColNames.has('called_at')) {
+              sqlite.exec("ALTER TABLE visits ADD COLUMN called_at TEXT");
+            }
+            if (!visitColNames.has('consultation_booking_id')) {
+              sqlite.exec("ALTER TABLE visits ADD COLUMN consultation_booking_id TEXT");
+            }
+            if (!visitColNames.has('discharge_notes')) {
+              sqlite.exec("ALTER TABLE visits ADD COLUMN discharge_notes TEXT");
+            }
+            if (!visitColNames.has('next_follow_up_date')) {
+              sqlite.exec("ALTER TABLE visits ADD COLUMN next_follow_up_date TEXT");
+            }
+            if (!visitColNames.has('cleared_by')) {
+              sqlite.exec("ALTER TABLE visits ADD COLUMN cleared_by TEXT");
+            }
           } catch {}
 
           // Ensure doctor configuration and fee columns directly on users table

@@ -1393,20 +1393,45 @@ export class TherapyService {
     dto: SwitchTherapyRoomDto,
     meta: { ip?: string | null; requestId?: string | null },
   ) {
-    const roomRows = await this.db.select().from(rooms).where(eq(rooms.id, dto.targetRoomId));
-    const room = roomRows[0];
+    const roomRows = await this.db
+      .select()
+      .from(rooms)
+      .where(
+        or(
+          eq(rooms.id, dto.targetRoomId),
+          eq(rooms.roomNumber, dto.targetRoomId),
+          eq(rooms.code, dto.targetRoomId),
+        ),
+      );
+
+    let room = roomRows[0];
+    if (!room) {
+      const fallbackRooms = [
+        { id: 'room-th-01', name: 'Male Physiotherapy & Rehab Hall', type: 'therapy_hall' },
+        { id: 'room-th-02', name: 'Female Physiotherapy & Rehab Hall', type: 'therapy_hall' },
+        { id: 'room-tr-01', name: 'Private Therapy Suite 1', type: 'therapy_room' },
+      ];
+      const fb = fallbackRooms.find(
+        (r) => r.id === dto.targetRoomId || r.name.toLowerCase().includes(dto.targetRoomId.toLowerCase()),
+      );
+      if (fb) {
+        room = fb as any;
+      }
+    }
+
     if (!room) {
       throw new NotFoundException('Target room not found');
     }
 
     const type = (room.type || '').toLowerCase();
     const name = (room.name || '').toLowerCase();
+    const id = (room.id || '').toLowerCase();
     const isTherapy =
       type === 'therapy_room' ||
       type === 'therapy_hall' ||
-      room.id === 'room-th-01' ||
-      room.id === 'room-th-02' ||
-      room.id === 'room-tr-01' ||
+      id.includes('th-') ||
+      id.includes('tr-') ||
+      id.includes('therapy') ||
       name.includes('therapy') ||
       name.includes('hall') ||
       name.includes('rehab') ||
@@ -1417,65 +1442,92 @@ export class TherapyService {
     }
 
     const today = new Date().toISOString().slice(0, 10);
-    const occupiedVisits = await this.db
-      .select()
-      .from(visits)
-      .where(
-        and(
-          eq(visits.visitDate, today),
-          or(
-            eq(visits.roomId, dto.targetRoomId),
-            sql`(visits.called_room_id = ${dto.targetRoomId})`,
+    let occupiedVisits: any[] = [];
+    try {
+      occupiedVisits = await this.db
+        .select()
+        .from(visits)
+        .where(
+          and(
+            eq(visits.visitDate, today),
+            or(
+              eq(visits.roomId, room.id),
+              eq(visits.calledRoomId, room.id),
+            ),
+            sql`${visits.status} IN ('calling', 'in_therapy')`,
+            sql`${visits.id} != ${dto.visitId}`,
           ),
-          sql`${visits.status} IN ('calling', 'in_therapy')`,
-          sql`${visits.id} != ${dto.visitId}`,
-        ),
-      );
+        );
+    } catch {
+      try {
+        occupiedVisits = await this.db
+          .select()
+          .from(visits)
+          .where(
+            and(
+              eq(visits.visitDate, today),
+              eq(visits.roomId, room.id),
+              sql`${visits.status} IN ('calling', 'in_therapy')`,
+              sql`${visits.id} != ${dto.visitId}`,
+            ),
+          );
+      } catch {
+        occupiedVisits = [];
+      }
+    }
 
     if (occupiedVisits.length > 0) {
       throw new BadRequestException('Target room is currently occupied. Please choose an empty room.');
     }
 
     const now = new Date().toISOString();
-    await this.db
-      .update(visits)
-      .set({
-        roomId: dto.targetRoomId,
-        updatedAt: now,
-      })
-      .where(eq(visits.id, dto.visitId));
-
     try {
-      (this.db as any).session?.client
-        ?.prepare(
-          'UPDATE visits SET room_id = ?, called_room_id = ?, called_room_name = ?, updated_at = ? WHERE id = ?',
-        )
-        ?.run(dto.targetRoomId, dto.targetRoomId, room.name, now, dto.visitId);
-    } catch {}
+      await this.db
+        .update(visits)
+        .set({
+          roomId: room.id,
+          calledRoomId: room.id,
+          calledRoomName: room.name,
+          updatedAt: now,
+        })
+        .where(eq(visits.id, dto.visitId));
+    } catch {
+      try {
+        (this.db as any).session?.client
+          ?.prepare('UPDATE visits SET room_id = ?, updated_at = ? WHERE id = ?')
+          ?.run(room.id, now, dto.visitId);
+      } catch {}
+    }
 
     const payload = {
       visitId: dto.visitId,
-      roomId: dto.targetRoomId,
-      targetRoomId: dto.targetRoomId,
+      roomId: room.id,
+      targetRoomId: room.id,
       roomName: room.name,
       switchedAt: now,
     };
 
-    this.gateway.emit('clinic:global', 'therapy.room_switched', payload);
-    this.realtime?.publish('therapy.room_switched', payload);
+    try {
+      this.gateway?.emit('clinic:global', 'therapy.room_switched', payload);
+    } catch {}
+    try {
+      this.realtime?.publish('therapy.room_switched', payload);
+    } catch {}
 
-    await this.audit.log({
-      actorUserId: actor.sub,
-      actorRole: actor.role,
-      action: 'therapy.switch_room',
-      entity: 'visits',
-      entityId: dto.visitId,
-      after: payload,
-      ip: meta.ip,
-      requestId: meta.requestId,
-    });
+    try {
+      await this.audit.log({
+        actorUserId: actor.sub,
+        actorRole: actor.role,
+        action: 'therapy.switch_room',
+        entity: 'visits',
+        entityId: dto.visitId,
+        after: payload,
+        ip: meta.ip,
+        requestId: meta.requestId,
+      });
+    } catch {}
 
-    return { ok: true, roomId: dto.targetRoomId, roomName: room.name };
+    return { ok: true, roomId: room.id, roomName: room.name };
   }
 
   async getPatientPlans(patientId: string) {

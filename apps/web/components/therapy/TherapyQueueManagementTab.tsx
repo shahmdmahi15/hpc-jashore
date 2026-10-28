@@ -1735,6 +1735,10 @@ export function SwitchTherapyRoomModal({
 
   const handleSwitch = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!patient?.visitId) {
+      toast.error('রোগীর ভিজিট আইডি পাওয়া যায়নি (Visit ID missing)');
+      return;
+    }
     if (!selectedRoomId) {
       toast.error('দয়া করে একটি ফাঁকা থেরাপি রুম নির্বাচন করুন');
       return;
