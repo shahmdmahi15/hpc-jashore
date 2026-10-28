@@ -65,6 +65,7 @@ import {
   isChatSoundEnabled,
   setChatSoundEnabled,
 } from '@/lib/sound-effects';
+import { resetGlobalUnreadCount } from '@/lib/use-chat-notifier';
 import { useLanguage } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -329,6 +330,7 @@ export function ClinicRealtimeChatView() {
   useEffect(() => {
     setSession(getSession());
     setSoundEnabled(isChatSoundEnabled());
+    resetGlobalUnreadCount();
   }, []);
 
   // Fetch Message Dates

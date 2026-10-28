@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Activity,
+  AlertCircle,
   AlertTriangle,
   ArrowRightLeft,
   Building2,
@@ -102,6 +103,12 @@ export function TherapyQueueManagementTab() {
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'waiting' | 'calling' | 'in_therapy'>('all');
   const [callingVisitId, setCallingVisitId] = useState<string | null>(null);
+  const [nowTick, setNowTick] = useState<number>(() => Date.now());
+
+  useEffect(() => {
+    const timer = setInterval(() => setNowTick(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Modals state
   const [timelinePatient, setTimelinePatient] = useState<{ id: string; name: string } | null>(null);
@@ -325,11 +332,19 @@ export function TherapyQueueManagementTab() {
       const activeSession = activeSessions.find(
         (as) => as.patientId === patient.patientId || as.visitId === patient.visitId,
       );
-      if (activeSession?.sessionId) {
-        await api.therapy.completeSession(activeSession.sessionId, {
-          notes: 'Session completed by therapist',
-        });
-      }
+      const targetSessionId =
+        activeSession?.sessionId || (patient as any).sessionId || activeSession?.id || patient.visitId;
+
+      const durationMin = activeSession?.startedAt
+        ? Math.max(1, Math.round((Date.now() - new Date(activeSession.startedAt).getTime()) / 60000))
+        : Number(activeSession?.durationMinutes || 15);
+
+      await api.therapy.completeSession(targetSessionId, {
+        durationMinutes: durationMin,
+        outcomeNote: 'Session completed by therapist',
+        notes: 'Session completed by therapist',
+      });
+
       toast.success(
         `রোগী ${patient.patientNameBn || patient.patientNameEn} এর থেরাপি সেশন সফলভাবে সম্পন্ন হয়েছে!`,
       );
@@ -557,6 +572,37 @@ export function TherapyQueueManagementTab() {
             const isInTherapy = patient.status === 'in_therapy';
             const availableRooms = rooms.filter((r) => !r.isOccupied);
 
+            const activeSession = activeSessions.find(
+              (as) => as.patientId === patient.patientId || as.visitId === patient.visitId,
+            );
+            const modalityCode = activeSession?.modalityCode || patient.modalityCode || 'PHYSIO';
+            const modalityName =
+              activeSession?.modalityNameBn ||
+              activeSession?.modalityNameEn ||
+              patient.modalityNameBn ||
+              patient.modalityName ||
+              'ফিজিওথেরাপি ও পুনর্বাসন';
+            const startedAt = activeSession?.startedAt || (patient as any).startedAt;
+            const durationMinutes = Number(
+              activeSession?.durationMinutes || (patient as any).durationMinutes || 20,
+            );
+            const roomName = activeSession?.bedName || patient.assignedRoomName || 'থেরাপি রুম';
+
+            const elapsedSec = startedAt
+              ? Math.max(0, Math.floor((nowTick - new Date(startedAt).getTime()) / 1000))
+              : 0;
+            const totalSec = durationMinutes * 60;
+            const remainingSec = Math.max(0, totalSec - elapsedSec);
+            const isOvertime = startedAt ? elapsedSec > totalSec : false;
+            const progressPercent =
+              totalSec > 0 ? Math.min(100, Math.round((elapsedSec / totalSec) * 100)) : 0;
+
+            const formatSec = (sec: number) => {
+              const m = Math.floor(sec / 60);
+              const s = sec % 60;
+              return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+            };
+
             return (
               <Card
                 key={patient.visitId}
@@ -596,15 +642,23 @@ export function TherapyQueueManagementTab() {
                       }`}
                     >
                       <div className="flex flex-col items-center justify-center text-center">
-                        <Clock className={`size-4 ${
-                          isInTherapy
-                            ? 'text-cyan-400'
-                            : isCalling
-                              ? 'text-amber-400'
-                              : 'text-emerald-400'
-                        }`} />
+                        <Clock
+                          className={`size-4 ${
+                            isInTherapy
+                              ? 'text-cyan-400'
+                              : isCalling
+                                ? 'text-amber-400'
+                                : 'text-emerald-400'
+                          }`}
+                        />
                         <span className="font-mono text-[10px] font-bold text-muted-foreground mt-0.5">
-                          {patient.toldTime || (patient.checkedInAt ? new Date(patient.checkedInAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '')}
+                          {patient.toldTime ||
+                            (patient.checkedInAt
+                              ? new Date(patient.checkedInAt).toLocaleTimeString([], {
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })
+                              : '')}
                         </span>
                       </div>
                     </div>
@@ -614,7 +668,9 @@ export function TherapyQueueManagementTab() {
                       </h4>
                       <div className="flex items-center gap-2 text-xs text-muted-foreground font-mono">
                         <span>{patient.mrn}</span>
-                        {patient.gender && <span>• {patient.gender === 'male' ? 'পুরুষ' : 'নারী'}</span>}
+                        {patient.gender && (
+                          <span>• {patient.gender === 'male' ? 'পুরুষ' : 'নারী'}</span>
+                        )}
                         {patient.ageYears && <span>• {patient.ageYears} বছর</span>}
                       </div>
                     </div>
@@ -622,45 +678,104 @@ export function TherapyQueueManagementTab() {
 
                   <div className="flex flex-col items-end gap-1">
                     {patient.priority === 'emergency' && (
-                      <Badge variant="destructive" className="text-[10px] uppercase font-bold animate-pulse">
+                      <Badge
+                        variant="destructive"
+                        className="text-[10px] uppercase font-bold animate-pulse"
+                      >
                         🚨 জরুরি
                       </Badge>
                     )}
                     {patient.priority === 'package' && (
-                      <Badge variant="outline" className="text-[10px] border-cyan-500/50 text-cyan-400">
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] border-cyan-500/50 text-cyan-400"
+                      >
                         প্যাকেজ
                       </Badge>
                     )}
                   </div>
                 </div>
 
-                <div className="space-y-1.5 text-xs text-muted-foreground mb-4 bg-muted/30 p-2.5 rounded-lg border border-border/40">
-                  <div className="flex items-center justify-between">
-                    <span className="flex items-center gap-1.5 text-foreground/80">
-                      <Activity className="size-3.5 text-emerald-400" />
-                      <span>{patient.modalityNameBn || patient.modalityName || 'ফিজিওথেরাপি ও পুনর্বাসন'}</span>
-                    </span>
-                    {patient.toldTime && (
-                      <span className="font-mono text-[11px] text-amber-400">
-                        সময়: {patient.toldTime}
-                      </span>
-                    )}
-                  </div>
-
-                  {(isCalling || isInTherapy) && (
-                    <div className="flex items-center justify-between text-cyan-400 font-medium pt-1 border-t border-border/40">
-                      <span className="flex items-center gap-1.5">
-                        <Building2 className="size-3.5" />
-                        <span>স্থান: {patient.assignedRoomName || 'থেরাপি রুম'}</span>
-                      </span>
-                      {isInTherapy && (
-                        <Badge className="bg-cyan-500/20 text-cyan-300 border-cyan-500/30 text-[10px]">
-                          সেশন চলমান
+                {/* Running Therapy Live Status Card */}
+                {isInTherapy ? (
+                  <div className="space-y-2 mb-4 p-2.5 rounded-xl border border-cyan-500/30 bg-gradient-to-br from-cyan-500/10 via-emerald-500/5 to-cyan-500/5 shadow-xs">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+                        <Badge className="bg-cyan-600 hover:bg-cyan-500 text-white font-black text-[10px] tracking-wide shrink-0">
+                          ⚡ [{modalityCode}]
                         </Badge>
+                        <span className="font-bold text-xs sm:text-sm text-foreground truncate">
+                          {modalityName}
+                        </span>
+                      </div>
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] border-cyan-500/50 text-cyan-600 dark:text-cyan-400 shrink-0 font-bold"
+                      >
+                        <Building2 className="size-3 mr-1 inline" />
+                        {roomName}
+                      </Badge>
+                    </div>
+
+                    <div className="space-y-1 bg-background/80 p-2 rounded-lg border border-border/60">
+                      <div className="flex items-center justify-between text-xs font-mono font-bold">
+                        <span className="flex items-center gap-1 text-cyan-600 dark:text-cyan-400">
+                          <Activity className="size-3.5 animate-pulse text-emerald-500" />
+                          <span>চলমান: {formatSec(elapsedSec)}</span>
+                        </span>
+                        {isOvertime ? (
+                          <span className="text-rose-600 dark:text-rose-400 flex items-center gap-1 animate-pulse font-extrabold">
+                            <AlertCircle className="size-3" />
+                            <span>+ {formatSec(elapsedSec - totalSec)} অতিরিক্ত</span>
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground font-medium text-[11px]">
+                            বাকি: {formatSec(remainingSec)} / {durationMinutes} মি:
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="w-full bg-muted/80 h-2 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full transition-all duration-300 ${
+                            isOvertime ? 'bg-rose-500' : 'bg-cyan-500'
+                          }`}
+                          style={{ width: `${progressPercent}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-1.5 text-xs text-muted-foreground mb-4 bg-muted/30 p-2.5 rounded-lg border border-border/40">
+                    <div className="flex items-center justify-between">
+                      <span className="flex items-center gap-1.5 text-foreground/80">
+                        <Activity className="size-3.5 text-emerald-400" />
+                        <span>
+                          {patient.modalityNameBn ||
+                            patient.modalityName ||
+                            'ফিজিওথেরাপি ও পুনর্বাসন'}
+                        </span>
+                      </span>
+                      {patient.toldTime && (
+                        <span className="font-mono text-[11px] text-amber-400">
+                          সময়: {patient.toldTime}
+                        </span>
                       )}
                     </div>
-                  )}
-                </div>
+
+                    {isCalling && (
+                      <div className="flex items-center justify-between text-amber-500 font-medium pt-1 border-t border-border/40">
+                        <span className="flex items-center gap-1.5">
+                          <Building2 className="size-3.5" />
+                          <span>স্থান: {patient.assignedRoomName || 'থেরাপি রুম'}</span>
+                        </span>
+                        <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30 text-[10px]">
+                          ডাকা হচ্ছে
+                        </Badge>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Action Buttons based on status */}
                 {isCalling ? (
@@ -817,7 +932,13 @@ export function TherapyQueueManagementTab() {
                         <SelectTrigger className="flex-1 h-9 text-xs bg-card/60 border-emerald-500/30">
                           <SelectValue placeholder="রুম নির্বাচন করুন" />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent
+                      position="popper"
+                      side="bottom"
+                      align="start"
+                      sideOffset={4}
+                      className="max-h-56 overflow-y-auto z-50 bg-popover text-popover-foreground border border-border shadow-xl rounded-xl"
+                    >
                           {rooms.map((room) => (
                             <SelectItem
                               key={room.id}
@@ -1602,7 +1723,13 @@ export function StartTherapySessionModal({
                     <SelectTrigger className="h-10 text-xs sm:text-sm bg-card">
                       <SelectValue placeholder="ক্যাটালগ থেকে মডালিটি বেছে নিন" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent
+                      position="popper"
+                      side="bottom"
+                      align="start"
+                      sideOffset={4}
+                      className="max-h-56 overflow-y-auto z-50 bg-popover text-popover-foreground border border-border shadow-xl rounded-xl"
+                    >
                       {modalitiesCatalog.length > 0 ? (
                         modalitiesCatalog.map((mod) => (
                           <SelectItem key={mod.code} value={mod.code} className="text-xs">

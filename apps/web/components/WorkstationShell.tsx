@@ -6,10 +6,11 @@ import Header from './Header';
 import { AuthGuard } from './AuthGuard';
 import { getSession, UserSession } from '../lib/api';
 import { useRealtime } from '../lib/use-realtime';
-import { ClipboardList, Stethoscope, Activity, CreditCard, Tv, ShieldCheck, Home } from 'lucide-react';
+import { ClipboardList, Stethoscope, Activity, CreditCard, Tv, ShieldCheck, Home, MessageSquare } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { cn } from '../lib/utils';
 import { useLanguage } from '../lib/i18n';
+import { useChatNotifier } from '../lib/use-chat-notifier';
 
 interface WorkstationShellProps {
   activeTab: string;
@@ -23,7 +24,8 @@ const ALL_MOBILE_NAV_ITEMS = [
   { id: 'handler', labelBn: 'হ্যান্ডলার', labelEn: 'Handler', icon: Activity, href: '/handler', roles: ['admin', 'handler'] },
   { id: 'cashier', labelBn: 'ক্যাশিয়ার', labelEn: 'Cashier', icon: CreditCard, href: '/cashier', roles: ['admin', 'cashier'] },
   { id: 'reception', labelBn: 'অভ্যর্থনা', labelEn: 'Reception', icon: ClipboardList, href: '/receptionist', roles: ['admin', 'receptionist'] },
-  { id: 'tv', labelBn: 'টিভি কিউ', labelEn: 'Waiting TV', icon: Tv, href: '/tv', roles: ['admin', 'doctor', 'handler', 'cashier', 'receptionist'] },
+  { id: 'chat', labelBn: 'চ্যাট', labelEn: 'Chat', icon: MessageSquare, href: '#chat', roles: ['admin', 'doctor', 'handler', 'cashier', 'receptionist'] },
+  { id: 'tv', labelBn: 'টিভি', labelEn: 'TV', icon: Tv, href: '/tv', roles: ['admin', 'doctor', 'handler', 'cashier', 'receptionist'] },
 ];
 
 export function WorkstationShell({
@@ -34,6 +36,7 @@ export function WorkstationShell({
   const router = useRouter();
   const { language } = useLanguage();
   const [session, setSession] = useState<UserSession | null>(null);
+  const { unreadCount } = useChatNotifier(activeTab === 'chat');
 
   useEffect(() => {
     setSession(getSession());
@@ -82,14 +85,30 @@ export function WorkstationShell({
         >
           {mobileNavItems.map((item) => {
             const Icon = item.icon;
+            const isChat = item.id === 'chat';
             const isActive = activeTab === item.id;
             return (
               <button
                 key={item.id}
                 type="button"
-                onClick={() => router.push(item.href)}
+                onClick={() => {
+                  if (isChat) {
+                    const chatTrigger = document.querySelector(
+                      '[data-chat-tab-trigger="true"]',
+                    ) as HTMLElement | null;
+                    if (chatTrigger) {
+                      chatTrigger.click();
+                    } else if (session?.role) {
+                      const rolePath =
+                        session.role === 'receptionist' ? 'receptionist' : session.role;
+                      router.push(`/${rolePath}?tab=chat`);
+                    }
+                  } else {
+                    router.push(item.href);
+                  }
+                }}
                 className={cn(
-                  'flex-1 flex flex-col items-center justify-center gap-0.5 py-1 px-1 rounded-xl text-[10px] font-semibold transition-all duration-150 active:scale-95 touch-manipulation',
+                  'flex-1 flex flex-col items-center justify-center gap-0.5 py-1 px-1 rounded-xl text-[10px] font-semibold transition-all duration-150 active:scale-95 touch-manipulation relative',
                   isActive
                     ? 'text-emerald-600 dark:text-emerald-400 font-bold'
                     : 'text-muted-foreground hover:text-foreground',
@@ -97,14 +116,26 @@ export function WorkstationShell({
               >
                 <div
                   className={cn(
-                    'p-1.5 rounded-xl transition-all',
-                    isActive && 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 shadow-2xs',
+                    'p-1.5 rounded-xl transition-all relative',
+                    isActive &&
+                      'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 shadow-2xs',
                   )}
                 >
                   <Icon className="size-4 sm:size-5" />
+                  {isChat && unreadCount > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75" />
+                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-500" />
+                    </span>
+                  )}
                 </div>
-                <span className="truncate max-w-[64px]">
-                  {language === 'bn' ? item.labelBn : item.labelEn}
+                <span className="truncate max-w-[64px] flex items-center gap-1">
+                  <span>{language === 'bn' ? item.labelBn : item.labelEn}</span>
+                  {isChat && unreadCount > 0 && (
+                    <span className="px-1 py-0 text-[8px] font-black rounded-full bg-rose-500 text-white">
+                      {unreadCount}
+                    </span>
+                  )}
                 </span>
               </button>
             );

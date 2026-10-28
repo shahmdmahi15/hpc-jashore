@@ -247,33 +247,92 @@ export class TherapyService {
     dto: CompleteSessionDto,
     meta: { ip?: string | null; requestId?: string | null },
   ) {
-    const sessionRows = await this.db
+    let sessionRows = await this.db
       .select()
       .from(therapySessions)
       .where(eq(therapySessions.id, sessionId));
-    const session = sessionRows[0];
-    if (!session) throw new NotFoundException('Therapy session not found');
+    let session = sessionRows[0];
+
+    // Fallback: If sessionId didn't match a therapy session, maybe it was a visitId or patientId
+    if (!session) {
+      const visitRows = await this.db.select().from(visits).where(eq(visits.id, sessionId));
+      const targetPatientId = visitRows[0]?.patientId || sessionId;
+
+      const byPatient = await this.db
+        .select()
+        .from(therapySessions)
+        .where(
+          and(
+            eq(therapySessions.patientId, targetPatientId),
+            eq(therapySessions.status, 'in_progress'),
+          ),
+        )
+        .orderBy(desc(therapySessions.startedAt))
+        .limit(1);
+      session = byPatient[0];
+    }
+
+    if (!session) {
+      const anySession = await this.db
+        .select()
+        .from(therapySessions)
+        .where(
+          or(
+            eq(therapySessions.id, sessionId),
+            eq(therapySessions.patientId, sessionId),
+          ),
+        )
+        .orderBy(desc(therapySessions.createdAt))
+        .limit(1);
+      session = anySession[0];
+    }
+
+    const now = new Date().toISOString();
+    const effectiveDuration = dto.durationMinutes && dto.durationMinutes >= 1 ? dto.durationMinutes : 15;
+    const effectiveNote = dto.outcomeNote || dto.notes || null;
+
+    if (!session) {
+      // If visit exists, route to reception
+      const visitRows = await this.db.select().from(visits).where(eq(visits.id, sessionId));
+      if (visitRows[0]) {
+        await this.db
+          .update(visits)
+          .set({ currentLocation: 'reception', updatedAt: now })
+          .where(eq(visits.id, sessionId));
+        return { ok: true, visitId: sessionId, completedAt: now };
+      }
+      throw new NotFoundException('Therapy session not found');
+    }
 
     const modRows = await this.db
       .select()
       .from(modalities)
       .where(eq(modalities.code, session.modalityCode));
     const expectedMinutes = modRows[0]?.defaultDurationMin ?? 20;
-    const isOvertime = dto.durationMinutes > expectedMinutes ? 1 : 0;
+    const isOvertime = effectiveDuration > expectedMinutes ? 1 : 0;
 
-    const now = new Date().toISOString();
     await this.db
       .update(therapySessions)
       .set({
         status: 'completed',
         endedAt: now,
-        durationMinutes: dto.durationMinutes,
-        outcomeNote: dto.outcomeNote ?? null,
+        durationMinutes: effectiveDuration,
+        outcomeNote: effectiveNote,
         painScoreAfter: dto.painScoreAfter ?? null,
         isOvertime,
         updatedAt: now,
       })
-      .where(eq(therapySessions.id, sessionId));
+      .where(eq(therapySessions.id, session.id));
+
+    // Route any active in_therapy visit for this patient to reception
+    await this.db
+      .update(visits)
+      .set({
+        currentLocation: 'reception',
+        updatedAt: now,
+      })
+      .where(and(eq(visits.patientId, session.patientId), eq(visits.status, 'in_therapy')))
+      .catch(() => {});
 
     // Update therapy plan if applicable
     if (session.planId) {
@@ -350,10 +409,10 @@ export class TherapyService {
     }
 
     const payload = {
-      sessionId,
+      sessionId: session.id,
       patientId: session.patientId,
       modalityCode: session.modalityCode,
-      durationMinutes: dto.durationMinutes,
+      durationMinutes: effectiveDuration,
       isOvertime,
       completedAt: now,
     };

@@ -41,10 +41,14 @@ import {
   UserCheck,
   Send,
   Loader2,
+  LogOut,
+  CheckCircle2,
 } from 'lucide-react';
 
 export default function ReceptionView() {
   const [mobileTab, setMobileTab] = useState<'checkin' | 'queue' | 'therapy_queue'>('checkin');
+  const [queueStatusFilter, setQueueStatusFilter] = useState<'active' | 'all' | 'checked_out'>('active');
+  const [checkingOutVisitId, setCheckingOutVisitId] = useState<string | null>(null);
   const [patients, setPatients] = useState<any[]>([]);
   const [todayVisits, setTodayVisits] = useState<any[]>([]);
   const [search, setSearch] = useState('');
@@ -263,6 +267,22 @@ export default function ReceptionView() {
     }
   };
 
+  // Checkout patient
+  const handleCheckoutVisit = async (visit: any) => {
+    try {
+      setCheckingOutVisitId(visit.id);
+      await api.visits.checkOut(visit.id, { allowWithDues: true });
+      toast.success(
+        `রোগী ${visit.patient?.nameBn || visit.patient?.nameEn || ''} এর চেক-আউট ও ডিসচার্জ সম্পন্ন হয়েছে!`,
+      );
+      await loadData();
+    } catch (err: any) {
+      toast.error(err?.message || 'চেক-আউট করতে ব্যর্থ হয়েছে');
+    } finally {
+      setCheckingOutVisitId(null);
+    }
+  };
+
   const filteredPatients = patients.filter(
     (p) =>
       p.nameEn.toLowerCase().includes(search.toLowerCase()) ||
@@ -271,6 +291,12 @@ export default function ReceptionView() {
   );
 
   const doctors = staffList.filter((s) => s.role === 'doctor');
+
+  const displayedVisits = todayVisits.filter((v) => {
+    if (queueStatusFilter === 'all') return true;
+    if (queueStatusFilter === 'checked_out') return v.status === 'checked_out';
+    return v.status !== 'checked_out';
+  });
 
   return (
     <div className="flex flex-col gap-6">
@@ -512,24 +538,65 @@ export default function ReceptionView() {
               )}
             >
               <Card className="border border-border bg-card shadow-sm h-full flex flex-col">
-                <CardHeader className="flex flex-row items-center justify-between pb-4">
-                  <CardTitle className="text-base sm:text-lg font-bold flex items-center gap-2">
-                    <span>⏱️</span> Today&apos;s Live Waiting Queue ({todayVisits.length})
-                  </CardTitle>
+                <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <CardTitle className="text-base sm:text-lg font-bold flex items-center gap-2">
+                      <span>⏱️</span> Today&apos;s Live Waiting Queue ({displayedVisits.length})
+                    </CardTitle>
+                    {/* Status Filter Badges */}
+                    <div className="flex items-center gap-1 rounded-xl bg-muted/60 p-1 text-[11px] font-semibold border border-border/60">
+                      <button
+                        type="button"
+                        onClick={() => setQueueStatusFilter('active')}
+                        className={cn(
+                          'px-2 py-0.5 rounded-lg transition-all',
+                          queueStatusFilter === 'active'
+                            ? 'bg-emerald-600 text-white shadow-xs'
+                            : 'text-muted-foreground hover:text-foreground',
+                        )}
+                      >
+                        অপেক্ষমাণ ({todayVisits.filter((v) => v.status !== 'checked_out').length})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setQueueStatusFilter('all')}
+                        className={cn(
+                          'px-2 py-0.5 rounded-lg transition-all',
+                          queueStatusFilter === 'all'
+                            ? 'bg-card text-foreground shadow-xs'
+                            : 'text-muted-foreground hover:text-foreground',
+                        )}
+                      >
+                        সব ({todayVisits.length})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setQueueStatusFilter('checked_out')}
+                        className={cn(
+                          'px-2 py-0.5 rounded-lg transition-all',
+                          queueStatusFilter === 'checked_out'
+                            ? 'bg-card text-foreground shadow-xs'
+                            : 'text-muted-foreground hover:text-foreground',
+                        )}
+                      >
+                        ডিসচার্জড ({todayVisits.filter((v) => v.status === 'checked_out').length})
+                      </button>
+                    </div>
+                  </div>
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={loadData}
                     disabled={loading}
-                    className="flex items-center gap-1.5"
+                    className="flex items-center gap-1.5 self-end sm:self-auto"
                   >
                     🔄 Refresh
                   </Button>
                 </CardHeader>
                 <CardContent className="flex-1 flex flex-col">
-                  {todayVisits.length === 0 ? (
+                  {displayedVisits.length === 0 ? (
                     <div className="flex-1 flex items-center justify-center py-12 text-center text-sm text-muted-foreground">
-                      No visits registered yet today.
+                      No visits match the selected filter.
                     </div>
                   ) : (
                     <div className="overflow-x-auto rounded-lg border border-border">
@@ -544,7 +611,7 @@ export default function ReceptionView() {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-border">
-                          {todayVisits.map((v) => (
+                          {displayedVisits.map((v) => (
                             <tr key={v.id} className="hover:bg-muted/30 transition-colors">
                               <td className="p-3">
                                 <div className="flex items-center gap-1.5 flex-wrap">
@@ -631,6 +698,25 @@ export default function ReceptionView() {
                                     <CreditCard className="size-3" />
                                     <span>ক্যাশিয়ার</span>
                                   </Button>
+
+                                  {/* Check Out / Discharge Button */}
+                                  {v.status !== 'checked_out' && (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => handleCheckoutVisit(v)}
+                                      disabled={checkingOutVisitId === v.id}
+                                      title="রোগীর ভিজিট সমাপ্ত ও ডিসচার্জ সম্পন্ন করুন"
+                                      className="h-7 text-xs border-cyan-500/40 text-cyan-700 dark:text-cyan-300 hover:bg-cyan-50 dark:hover:bg-cyan-950/20 gap-1 font-semibold"
+                                    >
+                                      {checkingOutVisitId === v.id ? (
+                                        <Loader2 className="size-3 animate-spin text-cyan-600" />
+                                      ) : (
+                                        <LogOut className="size-3 text-cyan-600 dark:text-cyan-400" />
+                                      )}
+                                      <span>চেক-আউট</span>
+                                    </Button>
+                                  )}
 
                                   {/* Timeline Button */}
                                   <Button

@@ -14,7 +14,9 @@ import {
   CalendarDays,
   Radio,
   LogOut,
+  MessageSquare,
 } from 'lucide-react';
+import { useChatNotifier } from '../lib/use-chat-notifier';
 import { UserSession, clearSession, getRoleHomeRoute } from '../lib/api';
 import { BrandLogo } from './brand/logo';
 import { NavbarSwitchers } from './NavbarSwitchers';
@@ -83,6 +85,7 @@ export default function Header({
   const router = useRouter();
   const { language } = useLanguage();
   const [currentTime, setCurrentTime] = React.useState<Date | null>(null);
+  const { unreadCount } = useChatNotifier(activeTab === 'chat');
 
   const visibleTabs = React.useMemo(() => {
     if (!session?.role) return ALL_TABS;
@@ -207,6 +210,42 @@ export default function Header({
             <span className="hidden xs:inline">
               {getRoleLabel(session.role, language === 'bn')}
             </span>
+          </button>
+        )}
+
+        {/* Realtime Chat Button with Live Dot & Unread Counter */}
+        {session && (
+          <button
+            type="button"
+            onClick={() => {
+              const chatTrigger = document.querySelector('[data-chat-tab-trigger="true"]') as HTMLElement | null;
+              if (chatTrigger) {
+                chatTrigger.click();
+              } else if (session?.role) {
+                const rolePath = session.role === 'receptionist' ? 'receptionist' : session.role;
+                router.push(`/${rolePath}?tab=chat`);
+              }
+            }}
+            className={cn(
+              'relative h-8 sm:h-9 px-2 sm:px-2.5 rounded-lg sm:rounded-xl border transition-all duration-200 cursor-pointer active:scale-95 flex items-center gap-1.5 shrink-0',
+              unreadCount > 0
+                ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/40 shadow-xs shadow-rose-500/20'
+                : 'bg-card/70 text-muted-foreground border-border/60 hover:text-foreground hover:bg-muted/70',
+            )}
+            title={language === 'bn' ? 'ক্লিনিক্যাল চ্যাট ও বার্তা' : 'Clinical Chat'}
+          >
+            <MessageSquare className="size-3.5 sm:size-4 shrink-0 text-emerald-500" />
+            <span className="hidden sm:inline text-xs font-semibold">
+              {language === 'bn' ? 'চ্যাট' : 'Chat'}
+            </span>
+            {unreadCount > 0 && (
+              <span className="flex items-center gap-1">
+                <span className="size-2 rounded-full bg-rose-500 animate-ping" />
+                <span className="px-1.5 py-0.2 text-[10px] font-black rounded-full bg-rose-500 text-white leading-none">
+                  {unreadCount}
+                </span>
+              </span>
+            )}
           </button>
         )}
 

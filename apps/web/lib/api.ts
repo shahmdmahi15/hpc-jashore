@@ -325,6 +325,17 @@ export const api = {
         method: 'PATCH',
         body: JSON.stringify(dto),
       }),
+    checkOut: (visitId: string, dto?: { notes?: string; allowWithDues?: boolean; nextFollowUpDate?: string }) =>
+      apiFetch<any>(`/visits/${visitId}/check-out`, {
+        method: 'POST',
+        body: JSON.stringify(dto || {}),
+      }),
+    checkoutActive: (search?: string, status?: string) => {
+      const q = new URLSearchParams();
+      if (search) q.set('search', search);
+      if (status) q.set('status', status);
+      return apiFetch<any>(`/visits/checkout/active?${q.toString()}`);
+    },
     getTvSnapshot: () => apiFetch<any>('/visits/tv/snapshot'),
   },
   clinical: {

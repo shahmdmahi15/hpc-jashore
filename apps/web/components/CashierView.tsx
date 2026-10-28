@@ -481,8 +481,10 @@ export default function CashierView({ session: propSession }: CashierProps = {})
       });
       setIsInvoiceModalOpen(true);
 
+      const intakeId = selectedIntakeForPayment.id;
       setSelectedIntakeForPayment(null);
-      loadData();
+      setForwardedIntakes((prev) => prev.filter((i) => i.id !== intakeId));
+      await loadData();
     } catch (err: any) {
       toast.error(err?.message || 'কিউতে পাঠাতে ব্যর্থ হয়েছে');
     } finally {

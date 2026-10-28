@@ -59,15 +59,21 @@ export class StartSessionDto {
 }
 
 export class CompleteSessionDto {
-  @ApiProperty({ description: 'Actual duration in minutes' })
+  @ApiPropertyOptional({ description: 'Actual duration in minutes' })
+  @IsOptional()
   @IsInt()
   @Min(1)
-  durationMinutes!: number;
+  durationMinutes?: number;
 
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   outcomeNote?: string;
+
+  @ApiPropertyOptional({ description: 'Session notes alias for outcomeNote' })
+  @IsOptional()
+  @IsString()
+  notes?: string;
 
   @ApiPropertyOptional({ description: 'VAS Pain score post-session (0-10)' })
   @IsOptional()

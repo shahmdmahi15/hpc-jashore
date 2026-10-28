@@ -1,7 +1,7 @@
 // apps/web/components/InvoicePrintModal.tsx
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { Button } from './ui/button';
 import { Printer, FileText, CheckCircle2, AlertCircle, Download, Loader2 } from 'lucide-react';
@@ -100,6 +100,27 @@ export default function InvoicePrintModal({
 
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
+
+  // Manage printing body class for strict single-page print isolation
+  useEffect(() => {
+    if (!open) return;
+
+    document.body.classList.add('printing-hpc-invoice');
+
+    const handleBeforePrint = () => {
+      document.body.classList.add('printing-hpc-invoice');
+    };
+    const handleAfterPrint = () => {};
+
+    window.addEventListener('beforeprint', handleBeforePrint);
+    window.addEventListener('afterprint', handleAfterPrint);
+
+    return () => {
+      document.body.classList.remove('printing-hpc-invoice');
+      window.removeEventListener('beforeprint', handleBeforePrint);
+      window.removeEventListener('afterprint', handleAfterPrint);
+    };
+  }, [open]);
 
   const handlePrint = async () => {
     setIsPrinting(true);
@@ -658,6 +679,129 @@ export default function InvoicePrintModal({
             </Button>
           </div>
         </div>
+        {/* Embedded print stylesheet guaranteeing STRICT Centered HPC CUSTOM SIZE 1-PAGE (5.5in x 8.27in) */}
+        <style
+          dangerouslySetInnerHTML={{
+            __html: `
+          @page {
+            size: 5.50in 8.27in;
+            margin: 4mm 5mm;
+          }
+          @media print {
+            :root,
+            html,
+            body,
+            body.printing-hpc-invoice {
+              --background: #ffffff !important;
+              --foreground: #000000 !important;
+              --card: #ffffff !important;
+              --card-foreground: #000000 !important;
+              --popover: #ffffff !important;
+              --popover-foreground: #000000 !important;
+              --muted: #f4f4f5 !important;
+              --muted-foreground: #71717a !important;
+              --border: #e4e4e7 !important;
+              background-color: #ffffff !important;
+              color: #000000 !important;
+              margin: 0 !important;
+              padding: 0 !important;
+              width: 100% !important;
+              height: 100% !important;
+              overflow: hidden !important;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+
+            body > *:not([data-radix-portal]),
+            body.printing-hpc-invoice > *:not([data-radix-portal]),
+            [data-radix-portal]:not(:has(#hpc-invoice-custom-sheet)),
+            body.printing-hpc-invoice [data-radix-portal]:not(:has(#hpc-invoice-custom-sheet)) {
+              display: none !important;
+              visibility: hidden !important;
+              height: 0 !important;
+              max-height: 0 !important;
+              overflow: hidden !important;
+              margin: 0 !important;
+              padding: 0 !important;
+            }
+
+            nav,
+            header,
+            aside,
+            footer,
+            button,
+            .print-hidden,
+            .print\\:hidden,
+            [data-radix-dialog-overlay],
+            [data-radix-dialog-close],
+            div[class*="backdrop-blur"],
+            div[class*="bg-black/80"],
+            .dialog-header-actions,
+            .toaster {
+              display: none !important;
+              visibility: hidden !important;
+            }
+
+            [data-radix-portal]:has(#hpc-invoice-custom-sheet),
+            [role="dialog"]:has(#hpc-invoice-custom-sheet),
+            [data-dialog-content]:has(#hpc-invoice-custom-sheet) {
+              position: static !important;
+              inset: auto !important;
+              transform: none !important;
+              width: 100% !important;
+              max-width: 100% !important;
+              height: auto !important;
+              max-height: none !important;
+              padding: 0 !important;
+              margin: 0 !important;
+              background: #ffffff !important;
+              border: none !important;
+              box-shadow: none !important;
+              overflow: visible !important;
+            }
+
+            #hpc-invoice-custom-sheet {
+              width: 100% !important;
+              max-width: 5.50in !important;
+              height: calc(8.27in - 8mm) !important;
+              max-height: calc(8.27in - 8mm) !important;
+              margin: 0 auto !important;
+              padding: 4mm 5mm !important;
+              display: flex !important;
+              flex-direction: column !important;
+              justify-content: space-between !important;
+              box-sizing: border-box !important;
+              background-color: #ffffff !important;
+              color: #000000 !important;
+              border: 1px solid #d4d4d8 !important;
+              border-radius: 4px !important;
+              page-break-after: avoid !important;
+              break-after: avoid !important;
+              page-break-inside: avoid !important;
+              break-inside: avoid !important;
+              overflow: hidden !important;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+
+            #hpc-invoice-custom-sheet * {
+              visibility: visible !important;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+
+            #hpc-invoice-custom-sheet img {
+              max-width: 38px !important;
+              max-height: 38px !important;
+              width: 34px !important;
+              height: 34px !important;
+              object-fit: contain !important;
+              display: block !important;
+            }
+          }
+        `,
+          }}
+        />
       </DialogContent>
     </Dialog>
   );

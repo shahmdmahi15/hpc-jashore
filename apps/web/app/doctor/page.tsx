@@ -1,7 +1,8 @@
 // apps/web/app/doctor/page.tsx
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { WorkstationShell } from '../../components/WorkstationShell';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../../components/ui/tabs';
 import { WorkstationTabPlaceholder } from '../../components/WorkstationTabPlaceholder';
@@ -14,6 +15,7 @@ import { CheckoutWorkstationView } from '../../components/checkout/CheckoutWorks
 import { ConsultationBookingView } from '../../components/consultation/ConsultationBookingView';
 import { ClinicRealtimeChatView } from '../../components/chat/ClinicRealtimeChatView';
 import { useLanguage } from '../../lib/i18n';
+import { useChatNotifier } from '../../lib/use-chat-notifier';
 import {
   Stethoscope,
   Activity,
@@ -103,7 +105,17 @@ const DOCTOR_TABS = [
 
 export default function DoctorPage() {
   const { language } = useLanguage();
-  const [activeTab, setActiveTab] = useState('consultation_queue');
+  const searchParams = useSearchParams();
+  const initialTab = searchParams.get('tab') || 'consultation_queue';
+  const [activeTab, setActiveTab] = useState(initialTab);
+  const { unreadCount } = useChatNotifier(activeTab === 'chat');
+
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam) {
+      setActiveTab(tabParam);
+    }
+  }, [searchParams]);
 
   return (
     <WorkstationShell activeTab="doctor" allowedRoles={['admin', 'doctor']}>
@@ -130,14 +142,24 @@ export default function DoctorPage() {
               <TabsList className="h-auto p-1.5 bg-muted/50 border border-border/40 rounded-xl flex flex-wrap items-center gap-1 sm:gap-1.5 w-full">
                 {DOCTOR_TABS.map((tab) => {
                   const Icon = tab.icon;
+                  const isChat = tab.id === 'chat';
                   return (
                     <TabsTrigger
                       key={tab.id}
                       value={tab.id}
-                      className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3.5 py-1.5 sm:py-2 text-xs sm:text-sm font-medium rounded-lg data-[state=active]:bg-background data-[state=active]:text-emerald-600 dark:data-[state=active]:text-emerald-400 data-[state=active]:shadow-xs transition-all whitespace-nowrap cursor-pointer touch-manipulation active:scale-95"
+                      data-chat-tab-trigger={isChat ? 'true' : undefined}
+                      className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3.5 py-1.5 sm:py-2 text-xs sm:text-sm font-medium rounded-lg data-[state=active]:bg-background data-[state=active]:text-emerald-600 dark:data-[state=active]:text-emerald-400 data-[state=active]:shadow-xs transition-all whitespace-nowrap cursor-pointer touch-manipulation active:scale-95 relative"
                     >
                       <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
                       <span>{language === 'bn' ? tab.titleBn : tab.titleEn}</span>
+                      {isChat && unreadCount > 0 && (
+                        <span className="flex items-center gap-1 ml-1">
+                          <span className="size-2 rounded-full bg-rose-500 animate-ping" />
+                          <span className="px-1.5 py-0.2 text-[10px] font-black rounded-full bg-rose-500 text-white">
+                            {unreadCount}
+                          </span>
+                        </span>
+                      )}
                     </TabsTrigger>
                   );
                 })}
