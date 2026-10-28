@@ -1,6 +1,6 @@
 // apps/api/src/patients/patient-clinical-status.ts
 import { NotFoundException } from '@nestjs/common';
-import { and, desc, eq, isNull, or, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull, ne, or, sql } from 'drizzle-orm';
 import type { Db } from '../db/db.module';
 import {
   consultationBookings,
@@ -27,6 +27,22 @@ export interface PatientClinicalStatus {
   todayIntakeId: string | null;
   summaryEn: string;
   summaryBn: string;
+}
+
+/**
+ * Resolves current calendar date strings for clinic timezone (Asia/Dhaka, UTC+6) and UTC.
+ */
+export function getDhakaDateStrings(): { dhakaDate: string; utcDate: string } {
+  const now = new Date();
+  const utcDate = now.toISOString().slice(0, 10);
+  const dhakaFormatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Dhaka',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  const dhakaDate = dhakaFormatter.format(now);
+  return { dhakaDate, utcDate };
 }
 
 /**
@@ -61,7 +77,7 @@ export function evaluateClinicalStatus(params: {
   todayIntake?: { id: string; date: string } | null;
   referenceDate?: string;
 }): PatientClinicalStatus {
-  const todayStr = params.referenceDate || new Date().toISOString().slice(0, 10);
+  const todayStr = params.referenceDate || getDhakaDateStrings().dhakaDate;
   const todayIntake = params.todayIntake ?? null;
   const intakeCompletedToday = Boolean(todayIntake);
   const todayIntakeId = todayIntake?.id ?? null;
@@ -138,7 +154,9 @@ export async function getPatientClinicalStatus(
   patientId: string,
   referenceDateStr?: string,
 ): Promise<PatientClinicalStatus> {
-  const todayStr = referenceDateStr || new Date().toISOString().slice(0, 10);
+  const { dhakaDate, utcDate } = getDhakaDateStrings();
+  const targetDate = referenceDateStr || dhakaDate;
+  const candidateDates = Array.from(new Set([dhakaDate, utcDate, targetDate].filter(Boolean)));
 
   // 1. Verify Patient Exists
   const patientRows = await db
@@ -151,23 +169,84 @@ export async function getPatientClinicalStatus(
     throw new NotFoundException(`Patient #${patientId} not found`);
   }
 
-  // 2. Check if an intake form has already been completed today
+  // 2. Check if an intake form has already been completed today (Dhaka or UTC or reference date)
+  const dateConditions = [
+    inArray(patientIntakeForms.date, candidateDates),
+    sql`${patientIntakeForms.createdAt} LIKE ${dhakaDate + '%'}`,
+    sql`${patientIntakeForms.createdAt} LIKE ${utcDate + '%'}`,
+  ];
+  if (referenceDateStr) {
+    dateConditions.push(sql`${patientIntakeForms.createdAt} LIKE ${referenceDateStr + '%'}`);
+  }
+
   const todayIntakeRows = await db
     .select({ id: patientIntakeForms.id, date: patientIntakeForms.date })
     .from(patientIntakeForms)
     .where(
       and(
         eq(patientIntakeForms.patientId, patientId),
-        or(
-          eq(patientIntakeForms.date, todayStr),
-          sql`${patientIntakeForms.createdAt} LIKE ${todayStr + '%'}`,
-        ),
+        or(...dateConditions),
       ),
     )
     .orderBy(desc(patientIntakeForms.createdAt))
     .limit(1);
 
-  const todayIntake = todayIntakeRows[0] || null;
+  let todayIntake = todayIntakeRows[0] || null;
+
+  // 2b. Also check if there is an active visit for the patient today with a linked intake form
+  if (!todayIntake) {
+    const activeVisitRows = await db
+      .select({ id: visits.id })
+      .from(visits)
+      .where(
+        and(
+          eq(visits.patientId, patientId),
+          inArray(visits.visitDate, candidateDates),
+          isNull(visits.checkedOutAt),
+          ne(visits.status, 'cancelled'),
+        ),
+      )
+      .orderBy(desc(visits.createdAt))
+      .limit(1);
+
+    if (activeVisitRows[0]) {
+      const linkedIntake = await db
+        .select({ id: patientIntakeForms.id, date: patientIntakeForms.date })
+        .from(patientIntakeForms)
+        .where(
+          and(
+            eq(patientIntakeForms.patientId, patientId),
+            eq(patientIntakeForms.visitId, activeVisitRows[0].id),
+          ),
+        )
+        .orderBy(desc(patientIntakeForms.createdAt))
+        .limit(1);
+
+      if (linkedIntake[0]) {
+        todayIntake = linkedIntake[0];
+      }
+    }
+  }
+
+  // 2c. Also check any intake form created within the last 24 hours
+  if (!todayIntake) {
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const recentIntake = await db
+      .select({ id: patientIntakeForms.id, date: patientIntakeForms.date })
+      .from(patientIntakeForms)
+      .where(
+        and(
+          eq(patientIntakeForms.patientId, patientId),
+          sql`${patientIntakeForms.createdAt} >= ${twentyFourHoursAgo}`,
+        ),
+      )
+      .orderBy(desc(patientIntakeForms.createdAt))
+      .limit(1);
+
+    if (recentIntake[0]) {
+      todayIntake = recentIntake[0];
+    }
+  }
 
   // 3. Collect historical clinical activity dates across all relevant clinical tables
   const activityDates: string[] = [];
@@ -176,7 +255,7 @@ export async function getPatientClinicalStatus(
   const intakeRows = await db
     .select({ date: patientIntakeForms.date })
     .from(patientIntakeForms)
-    .where(and(eq(patientIntakeForms.patientId, patientId), sql`${patientIntakeForms.date} < ${todayStr}`));
+    .where(and(eq(patientIntakeForms.patientId, patientId), sql`${patientIntakeForms.date} < ${targetDate}`));
   for (const r of intakeRows) {
     if (r.date) activityDates.push(r.date);
   }
@@ -185,7 +264,7 @@ export async function getPatientClinicalStatus(
   const consultRows = await db
     .select({ date: consultationBookings.bookingDate })
     .from(consultationBookings)
-    .where(and(eq(consultationBookings.patientId, patientId), sql`${consultationBookings.bookingDate} < ${todayStr}`));
+    .where(and(eq(consultationBookings.patientId, patientId), sql`${consultationBookings.bookingDate} < ${targetDate}`));
   for (const r of consultRows) {
     if (r.date) activityDates.push(r.date);
   }
@@ -194,7 +273,7 @@ export async function getPatientClinicalStatus(
   const therapyRows = await db
     .select({ date: therapySlotBookings.bookingDate })
     .from(therapySlotBookings)
-    .where(and(eq(therapySlotBookings.patientId, patientId), sql`${therapySlotBookings.bookingDate} < ${todayStr}`));
+    .where(and(eq(therapySlotBookings.patientId, patientId), sql`${therapySlotBookings.bookingDate} < ${targetDate}`));
   for (const r of therapyRows) {
     if (r.date) activityDates.push(r.date);
   }
@@ -203,7 +282,7 @@ export async function getPatientClinicalStatus(
   const visitRows = await db
     .select({ date: visits.visitDate })
     .from(visits)
-    .where(and(eq(visits.patientId, patientId), sql`${visits.visitDate} < ${todayStr}`));
+    .where(and(eq(visits.patientId, patientId), sql`${visits.visitDate} < ${targetDate}`));
   for (const r of visitRows) {
     if (r.date) activityDates.push(r.date);
   }
@@ -212,7 +291,7 @@ export async function getPatientClinicalStatus(
   const assessmentRows = await db
     .select({ date: patientAssessmentFiles.assessmentDate })
     .from(patientAssessmentFiles)
-    .where(and(eq(patientAssessmentFiles.patientId, patientId), sql`${patientAssessmentFiles.assessmentDate} < ${todayStr}`));
+    .where(and(eq(patientAssessmentFiles.patientId, patientId), sql`${patientAssessmentFiles.assessmentDate} < ${targetDate}`));
   for (const r of assessmentRows) {
     if (r.date) activityDates.push(r.date);
   }
@@ -221,6 +300,6 @@ export async function getPatientClinicalStatus(
     patientId,
     activityDates,
     todayIntake,
-    referenceDate: todayStr,
+    referenceDate: targetDate,
   });
 }

@@ -45,7 +45,24 @@ import type {
   ProcessConsultationAdjustmentDto,
 } from './dto';
 
-const todayDateString = () => new Date().toISOString().slice(0, 10);
+export const todayDateString = () => {
+  const dhakaFormatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Dhaka',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  return dhakaFormatter.format(new Date());
+};
+
+export function extractConsultationReason(notes?: string | null): string {
+  if (!notes || !notes.trim()) return 'General Consultation';
+  const match = notes.match(/^\[(.*?)\]/);
+  if (match && match[1]?.trim()) {
+    return match[1].trim();
+  }
+  return notes.trim();
+}
 
 /**
  * Parse told time string (e.g. "09:30 AM", "14:15", "10:00", "2:30 PM") into minutes from midnight.
@@ -478,8 +495,15 @@ export class VisitsService {
   }
 
   async getDoctorQueue(doctorId: string) {
-    const today = todayDateString();
+    const dhakaDate = todayDateString();
+    const utcDate = new Date().toISOString().slice(0, 10);
+    const candidateDates = Array.from(new Set([dhakaDate, utcDate]));
     const isSpecificDoctor = Boolean(doctorId && doctorId !== 'all' && doctorId !== 'undefined');
+
+    const dateFilter = or(
+      inArray(serials.date, candidateDates),
+      inArray(visits.visitDate, candidateDates),
+    )!;
 
     let rows: any[] = [];
     if (isSpecificDoctor) {
@@ -499,7 +523,7 @@ export class VisitsService {
         .where(
           and(
             eq(serials.doctorId, doctorId),
-            eq(serials.date, today),
+            dateFilter,
             isNull(visits.checkedOutAt),
             ne(visits.status, 'checked_out'),
             ne(visits.status, 'cancelled'),
@@ -530,7 +554,7 @@ export class VisitsService {
             .leftJoin(rooms, eq(users.chamberRoomId, rooms.id))
             .where(
               and(
-                eq(serials.date, today),
+                dateFilter,
                 isNull(visits.checkedOutAt),
                 ne(visits.status, 'checked_out'),
                 ne(visits.status, 'cancelled'),
@@ -556,7 +580,7 @@ export class VisitsService {
         .leftJoin(rooms, eq(users.chamberRoomId, rooms.id))
         .where(
           and(
-            eq(serials.date, today),
+            dateFilter,
             isNull(visits.checkedOutAt),
             ne(visits.status, 'checked_out'),
             ne(visits.status, 'cancelled'),
@@ -568,6 +592,52 @@ export class VisitsService {
     return Promise.all(
       rows.map(async (r) => {
         const patientClinicalStatus = await getPatientClinicalStatus(this.db, r.patient.id).catch(() => null);
+
+        // Check if there is an intake form associated with this visit or patient
+        let intakeFormId: string | null = null;
+        try {
+          const linkedIntake = await this.db
+            .select({ id: patientIntakeForms.id, chiefComplaint: patientIntakeForms.chiefComplaint })
+            .from(patientIntakeForms)
+            .where(
+              or(
+                eq(patientIntakeForms.visitId, r.visit.id),
+                eq(patientIntakeForms.patientId, r.patient.id),
+              ),
+            )
+            .orderBy(desc(patientIntakeForms.createdAt))
+            .limit(1);
+
+          if (linkedIntake[0]) {
+            intakeFormId = linkedIntake[0].id;
+          } else if (patientClinicalStatus?.todayIntakeId) {
+            intakeFormId = patientClinicalStatus.todayIntakeId;
+          }
+        } catch {}
+
+        // Check if there is a consultation booking associated with the visit
+        let bookingReason: string | null = null;
+        if (r.visit.consultationBookingId) {
+          try {
+            const [booking] = await this.db
+              .select({ notes: consultationBookings.notes })
+              .from(consultationBookings)
+              .where(eq(consultationBookings.id, r.visit.consultationBookingId))
+              .limit(1);
+            if (booking?.notes) {
+              bookingReason = booking.notes;
+            }
+          } catch {}
+        }
+
+        // Clean reason extraction
+        const rawNote = r.visit.notes || bookingReason || null;
+        const reason = extractConsultationReason(rawNote);
+
+        const feePaidPaisa = r.visit.consultationFeePaidPaisa ?? 0;
+        const feePaidTaka = feePaidPaisa / 100;
+        const isFree = feePaidPaisa === 0;
+
         return {
           ...r.serial,
           tokenNumber: r.visit.tokenNumber ?? r.serial.serialNumber,
@@ -594,6 +664,26 @@ export class VisitsService {
           chamberRoomNumber: r.chamber?.roomNumber,
           chamberName: r.chamber?.name,
           roomNumber: r.chamber?.roomNumber,
+
+          // Visit & consultation payload
+          visit: {
+            id: r.visit.id,
+            tokenNumber: r.visit.tokenNumber,
+            status: r.visit.status,
+            currentLocation: r.visit.currentLocation,
+            notes: r.visit.notes,
+            consultationFeePaidPaisa: r.visit.consultationFeePaidPaisa,
+            consultationAdjustmentType: r.visit.consultationAdjustmentType,
+            consultationAdjustmentAmountPaisa: r.visit.consultationAdjustmentAmountPaisa,
+            consultationAdjustmentReason: r.visit.consultationAdjustmentReason,
+            consultationAdjustmentStatus: r.visit.consultationAdjustmentStatus,
+          },
+          consultationFeePaidPaisa: feePaidPaisa,
+          consultationFeePaidTaka: feePaidTaka,
+          isFree,
+          reason,
+          intakeFormId,
+          bookingReason,
         };
       }),
     );
@@ -1505,6 +1595,7 @@ export class VisitsService {
         doctorId,
         currentLocation: 'doctor_chamber',
         notes: visitReasonNote,
+        consultationFeePaidPaisa: dto?.isFree ? 0 : item.visit.consultationFeePaidPaisa,
         updatedAt: now,
       })
       .where(eq(visits.id, visitId));

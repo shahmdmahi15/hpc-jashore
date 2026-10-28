@@ -370,26 +370,63 @@ export function CheckInWorkstationView() {
     let active = true;
     setLoadingClinicalStatus(true);
 
-    // Direct check for today's intake form
-    api.patients.listIntakeForms({ patientId: selectedPatient.id })
-      .then((forms: any) => {
-        if (!active) return;
+    // Direct check for today's / latest intake form
+    api.patients
+      .getLatestIntakeForm(selectedPatient.id)
+      .then((form: any) => {
+        if (!active || !form) return;
         const todayStr = new Date().toISOString().slice(0, 10);
-        const hasToday = (forms || []).some(
-          (f: any) => f.date === todayStr || (f.createdAt && f.createdAt.slice(0, 10) === todayStr)
-        );
-        if (hasToday) {
+        const formDate = (form.date || form.createdAt || '').slice(0, 10);
+        if (
+          formDate === todayStr ||
+          form.status === 'in_queue' ||
+          form.status === 'forwarded_to_cashier' ||
+          form.status === 'submitted' ||
+          Boolean(form.chiefComplaint || form.bpSystolic)
+        ) {
           setSavedIntakePatientIds((prev) => new Set([...Array.from(prev), selectedPatient.id]));
+          setSelectedClinicalStatus((prev) =>
+            prev ? { ...prev, intakeCompletedToday: true, todayIntakeId: form.id } : prev
+          );
         }
       })
-      .catch(() => {});
+      .catch(() => {
+        api.patients
+          .listIntakeForms({ patientId: selectedPatient.id, date: 'all' })
+          .then((forms: any) => {
+            if (!active) return;
+            const todayStr = new Date().toISOString().slice(0, 10);
+            const todayForm = (forms || []).find(
+              (f: any) =>
+                (f.date && f.date.slice(0, 10) === todayStr) ||
+                (f.createdAt && f.createdAt.slice(0, 10) === todayStr) ||
+                f.status === 'in_queue' ||
+                f.status === 'forwarded_to_cashier'
+            );
+            if (todayForm) {
+              setSavedIntakePatientIds((prev) => new Set([...Array.from(prev), selectedPatient.id]));
+              setSelectedClinicalStatus((prev) =>
+                prev ? { ...prev, intakeCompletedToday: true, todayIntakeId: todayForm.id } : prev
+              );
+            }
+          })
+          .catch(() => {});
+      });
 
     getPatientClinicalStatusAction(selectedPatient.id)
       .then((res) => {
         if (!active) return;
         if (res.success && res.data) {
-          setSelectedClinicalStatus(res.data);
-          if (res.data.intakeCompletedToday) {
+          const clinicalData = res.data;
+          setSelectedClinicalStatus((prev) => {
+            const isDone = clinicalData.intakeCompletedToday || prev?.intakeCompletedToday;
+            return {
+              ...clinicalData,
+              intakeCompletedToday: Boolean(isDone),
+              todayIntakeId: clinicalData.todayIntakeId || prev?.todayIntakeId || null,
+            };
+          });
+          if (clinicalData.intakeCompletedToday) {
             setSavedIntakePatientIds((prev) => new Set([...Array.from(prev), selectedPatient.id]));
           }
         } else {

@@ -77,10 +77,24 @@ import {
   Sparkles,
   Copy,
   Check,
+  Gift,
+  CreditCard,
+  HelpCircle,
 } from 'lucide-react';
 
 export interface DoctorChamberProps {
   session?: UserSession | null;
+}
+
+export function getCleanReason(rawReason?: string | null): string {
+  if (!rawReason) return '';
+  const trimmed = rawReason.trim();
+  const bracketMatch = trimmed.match(/^\[(.*?)\]/);
+  if (bracketMatch && bracketMatch[1]) {
+    const after = trimmed.slice(bracketMatch[0].length).trim();
+    return after ? `${bracketMatch[1]} (${after})` : bracketMatch[1];
+  }
+  return trimmed;
 }
 
 export type PatientClinicalStatusType = 'brand_new' | 'old_active' | 'lapsed_reintake';
@@ -473,18 +487,44 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
   useEffect(() => {
     if (activeSerial?.patientId) {
       api.patients
-        .listIntakeForms({ patientId: activeSerial.patientId })
-        .then((forms) => {
-          if (forms && forms.length > 0) {
-            setActiveIntakeForm(forms[0]);
-            if (forms[0].chiefComplaint) {
-              setChiefComplaints((prev) => (prev ? prev : forms[0].chiefComplaint));
+        .getLatestIntakeForm(activeSerial.patientId)
+        .then((form) => {
+          if (form && (form.id || form.chiefComplaint || form.bpSystolic)) {
+            setActiveIntakeForm(form);
+            if (form.chiefComplaint) {
+              setChiefComplaints((prev) => (prev ? prev : form.chiefComplaint));
             }
           } else {
-            setActiveIntakeForm(null);
+            api.patients
+              .listIntakeForms({ patientId: activeSerial.patientId, date: 'all' })
+              .then((forms) => {
+                if (forms && forms.length > 0) {
+                  setActiveIntakeForm(forms[0]);
+                  if (forms[0].chiefComplaint) {
+                    setChiefComplaints((prev) => (prev ? prev : forms[0].chiefComplaint));
+                  }
+                } else {
+                  setActiveIntakeForm(null);
+                }
+              })
+              .catch(() => setActiveIntakeForm(null));
           }
         })
-        .catch(() => setActiveIntakeForm(null));
+        .catch(() => {
+          api.patients
+            .listIntakeForms({ patientId: activeSerial.patientId, date: 'all' })
+            .then((forms) => {
+              if (forms && forms.length > 0) {
+                setActiveIntakeForm(forms[0]);
+                if (forms[0].chiefComplaint) {
+                  setChiefComplaints((prev) => (prev ? prev : forms[0].chiefComplaint));
+                }
+              } else {
+                setActiveIntakeForm(null);
+              }
+            })
+            .catch(() => setActiveIntakeForm(null));
+        });
 
       // Fetch active therapy plans for active patient
       api.therapy
@@ -1299,18 +1339,54 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
                               <span>লিঙ্গ: <strong className="text-foreground capitalize">{s.patient?.gender === 'female' ? 'মহিলা' : 'পুরুষ'}</strong></span>
                             </div>
 
-                            {/* Consultation Reason Badge (Report Showing, Talk, Follow-up etc) */}
-                            {(s.visit?.notes || s.reason) && (
-                              <div className="pt-1 flex items-center gap-1.5 flex-wrap">
-                                <Badge
-                                  variant="outline"
-                                  className="text-[10px] font-semibold bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 border-cyan-500/30 px-2 py-0.5 rounded-md flex items-center gap-1"
-                                >
-                                  <span>🎯</span>
-                                  <span>{s.reason || s.visit?.notes}</span>
-                                </Badge>
-                              </div>
-                            )}
+                            {/* Consultation Fee Status & Reason Badges */}
+                            {(() => {
+                              const isPaid = Boolean(
+                                (s.consultationFeePaidTaka && Number(s.consultationFeePaidTaka) > 0) ||
+                                (s.consultationFeePaidPaisa && Number(s.consultationFeePaidPaisa) > 0) ||
+                                (s.visit?.consultationFeePaidPaisa && Number(s.visit.consultationFeePaidPaisa) > 0)
+                              );
+                              const feeAmount =
+                                s.consultationFeePaidTaka ||
+                                (s.consultationFeePaidPaisa
+                                  ? Math.round(s.consultationFeePaidPaisa / 100)
+                                  : s.visit?.consultationFeePaidPaisa
+                                  ? Math.round(s.visit.consultationFeePaidPaisa / 100)
+                                  : 0);
+                              const rawReason =
+                                s.reason ||
+                                s.visit?.notes ||
+                                s.notes ||
+                                s.intakeForm?.chiefComplaint ||
+                                (s.intakeForm?.specialNotes ? s.intakeForm.specialNotes : null);
+                              const cleanReason = getCleanReason(rawReason);
+
+                              return (
+                                <div className="pt-1.5 flex items-center gap-1.5 flex-wrap">
+                                  {isPaid ? (
+                                    <Badge className="bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/30 text-xs font-bold gap-1 shadow-2xs">
+                                      <CreditCard className="size-3" />
+                                      <span>ফি পরিশোধিত: ৳{feeAmount}</span>
+                                    </Badge>
+                                  ) : (
+                                    <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 text-xs font-bold gap-1 shadow-2xs">
+                                      <Gift className="size-3" />
+                                      <span>ফ্রি (Free Consultation)</span>
+                                    </Badge>
+                                  )}
+
+                                  {cleanReason && (
+                                    <Badge
+                                      variant="outline"
+                                      className="bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/30 text-xs font-semibold gap-1 shadow-2xs"
+                                    >
+                                      <HelpCircle className="size-3" />
+                                      <span>কারণ: {cleanReason}</span>
+                                    </Badge>
+                                  )}
+                                </div>
+                              );
+                            })()}
                           </div>
 
                           {/* Action Buttons for this Patient Item */}
@@ -1481,6 +1557,54 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
                         </div>
 
                         <div className="flex gap-2 items-center flex-wrap">
+                          {(() => {
+                            const isActivePaid = Boolean(
+                              (activeSerial.consultationFeePaidTaka && Number(activeSerial.consultationFeePaidTaka) > 0) ||
+                              (activeSerial.consultationFeePaidPaisa && Number(activeSerial.consultationFeePaidPaisa) > 0) ||
+                              (activeSerial.visit?.consultationFeePaidPaisa && Number(activeSerial.visit.consultationFeePaidPaisa) > 0)
+                            );
+                            const activeFeeAmount =
+                              activeSerial.consultationFeePaidTaka ||
+                              (activeSerial.consultationFeePaidPaisa
+                                ? Math.round(activeSerial.consultationFeePaidPaisa / 100)
+                                : activeSerial.visit?.consultationFeePaidPaisa
+                                ? Math.round(activeSerial.visit.consultationFeePaidPaisa / 100)
+                                : 0);
+                            const activeRawReason =
+                              activeSerial.reason ||
+                              activeSerial.visit?.notes ||
+                              activeSerial.notes ||
+                              activeSerial.intakeForm?.chiefComplaint ||
+                              activeIntakeForm?.chiefComplaint;
+                            const activeCleanReason = getCleanReason(activeRawReason);
+
+                            return (
+                              <>
+                                {isActivePaid ? (
+                                  <Badge className="bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/30 text-xs font-bold gap-1 shadow-2xs">
+                                    <CreditCard className="size-3.5" />
+                                    <span>ফি পরিশোধিত: ৳{activeFeeAmount}</span>
+                                  </Badge>
+                                ) : (
+                                  <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 text-xs font-bold gap-1 shadow-2xs">
+                                    <Gift className="size-3.5" />
+                                    <span>ফ্রি (Free Consultation)</span>
+                                  </Badge>
+                                )}
+
+                                {activeCleanReason && (
+                                  <Badge
+                                    variant="outline"
+                                    className="bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/30 text-xs font-semibold gap-1 shadow-2xs"
+                                  >
+                                    <HelpCircle className="size-3.5" />
+                                    <span>কারণ: {activeCleanReason}</span>
+                                  </Badge>
+                                )}
+                              </>
+                            );
+                          })()}
+
                           {renderPatientClinicalStatusBadge(activeSerial, 'default')}
                           {getPriorityBadge(activeSerial.priority)}
                           {activeSerial.patient?.bloodGroup && (
@@ -2386,7 +2510,7 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
             patientId={selectedIntakePatient?.patientId || selectedIntakePatient?.patient?.id}
             visitId={selectedIntakePatient?.visitId || selectedIntakePatient?.id}
             patient={selectedIntakePatient?.patient}
-            intakeForm={selectedIntakePatient?.id === activeSerial?.id ? activeIntakeForm : null}
+            intakeForm={selectedIntakePatient?.id === activeSerial?.id ? activeIntakeForm : (selectedIntakePatient?.intakeForm || null)}
           />
 
           {/* PATIENT INTAKE FORM (CREATE / RE-INTAKE) MODAL */}
@@ -2400,13 +2524,25 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
             onSuccess={() => {
               if (activeSerial?.patientId) {
                 api.patients
-                  .listIntakeForms({ patientId: activeSerial.patientId })
-                  .then((forms) => {
-                    if (forms && forms.length > 0) {
-                      setActiveIntakeForm(forms[0]);
-                      if (forms[0].chiefComplaint && !chiefComplaints) {
-                        setChiefComplaints(forms[0].chiefComplaint);
+                  .getLatestIntakeForm(activeSerial.patientId)
+                  .then((form) => {
+                    if (form && (form.id || form.chiefComplaint || form.bpSystolic)) {
+                      setActiveIntakeForm(form);
+                      if (form.chiefComplaint && !chiefComplaints) {
+                        setChiefComplaints(form.chiefComplaint);
                       }
+                    } else {
+                      api.patients
+                        .listIntakeForms({ patientId: activeSerial.patientId, date: 'all' })
+                        .then((forms) => {
+                          if (forms && forms.length > 0) {
+                            setActiveIntakeForm(forms[0]);
+                            if (forms[0].chiefComplaint && !chiefComplaints) {
+                              setChiefComplaints(forms[0].chiefComplaint);
+                            }
+                          }
+                        })
+                        .catch(() => {});
                     }
                   })
                   .catch(() => {});

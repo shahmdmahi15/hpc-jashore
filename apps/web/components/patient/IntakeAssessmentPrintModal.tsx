@@ -146,19 +146,46 @@ export function IntakeAssessmentPrintModal({
     if (!open) return;
 
     const sourceData = data || intake || intakeForm || initialForm;
-    if (!sourceData && targetPatientId) {
+    const hasValidSourceData = Boolean(
+      sourceData &&
+      (sourceData.id || sourceData.chiefComplaint || sourceData.bpSystolic || sourceData.weightKg)
+    );
+
+    if (!hasValidSourceData && targetPatientId) {
       setLoading(true);
       api.patients
-        .listIntakeForms({ patientId: targetPatientId })
-        .then((forms: any) => {
-          if (Array.isArray(forms) && forms.length > 0) {
-            setFetchedForm(forms[0]);
+        .getLatestIntakeForm(targetPatientId)
+        .then((form: any) => {
+          if (form && (form.id || form.chiefComplaint || form.bpSystolic || form.weightKg)) {
+            setFetchedForm(form);
+            setLoading(false);
           } else {
-            setFetchedForm(null);
+            api.patients
+              .listIntakeForms({ patientId: targetPatientId, date: 'all' })
+              .then((forms: any) => {
+                if (Array.isArray(forms) && forms.length > 0) {
+                  setFetchedForm(forms[0]);
+                } else {
+                  setFetchedForm(null);
+                }
+              })
+              .catch(() => setFetchedForm(null))
+              .finally(() => setLoading(false));
           }
         })
-        .catch(() => setFetchedForm(null))
-        .finally(() => setLoading(false));
+        .catch(() => {
+          api.patients
+            .listIntakeForms({ patientId: targetPatientId, date: 'all' })
+            .then((forms: any) => {
+              if (Array.isArray(forms) && forms.length > 0) {
+                setFetchedForm(forms[0]);
+              } else {
+                setFetchedForm(null);
+              }
+            })
+            .catch(() => setFetchedForm(null))
+            .finally(() => setLoading(false));
+        });
     }
 
     if (!propPatient && !initialPatient && targetPatientId) {

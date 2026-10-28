@@ -33,6 +33,7 @@ import {
 import { EventsGateway } from '../realtime/events.gateway';
 import { RealtimeService } from '../realtime/realtime.service';
 import {
+  getDhakaDateStrings,
   getPatientClinicalStatus,
   type PatientClinicalStatus,
 } from './patient-clinical-status';
@@ -406,7 +407,7 @@ export class PatientsService {
     meta: { ip?: string | null; requestId?: string | null },
   ) {
     const now = new Date().toISOString();
-    const today = dto.date || now.slice(0, 10);
+    const today = dto.date || getDhakaDateStrings().dhakaDate;
     const year = new Date().getFullYear();
 
     // 1. Resolve or Create Patient
@@ -628,13 +629,27 @@ export class PatientsService {
     patientId?: string;
     search?: string;
   }) {
-    const today = query.date || new Date().toISOString().slice(0, 10);
+    const { dhakaDate, utcDate } = getDhakaDateStrings();
     const conditions = [];
 
     if (query.date && query.date !== 'all') {
-      conditions.push(eq(patientIntakeForms.date, query.date));
-    } else if (!query.date) {
-      conditions.push(eq(patientIntakeForms.date, today));
+      if (query.date === 'today') {
+        conditions.push(
+          or(
+            eq(patientIntakeForms.date, dhakaDate),
+            eq(patientIntakeForms.date, utcDate),
+          )!,
+        );
+      } else {
+        conditions.push(eq(patientIntakeForms.date, query.date));
+      }
+    } else if (!query.date && !query.patientId) {
+      conditions.push(
+        or(
+          eq(patientIntakeForms.date, dhakaDate),
+          eq(patientIntakeForms.date, utcDate),
+        )!,
+      );
     }
 
     if (query.status && query.status !== 'all') {
@@ -1125,6 +1140,7 @@ export class PatientsService {
         consultationBookingId: bookingId,
         priority: dto.priority || 'normal',
         currentLocation: dto.targetQueue === 'therapy' ? 'Therapy Hall' : 'Waiting Room',
+        consultationFeePaidPaisa: feePaisa,
         updatedAt: now,
       })
       .where(eq(visits.id, visitId));
