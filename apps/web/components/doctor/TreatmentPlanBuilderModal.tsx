@@ -14,7 +14,6 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Badge } from '../ui/badge';
-import { Card, CardContent } from '../ui/card';
 import {
   Table,
   TableBody,
@@ -38,15 +37,15 @@ import {
   Trash2,
   Printer,
   Save,
-  CheckCircle2,
-  Calendar,
-  Sparkles,
-  Search,
-  RefreshCw,
   Clock,
   Check,
-  AlertCircle,
+  Search,
+  RefreshCw,
   FileText,
+  ArrowUp,
+  ArrowDown,
+  Sparkles,
+  Layers,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
@@ -54,6 +53,8 @@ export interface PrescribedModalityItem {
   modalityCode: string;
   modalityName: string;
   modalityNameBn?: string;
+  durationMinutes: number;
+  sequenceOrder: number;
   totalSessionsPrescribed: number;
   frequency: string;
   notes?: string;
@@ -66,8 +67,43 @@ export interface TreatmentPlanBuilderModalProps {
   visitId?: string;
   consultationId?: string;
   onPlansSaved?: (plans: any[]) => void;
-  initialPlans?: PrescribedModalityItem[];
+  initialPlans?: any[];
 }
+
+const COMMON_PRESETS = [
+  {
+    name: 'ল্যাম্বার স্পন্ডিলোসিস / কোমর ব্যথা (Lumbar Pack)',
+    items: [
+      { modalityCode: 'IFT', modalityName: 'Interferential Therapy (IFT)', modalityNameBn: 'ইন্টারফেরেনশিয়াল থেরাপি', durationMinutes: 10, totalSessionsPrescribed: 10, frequency: 'daily', notes: '4-pole sweep 80-120Hz' },
+      { modalityCode: 'MANUAL', modalityName: 'Manual Therapy & Mobilization', modalityNameBn: 'ম্যানুয়াল থেরাপি', durationMinutes: 15, totalSessionsPrescribed: 10, frequency: 'daily', notes: 'Lumbar spine mobilization & stretching' },
+      { modalityCode: 'SWD', modalityName: 'Shortwave Diathermy (SWD)', modalityNameBn: 'শর্টওয়েভ ডায়াথার্মি', durationMinutes: 20, totalSessionsPrescribed: 10, frequency: 'daily', notes: 'Continuous coplanar mode' },
+    ],
+  },
+  {
+    name: 'সারভাইকাল রেডিকুলোপ্যাথি / ঘাড় ব্যথা (Cervical Pack)',
+    items: [
+      { modalityCode: 'TRACTION', modalityName: 'Cervical Traction', modalityNameBn: 'সারভাইকাল ট্র্যাকশন', durationMinutes: 15, totalSessionsPrescribed: 10, frequency: 'daily', notes: 'Intermittent 8kg - 10kg' },
+      { modalityCode: 'UST', modalityName: 'Ultrasound Therapy (UST)', modalityNameBn: 'আল্ট্রাসাউন্ড থেরাপি', durationMinutes: 10, totalSessionsPrescribed: 10, frequency: 'daily', notes: '1.2 W/cm² pulsed mode' },
+      { modalityCode: 'MANUAL', modalityName: 'Manual Mobilization', modalityNameBn: 'ম্যানুয়াল মোবিলাইজেশন', durationMinutes: 15, totalSessionsPrescribed: 10, frequency: 'daily', notes: 'Upper cervical gentle traction & posture correction' },
+    ],
+  },
+  {
+    name: 'হাঁটু ব্যথা / অস্টিওআর্থ্রাইটিস (Knee OA Pack)',
+    items: [
+      { modalityCode: 'SWD', modalityName: 'Shortwave Diathermy (SWD)', modalityNameBn: 'শর্টওয়েভ ডায়াথার্মি', durationMinutes: 20, totalSessionsPrescribed: 10, frequency: 'daily', notes: 'Contra-planar knee placement' },
+      { modalityCode: 'IFT', modalityName: 'IFT / TENS', modalityNameBn: 'আইএফটি / টেনস', durationMinutes: 15, totalSessionsPrescribed: 10, frequency: 'daily', notes: 'Pain gate modulation' },
+      { modalityCode: 'EXERCISE', modalityName: 'Therapeutic Exercise', modalityNameBn: 'থেরাপিউটিক এক্সারসাইজ', durationMinutes: 15, totalSessionsPrescribed: 10, frequency: 'daily', notes: 'Quadriceps strengthening & VMO activation' },
+    ],
+  },
+  {
+    name: 'ফ্রোজেন শোল্ডার (Frozen Shoulder Pack)',
+    items: [
+      { modalityCode: 'IRR', modalityName: 'Infrared Radiation (IRR)', modalityNameBn: 'ইনফ্রারেড রেডিয়েশন', durationMinutes: 15, totalSessionsPrescribed: 10, frequency: 'daily', notes: 'Pre-heating shoulder capsule' },
+      { modalityCode: 'UST', modalityName: 'Ultrasound Therapy (UST)', modalityNameBn: 'আল্ট্রাসাউন্ড থেরাপি', durationMinutes: 10, totalSessionsPrescribed: 10, frequency: 'daily', notes: 'Deep thermal on anterior/posterior capsule' },
+      { modalityCode: 'MANUAL', modalityName: 'Glenohumeral Mobilization', modalityNameBn: 'ম্যানুয়াল জয়েন্ট মোবিলাইজেশন', durationMinutes: 15, totalSessionsPrescribed: 10, frequency: 'daily', notes: 'Maitland grade II-III glides' },
+    ],
+  },
+];
 
 export function TreatmentPlanBuilderModal({
   open,
@@ -81,7 +117,7 @@ export function TreatmentPlanBuilderModal({
   const [modalitiesCatalog, setModalitiesCatalog] = useState<any[]>([]);
   const [loadingCatalog, setLoadingCatalog] = useState(false);
   const [searchModality, setSearchModality] = useState('');
-  const [selectedPlans, setSelectedPlans] = useState<PrescribedModalityItem[]>(initialPlans);
+  const [selectedPlans, setSelectedPlans] = useState<PrescribedModalityItem[]>([]);
   const [existingPlans, setExistingPlans] = useState<any[]>([]);
   const [loadingExisting, setLoadingExisting] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -89,12 +125,23 @@ export function TreatmentPlanBuilderModal({
 
   const patientId = patient?.id || patient?.patientId;
 
-  // Load catalog & existing patient plans on open
+  // Initialize or transform initial plans
   useEffect(() => {
     if (!open) return;
 
-    if (initialPlans && initialPlans.length > 0) {
-      setSelectedPlans(initialPlans);
+    if (Array.isArray(initialPlans) && initialPlans.length > 0) {
+      setSelectedPlans(
+        initialPlans.map((p, idx) => ({
+          modalityCode: p.modalityCode || p.code || 'IFT',
+          modalityName: p.modalityName || p.nameEn || p.modalityCode || 'Therapy',
+          modalityNameBn: p.modalityNameBn || p.nameBn || '',
+          durationMinutes: Number(p.durationMinutes) || 15,
+          sequenceOrder: p.sequenceOrder !== undefined ? p.sequenceOrder : idx + 1,
+          totalSessionsPrescribed: Number(p.totalSessionsPrescribed) || 10,
+          frequency: p.frequency || 'daily',
+          notes: p.notes || '',
+        }))
+      );
     }
 
     // 1. Fetch Modalities Catalog
@@ -140,31 +187,62 @@ export function TreatmentPlanBuilderModal({
   });
 
   const handleAddModality = (modality: any) => {
-    if (selectedPlans.some((p) => p.modalityCode === modality.code)) {
-      toast.info(`${modality.nameEn} (${modality.code}) ইতিপূর্বে যুক্ত করা হয়েছে`);
-      return;
-    }
-
+    const nextSeq = selectedPlans.length + 1;
     const newItem: PrescribedModalityItem = {
       modalityCode: modality.code,
       modalityName: modality.nameEn,
       modalityNameBn: modality.nameBn,
+      durationMinutes: modality.defaultDurationMin || 15,
+      sequenceOrder: nextSeq,
       totalSessionsPrescribed: 10,
       frequency: 'daily',
       notes: '',
     };
 
     setSelectedPlans([...selectedPlans, newItem]);
-    toast.success(`${modality.nameEn} প্ল্যানে যুক্ত করা হয়েছে`);
+    toast.success(`${modality.nameEn} ধাপ ${nextSeq} হিসেবে যুক্ত করা হয়েছে`);
   };
 
-  const handleRemoveModality = (code: string) => {
-    setSelectedPlans(selectedPlans.filter((p) => p.modalityCode !== code));
+  const handleApplyPreset = (preset: typeof COMMON_PRESETS[0]) => {
+    const newItems: PrescribedModalityItem[] = preset.items.map((it, idx) => ({
+      ...it,
+      sequenceOrder: idx + 1,
+    }));
+    setSelectedPlans(newItems);
+    toast.success(`${preset.name} সফলভাবে প্রয়োগ করা হয়েছে!`);
   };
 
-  const handleUpdateItem = (code: string, updates: Partial<PrescribedModalityItem>) => {
+  const handleMoveUp = (index: number) => {
+    if (index === 0) return;
+    const items = [...selectedPlans];
+    const temp = items[index - 1];
+    items[index - 1] = items[index];
+    items[index] = temp;
+    // Update sequence numbers
+    const reindexed = items.map((it, idx) => ({ ...it, sequenceOrder: idx + 1 }));
+    setSelectedPlans(reindexed);
+  };
+
+  const handleMoveDown = (index: number) => {
+    if (index === selectedPlans.length - 1) return;
+    const items = [...selectedPlans];
+    const temp = items[index + 1];
+    items[index + 1] = items[index];
+    items[index] = temp;
+    // Update sequence numbers
+    const reindexed = items.map((it, idx) => ({ ...it, sequenceOrder: idx + 1 }));
+    setSelectedPlans(reindexed);
+  };
+
+  const handleRemoveModality = (index: number) => {
+    const updated = selectedPlans.filter((_, idx) => idx !== index);
+    const reindexed = updated.map((it, idx) => ({ ...it, sequenceOrder: idx + 1 }));
+    setSelectedPlans(reindexed);
+  };
+
+  const handleUpdateItem = (index: number, updates: Partial<PrescribedModalityItem>) => {
     setSelectedPlans((prev) =>
-      prev.map((it) => (it.modalityCode === code ? { ...it, ...updates } : it))
+      prev.map((it, idx) => (idx === index ? { ...it, ...updates } : it))
     );
   };
 
@@ -181,16 +259,23 @@ export function TreatmentPlanBuilderModal({
 
     try {
       setSaving(true);
-      const res = await api.therapy.createPlans({
+      // Format notes to cleanly embed duration and sequence order
+      const plansPayload = selectedPlans.map((p, idx) => ({
+        modalityCode: p.modalityCode,
+        totalSessionsPrescribed: Number(p.totalSessionsPrescribed) || 10,
+        frequency: p.frequency || 'daily',
+        notes: JSON.stringify({
+          sequence: idx + 1,
+          durationMin: p.durationMinutes || 15,
+          clinicalNote: p.notes || '',
+        }),
+      }));
+
+      await api.therapy.createPlans({
         patientId,
         visitId,
         consultationId,
-        plans: selectedPlans.map((p) => ({
-          modalityCode: p.modalityCode,
-          totalSessionsPrescribed: Number(p.totalSessionsPrescribed) || 10,
-          frequency: p.frequency || 'daily',
-          notes: p.notes || undefined,
-        })),
+        plans: plansPayload,
       });
 
       toast.success('থেরাপি ট্রিটমেন্ট প্ল্যান সফলভাবে সংরক্ষিত হয়েছে!');
@@ -210,24 +295,36 @@ export function TreatmentPlanBuilderModal({
   };
 
   const handlePrint = () => {
-    window.print();
+    document.body.classList.add('printing-hpc-plan');
+    setTimeout(() => {
+      window.print();
+    }, 50);
   };
+
+  const nowFormatted = new Date().toLocaleString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  });
 
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-4xl max-h-[92vh] overflow-y-auto p-4 sm:p-6 bg-background border-border">
+        <DialogContent className="max-w-4xl max-h-[94vh] overflow-y-auto p-4 sm:p-6 bg-background border-border">
           <DialogHeader className="pb-3 border-b border-border/60">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <DialogTitle className="text-lg sm:text-xl font-bold flex items-center gap-2">
-                  <span className="p-1.5 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                  <span className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
                     <Activity className="size-5" />
                   </span>
                   <span>থেরাপি ট্রিটমেন্ট প্ল্যান বিল্ডার (Therapy Plan Builder)</span>
                 </DialogTitle>
                 <DialogDescription className="text-xs text-muted-foreground mt-0.5">
-                  রোগীর জন্য নির্দিষ্ট ফিজিওথেরাপি ও রিহ্যাবিলিটেশন মডালিটি, সেশন সংখ্যা ও শিডিউল নির্ধারণ করুন
+                  মডালিটির সিকোয়েন্স (১ম, ২য়, ৩য়...), প্রতিটির সময়সীমা (মিনিট) ও মোট সেশন নির্ধারণ করুন
                 </DialogDescription>
               </div>
 
@@ -244,66 +341,42 @@ export function TreatmentPlanBuilderModal({
             </div>
           </DialogHeader>
 
-          <div className="space-y-6 pt-2">
-            {/* 1. ACTIVE / PAST PLANS FOR PATIENT */}
-            {existingPlans.length > 0 && (
-              <div className="rounded-xl border border-border/70 bg-card p-3 sm:p-4">
-                <div className="flex items-center justify-between pb-2 mb-2 border-b border-border/50">
-                  <h4 className="text-xs sm:text-sm font-bold flex items-center gap-2 text-foreground">
-                    <Clock className="size-4 text-primary" />
-                    <span>রোগীর বর্তমান ও পূর্ববর্তী সক্রিয় প্ল্যানসমূহ (Active Treatment Plans)</span>
-                  </h4>
-                  <Badge variant="outline" className="text-[10px] font-mono">
-                    {existingPlans.length} টি প্ল্যান
-                  </Badge>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
-                  {existingPlans.map((ep) => (
-                    <div
-                      key={ep.id}
-                      className="p-2.5 rounded-lg border border-border/60 bg-muted/20 flex flex-col justify-between gap-1 text-xs"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-foreground">
-                          {ep.modalityNameBn || ep.modalityNameEn || ep.modalityCode}
-                        </span>
-                        <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 text-[10px]">
-                          সক্রিয়
-                        </Badge>
-                      </div>
-                      <div className="flex items-center justify-between text-muted-foreground mt-1">
-                        <span>সেশন সম্পন্ন:</span>
-                        <span className="font-mono font-bold text-foreground">
-                          {ep.completedSessions || 0} / {ep.totalSessionsPrescribed} সেশন
-                        </span>
-                      </div>
-                      {ep.frequency && (
-                        <div className="text-[11px] text-muted-foreground">
-                          ফ্রিকোয়েন্সি: <strong>{ep.frequency}</strong>
-                        </div>
-                      )}
-                      {ep.notes && (
-                        <div className="text-[11px] italic text-muted-foreground truncate">
-                          নোট: {ep.notes}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
+          <div className="space-y-5 pt-2">
+            {/* QUICK PRESETS BAR */}
+            <div className="p-3 rounded-xl bg-muted/40 border border-border/70 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                  <Sparkles className="size-3.5 text-amber-500" />
+                  <span>ক্লিনিক্যাল ট্রিটমেন্ট প্রি-সেট প্যাকেজ (Quick Presets):</span>
+                </span>
+                <span className="text-[10px] text-muted-foreground">১-ক্লিকে রেডি প্ল্যান লোড করুন</span>
               </div>
-            )}
+              <div className="flex flex-wrap gap-1.5">
+                {COMMON_PRESETS.map((preset, idx) => (
+                  <Button
+                    key={idx}
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleApplyPreset(preset)}
+                    className="h-7 text-[11px] rounded-lg border-border hover:border-emerald-500/50 hover:bg-emerald-500/10 font-medium"
+                  >
+                    <span>{preset.name}</span>
+                  </Button>
+                ))}
+              </div>
+            </div>
 
-            {/* 2. MODALITIES CATALOG SELECTOR */}
-            <div className="space-y-3">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+            {/* MODALITIES CATALOG SELECTOR */}
+            <div className="space-y-2.5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div>
                   <Label className="text-xs sm:text-sm font-bold flex items-center gap-1.5 text-foreground">
-                    <Sparkles className="size-4 text-amber-500" />
-                    <span>মডালিটি নির্বাচন করুন (Select Modalities from Catalog)</span>
+                    <Layers className="size-4 text-emerald-500" />
+                    <span>মডালিটি নির্বাচন করুন (Select Modalities)</span>
                   </Label>
                   <p className="text-[11px] text-muted-foreground">
-                    নিচের ক্যাটালগ থেকে রোগীর প্রেসক্রিপশনে মডালিটি যুক্ত করুন
+                    তালিকা থেকে যেকোনো মডালিটি ক্লিক করে প্ল্যানের সিকোয়েন্সে যোগ করুন
                   </p>
                 </div>
 
@@ -319,61 +392,44 @@ export function TreatmentPlanBuilderModal({
               </div>
 
               {loadingCatalog ? (
-                <div className="py-6 text-center text-xs text-muted-foreground flex items-center justify-center gap-2">
+                <div className="py-4 text-center text-xs text-muted-foreground flex items-center justify-center gap-2">
                   <RefreshCw className="size-4 animate-spin text-primary" />
                   <span>ক্যাটালগ লোড হচ্ছে...</span>
                 </div>
-              ) : filteredCatalog.length === 0 ? (
-                <div className="p-4 rounded-xl border border-dashed border-border/80 text-center text-xs text-muted-foreground">
-                  কোনো মডালিটি পাওয়া যায়নি।
-                </div>
               ) : (
-                <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-2 rounded-xl bg-muted/20 border border-border/50">
-                  {filteredCatalog.map((mod) => {
-                    const isSelected = selectedPlans.some((p) => p.modalityCode === mod.code);
-                    return (
-                      <button
-                        key={mod.code}
-                        type="button"
-                        onClick={() => handleAddModality(mod)}
-                        disabled={isSelected}
-                        className={cn(
-                          'px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-all flex items-center gap-1.5 cursor-pointer',
-                          isSelected
-                            ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400 cursor-not-allowed opacity-80'
-                            : 'bg-card hover:bg-muted border-border text-foreground hover:border-primary/50'
-                        )}
-                      >
-                        {isSelected ? (
-                          <Check className="size-3 text-emerald-500" />
-                        ) : (
-                          <Plus className="size-3 text-muted-foreground" />
-                        )}
-                        <span>{mod.nameEn}</span>
-                        <span className="font-mono text-[10px] text-muted-foreground">({mod.code})</span>
-                      </button>
-                    );
-                  })}
+                <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto p-2 rounded-xl bg-muted/20 border border-border/50">
+                  {filteredCatalog.map((mod) => (
+                    <button
+                      key={mod.code}
+                      type="button"
+                      onClick={() => handleAddModality(mod)}
+                      className="px-2.5 py-1.5 rounded-lg text-xs font-medium border bg-card hover:bg-muted border-border text-foreground hover:border-emerald-500/50 transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
+                    >
+                      <Plus className="size-3 text-emerald-500" />
+                      <span>{mod.nameEn}</span>
+                      <span className="font-mono text-[10px] text-muted-foreground">({mod.code})</span>
+                    </button>
+                  ))}
                 </div>
               )}
             </div>
 
-            {/* 3. SELECTED PLANS CONFIGURATION TABLE */}
-            <div className="space-y-3">
+            {/* SEQUENCED TREATMENT PLAN TABLE */}
+            <div className="space-y-2.5">
               <div className="flex items-center justify-between">
                 <Label className="text-xs sm:text-sm font-bold flex items-center gap-1.5 text-foreground">
                   <FileText className="size-4 text-emerald-500" />
-                  <span>নির্ধারিত ট্রিটমেন্ট প্ল্যান (Prescribed Treatment Schedule)</span>
+                  <span>নির্ধারিত থেরাপি সিকোয়েন্স ও শিডিউল (Sequenced Plan)</span>
                 </Label>
-                <Badge variant="outline" className="text-xs font-bold text-primary">
-                  {selectedPlans.length} টি নির্বাচিত
+                <Badge variant="outline" className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                  {selectedPlans.length} টি ধাপ নির্ধারিত
                 </Badge>
               </div>
 
               {selectedPlans.length === 0 ? (
                 <div className="p-8 text-center rounded-xl border border-dashed border-border/80 bg-muted/10">
                   <p className="text-xs sm:text-sm text-muted-foreground">
-                    এখনও কোনো থেরাপি মডালিটি যুক্ত করা হয়নি। উপরের তালিকা থেকে প্রয়োজনীয় মডালিটি নির্বাচন করুন।
+                    এখনও কোনো থেরাপি মডালিটি যুক্ত করা হয়নি। উপরের প্রি-সেট অথবা ক্যাটালগ থেকে মডালিটি যোগ করুন।
                   </p>
                 </div>
               ) : (
@@ -381,16 +437,26 @@ export function TreatmentPlanBuilderModal({
                   <Table>
                     <TableHeader className="bg-muted/40">
                       <TableRow>
+                        <TableHead className="w-16 font-bold text-center">ক্রম</TableHead>
                         <TableHead className="font-bold">মডালিটি (Modality)</TableHead>
-                        <TableHead className="w-36 font-bold">মোট সেশন (Sessions)</TableHead>
-                        <TableHead className="w-40 font-bold">ফ্রিকোয়েন্সি (Frequency)</TableHead>
-                        <TableHead className="font-bold">বিশেষ নির্দেশিকা / নোট (Instructions)</TableHead>
-                        <TableHead className="w-16 text-right">মুছুন</TableHead>
+                        <TableHead className="w-28 font-bold">সময়সীমা (Min)</TableHead>
+                        <TableHead className="w-28 font-bold">মোট সেশন</TableHead>
+                        <TableHead className="w-36 font-bold">ফ্রিকোয়েন্সি</TableHead>
+                        <TableHead className="font-bold">ক্লিনিক্যাল নির্দেশিকা</TableHead>
+                        <TableHead className="w-24 text-right">অ্যাকশন</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {selectedPlans.map((plan) => (
-                        <TableRow key={plan.modalityCode}>
+                      {selectedPlans.map((plan, idx) => (
+                        <TableRow key={`${plan.modalityCode}-${idx}`}>
+                          {/* Sequence Badge */}
+                          <TableCell className="text-center font-bold">
+                            <span className="inline-flex items-center justify-center size-6 rounded-full bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-mono text-xs border border-emerald-500/30">
+                              {idx + 1}
+                            </span>
+                          </TableCell>
+
+                          {/* Modality Details */}
                           <TableCell className="font-bold text-foreground">
                             <div>{plan.modalityName}</div>
                             <div className="text-[10px] font-mono text-muted-foreground">
@@ -398,52 +464,47 @@ export function TreatmentPlanBuilderModal({
                             </div>
                           </TableCell>
 
+                          {/* Duration Minutes Input */}
                           <TableCell>
-                            <div className="flex items-center gap-1.5">
+                            <div className="flex items-center gap-1">
                               <Input
                                 type="number"
                                 min={1}
-                                max={100}
-                                value={plan.totalSessionsPrescribed}
+                                max={120}
+                                value={plan.durationMinutes}
                                 onChange={(e) =>
-                                  handleUpdateItem(plan.modalityCode, {
-                                    totalSessionsPrescribed: parseInt(e.target.value) || 1,
+                                  handleUpdateItem(idx, {
+                                    durationMinutes: parseInt(e.target.value) || 15,
                                   })
                                 }
-                                className="h-8 w-20 text-xs font-mono font-bold"
+                                className="h-8 w-16 text-xs font-mono font-bold text-center"
                               />
-                              <div className="flex flex-col gap-0.5">
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    handleUpdateItem(plan.modalityCode, {
-                                      totalSessionsPrescribed: plan.totalSessionsPrescribed + 5,
-                                    })
-                                  }
-                                  className="text-[9px] px-1 py-0.5 rounded bg-muted hover:bg-muted/80 text-foreground"
-                                >
-                                  +5
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    handleUpdateItem(plan.modalityCode, {
-                                      totalSessionsPrescribed: Math.max(1, plan.totalSessionsPrescribed - 5),
-                                    })
-                                  }
-                                  className="text-[9px] px-1 py-0.5 rounded bg-muted hover:bg-muted/80 text-foreground"
-                                >
-                                  -5
-                                </button>
-                              </div>
+                              <span className="text-[11px] text-muted-foreground">মি.</span>
                             </div>
                           </TableCell>
 
+                          {/* Total Sessions */}
+                          <TableCell>
+                            <Input
+                              type="number"
+                              min={1}
+                              max={100}
+                              value={plan.totalSessionsPrescribed}
+                              onChange={(e) =>
+                                handleUpdateItem(idx, {
+                                  totalSessionsPrescribed: parseInt(e.target.value) || 1,
+                                })
+                              }
+                              className="h-8 w-16 text-xs font-mono font-bold text-center"
+                            />
+                          </TableCell>
+
+                          {/* Frequency */}
                           <TableCell>
                             <Select
                               value={plan.frequency}
                               onValueChange={(val) =>
-                                handleUpdateItem(plan.modalityCode, { frequency: val })
+                                handleUpdateItem(idx, { frequency: val })
                               }
                             >
                               <SelectTrigger className="h-8 text-xs">
@@ -451,35 +512,62 @@ export function TreatmentPlanBuilderModal({
                               </SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="daily">প্রতিদিন (Daily)</SelectItem>
-                                <SelectItem value="alternate_days">একদিন পরপর (Alt. Days)</SelectItem>
-                                <SelectItem value="weekly">সাপ্তাহিক (Weekly)</SelectItem>
-                                <SelectItem value="twice_weekly">সপ্তাহে ২ দিন (2x/Week)</SelectItem>
-                                <SelectItem value="thrice_weekly">সপ্তাহে ৩ দিন (3x/Week)</SelectItem>
+                                <SelectItem value="alternate_days">একদিন পরপর</SelectItem>
+                                <SelectItem value="weekly">সাপ্তাহিক</SelectItem>
+                                <SelectItem value="twice_weekly">সপ্তাহে ২ দিন</SelectItem>
+                                <SelectItem value="thrice_weekly">সপ্তাহে ৩ দিন</SelectItem>
                               </SelectContent>
                             </Select>
                           </TableCell>
 
+                          {/* Clinical Notes / Intensity */}
                           <TableCell>
                             <Input
-                              placeholder="প্যারামিটার / তীব্রতা / সময়সীমা (যেমন: 15 min, 1.2 W/cm²)..."
+                              placeholder="তীব্রতা / টেকনিক (যেমন: 15 min, coplanar)..."
                               value={plan.notes || ''}
                               onChange={(e) =>
-                                handleUpdateItem(plan.modalityCode, { notes: e.target.value })
+                                handleUpdateItem(idx, { notes: e.target.value })
                               }
                               className="h-8 text-xs"
                             />
                           </TableCell>
 
+                          {/* Actions: Move Up, Move Down, Delete */}
                           <TableCell className="text-right">
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleRemoveModality(plan.modalityCode)}
-                              className="size-7 p-0 text-muted-foreground hover:text-rose-500"
-                            >
-                              <Trash2 className="size-3.5" />
-                            </Button>
+                            <div className="flex items-center justify-end gap-1">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                disabled={idx === 0}
+                                onClick={() => handleMoveUp(idx)}
+                                className="size-7 p-0 text-muted-foreground hover:text-foreground"
+                                title="উপরে তুলুন"
+                              >
+                                <ArrowUp className="size-3.5" />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                disabled={idx === selectedPlans.length - 1}
+                                onClick={() => handleMoveDown(idx)}
+                                className="size-7 p-0 text-muted-foreground hover:text-foreground"
+                                title="নিচে নামান"
+                              >
+                                <ArrowDown className="size-3.5" />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleRemoveModality(idx)}
+                                className="size-7 p-0 text-muted-foreground hover:text-rose-500"
+                                title="মুছুন"
+                              >
+                                <Trash2 className="size-3.5" />
+                              </Button>
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))}
@@ -500,8 +588,8 @@ export function TreatmentPlanBuilderModal({
                 disabled={selectedPlans.length === 0}
                 className="h-9 text-xs font-semibold gap-1.5 w-full sm:w-auto"
               >
-                <Printer className="size-3.5" />
-                <span>প্রিন্ট প্রিভিউ (Print Plan)</span>
+                <Printer className="size-3.5 text-emerald-600" />
+                <span>A4 প্রিন্ট প্রিভিউ (Print A4 Plan)</span>
               </Button>
             </div>
 
@@ -538,11 +626,11 @@ export function TreatmentPlanBuilderModal({
       {/* A4 PRINT PREVIEW MODAL FOR TREATMENT PLAN */}
       {showPrintPreview && (
         <Dialog open={showPrintPreview} onOpenChange={setShowPrintPreview}>
-          <DialogContent className="max-w-[700px] max-h-[95vh] overflow-y-auto p-4 sm:p-6 bg-white text-slate-900 border-border">
-            <div className="flex items-center justify-between border-b pb-3 border-slate-200">
+          <DialogContent className="max-w-[760px] max-h-[96vh] overflow-y-auto p-4 sm:p-6 bg-white text-zinc-950 border-border">
+            <div className="flex items-center justify-between border-b pb-3 border-zinc-200">
               <div className="flex items-center gap-2">
                 <Printer className="size-4 text-emerald-600" />
-                <span className="font-bold text-sm">থেরাপি ট্রিটমেন্ট প্ল্যান কপি (Print Copy)</span>
+                <span className="font-bold text-sm">থেরাপি ট্রিটমেন্ট প্ল্যান A4 কপি</span>
               </div>
               <div className="flex items-center gap-2">
                 <Button size="sm" onClick={handlePrint} className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs gap-1.5">
@@ -555,67 +643,182 @@ export function TreatmentPlanBuilderModal({
               </div>
             </div>
 
-            {/* HPC OFFICIAL HEADER */}
-            <div className="p-6 space-y-4 font-sans">
-              <div className="text-center border-b-2 border-slate-900 pb-3">
-                <h2 className="text-xl font-black tracking-tight text-slate-900">
-                  HPC HEALTH &amp; PAIN CARE CENTER
-                </h2>
-                <p className="text-xs text-slate-600 font-medium">
-                  রেল রোড, যশোর | হেল্পলাইন: 01700-000000 | ইমেইল: hpc@toufiquzzaman.com
-                </p>
-                <p className="text-xs font-bold uppercase tracking-wider text-emerald-700 mt-1">
-                  OFFICIAL PHYSICAL THERAPY &amp; REHABILITATION TREATMENT PLAN
-                </p>
+            {/* Isolated A4 Stylesheet */}
+            <style dangerouslySetInnerHTML={{ __html: `
+              @page {
+                size: A4 portrait;
+                margin: 8mm 10mm;
+              }
+              @media print {
+                body.printing-hpc-plan {
+                  background: #ffffff !important;
+                  color: #000000 !important;
+                  margin: 0 !important;
+                  padding: 0 !important;
+                  -webkit-print-color-adjust: exact !important;
+                  print-color-adjust: exact !important;
+                }
+                body.printing-hpc-plan > *:not([data-radix-portal]) {
+                  display: none !important;
+                }
+                body.printing-hpc-plan [data-radix-portal] {
+                  position: static !important;
+                  display: block !important;
+                }
+                body.printing-hpc-plan [data-radix-portal] > * {
+                  position: static !important;
+                  border: none !important;
+                  box-shadow: none !important;
+                  background: transparent !important;
+                  padding: 0 !important;
+                  margin: 0 !important;
+                }
+                body.printing-hpc-plan [role="dialog"] {
+                  position: static !important;
+                  transform: none !important;
+                  max-width: none !important;
+                  width: 100% !important;
+                  height: auto !important;
+                  border: none !important;
+                  box-shadow: none !important;
+                  background: #ffffff !important;
+                  padding: 0 !important;
+                  margin: 0 !important;
+                }
+                body.printing-hpc-plan [role="dialog"] > *:not(#hpc-treatment-plan-sheet) {
+                  display: none !important;
+                }
+                #hpc-treatment-plan-sheet {
+                  display: block !important;
+                  width: 100% !important;
+                  max-width: 210mm !important;
+                  margin: 0 auto !important;
+                  padding: 6mm 8mm !important;
+                  box-sizing: border-box !important;
+                  background: #ffffff !important;
+                  color: #000000 !important;
+                  page-break-inside: avoid !important;
+                  break-inside: avoid !important;
+                }
+                #hpc-treatment-plan-sheet * {
+                  color-adjust: exact !important;
+                  -webkit-print-color-adjust: exact !important;
+                }
+              }
+            ` }} />
+
+            {/* HPC OFFICIAL A4 SHEET */}
+            <div id="hpc-treatment-plan-sheet" className="p-4 space-y-4 font-sans text-zinc-950">
+              {/* Header */}
+              <div className="border-b-2 border-emerald-600 pb-3 flex items-start justify-between gap-3">
+                <div className="flex items-start gap-2.5">
+                  <img
+                    src="/hpclogo-transparent.png"
+                    alt="HPC Logo"
+                    width={44}
+                    height={44}
+                    className="w-11 h-11 object-contain shrink-0 mt-0.5"
+                    style={{ width: '42px', height: '42px', maxWidth: '44px', maxHeight: '44px', objectFit: 'contain' }}
+                  />
+                  <div>
+                    <h1 className="text-base font-black text-emerald-800 leading-tight uppercase">
+                      HEALTH AND PAIN CARE CENTER
+                    </h1>
+                    <h2 className="text-xs font-bold text-zinc-800 leading-tight">
+                      এইচপিসি হেলথ অ্যান্ড পেইন কেয়ার সেন্টার, যশোর
+                    </h2>
+                    <p className="text-[10px] text-zinc-600 mt-0.5">
+                      চাঁচরা পুলিশ ফাঁড়ির বিপরীতে, চাঁচরা ডালমিল মোড়, যশোর সদর, যশোর-৭৪০০
+                    </p>
+                    <p className="text-[9.5px] text-zinc-500 font-mono">
+                      হটলাইন: +৮৮০ ১৫১৫-৬১৫১৮৮ · E-mail: hpc@toufiquzzaman.com
+                    </p>
+                  </div>
+                </div>
+
+                <div className="text-right">
+                  <span className="inline-block px-2.5 py-1 rounded bg-emerald-100 text-emerald-800 font-bold font-mono text-xs border border-emerald-300 uppercase">
+                    THERAPY PLAN (A4)
+                  </span>
+                  <div className="text-[10.5px] text-zinc-700 font-medium mt-1">
+                    তৈরির তারিখ ও সময়:
+                  </div>
+                  <div className="text-xs font-mono font-bold text-zinc-900">
+                    {nowFormatted}
+                  </div>
+                </div>
               </div>
 
-              {/* PATIENT INFO */}
-              <div className="grid grid-cols-2 gap-2 text-xs bg-slate-50 p-3 rounded-lg border border-slate-200">
+              {/* Patient Info Strip */}
+              <div className="grid grid-cols-4 gap-2 text-xs bg-emerald-50/60 p-2.5 rounded-lg border border-emerald-200">
                 <div>
-                  <span className="text-slate-500">রোগীর নাম:</span>{' '}
-                  <strong className="text-slate-900">{patient?.nameBn || patient?.nameEn || patient?.patientNameBn || patient?.patientNameEn}</strong>
+                  <span className="text-zinc-500">রোগীর নাম:</span>{' '}
+                  <strong className="text-zinc-900">
+                    {patient?.nameBn || patient?.nameEn || patient?.patientNameBn || patient?.patientNameEn}
+                  </strong>
                 </div>
                 <div>
-                  <span className="text-slate-500">MRN:</span>{' '}
-                  <strong className="text-slate-900 font-mono">{patient?.mrn}</strong>
+                  <span className="text-zinc-500">MRN:</span>{' '}
+                  <strong className="text-emerald-800 font-mono">{patient?.mrn}</strong>
                 </div>
                 <div>
-                  <span className="text-slate-500">বয়স / লিঙ্গ:</span>{' '}
-                  <strong className="text-slate-900">{patient?.ageYears || '—'} বছর / {patient?.gender || '—'}</strong>
+                  <span className="text-zinc-500">বয়স / লিঙ্গ:</span>{' '}
+                  <strong>
+                    {patient?.ageYears || '—'} বছর / {patient?.gender || '—'}
+                  </strong>
                 </div>
-                <div>
-                  <span className="text-slate-500">তারিখ:</span>{' '}
-                  <strong className="text-slate-900">{new Date().toLocaleDateString('bn-BD')}</strong>
+                <div className="text-right">
+                  <span className="text-zinc-500">মোবাইল:</span>{' '}
+                  <strong className="font-mono">{patient?.phone || '—'}</strong>
                 </div>
               </div>
 
-              {/* TREATMENT MODALITIES TABLE */}
-              <div className="space-y-2">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700">
-                  প্রেসক্রাইবকৃত ফিজিওথেরাপি মডালিটি ও শিডিউল:
-                </h4>
-                <table className="w-full text-xs border border-slate-300 border-collapse">
+              {/* Treatment Sequence Table */}
+              <div className="space-y-2 pt-1">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-800">
+                    প্রেসক্রাইবকৃত ফিজিওথেরাপি সিকোয়েন্স ও সময়সূচী:
+                  </h4>
+                  <span className="text-[11px] text-zinc-500 font-medium">
+                    মোট {selectedPlans.length} টি থেরাপি ধাপ
+                  </span>
+                </div>
+
+                <table className="w-full text-xs border border-zinc-300 border-collapse">
                   <thead>
-                    <tr className="bg-slate-100 text-slate-700">
-                      <th className="border border-slate-300 p-2 text-left">মডালিটি</th>
-                      <th className="border border-slate-300 p-2 text-center w-28">মোট সেশন</th>
-                      <th className="border border-slate-300 p-2 text-center w-36">ফ্রিকোয়েন্সি</th>
-                      <th className="border border-slate-300 p-2 text-left">ক্লিনিক্যাল নির্দেশিকা</th>
+                    <tr className="bg-zinc-100 text-zinc-800 font-bold">
+                      <th className="border border-zinc-300 p-2 text-center w-16">ক্রম</th>
+                      <th className="border border-zinc-300 p-2 text-left">থেরাপি মডালিটি (Modality)</th>
+                      <th className="border border-zinc-300 p-2 text-center w-28">নির্ধারিত সময়</th>
+                      <th className="border border-zinc-300 p-2 text-center w-28">মোট সেশন</th>
+                      <th className="border border-zinc-300 p-2 text-center w-32">ফ্রিকোয়েন্সি</th>
+                      <th className="border border-zinc-300 p-2 text-left">ক্লিনিক্যাল নির্দেশিকা ও প্যারামিটার</th>
                     </tr>
                   </thead>
                   <tbody>
                     {selectedPlans.map((p, idx) => (
-                      <tr key={p.modalityCode} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
-                        <td className="border border-slate-300 p-2 font-bold text-slate-900">
-                          {p.modalityName} ({p.modalityCode})
+                      <tr key={idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-zinc-50/60'}>
+                        <td className="border border-zinc-300 p-2 text-center font-mono font-bold text-emerald-800">
+                          ধাপ {idx + 1}
                         </td>
-                        <td className="border border-slate-300 p-2 text-center font-bold">
+                        <td className="border border-zinc-300 p-2 font-bold text-zinc-900">
+                          {p.modalityName} ({p.modalityCode})
+                          {p.modalityNameBn && <div className="text-[10px] text-zinc-500 font-normal">{p.modalityNameBn}</div>}
+                        </td>
+                        <td className="border border-zinc-300 p-2 text-center font-bold text-emerald-700">
+                          {p.durationMinutes} মিনিট
+                        </td>
+                        <td className="border border-zinc-300 p-2 text-center font-bold">
                           {p.totalSessionsPrescribed} সেশন
                         </td>
-                        <td className="border border-slate-300 p-2 text-center">
-                          {p.frequency === 'daily' ? 'প্রতিদিন' : p.frequency === 'alternate_days' ? 'একদিন পরপর' : p.frequency}
+                        <td className="border border-zinc-300 p-2 text-center">
+                          {p.frequency === 'daily'
+                            ? 'প্রতিদিন'
+                            : p.frequency === 'alternate_days'
+                            ? 'একদিন পরপর'
+                            : p.frequency}
                         </td>
-                        <td className="border border-slate-300 p-2 text-slate-700 italic">
+                        <td className="border border-zinc-300 p-2 text-zinc-700 italic">
                           {p.notes || '—'}
                         </td>
                       </tr>
@@ -624,13 +827,25 @@ export function TreatmentPlanBuilderModal({
                 </table>
               </div>
 
-              {/* SIGNATURES */}
-              <div className="pt-12 flex justify-between items-end text-xs text-slate-600">
-                <div className="border-t border-slate-400 pt-1 w-48 text-center">
-                  হ্যান্ডলার / থেরাপিস্ট স্বাক্ষর
+              {/* Instructions Box */}
+              <div className="p-2.5 rounded-lg bg-zinc-50 border border-zinc-200 text-[11px] text-zinc-700 space-y-1">
+                <div className="font-bold text-zinc-800">হ্যান্ডলার ও রোগীর জন্য সাধারণ নির্দেশনা:</div>
+                <ul className="list-disc pl-4 space-y-0.5 text-[10.5px]">
+                  <li>উপরোল্লিখিত ক্রমানুসারে (১ম, ২য়, ৩য়...) থেরাপি মডালিটি প্রয়োগ করতে হবে।</li>
+                  <li>প্রতিটি সেশনের নির্ধারিত সময়সীমা যথাযথভাবে বজায় রাখতে হবে।</li>
+                  <li>থেরাপি চলাকালীন কোনো অস্বস্তি বা তীব্র ব্যথা অনুভূত হলে তাৎক্ষণিক থেরাপিস্টকে অবহিত করুন।</li>
+                </ul>
+              </div>
+
+              {/* Signatures */}
+              <div className="pt-16 flex justify-between items-end text-xs text-zinc-700">
+                <div className="border-t border-zinc-400 pt-1 w-52 text-center">
+                  <div className="font-bold">হ্যান্ডলার / থেরাপিস্ট স্বাক্ষর</div>
+                  <div className="text-[9.5px] text-zinc-500">Therapy Hall Staff</div>
                 </div>
-                <div className="border-t border-slate-400 pt-1 w-48 text-center">
-                  কনসালট্যান্ট ফিজিওথেরাপিস্ট স্বাক্ষর
+                <div className="border-t border-zinc-400 pt-1 w-52 text-center">
+                  <div className="font-bold">অনুমোদিত স্বাক্ষর</div>
+                  <div className="text-[9.5px] text-zinc-500">Consultant Physiotherapist</div>
                 </div>
               </div>
             </div>

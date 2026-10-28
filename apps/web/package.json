@@ -5,7 +5,7 @@
   "description": "HPC Jashore — Next.js PWA (App Router, all roles, installable)",
   "scripts": {
     "dev": "next dev --port 3000",
-    "build": "next build",
+    "build": "NODE_OPTIONS=\"--max-old-space-size=4096\" next build --webpack",
     "build:export": "OUTPUT_MODE=export next build",
     "start": "next start --port 3000",
     "lint": "node --max-old-space-size=4096 ./node_modules/typescript/bin/tsc --noEmit"

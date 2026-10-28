@@ -134,7 +134,7 @@ export class TherapyController {
   }
 
   @Post('plans')
-  @Roles('admin', 'doctor')
+  @Roles('admin', 'doctor', 'handler')
   createPlans(
     @CurrentUser() user: RequestUser,
     @Body() dto: CreateTherapyPlansDto,

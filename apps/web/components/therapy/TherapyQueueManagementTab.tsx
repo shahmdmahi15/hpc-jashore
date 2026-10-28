@@ -32,6 +32,7 @@ import { api } from '../../lib/api';
 import { useRealtime } from '../../lib/use-realtime';
 import { PatientTimelineModal } from '../patient/PatientTimelineModal';
 import { PatientFilesListModal } from '../patient/PatientFilesListModal';
+import { TreatmentPlanBuilderModal } from '../doctor/TreatmentPlanBuilderModal';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
@@ -117,6 +118,7 @@ export function TherapyQueueManagementTab() {
   const [startSessionPatient, setStartSessionPatient] = useState<TherapyQueueItem | null>(null);
   const [sendToCashierPatient, setSendToCashierPatient] = useState<TherapyQueueItem | null>(null);
   const [switchRoomPatient, setSwitchRoomPatient] = useState<TherapyQueueItem | null>(null);
+  const [builderPatient, setBuilderPatient] = useState<TherapyQueueItem | null>(null);
 
   const fetchData = useCallback(async (isSilent = false) => {
     if (!isSilent) setRefreshing(true);
@@ -1016,7 +1018,32 @@ export function TherapyQueueManagementTab() {
           if (!open) setPlansPatient(null);
         }}
         patient={plansPatient}
+        onOpenPlanBuilder={(p) => {
+          setPlansPatient(null);
+          setBuilderPatient(p);
+        }}
       />
+
+      {/* Treatment Plan Builder Modal (Handler & Doctor A4 Sequenced Plans) */}
+      {builderPatient && (
+        <TreatmentPlanBuilderModal
+          open={Boolean(builderPatient)}
+          onOpenChange={(op) => !op && setBuilderPatient(null)}
+          patient={{
+            id: builderPatient.patientId,
+            nameEn: builderPatient.patientNameEn,
+            nameBn: builderPatient.patientNameBn,
+            mrn: builderPatient.mrn,
+            phone: builderPatient.phone,
+            gender: builderPatient.gender,
+            ageYears: builderPatient.ageYears,
+          }}
+          visitId={builderPatient.visitId}
+          onPlansSaved={() => {
+            fetchData(true);
+          }}
+        />
+      )}
 
       {/* Start Therapy Session Modal */}
       <StartTherapySessionModal
@@ -1025,6 +1052,10 @@ export function TherapyQueueManagementTab() {
           if (!open) setStartSessionPatient(null);
         }}
         patient={startSessionPatient}
+        onOpenPlanBuilder={(p) => {
+          setStartSessionPatient(null);
+          setBuilderPatient(p);
+        }}
         onSuccess={() => fetchData(true)}
       />
 
@@ -1269,12 +1300,14 @@ interface AllPlansModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   patient: TherapyQueueItem | null;
+  onOpenPlanBuilder?: (patient: TherapyQueueItem) => void;
 }
 
 export function AllPlansModal({
   open,
   onOpenChange,
   patient,
+  onOpenPlanBuilder,
 }: AllPlansModalProps) {
   const [loading, setLoading] = useState(false);
   const [prescriptions, setPrescriptions] = useState<any[]>([]);
@@ -1308,19 +1341,32 @@ export function AllPlansModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[95vw] max-w-2xl max-h-[85vh] flex flex-col p-0 overflow-hidden border-border bg-card shadow-2xl rounded-2xl">
         <DialogHeader className="p-4 sm:p-5 border-b border-border bg-muted/40 shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-cyan-500/10 text-cyan-500 border border-cyan-500/20">
-              <ClipboardList className="size-5" />
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-cyan-500/10 text-cyan-500 border border-cyan-500/20">
+                <ClipboardList className="size-5" />
+              </div>
+              <div>
+                <DialogTitle className="text-base sm:text-lg font-bold text-foreground">
+                  সকল থেরাপি প্ল্যান ও প্রেসক্রিপশন (All Plans)
+                </DialogTitle>
+                <DialogDescription className="text-xs text-muted-foreground mt-0.5">
+                  রোগী: <strong className="text-foreground">{patient.patientNameBn || patient.patientNameEn}</strong> · MRN:{' '}
+                  <strong className="text-foreground">{patient.mrn}</strong>
+                </DialogDescription>
+              </div>
             </div>
-            <div>
-              <DialogTitle className="text-base sm:text-lg font-bold text-foreground">
-                সকল থেরাপি প্ল্যান ও প্রেসক্রিপশন (All Plans)
-              </DialogTitle>
-              <DialogDescription className="text-xs text-muted-foreground mt-0.5">
-                রোগী: <strong className="text-foreground">{patient.patientNameBn || patient.patientNameEn}</strong> · MRN:{' '}
-                <strong className="text-foreground">{patient.mrn}</strong>
-              </DialogDescription>
-            </div>
+            {onOpenPlanBuilder && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => onOpenPlanBuilder(patient)}
+                className="h-8 text-xs border-emerald-500/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 gap-1.5 shrink-0"
+              >
+                <Sparkles className="size-3.5 text-emerald-500" />
+                <span>প্ল্যান তৈরি / প্রিন্ট (A4)</span>
+              </Button>
+            )}
           </div>
         </DialogHeader>
 
@@ -1491,12 +1537,13 @@ export function AllPlansModal({
 }
 
 // -----------------------------------------------------------------------------
-// Start Therapy Session Modal Component (Strict Doctor Plan Enforcement)
+// Start Therapy Session Modal Component (Flexible Doctor Plan & Catalog)
 // -----------------------------------------------------------------------------
 interface StartTherapySessionModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   patient: TherapyQueueItem | null;
+  onOpenPlanBuilder?: (patient: TherapyQueueItem) => void;
   onSuccess: () => void;
 }
 
@@ -1504,11 +1551,13 @@ export function StartTherapySessionModal({
   open,
   onOpenChange,
   patient,
+  onOpenPlanBuilder,
   onSuccess,
 }: StartTherapySessionModalProps) {
   const [loadingData, setLoadingData] = useState(false);
   const [doctorPlans, setDoctorPlans] = useState<any[]>([]);
   const [modalitiesCatalog, setModalitiesCatalog] = useState<any[]>([]);
+  const [modalitySourceTab, setModalitySourceTab] = useState<'plan' | 'catalog'>('plan');
   const [selectedModalityCode, setSelectedModalityCode] = useState('IFT');
   const [selectedPlanId, setSelectedPlanId] = useState<string | undefined>(undefined);
   const [durationMinutes, setDurationMinutes] = useState(15);
@@ -1529,7 +1578,36 @@ export function StartTherapySessionModal({
           api.catalog.getModalities().catch(() => []),
         ]);
 
-        const activeDoctorPlans = (plansRes || []).filter((p: any) => p.status === 'active');
+        const activeDoctorPlans = (plansRes || [])
+          .filter((p: any) => p.status === 'active')
+          .map((p: any, idx: number) => {
+            let seq = idx + 1;
+            let dur = p.defaultDurationMin || 15;
+            let noteText = p.notes;
+            if (p.notes) {
+              try {
+                const parsed =
+                  typeof p.notes === 'string' && p.notes.startsWith('{')
+                    ? JSON.parse(p.notes)
+                    : null;
+                if (parsed) {
+                  if (parsed.sequence) seq = Number(parsed.sequence);
+                  if (parsed.durationMin) dur = Number(parsed.durationMin);
+                  if (parsed.clinicalNote) noteText = parsed.clinicalNote;
+                }
+              } catch {
+                // ignore
+              }
+            }
+            return {
+              ...p,
+              sequenceOrder: seq,
+              calculatedDuration: dur,
+              clinicalNoteText: noteText,
+            };
+          })
+          .sort((a: any, b: any) => a.sequenceOrder - b.sequenceOrder);
+
         const activeCatalog = (catalogRes || []).filter(
           (m: any) => m.isActive !== 0 && m.isActive !== false,
         );
@@ -1538,19 +1616,19 @@ export function StartTherapySessionModal({
         setModalitiesCatalog(activeCatalog);
 
         if (activeDoctorPlans.length > 0) {
-          // Rule: Doctor prescribed treatment plan MUST be used!
+          setModalitySourceTab('plan');
           setSelectedModalityCode(activeDoctorPlans[0].modalityCode);
           setSelectedPlanId(activeDoctorPlans[0].id);
-          if (activeDoctorPlans[0].defaultDurationMin) {
-            setDurationMinutes(activeDoctorPlans[0].defaultDurationMin);
-          }
+          setDurationMinutes(activeDoctorPlans[0].calculatedDuration || 15);
         } else {
-          // Rule: If NO doctor treatment plan exists for today, handler can choose any modality from catalog
+          setModalitySourceTab('catalog');
           setSelectedPlanId(undefined);
           if (activeCatalog.length > 0) {
             setSelectedModalityCode(activeCatalog[0].code);
+            setDurationMinutes(activeCatalog[0].defaultDurationMin || 15);
           } else {
             setSelectedModalityCode(patient.modalityCode || 'IFT');
+            setDurationMinutes(15);
           }
         }
       } catch (err: any) {
@@ -1622,47 +1700,104 @@ export function StartTherapySessionModal({
             <>
               {/* Doctor Plan Rule Status Banner */}
               {hasDoctorPlans ? (
-                <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-xs space-y-1">
+                <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-xs space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="font-bold flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400">
                       <Sparkles className="size-3.5" />
-                      <span>ডাক্তার কর্তৃক নির্ধারিত ট্রিটমেন্ট প্ল্যান প্রযোজ্য</span>
+                      <span>ডাক্তার কর্তৃক নির্ধারিত সিকোয়েন্সড প্ল্যান প্রযোজ্য</span>
                     </span>
                     <Badge className="bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 border-emerald-500/30 text-[10px]">
-                      {doctorPlans.length} টি নির্ধারিত
+                      {doctorPlans.length} টি নির্ধারিত ধাপ
                     </Badge>
                   </div>
-                  <p className="text-[11px] text-muted-foreground">
-                    ডাক্তারের প্রেসক্রিপশন অনুযায়ী নিচে থেকে নির্ধারিত থেরাপি মডালিটি নির্বাচন করুন।
-                  </p>
+                  <div className="flex items-center justify-between gap-2 pt-1 border-t border-emerald-500/20 text-[11px]">
+                    <span className="text-muted-foreground">হ্যান্ডলার প্রয়োজন অনুযায়ী সময় বা মডালিটি পরিবর্তন করতে পারবেন</span>
+                    {onOpenPlanBuilder && (
+                      <button
+                        type="button"
+                        onClick={() => onOpenPlanBuilder(patient)}
+                        className="text-emerald-600 dark:text-emerald-400 font-semibold hover:underline cursor-pointer shrink-0"
+                      >
+                        ✏️ প্ল্যান এডিট
+                      </button>
+                    )}
+                  </div>
                 </div>
               ) : (
-                <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-400 text-xs flex items-start gap-2.5">
-                  <AlertTriangle className="size-4 shrink-0 mt-0.5 text-amber-500" />
-                  <div className="leading-relaxed">
-                    <strong>আজকের জন্য ডাক্তারের কোনো নির্দিষ্ট প্ল্যান নেই:</strong>
-                    <p className="text-[11px] text-muted-foreground mt-0.5">
-                      থেরাপি ক্যাটালগ থেকে রোগীর জন্য যেকোনো সক্রিয় মডালিটি নির্বাচন করে সেশন শুরু করতে পারেন।
-                    </p>
+                <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-400 text-xs flex items-start justify-between gap-2.5">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="size-4 shrink-0 mt-0.5 text-amber-500" />
+                    <div className="leading-relaxed">
+                      <strong>আজকের জন্য ডাক্তারের কোনো নির্দিষ্ট প্ল্যান নেই:</strong>
+                      <p className="text-[11px] text-muted-foreground mt-0.5">
+                        ক্যাটালগ থেকে যেকোনো মডালিটি সিলেক্ট করে সেশন শুরু করুন অথবা নতুন প্ল্যান সাজান।
+                      </p>
+                    </div>
                   </div>
+                  {onOpenPlanBuilder && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => onOpenPlanBuilder(patient)}
+                      className="h-7 text-xs border-amber-500/40 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 shrink-0"
+                    >
+                      ➕ প্ল্যান তৈরি
+                    </Button>
+                  )}
                 </div>
               )}
 
-              {/* Modality Selector */}
-              <div className="space-y-1.5">
-                <Label className="text-xs font-bold text-foreground flex items-center justify-between">
-                  <span>মডালিটি নির্বাচন (Select Modality) *</span>
+              {/* Modality Selector with Source Toggle */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-bold text-foreground">
+                    মডালিটি নির্বাচন (Select Modality) *
+                  </Label>
                   {hasDoctorPlans && (
-                    <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400">
-                      ডাক্তারের প্ল্যান সীমাবদ্ধ
-                    </span>
+                    <div className="flex rounded-lg bg-muted p-0.5 text-[10px] font-semibold border border-border">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setModalitySourceTab('plan');
+                          if (doctorPlans.length > 0) {
+                            setSelectedModalityCode(doctorPlans[0].modalityCode);
+                            setSelectedPlanId(doctorPlans[0].id);
+                            setDurationMinutes(doctorPlans[0].calculatedDuration || 15);
+                          }
+                        }}
+                        className={cn(
+                          'py-1 px-2 rounded transition-all cursor-pointer',
+                          modalitySourceTab === 'plan'
+                            ? 'bg-card text-foreground shadow-xs font-bold'
+                            : 'text-muted-foreground hover:text-foreground'
+                        )}
+                      >
+                        📋 প্ল্যান ({doctorPlans.length})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setModalitySourceTab('catalog');
+                          setSelectedPlanId(undefined);
+                        }}
+                        className={cn(
+                          'py-1 px-2 rounded transition-all cursor-pointer',
+                          modalitySourceTab === 'catalog'
+                            ? 'bg-card text-foreground shadow-xs font-bold'
+                            : 'text-muted-foreground hover:text-foreground'
+                        )}
+                      >
+                        ➕ ক্যাটালগ
+                      </button>
+                    </div>
                   )}
-                </Label>
+                </div>
 
-                {hasDoctorPlans ? (
-                  <div className="space-y-1.5 max-h-44 overflow-y-auto p-1">
-                    {doctorPlans.map((plan) => {
-                      const isSelected = selectedModalityCode === plan.modalityCode;
+                {hasDoctorPlans && modalitySourceTab === 'plan' ? (
+                  <div className="space-y-1.5 max-h-48 overflow-y-auto p-1">
+                    {doctorPlans.map((plan, idx) => {
+                      const isSelected = selectedModalityCode === plan.modalityCode && selectedPlanId === plan.id;
                       return (
                         <button
                           key={plan.id}
@@ -1670,8 +1805,8 @@ export function StartTherapySessionModal({
                           onClick={() => {
                             setSelectedModalityCode(plan.modalityCode);
                             setSelectedPlanId(plan.id);
-                            if (plan.defaultDurationMin) {
-                              setDurationMinutes(plan.defaultDurationMin);
+                            if (plan.calculatedDuration) {
+                              setDurationMinutes(plan.calculatedDuration);
                             }
                           }}
                           className={cn(
@@ -1681,16 +1816,26 @@ export function StartTherapySessionModal({
                               : 'border-border bg-card hover:bg-muted/50 text-foreground'
                           )}
                         >
-                          <div>
-                            <div className="flex items-center gap-1.5">
-                              <span>{plan.modalityNameBn || plan.modalityNameEn || plan.modalityCode}</span>
-                              <span className="font-mono text-[10px] text-muted-foreground">
-                                ({plan.modalityCode})
-                              </span>
-                            </div>
-                            <div className="text-[10px] text-muted-foreground mt-0.5">
-                              সেশন অগ্রগতি: <strong>{plan.completedSessions || 0} / {plan.totalSessionsPrescribed}</strong>
-                              {plan.frequency ? ` • ${plan.frequency}` : ''}
+                          <div className="flex items-start gap-2.5">
+                            <Badge className="bg-emerald-600 text-white font-mono text-[10px] shrink-0 mt-0.5">
+                              ধাপ {plan.sequenceOrder || idx + 1}
+                            </Badge>
+                            <div>
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-semibold text-foreground">
+                                  {plan.modalityNameBn || plan.modalityNameEn || plan.modalityCode}
+                                </span>
+                                <span className="font-mono text-[10px] text-muted-foreground">
+                                  ({plan.modalityCode})
+                                </span>
+                              </div>
+                              <div className="text-[10px] text-muted-foreground mt-0.5">
+                                নির্ধারিত সময়: <strong>{plan.calculatedDuration || 15} মিনিট</strong> • সেশন:{' '}
+                                <strong>
+                                  {plan.completedSessions || 0} / {plan.totalSessionsPrescribed}
+                                </strong>
+                                {plan.clinicalNoteText ? ` • নোট: ${plan.clinicalNoteText}` : ''}
+                              </div>
                             </div>
                           </div>
 
@@ -1702,7 +1847,7 @@ export function StartTherapySessionModal({
                                 : 'bg-muted text-muted-foreground border border-border'
                             )}
                           >
-                            {isSelected ? 'নির্বাচিত' : 'বাছাই করুন'}
+                            {isSelected ? 'নির্বাচিত' : 'বাছাই'}
                           </Badge>
                         </button>
                       );
@@ -1763,7 +1908,7 @@ export function StartTherapySessionModal({
                   </span>
                 </Label>
                 <div className="grid grid-cols-5 gap-2 pt-1">
-                  {[10, 15, 20, 30, 45].map((mins) => (
+                  {[10, 15, 20, 25, 30].map((mins) => (
                     <button
                       key={mins}
                       type="button"

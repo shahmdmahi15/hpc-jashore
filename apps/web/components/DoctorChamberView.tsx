@@ -215,6 +215,12 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
   const [followUpDate, setFollowUpDate] = useState<string>('');
   const [savingRx, setSavingRx] = useState(false);
 
+  // Running Therapy Live Monitor State
+  const [runningTherapies, setRunningTherapies] = useState<any[]>([]);
+  const [showTherapyMonitor, setShowTherapyMonitor] = useState<boolean>(true);
+  const [therapyTick, setTherapyTick] = useState<number>(0);
+  const prevWaitingCountRef = React.useRef(0);
+
   const doctorId = session?.staffId || '';
   const [doctorsList, setDoctorsList] = useState<any[]>([]);
   const [selectedDoctorId, setSelectedDoctorId] = useState<string>(() => {
@@ -295,7 +301,50 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
     }
   };
 
-  // Instant Realtime sync for chamber queue
+  const fetchRunningTherapies = async () => {
+    try {
+      const qData = await api.therapy.getQueue();
+      if (qData) {
+        setRunningTherapies(qData.activeSessions || qData.inTherapy || []);
+      }
+    } catch {}
+  };
+
+  useEffect(() => {
+    fetchRunningTherapies();
+    const interval = setInterval(() => {
+      setTherapyTick((t) => t + 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Acoustic chime when new patient arrives
+  useEffect(() => {
+    const waitingCount = queue.filter(
+      (item) => item.status === 'waiting' || item.status === 'called'
+    ).length;
+
+    if (waitingCount > prevWaitingCountRef.current && prevWaitingCountRef.current > 0) {
+      try {
+        const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.15);
+        gain.gain.setValueAtTime(0.2, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6);
+        osc.start(ctx.currentTime);
+        osc.stop(ctx.currentTime + 0.6);
+      } catch {}
+      toast.info('🔔 নতুন রোগী চেম্বার কিউতে যোগ হয়েছেন!');
+    }
+    prevWaitingCountRef.current = waitingCount;
+  }, [queue]);
+
+  // Instant Realtime sync for chamber queue & therapy sessions
   useRealtime((event) => {
     if (
       event.type.startsWith('queue.') ||
@@ -305,6 +354,9 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
       event.type.startsWith('doctor.')
     ) {
       loadQueue(undefined, true);
+    }
+    if (event.type.startsWith('therapy.')) {
+      fetchRunningTherapies();
     }
     if (event.type.startsWith('patient.assessment_')) {
       loadAssessmentFilesCount();
@@ -997,6 +1049,125 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
             </Button>
           </div>
 
+          {/* ========================================================= */}
+          {/* RUNNING THERAPY LIVE SESSIONS MONITOR (Doctor View)       */}
+          {/* ========================================================= */}
+          {runningTherapies.length > 0 && (
+            <Card className="mb-4 border-amber-500/30 bg-gradient-to-r from-amber-500/5 via-emerald-500/5 to-transparent shadow-xs overflow-hidden">
+              <CardHeader className="py-2.5 px-4 border-b border-border/50 flex flex-row items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="flex size-2 rounded-full bg-amber-500 animate-ping" />
+                  <span className="font-bold text-xs sm:text-sm text-foreground flex items-center gap-1.5">
+                    <span>⚡ থেরাপি হলে চলমান সেশন ({runningTherapies.length} জন রোগী)</span>
+                  </span>
+                  <Badge variant="outline" className="border-amber-500/40 text-amber-700 dark:text-amber-300 text-[10px] font-mono font-bold">
+                    LIVE
+                  </Badge>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowTherapyMonitor(!showTherapyMonitor)}
+                  className="h-7 text-xs text-muted-foreground hover:text-foreground"
+                >
+                  {showTherapyMonitor ? 'সংকুচিত করুন' : 'সম্প্রসারিত করুন'}
+                </Button>
+              </CardHeader>
+
+              {showTherapyMonitor && (
+                <CardContent className="p-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2.5">
+                    {runningTherapies.map((session, sIdx) => {
+                      const durMin = Number(session.durationMinutes) || 15;
+                      const startMs = session.startedAt ? new Date(session.startedAt).getTime() : Date.now();
+                      const elapsedSec = Math.max(0, Math.floor((Date.now() - startMs) / 1000));
+                      const totalSec = Math.max(1, durMin * 60);
+                      const remainingSec = Math.max(0, totalSec - elapsedSec);
+                      const isOvertime = elapsedSec > totalSec;
+                      const progressPct = Math.min(100, Math.round((elapsedSec / totalSec) * 100));
+
+                      const elMin = Math.floor(elapsedSec / 60);
+                      const elS = elapsedSec % 60;
+                      const remMin = Math.floor(remainingSec / 60);
+                      const remS = remainingSec % 60;
+
+                      const elapsedFormatted = `${elMin.toString().padStart(2, '0')}:${elS.toString().padStart(2, '0')}`;
+                      const remainingFormatted = `${remMin.toString().padStart(2, '0')}:${remS.toString().padStart(2, '0')}`;
+
+                      return (
+                        <div
+                          key={session.sessionId || session.visitId || sIdx}
+                          className="p-3 rounded-xl border border-border/70 bg-card/90 shadow-2xs space-y-2 text-xs"
+                        >
+                          <div className="flex items-start justify-between gap-1.5">
+                            <div>
+                              <div className="font-bold text-foreground">
+                                {session.patientNameBn || session.patientNameEn || 'Patient'}
+                              </div>
+                              <div className="text-[10px] font-mono text-muted-foreground">
+                                MRN: {session.mrn} · {session.bedName ? `রুম: ${session.bedName}` : 'থেরাপি হল'}
+                              </div>
+                            </div>
+                            <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30 text-[10px] font-mono">
+                              {session.modalityCode || 'TH'}
+                            </Badge>
+                          </div>
+
+                          {/* Current Modality & Countdown */}
+                          <div className="p-2 rounded-lg bg-muted/40 border border-border/50 flex items-center justify-between">
+                            <div>
+                              <div className="font-bold text-emerald-600 dark:text-emerald-400 text-[11px] flex items-center gap-1">
+                                <span>⚡</span>
+                                <span>{session.modalityNameBn || session.modalityNameEn || session.modalityCode}</span>
+                              </div>
+                              <div className="text-[10px] text-muted-foreground font-mono">
+                                মোট: {durMin} মিনিট
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              {isOvertime ? (
+                                <Badge className="bg-rose-500 text-white font-mono text-[10px] animate-pulse">
+                                  + {Math.floor((elapsedSec - totalSec) / 60)}m অতিরিক্ত
+                                </Badge>
+                              ) : (
+                                <div className="font-mono font-bold text-amber-600 dark:text-amber-400 text-xs">
+                                  বাকি: {remainingFormatted}
+                                </div>
+                              )}
+                              <div className="text-[9.5px] font-mono text-muted-foreground mt-0.5">
+                                অতিবাহিত: {elapsedFormatted}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Progress bar */}
+                          <div className="w-full bg-muted/60 h-1.5 rounded-full overflow-hidden">
+                            <div
+                              className={cn(
+                                'h-full transition-all duration-1000',
+                                isOvertime ? 'bg-rose-500' : 'bg-emerald-500'
+                              )}
+                              style={{ width: `${progressPct}%` }}
+                            />
+                          </div>
+
+                          {/* Next Modality indicator */}
+                          <div className="text-[10px] text-muted-foreground flex items-center justify-between pt-0.5">
+                            <span className="font-medium text-foreground">পরবর্তী থেরাপি:</span>
+                            <span className="text-cyan-700 dark:text-cyan-300 font-semibold font-mono">
+                              {session.nextModality || 'পরবর্তী ধাপ শিডিউল্ড'}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              )}
+            </Card>
+          )}
+
           <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-4 sm:gap-6 w-full items-start">
             {/* ========================================================= */}
             {/* 1. LEFT COLUMN: CONSULTATION WAITING QUEUE DISPLAY        */}
@@ -1112,6 +1283,19 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
                               <span>•</span>
                               <span>লিঙ্গ: <strong className="text-foreground capitalize">{s.patient?.gender === 'female' ? 'মহিলা' : 'পুরুষ'}</strong></span>
                             </div>
+
+                            {/* Consultation Reason Badge (Report Showing, Talk, Follow-up etc) */}
+                            {(s.visit?.notes || s.reason) && (
+                              <div className="pt-1 flex items-center gap-1.5 flex-wrap">
+                                <Badge
+                                  variant="outline"
+                                  className="text-[10px] font-semibold bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 border-cyan-500/30 px-2 py-0.5 rounded-md flex items-center gap-1"
+                                >
+                                  <span>🎯</span>
+                                  <span>{s.reason || s.visit?.notes}</span>
+                                </Badge>
+                              </div>
+                            )}
                           </div>
 
                           {/* Action Buttons for this Patient Item */}

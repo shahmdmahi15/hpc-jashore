@@ -43,6 +43,8 @@ import {
   Loader2,
   LogOut,
   CheckCircle2,
+  Stethoscope,
+  AlertTriangle,
 } from 'lucide-react';
 
 export default function ReceptionView() {
@@ -80,6 +82,16 @@ export default function ReceptionView() {
     phone?: string;
   } | null>(null);
 
+  // Patient Dues State
+  const [patientDues, setPatientDues] = useState<any[]>([]);
+
+  // Send to Doctor Chamber Queue Modal State (Free: Report Showing, Discussion, etc.)
+  const [sendToDoctorVisit, setSendToDoctorVisit] = useState<any | null>(null);
+  const [sendToDoctorSelectedId, setSendToDoctorSelectedId] = useState<string>('');
+  const [sendToDoctorReason, setSendToDoctorReason] = useState<string>('রিপোর্ট দেখানো (Show Investigation Report)');
+  const [sendToDoctorNotes, setSendToDoctorNotes] = useState<string>('');
+  const [sendingToDoctor, setSendingToDoctor] = useState<boolean>(false);
+
   // Forward to Cashier Modal State
   const [forwardVisit, setForwardVisit] = useState<any | null>(null);
   const [forwardDoctorId, setForwardDoctorId] = useState('');
@@ -88,14 +100,16 @@ export default function ReceptionView() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [v, p, s] = await Promise.all([
+      const [v, p, s, duesData] = await Promise.all([
         api.visits.getToday(),
         api.patients.list(),
         api.staff.list(),
+        api.billing.getDues().catch(() => []),
       ]);
       setTodayVisits(v || []);
       setPatients(p || []);
       setStaffList(s || []);
+      setPatientDues(duesData || []);
       const doctors = (s || []).filter((st: any) => st.role === 'doctor');
       if (doctors.length > 0 && !selectedDoctorId) {
         setSelectedDoctorId(doctors[0].id);
@@ -104,6 +118,59 @@ export default function ReceptionView() {
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const getPatientDueAmount = (patientId: string): number => {
+    if (!patientId || !patientDues.length) return 0;
+    const matching = patientDues.filter((d: any) => d.patientId === patientId && d.status !== 'settled');
+    return matching.reduce((sum: number, d: any) => {
+      const amount = d.amountPaisa != null
+        ? Math.max(0, (d.amountPaisa - (d.settledPaisa || 0)) / 100)
+        : Number(d.dueTaka || (d.duePaisa ? d.duePaisa / 100 : 0));
+      return sum + amount;
+    }, 0);
+  };
+
+  const handleConfirmSendToDoctor = async () => {
+    if (!sendToDoctorVisit) return;
+    try {
+      setSendingToDoctor(true);
+      const patId = sendToDoctorVisit.patient?.id || sendToDoctorVisit.patientId;
+      const docId = sendToDoctorSelectedId || sendToDoctorVisit.doctorId || (doctors[0]?.id ?? '');
+
+      await api.visits.sendToDoctorQueue(sendToDoctorVisit.id, {
+        doctorId: docId,
+        reason: sendToDoctorReason,
+        notes: sendToDoctorNotes,
+      });
+
+      // Add timeline event
+      if (patId) {
+        try {
+          await api.patients.addTimelineEvent(patId, {
+            step: 'forwarded_to_doctor',
+            titleEn: 'Added to Doctor Chamber Queue (Free)',
+            titleBn: 'ডাক্তারের চেম্বার কিউতে পাঠানো হয়েছে (ফ্রি)',
+            descriptionEn: `Reason: ${sendToDoctorReason}. Notes: ${sendToDoctorNotes || 'None'}`,
+            descriptionBn: `কারণ: ${sendToDoctorReason}। নোট: ${sendToDoctorNotes || 'প্রযোজ্য নয়'}`,
+            visitId: sendToDoctorVisit.id,
+          });
+        } catch {
+          // ignore timeline failure
+        }
+      }
+
+      toast.success(
+        `রোগী ${sendToDoctorVisit.patient?.nameBn || sendToDoctorVisit.patient?.nameEn || ''} কে ডাক্তারের চেম্বার কিউতে পাঠানো হয়েছে (ফ্রি)!`
+      );
+      setSendToDoctorVisit(null);
+      setSendToDoctorNotes('');
+      await loadData();
+    } catch (err: any) {
+      toast.error(err?.message || 'ডাক্তার কিউতে পাঠাতে ব্যর্থ হয়েছে');
+    } finally {
+      setSendingToDoctor(false);
     }
   };
 
@@ -414,6 +481,20 @@ export default function ReceptionView() {
                           </SelectContent>
                         </Select>
                       </div>
+
+                      {/* Previous Due Alert for Selected Patient */}
+                      {selectedPatientId && getPatientDueAmount(selectedPatientId) > 0 && (
+                        <div className="p-2.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-800 dark:text-amber-200 text-xs flex items-center justify-between animate-in fade-in">
+                          <div className="flex items-center gap-2">
+                            <AlertTriangle className="size-4 text-amber-600 shrink-0" />
+                            <div>
+                              <span className="font-bold">⚠️ পূর্ববর্তী বকেয়া (Previous Due): ৳{getPatientDueAmount(selectedPatientId)}</span>
+                              <p className="text-[10px] text-muted-foreground mt-0.5">রোগীর আগের অপরিশোধিত ফি রয়েছে। চেক-ইন এর পর ক্যাশিয়ারে বিল সমন্বয় করতে হবে।</p>
+                            </div>
+                          </div>
+                          <Badge variant="destructive" className="bg-rose-600 text-white font-bold text-[10px] shrink-0">বকেয়া রয়েছে</Badge>
+                        </div>
+                      )}
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -635,8 +716,16 @@ export default function ReceptionView() {
                                 </div>
                               </td>
                               <td className="p-3">
-                                <div className="font-bold text-foreground">
-                                  {v.patient?.nameBn || v.patient?.nameEn}
+                                <div className="font-bold text-foreground flex items-center gap-1.5 flex-wrap">
+                                  <span>{v.patient?.nameBn || v.patient?.nameEn}</span>
+                                  {getPatientDueAmount(v.patient?.id || v.patientId) > 0 && (
+                                    <Badge
+                                      variant="destructive"
+                                      className="text-[10px] bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/30 px-1.5 py-0 font-bold"
+                                    >
+                                      বকেয়া: ৳{getPatientDueAmount(v.patient?.id || v.patientId)}
+                                    </Badge>
+                                  )}
                                 </div>
                                 <div className="text-xs text-muted-foreground">{v.patient?.mrn}</div>
                               </td>
@@ -682,6 +771,23 @@ export default function ReceptionView() {
                                   >
                                     <Printer className="size-3" />
                                     <span>A4 প্রিন্ট</span>
+                                  </Button>
+
+                                  {/* Send to Doctor Chamber Queue (Free) */}
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => {
+                                      setSendToDoctorVisit(v);
+                                      setSendToDoctorSelectedId(v.doctorId || (doctors[0]?.id ?? ''));
+                                      setSendToDoctorReason('রিপোর্ট দেখানো (Show Investigation Report)');
+                                      setSendToDoctorNotes('');
+                                    }}
+                                    title="ডাক্তারের চেম্বার কিউতে সরাসরি পাঠান (ফ্রি)"
+                                    className="h-7 text-xs border-cyan-500/40 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-950/20 gap-1 font-medium"
+                                  >
+                                    <Stethoscope className="size-3 text-cyan-600 dark:text-cyan-400" />
+                                    <span>ডাক্তার কিউ</span>
                                   </Button>
 
                                   {/* Forward to Cashier Button */}
@@ -880,6 +986,126 @@ export default function ReceptionView() {
                   <>
                     <Send className="size-3" />
                     ক্যাশিয়ারে পাঠান
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Send to Doctor Chamber Queue Modal (Free Consultation / Report Review) */}
+      {sendToDoctorVisit && (
+        <Dialog open={Boolean(sendToDoctorVisit)} onOpenChange={(op) => !op && setSendToDoctorVisit(null)}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-base font-bold flex items-center gap-2">
+                <Stethoscope className="size-5 text-cyan-600" />
+                ডাক্তারের চেম্বার কিউতে সরাসরি পাঠান (ফ্রি)
+              </DialogTitle>
+            </DialogHeader>
+            <div className="py-3 space-y-3.5 text-xs">
+              <div className="p-3 rounded-lg border border-border/60 bg-muted/20 space-y-1">
+                <div>
+                  <strong>রোগী:</strong>{' '}
+                  {sendToDoctorVisit.patient?.nameBn || sendToDoctorVisit.patient?.nameEn} (
+                  {sendToDoctorVisit.patient?.mrn})
+                </div>
+                <div>
+                  <strong>আগমনের সময়:</strong>{' '}
+                  {sendToDoctorVisit.checkedInAt
+                    ? new Date(sendToDoctorVisit.checkedInAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                    : 'আজ'}
+                </div>
+              </div>
+
+              {/* Doctor Selection */}
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold">পরামর্শের ডাক্তার নির্বাচন করুন *</Label>
+                <Select value={sendToDoctorSelectedId} onValueChange={setSendToDoctorSelectedId}>
+                  <SelectTrigger className="h-9 text-xs">
+                    <SelectValue placeholder="ডাক্তার নির্বাচন করুন" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {doctors.map((d) => (
+                      <SelectItem key={d.id} value={d.id}>
+                        {d.fullName} ({d.specialization || d.role})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Reason for Visit */}
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold">পরামর্শের সুনির্দিষ্ট কারণ (Reason of Visiting) *</Label>
+                <Select value={sendToDoctorReason} onValueChange={setSendToDoctorReason}>
+                  <SelectTrigger className="h-9 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="রিপোর্ট দেখানো (Show Investigation Report)">
+                      📑 রিপোর্ট দেখানো (Show Investigation Report)
+                    </SelectItem>
+                    <SelectItem value="পরামর্শ / কথা বলতে চান (Want to Talk / General Consultation)">
+                      💬 পরামর্শ / কথা বলতে চান (Want to Talk / Consultation)
+                    </SelectItem>
+                    <SelectItem value="ফলো-আপ চেকআপ (Follow-up Evaluation)">
+                      🔄 ফলো-আপ চেকআপ (Follow-up Evaluation)
+                    </SelectItem>
+                    <SelectItem value="ওষুধের ডোজ সমন্বয় (Prescription / Dosage Adjustment)">
+                      💊 ওষুধের ডোজ সমন্বয় (Dosage Adjustment)
+                    </SelectItem>
+                    <SelectItem value="জরুরি পর্যবেক্ষণ (Urgent Evaluation)">
+                      🚨 জরুরি পর্যবেক্ষণ (Urgent Evaluation)
+                    </SelectItem>
+                    <SelectItem value="অন্যান্য / বিশেষ কারণ (Other / Custom Note)">
+                      ✏️ অন্যান্য / বিশেষ কারণ (Other)
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Additional Notes */}
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-muted-foreground">অতিরিক্ত নোট / লক্ষণ (ঐচ্ছিক):</Label>
+                <Input
+                  placeholder="যেমন: এমআরআই রিপোর্ট দেখাবেন, ফলো-আপ ইত্যাদি..."
+                  value={sendToDoctorNotes}
+                  onChange={(e) => setSendToDoctorNotes(e.target.value)}
+                  className="h-9 text-xs"
+                />
+              </div>
+
+              <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-[11px] flex items-center justify-between">
+                <span className="font-semibold">ফি গ্রহণ: বিনামূল্যে (Free - ৳0)</span>
+                <Badge className="bg-emerald-500 text-black font-bold text-[10px]">ফ্রি কনসালটেশন</Badge>
+              </div>
+            </div>
+            <DialogFooter className="flex items-center justify-between gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSendToDoctorVisit(null)}
+                disabled={sendingToDoctor}
+                className="text-xs"
+              >
+                বাতিল করুন
+              </Button>
+              <Button
+                size="sm"
+                onClick={handleConfirmSendToDoctor}
+                disabled={sendingToDoctor}
+                className="text-xs bg-cyan-600 hover:bg-cyan-500 text-white gap-1.5 font-bold"
+              >
+                {sendingToDoctor ? (
+                  <>
+                    <Loader2 className="size-3 animate-spin" /> পাঠানো হচ্ছে...
+                  </>
+                ) : (
+                  <>
+                    <Send className="size-3" />
+                    কিউতে যুক্ত করুন
                   </>
                 )}
               </Button>

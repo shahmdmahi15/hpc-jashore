@@ -2,7 +2,6 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useSearchParams } from 'next/navigation';
 import { WorkstationShell } from '../../components/WorkstationShell';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../../components/ui/tabs';
 import { WorkstationTabPlaceholder } from '../../components/WorkstationTabPlaceholder';
@@ -232,17 +231,18 @@ const ADMIN_ROW2_TABS = [
 
 export default function AdminPage() {
   const { language } = useLanguage();
-  const searchParams = useSearchParams();
-  const initialTab = searchParams.get('tab') || 'overview';
-  const [activeTab, setActiveTab] = useState(initialTab);
+  const [activeTab, setActiveTab] = useState('overview');
   const { unreadCount } = useChatNotifier(activeTab === 'chat');
 
   useEffect(() => {
-    const tabParam = searchParams.get('tab');
-    if (tabParam) {
-      setActiveTab(tabParam);
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const tabParam = params.get('tab');
+      if (tabParam) {
+        setActiveTab(tabParam);
+      }
     }
-  }, [searchParams]);
+  }, []);
 
   return (
     <WorkstationShell activeTab="admin" allowedRoles={['admin']}>

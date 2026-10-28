@@ -93,6 +93,16 @@ export class CheckOutDto {
 }
 
 export class SendToDoctorQueueDto {
+  @ApiPropertyOptional({ description: 'Target doctor user ID' })
+  @IsOptional()
+  @IsString()
+  doctorId?: string;
+
+  @ApiPropertyOptional({ description: 'Reason for visit (e.g. Report showing, consultation)' })
+  @IsOptional()
+  @IsString()
+  reason?: string;
+
   @ApiPropertyOptional({ description: 'Optional override chamber room id' })
   @IsOptional()
   @IsString()

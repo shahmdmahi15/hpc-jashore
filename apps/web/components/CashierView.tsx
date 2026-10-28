@@ -153,6 +153,9 @@ export default function CashierView({ session: propSession }: CashierProps = {})
   const [therapyPaymentMethod, setTherapyPaymentMethod] = useState<'cash' | 'bkash' | 'nagad' | 'rocket' | 'card'>('cash');
   const [therapyTxnId, setTherapyTxnId] = useState('');
   const [collectingTherapyBill, setCollectingTherapyBill] = useState(false);
+  const [therapyPaymentMode, setTherapyPaymentMode] = useState<'full' | 'partial' | 'due'>('full');
+  const [therapyPartialPaidTaka, setTherapyPartialPaidTaka] = useState<number>(0);
+  const [includePreviousDue, setIncludePreviousDue] = useState<boolean>(true);
 
   // Modals
   const [isTimelineOpen, setIsTimelineOpen] = useState(false);
@@ -502,6 +505,9 @@ export default function CashierView({ session: propSession }: CashierProps = {})
     setSelectedTherapyBillForPayment(bill);
     setTherapyPaymentMethod('cash');
     setTherapyTxnId('');
+    setTherapyPaymentMode('full');
+    setTherapyPartialPaidTaka(Number(bill.feeTaka || 0));
+    setIncludePreviousDue(true);
   };
 
   // Process Handler Locked Fixed Bill & Forward to Reception
@@ -516,41 +522,70 @@ export default function CashierView({ session: propSession }: CashierProps = {})
     try {
       setCollectingTherapyBill(true);
 
-      let createdBillRes: any = null;
+      const baseFeeTaka = Number(bill.feeTaka || 0);
 
-      // 1. If draft bill already exists, pay and post it directly
-      const draftBillId = bill.rawBill?.id || (bill.id && !String(bill.id).startsWith('bill-') ? bill.id : null);
-      if (draftBillId) {
-        try {
-          createdBillRes = await api.billing.payBill(draftBillId, {
-            amountPaisa: Math.round(Number(bill.feeTaka || 0) * 100),
-            method: therapyPaymentMethod,
-            txnId: therapyTxnId || undefined,
-          });
-        } catch {
-          createdBillRes = null;
-        }
+      // Check if patient has previous due
+      const patientDueRecords = dues.filter((d: any) => d.patientId === bill.patientId && d.status !== 'settled');
+      const prevDueTaka = patientDueRecords.reduce(
+        (sum: number, d: any) =>
+          sum +
+          (d.amountPaisa != null
+            ? Math.max(0, (d.amountPaisa - (d.settledPaisa || 0)) / 100)
+            : Number(d.dueTaka || (d.duePaisa ? d.duePaisa / 100 : 0))),
+        0
+      );
+
+      const effectivePrevDueTaka = (includePreviousDue && prevDueTaka > 0) ? prevDueTaka : 0;
+      const totalPayableTaka = baseFeeTaka + effectivePrevDueTaka;
+
+      let paidTaka = 0;
+      if (therapyPaymentMode === 'full') {
+        paidTaka = totalPayableTaka;
+      } else if (therapyPaymentMode === 'partial') {
+        paidTaka = Math.min(totalPayableTaka, Math.max(0, Number(therapyPartialPaidTaka || 0)));
+      } else {
+        paidTaka = 0; // Full Due
       }
 
-      // 2. Fallback: Create paid bill with fixed fee
-      if (!createdBillRes) {
-        createdBillRes = await api.billing.createBill({
-          patientId: bill.patientId,
-          visitId: bill.visitId || undefined,
-          items: [
-            {
-              itemType: 'therapy',
-              description: `Therapy Session (${bill.modalityName || bill.modalityCode}) [Locked by Handler]`,
-              unitPricePaisa: Math.round(Number(bill.feeTaka || 0) * 100),
-              quantity: 1,
-            },
-          ],
-          discountPaisa: 0,
-          paidPaisa: Math.round(Number(bill.feeTaka || 0) * 100),
-          paymentMethod: therapyPaymentMethod,
-          txnId: therapyTxnId || undefined,
+      const dueTaka = Math.max(0, totalPayableTaka - paidTaka);
+
+      const invoiceItems: any[] = [
+        {
+          itemType: 'therapy',
+          description: `Therapy Session (${bill.modalityName || bill.modalityCode}) [Locked by Handler]`,
+          unitPriceTaka: baseFeeTaka,
+          quantity: 1,
+          totalTaka: baseFeeTaka,
+        },
+      ];
+
+      if (effectivePrevDueTaka > 0) {
+        invoiceItems.push({
+          itemType: 'previous_due',
+          description: 'পূর্ববর্তী বকেয়া সমন্বয় (Previous Due Clearance)',
+          unitPriceTaka: effectivePrevDueTaka,
+          quantity: 1,
+          totalTaka: effectivePrevDueTaka,
         });
       }
+
+      let createdBillRes: any = null;
+
+      // Create paid/due/partially paid bill in database
+      createdBillRes = await api.billing.createBill({
+        patientId: bill.patientId,
+        visitId: bill.visitId || undefined,
+        items: invoiceItems.map((it) => ({
+          itemType: it.itemType,
+          description: it.description,
+          unitPricePaisa: Math.round(Number(it.unitPriceTaka) * 100),
+          quantity: it.quantity,
+        })),
+        discountPaisa: 0,
+        paidPaisa: Math.round(paidTaka * 100),
+        paymentMethod: therapyPaymentMethod,
+        txnId: therapyTxnId || undefined,
+      });
 
       // 3. Immediately clear from pending UI state
       setPendingTherapyBills((prev) =>
@@ -564,7 +599,13 @@ export default function CashierView({ session: propSession }: CashierProps = {})
         });
       }
 
-      toast.success('থেরাপি বিল গ্রহণ সম্পন্ন! রোগীকে চেকআউটের জন্য রিসেপশনে পাঠানো হয়েছে।');
+      toast.success(
+        therapyPaymentMode === 'due'
+          ? 'বিল বকেয়া হিসেবে নথিভুক্ত হয়েছে! রোগীকে চেকআউটের জন্য রিসেপশনে পাঠানো হয়েছে।'
+          : therapyPaymentMode === 'partial'
+          ? `আংশিক বিল গ্রহণ সম্পন্ন (৳${paidTaka} পরিশোধ, ৳${dueTaka} বকেয়া)! রোগীকে রিসেপশনে পাঠানো হয়েছে।`
+          : 'সম্পূর্ণ বিল গ্রহণ সম্পন্ন! রোগীকে চেকআউটের জন্য রিসেপশনে পাঠানো হয়েছে।'
+      );
 
       const billNum = createdBillRes?.billNumber || createdBillRes?.bill?.billNumber || `BILL-${Date.now().toString().slice(-6)}`;
       setInvoiceModalData({
@@ -576,20 +617,12 @@ export default function CashierView({ session: propSession }: CashierProps = {})
         ageYears: bill.ageYears,
         gender: bill.gender,
         cashierName: session?.displayName || 'Cashier Desk',
-        items: [
-          {
-            itemType: 'therapy',
-            description: `Therapy Session (${bill.modalityName || bill.modalityCode}) [Locked by Handler]`,
-            unitPriceTaka: bill.feeTaka,
-            quantity: 1,
-            totalTaka: bill.feeTaka,
-          },
-        ],
-        subtotalTaka: bill.feeTaka,
+        items: invoiceItems,
+        subtotalTaka: totalPayableTaka,
         discountTaka: 0,
-        totalTaka: bill.feeTaka,
-        paidTaka: bill.feeTaka,
-        dueTaka: 0,
+        totalTaka: totalPayableTaka,
+        paidTaka,
+        dueTaka,
         paymentMethod: therapyPaymentMethod,
         txnId: therapyTxnId || undefined,
         createdAt: new Date().toISOString(),
@@ -1799,7 +1832,7 @@ export default function CashierView({ session: propSession }: CashierProps = {})
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
                   <Label className="text-xs font-semibold text-muted-foreground">
-                    নির্ধারিত ফিক্সড ফি (Fixed Fee ৳) *
+                    নির্ধারিত থেরাপি সেবা ফি (Therapy Fee ৳) *
                   </Label>
                   <Badge variant="outline" className="border-amber-500/50 bg-amber-500/10 text-amber-700 dark:text-amber-300 text-[10px] font-semibold gap-1">
                     <ShieldCheck className="size-3 text-amber-600" />
@@ -1810,13 +1843,141 @@ export default function CashierView({ session: propSession }: CashierProps = {})
                   value={`৳${selectedTherapyBillForPayment.feeTaka}`}
                   disabled
                   readOnly
-                  className="bg-muted font-bold text-foreground cursor-not-allowed text-lg font-mono h-11"
+                  className="bg-muted font-bold text-foreground cursor-not-allowed text-lg font-mono h-10"
                 />
-                <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-900 dark:text-amber-200 text-[11px] flex items-start gap-1.5 font-medium">
-                  <span>🔒</span>
-                  <span>হ্যান্ডলার কর্তৃক নির্ধারিত ফিক্সড ফি — ক্যাশিয়ার পরিবর্তন করতে পারবেন না (Locked by Handler)</span>
-                </div>
               </div>
+
+              {/* Previous Due Detection & Combination */}
+              {(() => {
+                const pDues = dues.filter((d: any) => d.patientId === selectedTherapyBillForPayment.patientId && d.status !== 'settled');
+                const pDueTaka = pDues.reduce(
+                  (sum: number, d: any) =>
+                    sum +
+                    (d.amountPaisa != null
+                      ? Math.max(0, (d.amountPaisa - (d.settledPaisa || 0)) / 100)
+                      : Number(d.dueTaka || (d.duePaisa ? d.duePaisa / 100 : 0))),
+                  0
+                );
+                if (pDueTaka <= 0) return null;
+                return (
+                  <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between">
+                    <div>
+                      <div className="font-bold text-amber-700 dark:text-amber-300 flex items-center gap-1.5 text-xs">
+                        <AlertTriangle className="size-3.5 text-amber-600" />
+                        <span>পূর্ববর্তী বকেয়া: ৳{pDueTaka}</span>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">পূর্বের অপরিশোধিত ভিজিট/থেরাপির বকেয়া</p>
+                    </div>
+                    <label className="flex items-center gap-1.5 cursor-pointer text-xs font-semibold text-foreground">
+                      <input
+                        type="checkbox"
+                        checked={includePreviousDue}
+                        onChange={(e) => setIncludePreviousDue(e.target.checked)}
+                        className="size-4 rounded border-border text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                      />
+                      <span>ইনভয়েসে যোগ করুন</span>
+                    </label>
+                  </div>
+                );
+              })()}
+
+              {/* Payment Mode Selector (Full, Partial, Due) */}
+              {(() => {
+                const pDues = dues.filter((d: any) => d.patientId === selectedTherapyBillForPayment.patientId && d.status !== 'settled');
+                const pDueTaka = pDues.reduce(
+                  (sum: number, d: any) =>
+                    sum +
+                    (d.amountPaisa != null
+                      ? Math.max(0, (d.amountPaisa - (d.settledPaisa || 0)) / 100)
+                      : Number(d.dueTaka || (d.duePaisa ? d.duePaisa / 100 : 0))),
+                  0
+                );
+                const totalPayable = Number(selectedTherapyBillForPayment.feeTaka || 0) + (includePreviousDue && pDueTaka > 0 ? pDueTaka : 0);
+                const currentPaid = therapyPaymentMode === 'full' ? totalPayable : therapyPaymentMode === 'partial' ? (Number(therapyPartialPaidTaka) || 0) : 0;
+                const currentDue = Math.max(0, totalPayable - currentPaid);
+
+                return (
+                  <div className="space-y-3">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-semibold text-muted-foreground">পেমেন্ট প্রকার (Payment Type) *</Label>
+                      <div className="grid grid-cols-3 gap-1.5">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant={therapyPaymentMode === 'full' ? 'default' : 'outline'}
+                          onClick={() => {
+                            setTherapyPaymentMode('full');
+                            setTherapyPartialPaidTaka(totalPayable);
+                          }}
+                          className={cn("h-8 text-xs font-bold", therapyPaymentMode === 'full' && "bg-emerald-600 hover:bg-emerald-500 text-white")}
+                        >
+                          সম্পূর্ণ পরিশোধ
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant={therapyPaymentMode === 'partial' ? 'default' : 'outline'}
+                          onClick={() => {
+                            setTherapyPaymentMode('partial');
+                            setTherapyPartialPaidTaka(Math.round(totalPayable / 2));
+                          }}
+                          className={cn("h-8 text-xs font-bold", therapyPaymentMode === 'partial' && "bg-amber-600 hover:bg-amber-500 text-white")}
+                        >
+                          আংশিক পরিশোধ
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant={therapyPaymentMode === 'due' ? 'default' : 'outline'}
+                          onClick={() => {
+                            setTherapyPaymentMode('due');
+                            setTherapyPartialPaidTaka(0);
+                          }}
+                          className={cn("h-8 text-xs font-bold", therapyPaymentMode === 'due' && "bg-rose-600 hover:bg-rose-500 text-white")}
+                        >
+                          সম্পূর্ণ বাকি (Due)
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Partial Amount Input */}
+                    {therapyPaymentMode === 'partial' && (
+                      <div className="space-y-1.5 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-xs font-bold text-foreground">পরিশোধিত অর্থ (Amount Paid ৳) *</Label>
+                          <span className="text-[11px] font-mono font-bold text-rose-600 dark:text-rose-400">
+                            বকেয়া থাকবে: ৳{currentDue}
+                          </span>
+                        </div>
+                        <Input
+                          type="number"
+                          min={0}
+                          max={totalPayable}
+                          value={therapyPartialPaidTaka}
+                          onChange={(e) => setTherapyPartialPaidTaka(Number(e.target.value) || 0)}
+                          className="h-9 font-mono font-bold text-sm bg-background"
+                        />
+                      </div>
+                    )}
+
+                    {/* Total Summary Strip */}
+                    <div className="p-2.5 rounded-xl bg-muted/40 border border-border/70 flex items-center justify-between font-mono text-xs">
+                      <div>
+                        <span className="text-muted-foreground text-[11px]">মোট বিল:</span>{' '}
+                        <strong className="text-foreground text-sm">৳{totalPayable}</strong>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground text-[11px]">পরিশোধ:</span>{' '}
+                        <strong className="text-emerald-600 dark:text-emerald-400">৳{currentPaid}</strong>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground text-[11px]">বকেয়া:</span>{' '}
+                        <strong className="text-rose-600 dark:text-rose-400">৳{currentDue}</strong>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Payment Method Selector */}
               <div className="space-y-1.5">

@@ -1328,13 +1328,36 @@ export class VisitsService {
 
     const item = rows[0];
     if (!item) throw new NotFoundException('Visit not found');
-    const doctorId = item.visit.doctorId;
+    let doctorId = dto?.doctorId || item.visit.doctorId;
     if (!doctorId) {
-      throw new BadRequestException('Cannot queue: No doctor assigned to this visit');
+      const docs = await this.db
+        .select({ id: users.id })
+        .from(users)
+        .where(eq(users.role, 'doctor'))
+        .limit(1);
+      doctorId = docs[0]?.id;
+    }
+    if (!doctorId) {
+      throw new BadRequestException('Cannot queue: No doctor available in the system');
     }
 
     const today = item.visit.visitDate || todayDateString();
     const now = new Date().toISOString();
+
+    // Persist doctor assignment and visit note with reason
+    const visitReasonNote = dto?.reason
+      ? `[${dto.reason}] ${dto?.notes || ''}`.trim()
+      : dto?.notes || item.visit.notes;
+
+    await this.db
+      .update(visits)
+      .set({
+        doctorId,
+        currentLocation: 'doctor_chamber',
+        notes: visitReasonNote,
+        updatedAt: now,
+      })
+      .where(eq(visits.id, visitId));
 
     // Check if already in queue
     const existingSerial = await this.db
@@ -1393,6 +1416,9 @@ export class VisitsService {
       chamber: item.chamber?.name,
       patientId: item.patient.id,
       patientName: item.patient.nameEn,
+      patientNameBn: item.patient.nameBn || item.patient.nameEn,
+      reason: dto?.reason || 'General Consultation',
+      notes: dto?.notes || null,
     };
 
     this.gateway.emit('clinic:global', 'consultation.queued', eventPayload);

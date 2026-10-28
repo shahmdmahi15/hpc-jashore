@@ -88,13 +88,13 @@ export class BillingController {
   }
 
   @Get('bills')
-  @Roles('admin', 'doctor', 'cashier')
+  @Roles('admin', 'doctor', 'cashier', 'receptionist')
   getAllBills() {
     return this.billing.getAllBills();
   }
 
   @Get('dues')
-  @Roles('admin', 'doctor', 'cashier')
+  @Roles('admin', 'doctor', 'cashier', 'receptionist')
   getAllDues() {
     return this.billing.getAllDues();
   }

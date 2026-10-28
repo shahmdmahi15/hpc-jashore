@@ -57,9 +57,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../ui/dialog';
+import { Label } from '../ui/label';
 import { Textarea } from '../ui/textarea';
 import { toast } from 'sonner';
 import { useLanguage } from '../../lib/i18n';
+import { api } from '../../lib/api';
 import {
   listConsultationBookingsAction,
   getDoctorSlotsAction,
@@ -124,6 +126,16 @@ export function ConsultationBookingView({ defaultDoctorId }: ConsultationBooking
   const [cancellingBooking, setCancellingBooking] = useState<ConsultationBookingRecord | null>(null);
   const [cancelReason, setCancelReason] = useState<string>('');
   const [isCancelModalOpen, setIsCancelModalOpen] = useState<boolean>(false);
+
+  // Free Direct Queue Modal States (Report Showing, Talk, Follow-up etc)
+  const [isFreeQueueModalOpen, setIsFreeQueueModalOpen] = useState<boolean>(false);
+  const [freePatientSearch, setFreePatientSearch] = useState<string>('');
+  const [freePatientResults, setFreePatientResults] = useState<PatientRecord[]>([]);
+  const [selectedFreePatient, setSelectedFreePatient] = useState<PatientRecord | null>(null);
+  const [freeDoctorId, setFreeDoctorId] = useState<string>('');
+  const [freeReason, setFreeReason] = useState<string>('রিপোর্ট দেখানো (Show Investigation Report)');
+  const [freeNotes, setFreeNotes] = useState<string>('');
+  const [freeSubmitting, setFreeSubmitting] = useState<boolean>(false);
 
   // Load Initial Doctors
   useEffect(() => {
@@ -245,6 +257,73 @@ export function ConsultationBookingView({ defaultDoctorId }: ConsultationBooking
         toast.error(res.error || (language === 'bn' ? 'বুকিং তৈরি করা যায়নি' : 'Failed to book serial'));
       }
     });
+  };
+
+  // Free Queue Patient Search
+  const handleFreePatientSearchChange = async (query: string) => {
+    setFreePatientSearch(query);
+    if (query.trim().length >= 2) {
+      const res = await searchPatientsAction({ query: query.trim() });
+      if (res.success && res.data?.items) {
+        setFreePatientResults(res.data.items);
+      }
+    } else {
+      setFreePatientResults([]);
+    }
+  };
+
+  // Free Queue Submission
+  const handleFreeQueueSubmit = async () => {
+    if (!selectedFreePatient) {
+      toast.error(language === 'bn' ? 'রোগী নির্বাচন করুন' : 'Select a patient');
+      return;
+    }
+    const docId = freeDoctorId || (doctors.length > 0 ? doctors[0].id : undefined);
+    if (!docId) {
+      toast.error(language === 'bn' ? 'ডাক্তার নির্বাচন করুন' : 'Select a doctor');
+      return;
+    }
+
+    try {
+      setFreeSubmitting(true);
+      // 1. Check or create visit
+      const visitRes = await api.visits.getToday();
+      let activeVisit = (visitRes || []).find(
+        (v: any) => v.patientId === selectedFreePatient.id && v.status !== 'checked_out' && v.status !== 'cancelled'
+      );
+
+      if (!activeVisit) {
+        activeVisit = await api.visits.checkIn({
+          patientId: selectedFreePatient.id,
+          doctorId: docId,
+          priority: 'normal',
+          notes: `Free Consultation: ${freeReason}`,
+        });
+      }
+
+      // 2. Send to doctor queue
+      await api.visits.sendToDoctorQueue(activeVisit.id, {
+        doctorId: docId,
+        reason: freeReason,
+        notes: freeNotes,
+      });
+
+      toast.success(
+        language === 'bn'
+          ? `রোগী ${selectedFreePatient.nameEn} কে সফলভাবে চেম্বার কিউতে পাঠানো হয়েছে (ফ্রি)!`
+          : `Patient ${selectedFreePatient.nameEn} sent to doctor queue (Free)!`
+      );
+
+      setIsFreeQueueModalOpen(false);
+      setSelectedFreePatient(null);
+      setFreePatientSearch('');
+      setFreeNotes('');
+      await loadData();
+    } catch (err: any) {
+      toast.error(err?.message || (language === 'bn' ? 'কিউতে যোগ করতে ব্যর্থ হয়েছে' : 'Failed to add to queue'));
+    } finally {
+      setFreeSubmitting(false);
+    }
   };
 
   // Quick Check-in
@@ -438,6 +517,20 @@ export function ConsultationBookingView({ defaultDoctorId }: ConsultationBooking
               >
                 <RefreshCw className={`size-3.5 mr-1.5 ${loading ? 'animate-spin' : ''}`} />
                 {language === 'bn' ? 'রিফ্রেশ' : 'Refresh'}
+              </Button>
+
+              <Button
+                size="sm"
+                onClick={() => {
+                  setSelectedFreePatient(null);
+                  setFreePatientSearch('');
+                  setFreeNotes('');
+                  setIsFreeQueueModalOpen(true);
+                }}
+                className="h-9 px-3.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-semibold text-xs shadow-md shadow-cyan-600/20 active:scale-95 transition-transform"
+              >
+                <Send className="size-3.5 mr-1.5" />
+                {language === 'bn' ? 'কিউতে রোগী যোগ করুন (ফ্রি)' : 'Add to Queue (Free)'}
               </Button>
 
               <Button
@@ -1228,6 +1321,189 @@ export function ConsultationBookingView({ defaultDoctorId }: ConsultationBooking
                 <Ban className="size-3.5 mr-1.5" />
               )}
               {language === 'bn' ? 'হ্যাঁ, বাতিল করুন' : 'Yes, Cancel Serial'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Free Direct Patient to Doctor Queue Modal */}
+      <Dialog open={isFreeQueueModalOpen} onOpenChange={setIsFreeQueueModalOpen}>
+        <DialogContent className="max-w-lg p-4 sm:p-6 bg-card border-border shadow-2xl rounded-2xl">
+          <DialogHeader className="pb-3 border-b border-border/60">
+            <DialogTitle className="text-base sm:text-lg font-bold flex items-center gap-2">
+              <span className="p-1.5 rounded-lg bg-cyan-500/10 text-cyan-600 dark:text-cyan-400">
+                <Send className="size-4" />
+              </span>
+              <span>
+                {language === 'bn'
+                  ? 'ডাক্তারের পরামর্শ কিউতে সরাসরি প্রেরণ (ফ্রি)'
+                  : 'Add Patient to Doctor Queue (Free)'}
+              </span>
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground mt-0.5">
+              {language === 'bn'
+                ? 'রিপোর্ট দেখানো, ডাক্তারের সাথে জরুরি কথা বলা বা ফলো-আপের জন্য কোনো পেমেন্ট ছাড়াই সরাসরি কিউতে প্রেরণ করুন।'
+                : 'Send patient to doctor consultation queue without fee for report showing, consultation, or follow-up.'}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2 text-xs">
+            {/* 1. Patient Selection */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-foreground">
+                {language === 'bn' ? 'রোগী নির্বাচন করুন *' : 'Select Patient *'}
+              </Label>
+              {selectedFreePatient ? (
+                <div className="p-2.5 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-between">
+                  <div>
+                    <div className="font-bold text-foreground">
+                      {selectedFreePatient.nameEn} ({selectedFreePatient.nameBn || ''})
+                    </div>
+                    <div className="text-[11px] font-mono text-muted-foreground">
+                      MRN: {selectedFreePatient.mrn} · Phone: {selectedFreePatient.phone}
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSelectedFreePatient(null)}
+                    className="size-7 p-0 text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="size-3.5" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <div className="relative">
+                    <Search className="size-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      placeholder={language === 'bn' ? 'রোগীর নাম, ফোন নম্বর বা MRN দিয়ে খুঁজুন...' : 'Search by patient name, phone, or MRN...'}
+                      value={freePatientSearch}
+                      onChange={(e) => handleFreePatientSearchChange(e.target.value)}
+                      className="pl-8 h-9 text-xs"
+                    />
+                  </div>
+                  {freePatientResults.length > 0 && (
+                    <div className="max-h-36 overflow-y-auto border border-border rounded-xl divide-y divide-border/60 bg-background">
+                      {freePatientResults.map((p) => (
+                        <div
+                          key={p.id}
+                          onClick={() => {
+                            setSelectedFreePatient(p);
+                            setFreePatientResults([]);
+                          }}
+                          className="p-2 hover:bg-muted/50 cursor-pointer flex items-center justify-between transition-colors"
+                        >
+                          <div>
+                            <span className="font-bold text-foreground">{p.nameEn}</span>
+                            <span className="text-muted-foreground ml-1.5 font-mono text-[11px]">({p.phone})</span>
+                          </div>
+                          <Badge variant="outline" className="text-[10px] font-mono">
+                            {p.mrn}
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* 2. Doctor Selection */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-foreground">
+                {language === 'bn' ? 'কনসালট্যান্ট ডাক্তার নির্বাচন করুন *' : 'Target Doctor *'}
+              </Label>
+              <Select value={freeDoctorId} onValueChange={setFreeDoctorId}>
+                <SelectTrigger className="h-9 text-xs">
+                  <SelectValue placeholder="-- ডাক্তার নির্বাচন করুন --" />
+                </SelectTrigger>
+                <SelectContent>
+                  {doctors.map((d) => (
+                    <SelectItem key={d.id} value={d.id}>
+                      {d.fullName} ({d.specialization || 'Doctor'})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* 3. Reason for Consultation */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-foreground">
+                {language === 'bn' ? 'পরামর্শের সুনির্দিষ্ট কারণ (Reason of Visiting) *' : 'Reason for Visit *'}
+              </Label>
+              <Select value={freeReason} onValueChange={setFreeReason}>
+                <SelectTrigger className="h-9 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="রিপোর্ট দেখানো (Show Investigation Report)">
+                    📑 রিপোর্ট দেখানো (Show Investigation Report)
+                  </SelectItem>
+                  <SelectItem value="পরামর্শ / কথা বলতে চান (Want to Talk / General Consultation)">
+                    💬 পরামর্শ / কথা বলতে চান (Want to Talk / Consultation)
+                  </SelectItem>
+                  <SelectItem value="ফলো-আপ চেকআপ (Follow-up Evaluation)">
+                    🔄 ফলো-আপ চেকআপ (Follow-up Evaluation)
+                  </SelectItem>
+                  <SelectItem value="ওষুধের ডোজ সমন্বয় (Prescription / Dosage Adjustment)">
+                    💊 ওষুধের ডোজ সমন্বয় (Dosage Adjustment)
+                  </SelectItem>
+                  <SelectItem value="জরুরি পর্যবেক্ষণ (Urgent Evaluation)">
+                    🚨 জরুরি পর্যবেক্ষণ (Urgent Evaluation)
+                  </SelectItem>
+                  <SelectItem value="অন্যান্য / বিশেষ কারণ (Other / Custom Note)">
+                    ✏️ অন্যান্য / বিশেষ কারণ (Other)
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* 4. Notes */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-muted-foreground">
+                {language === 'bn' ? 'অতিরিক্ত মন্তব্য / নোট (ঐচ্ছিক)' : 'Additional Notes (Optional)'}
+              </Label>
+              <Textarea
+                placeholder={language === 'bn' ? 'যেমন: এমআরআই রিপোর্ট দেখাবেন, পেছনের ব্যথা বেড়ে গেছে ইত্যাদি...' : 'e.g. Bringing MRI report, pain increased...'}
+                value={freeNotes}
+                onChange={(e) => setFreeNotes(e.target.value)}
+                className="text-xs min-h-[60px]"
+              />
+            </div>
+
+            <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-[11px] flex items-center justify-between">
+              <span className="font-semibold">ফি গ্রহণ: বিনামূল্যে (Free - ৳0)</span>
+              <Badge className="bg-emerald-500 text-black font-bold text-[10px]">সম্পূর্ণ ফ্রি</Badge>
+            </div>
+          </div>
+
+          <DialogFooter className="flex flex-row justify-between gap-2 pt-3 border-t border-border/60">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setIsFreeQueueModalOpen(false)}
+              disabled={freeSubmitting}
+              className="text-xs"
+            >
+              {language === 'bn' ? 'বাতিল' : 'Cancel'}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={handleFreeQueueSubmit}
+              disabled={freeSubmitting || !selectedFreePatient}
+              className="bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs gap-1.5 shadow-sm active:scale-95"
+            >
+              {freeSubmitting ? (
+                <RefreshCw className="size-3.5 animate-spin" />
+              ) : (
+                <Send className="size-3.5" />
+              )}
+              <span>{language === 'bn' ? 'কিউতে যুক্ত করুন' : 'Add to Doctor Queue'}</span>
             </Button>
           </DialogFooter>
         </DialogContent>

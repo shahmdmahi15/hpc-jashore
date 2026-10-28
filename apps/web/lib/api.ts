@@ -325,6 +325,11 @@ export const api = {
         method: 'PATCH',
         body: JSON.stringify(dto),
       }),
+    sendToDoctorQueue: (visitId: string, dto?: { doctorId?: string; reason?: string; chamberRoomId?: string; notes?: string }) =>
+      apiFetch<any>(`/visits/${visitId}/send-to-doctor-queue`, {
+        method: 'POST',
+        body: JSON.stringify(dto || {}),
+      }),
     checkOut: (visitId: string, dto?: { notes?: string; allowWithDues?: boolean; nextFollowUpDate?: string }) =>
       apiFetch<any>(`/visits/${visitId}/check-out`, {
         method: 'POST',

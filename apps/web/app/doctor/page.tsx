@@ -2,7 +2,6 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useSearchParams } from 'next/navigation';
 import { WorkstationShell } from '../../components/WorkstationShell';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../../components/ui/tabs';
 import { WorkstationTabPlaceholder } from '../../components/WorkstationTabPlaceholder';
@@ -105,17 +104,18 @@ const DOCTOR_TABS = [
 
 export default function DoctorPage() {
   const { language } = useLanguage();
-  const searchParams = useSearchParams();
-  const initialTab = searchParams.get('tab') || 'consultation_queue';
-  const [activeTab, setActiveTab] = useState(initialTab);
+  const [activeTab, setActiveTab] = useState('consultation_queue');
   const { unreadCount } = useChatNotifier(activeTab === 'chat');
 
   useEffect(() => {
-    const tabParam = searchParams.get('tab');
-    if (tabParam) {
-      setActiveTab(tabParam);
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const tabParam = params.get('tab');
+      if (tabParam) {
+        setActiveTab(tabParam);
+      }
     }
-  }, [searchParams]);
+  }, []);
 
   return (
     <WorkstationShell activeTab="doctor" allowedRoles={['admin', 'doctor']}>
