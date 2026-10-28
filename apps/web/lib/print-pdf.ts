@@ -54,23 +54,38 @@ export async function printElementViaIframe(
         stylesHtml += node.outerHTML;
       });
 
-      // 2. Create isolated iframe anchored at top-left with full A4 viewport geometry
-      // This prevents iOS/Safari WebKit from anchoring print outputs to the bottom or 0x0
+      // 2. Clean up any stale print iframe before spawning a new one
+      const oldIframe = document.getElementById('hpc-print-isolated-iframe');
+      if (oldIframe) {
+        oldIframe.remove();
+      }
+
+      // 3. Create isolated iframe positioned offscreen with visibility: visible
+      // NOTE: Chromium will paint a completely blank white preview if iframe has visibility: hidden or display: none!
+      // We position it offscreen with fixed coordinates, width/height matching A4, and full visibility.
       const iframe = document.createElement('iframe');
+      iframe.id = 'hpc-print-isolated-iframe';
+      iframe.setAttribute('data-radix-portal', 'true');
+      iframe.className = 'isolated-print-wrapper';
       iframe.style.position = 'fixed';
-      iframe.style.top = '0';
-      iframe.style.left = '0';
+      iframe.style.left = '-9999px';
+      iframe.style.top = '-9999px';
       iframe.style.width = '210mm';
       iframe.style.height = '297mm';
       iframe.style.border = 'none';
-      iframe.style.visibility = 'hidden';
+      iframe.style.margin = '0';
+      iframe.style.padding = '0';
+      iframe.style.visibility = 'visible';
+      iframe.style.opacity = '1';
       iframe.style.zIndex = '-9999';
       iframe.setAttribute('aria-hidden', 'true');
       document.body.appendChild(iframe);
 
       const iframeDoc = iframe.contentWindow?.document;
       if (!iframeDoc) {
-        document.body.removeChild(iframe);
+        if (document.body.contains(iframe)) {
+          document.body.removeChild(iframe);
+        }
         throw new Error('Unable to access print iframe document');
       }
 
@@ -78,7 +93,7 @@ export async function printElementViaIframe(
       const pageMargin = options.pageMargin || '6mm 8mm';
       const pageTitle = options.pageTitle || 'HPC Jashore Document';
 
-      // 3. Write isolated standalone document
+      // 4. Write isolated standalone document with comprehensive visibility overrides
       iframeDoc.open();
       iframeDoc.write(`
         <!DOCTYPE html>
@@ -95,7 +110,7 @@ export async function printElementViaIframe(
                 size: ${pageSize};
                 margin: ${pageMargin};
               }
-              * {
+              *, *::before, *::after {
                 -webkit-print-color-adjust: exact !important;
                 print-color-adjust: exact !important;
                 box-sizing: border-box !important;
@@ -109,6 +124,12 @@ export async function printElementViaIframe(
                 background-color: #ffffff !important;
                 color: #000000 !important;
                 font-family: 'Hind Siliguri', 'Noto Sans Bengali', var(--font-poppins, 'Poppins'), system-ui, sans-serif !important;
+                overflow: visible !important;
+              }
+              /* In this dedicated print iframe, all elements must be visible - override any media print hidden rules */
+              body,
+              body * {
+                visibility: visible !important;
               }
               .isolated-print-wrapper {
                 width: 100% !important;
@@ -116,12 +137,51 @@ export async function printElementViaIframe(
                 display: flex !important;
                 justify-content: center !important;
                 background: #ffffff !important;
+                visibility: visible !important;
+              }
+              #hpc-intake-a4-sheet {
+                display: flex !important;
+                flex-direction: column !important;
+                justify-content: space-between !important;
+                visibility: visible !important;
+                box-sizing: border-box !important;
+                width: 190mm !important;
+                max-width: 190mm !important;
+                height: 275mm !important;
+                max-height: 275mm !important;
+                margin: 0 auto !important;
+                padding: 5mm 6mm !important;
+                background: #ffffff !important;
+                background-color: #ffffff !important;
+                color: #000000 !important;
+                border: 1.5px solid #047857 !important;
+                border-radius: 4px !important;
+                overflow: hidden !important;
+                page-break-after: avoid !important;
+                break-after: avoid !important;
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+              }
+              #hpc-intake-a4-sheet * {
+                visibility: visible !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+              }
+              .sheet-invoice-hpc,
+              .sheet-invoice-hpc *,
+              .sheet-prescription,
+              .sheet-prescription *,
+              .sheet-report,
+              .sheet-report * {
+                visibility: visible !important;
               }
               ${options.extraCss || ''}
             </style>
           </head>
           <body>
-            <div class="isolated-print-wrapper">
+            <div data-radix-portal="true" class="isolated-print-wrapper">
               ${targetEl.outerHTML}
             </div>
           </body>
@@ -129,7 +189,7 @@ export async function printElementViaIframe(
       `);
       iframeDoc.close();
 
-      // 4. Wait for images and web fonts inside iframe to fully load before triggering print
+      // 5. Trigger print after fonts & styles render, with robust post-print cleanup
       const triggerPrint = () => {
         try {
           iframe.contentWindow?.focus();
@@ -137,20 +197,26 @@ export async function printElementViaIframe(
           resolve();
         } catch (err) {
           reject(err);
-        } finally {
-          // Remove iframe after short delay to prevent premature disposal in Safari/Firefox
-          setTimeout(() => {
-            if (document.body.contains(iframe)) {
-              document.body.removeChild(iframe);
-            }
-          }, 2000);
         }
       };
 
+      // Set up cleanup after print finishes
+      const cleanup = () => {
+        setTimeout(() => {
+          if (document.body.contains(iframe)) {
+            document.body.removeChild(iframe);
+          }
+        }, 1000);
+      };
+
+      iframe.contentWindow?.addEventListener('afterprint', cleanup);
+      // Safety fallback in case afterprint does not fire (e.g. certain virtual PDF drivers)
+      setTimeout(cleanup, 120000);
+
       if (iframeDoc.readyState === 'complete') {
-        setTimeout(triggerPrint, 350);
+        setTimeout(triggerPrint, 400);
       } else {
-        iframe.onload = () => setTimeout(triggerPrint, 350);
+        iframe.onload = () => setTimeout(triggerPrint, 400);
       }
     } catch (err) {
       reject(err);

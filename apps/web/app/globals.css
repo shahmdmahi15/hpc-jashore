@@ -528,11 +528,11 @@ select:-webkit-autofill:active {
   }
 
   /* 2. COMPLETELY REMOVE background dashboard and sibling portals from print layout flow when printing sheets/modals */
-  body:has(#hpc-intake-a4-sheet) > *:not([data-radix-portal]),
-  body.printing-intake-a4 > *:not([data-radix-portal]),
-  body:has(.sheet-invoice-hpc) > *:not([data-radix-portal]),
-  body:has(#hpc-thermal-80mm-slip) > *:not([data-radix-portal]),
-  body:has(.sheet-prescription) > *:not([data-radix-portal]) {
+  body:has(#hpc-intake-a4-sheet) > *:not([data-radix-portal]):not(.isolated-print-wrapper):not(iframe),
+  body.printing-intake-a4 > *:not([data-radix-portal]):not(.isolated-print-wrapper):not(iframe),
+  body:has(.sheet-invoice-hpc) > *:not([data-radix-portal]):not(.isolated-print-wrapper):not(iframe),
+  body:has(#hpc-thermal-80mm-slip) > *:not([data-radix-portal]):not(.isolated-print-wrapper):not(iframe),
+  body:has(.sheet-prescription) > *:not([data-radix-portal]):not(.isolated-print-wrapper):not(iframe) {
     display: none !important;
     height: 0 !important;
     max-height: 0 !important;
@@ -542,14 +542,20 @@ select:-webkit-autofill:active {
   }
 
   /* Completely suppress any background portals (such as the edit modal behind the print preview modal) */
-  body:has(#hpc-intake-a4-sheet) [data-radix-portal]:not(:has(#hpc-intake-a4-sheet)),
-  body.printing-intake-a4 [data-radix-portal]:not(:has(#hpc-intake-a4-sheet)) {
+  body:has(#hpc-intake-a4-sheet) [data-radix-portal]:not(:has(#hpc-intake-a4-sheet)):not(.isolated-print-wrapper):not(iframe),
+  body.printing-intake-a4 [data-radix-portal]:not(:has(#hpc-intake-a4-sheet)):not(.isolated-print-wrapper):not(iframe) {
     display: none !important;
     height: 0 !important;
     max-height: 0 !important;
     overflow: hidden !important;
     margin: 0 !important;
     padding: 0 !important;
+  }
+
+  /* Ensure isolated print wrappers are always fully visible */
+  .isolated-print-wrapper,
+  .isolated-print-wrapper * {
+    visibility: visible !important;
   }
 
   /* 3. Hide dialog overlay, close button, interactive buttons and screen-only elements */
