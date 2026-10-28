@@ -516,23 +516,44 @@ export default function CashierView({ session: propSession }: CashierProps = {})
 
       let createdBillRes: any = null;
 
-      // Create paid bill with fixed fee
-      createdBillRes = await api.billing.createBill({
-        patientId: bill.patientId,
-        visitId: bill.visitId || undefined,
-        items: [
-          {
-            itemType: 'therapy',
-            description: `Therapy Session (${bill.modalityName || bill.modalityCode}) [Locked by Handler]`,
-            unitPricePaisa: Math.round(Number(bill.feeTaka || 0) * 100),
-            quantity: 1,
-          },
-        ],
-        discountPaisa: 0,
-        paidPaisa: Math.round(Number(bill.feeTaka || 0) * 100),
-        paymentMethod: therapyPaymentMethod,
-        txnId: therapyTxnId || undefined,
-      });
+      // 1. If draft bill already exists, pay and post it directly
+      const draftBillId = bill.rawBill?.id || (bill.id && !String(bill.id).startsWith('bill-') ? bill.id : null);
+      if (draftBillId) {
+        try {
+          createdBillRes = await api.billing.payBill(draftBillId, {
+            amountPaisa: Math.round(Number(bill.feeTaka || 0) * 100),
+            method: therapyPaymentMethod,
+            txnId: therapyTxnId || undefined,
+          });
+        } catch {
+          createdBillRes = null;
+        }
+      }
+
+      // 2. Fallback: Create paid bill with fixed fee
+      if (!createdBillRes) {
+        createdBillRes = await api.billing.createBill({
+          patientId: bill.patientId,
+          visitId: bill.visitId || undefined,
+          items: [
+            {
+              itemType: 'therapy',
+              description: `Therapy Session (${bill.modalityName || bill.modalityCode}) [Locked by Handler]`,
+              unitPricePaisa: Math.round(Number(bill.feeTaka || 0) * 100),
+              quantity: 1,
+            },
+          ],
+          discountPaisa: 0,
+          paidPaisa: Math.round(Number(bill.feeTaka || 0) * 100),
+          paymentMethod: therapyPaymentMethod,
+          txnId: therapyTxnId || undefined,
+        });
+      }
+
+      // 3. Immediately clear from pending UI state
+      setPendingTherapyBills((prev) =>
+        prev.filter((b) => b.id !== bill.id && (!bill.visitId || b.visitId !== bill.visitId))
+      );
 
       // Automatically route visit to reception
       if (bill.visitId) {

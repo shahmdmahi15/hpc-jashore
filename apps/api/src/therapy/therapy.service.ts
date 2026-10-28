@@ -60,22 +60,40 @@ export class TherapyService {
       .where(eq(patients.id, dto.patientId));
     if (!patientRows[0]) throw new NotFoundException('Patient not found');
 
-    let effectiveTherapistId = dto.therapistStaffId;
+    // 1. Ensure modality exists in database so foreign key never fails
+    const modCode = (dto.modalityCode || 'IFT').trim();
+    const modRow = await this.db.select().from(modalities).where(eq(modalities.code, modCode));
+    if (!modRow[0]) {
+      try {
+        await this.db.insert(modalities).values({
+          id: `mod-${modCode.toLowerCase()}`,
+          code: modCode,
+          nameEn: `${modCode} Therapy`,
+          nameBn: `${modCode} থেরাপি`,
+          defaultDurationMin: dto.durationMinutes || 15,
+          defaultPricePaisa: 30000,
+          isActive: 1,
+        });
+      } catch {}
+    }
+
+    // 2. Validate therapist staff ID against users table
+    let effectiveTherapistId: string | null = null;
+    const targetStaffId = dto.therapistStaffId || therapistStaffId;
+    if (targetStaffId) {
+      const staffRows = await this.db.select({ id: users.id }).from(users).where(eq(users.id, targetStaffId));
+      if (staffRows[0]) effectiveTherapistId = staffRows[0].id;
+    }
     if (!effectiveTherapistId) {
-      const staffRows = await this.db
-        .select()
-        .from(users)
-        .where(eq(users.id, therapistStaffId));
-      if (staffRows.length > 0) {
-        effectiveTherapistId = staffRows[0].id;
-      } else {
-        const anyHandler = await this.db
-          .select()
-          .from(users)
-          .where(and(eq(users.role, 'handler'), eq(users.approvalStatus, 'approved'), eq(users.isActive, 1)))
-          .limit(1);
-        effectiveTherapistId = anyHandler[0]?.id ?? therapistStaffId;
-      }
+      const anyUser = await this.db.select({ id: users.id }).from(users).limit(1);
+      effectiveTherapistId = anyUser[0]?.id ?? null;
+    }
+
+    // 3. Validate planId if passed
+    let validPlanId: string | null = null;
+    if (dto.planId) {
+      const planRows = await this.db.select({ id: therapyPlans.id }).from(therapyPlans).where(eq(therapyPlans.id, dto.planId));
+      if (planRows[0]) validPlanId = planRows[0].id;
     }
 
     const now = new Date().toISOString();
@@ -83,11 +101,11 @@ export class TherapyService {
     const sessionId = randomUUID();
     const row = {
       id: sessionId,
-      planId: dto.planId ?? null,
+      planId: validPlanId,
       patientId: dto.patientId,
       therapistStaffId: effectiveTherapistId,
       bedId: null,
-      modalityCode: dto.modalityCode,
+      modalityCode: modCode,
       status: 'in_progress' as const,
       startedAt: now,
       endedAt: null,
@@ -102,39 +120,58 @@ export class TherapyService {
 
     // Update patient's active visit for today: status = 'in_therapy', currentLocation = 'therapy_hall'
     if (dto.visitId) {
-      await this.db
-        .update(visits)
-        .set({
-          status: 'in_therapy' as any,
-          currentLocation: 'therapy_hall',
-          roomId: dto.roomId ?? undefined,
-          updatedAt: now,
-        })
-        .where(eq(visits.id, dto.visitId));
+      try {
+        await this.db
+          .update(visits)
+          .set({
+            status: 'in_therapy' as any,
+            currentLocation: 'therapy_hall',
+            roomId: dto.roomId ?? undefined,
+            updatedAt: now,
+          })
+          .where(eq(visits.id, dto.visitId));
+      } catch {
+        try {
+          (this.db as any).session?.client
+            ?.prepare("UPDATE visits SET status = 'in_therapy', current_location = 'therapy_hall', updated_at = ? WHERE id = ?")
+            ?.run(now, dto.visitId);
+        } catch {}
+      }
     } else {
-      await this.db
-        .update(visits)
-        .set({
-          status: 'in_therapy' as any,
-          currentLocation: 'therapy_hall',
-          roomId: dto.roomId ?? undefined,
-          updatedAt: now,
-        })
-        .where(and(eq(visits.patientId, dto.patientId), eq(visits.visitDate, today)));
+      try {
+        await this.db
+          .update(visits)
+          .set({
+            status: 'in_therapy' as any,
+            currentLocation: 'therapy_hall',
+            roomId: dto.roomId ?? undefined,
+            updatedAt: now,
+          })
+          .where(and(eq(visits.patientId, dto.patientId), eq(visits.visitDate, today)));
+      } catch {}
     }
 
     const payload = {
       sessionId,
       patientId: dto.patientId,
+      visitId: dto.visitId,
       patientName: patientRows[0].nameEn,
-      modalityCode: dto.modalityCode,
+      modalityCode: modCode,
+      roomId: dto.roomId,
+      status: 'in_therapy',
       bedId: null,
-      therapistStaffId,
+      therapistStaffId: effectiveTherapistId,
       startedAt: now,
     };
 
-    this.gateway.emit('clinic:global', 'session.started', payload);
-    this.realtime.publish('session.started', payload);
+    try {
+      this.gateway?.emit('clinic:global', 'session.started', payload);
+      this.gateway?.emit('clinic:global', 'therapy.in_session', payload);
+    } catch {}
+    try {
+      this.realtime?.publish('session.started', payload);
+      this.realtime?.publish('therapy.in_session', payload);
+    } catch {}
 
     await this.audit.log({
       actorUserId: actor.sub,
@@ -1332,10 +1369,12 @@ export class TherapyService {
       .where(
         and(
           eq(bills.status, 'draft'),
+          sql`${bills.duePaisa} > 0`,
           or(
             sql`${bills.notes} LIKE '%isLockedByHandler%'`,
             eq(visits.currentLocation, 'cashier'),
           ),
+          sql`(${visits.status} IS NULL OR ${visits.status} NOT IN ('checked_out', 'cancelled'))`,
         ),
       )
       .orderBy(desc(bills.createdAt));

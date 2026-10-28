@@ -75,6 +75,34 @@ export type Db = BetterSQLite3Database<typeof schema>;
             sqlite.exec("ALTER TABLE users ADD COLUMN custom_time_slots TEXT");
           }
 
+          // Ensure modalities table is populated with standard clinical modalities
+          try {
+            const standardModalities = [
+              { code: 'IFT', nameEn: 'IFT (Interferential Therapy)', nameBn: 'আইএফটি (ইন্টারফেরেনশিয়াল থেরাপি)', duration: 15, price: 30000 },
+              { code: 'UST', nameEn: 'UST (Ultrasound Therapy)', nameBn: 'আল্ট্রাসাউন্ড থেরাপি', duration: 15, price: 30000 },
+              { code: 'TRACTION', nameEn: 'Traction (Cervical / Lumbar)', nameBn: 'ট্র্যাকশন থেরাপি', duration: 20, price: 35000 },
+              { code: 'TRAC', nameEn: 'Traction Therapy', nameBn: 'ট্র্যাকশন থেরাপি', duration: 20, price: 35000 },
+              { code: 'SWD', nameEn: 'SWD (Shortwave Diathermy)', nameBn: 'শর্টওয়েভ ডায়াথার্মি', duration: 20, price: 40000 },
+              { code: 'TENS', nameEn: 'TENS (Electrical Stimulation)', nameBn: 'টেনস থেরাপি', duration: 15, price: 25000 },
+              { code: 'EXERCISE', nameEn: 'Therapeutic Exercise', nameBn: 'থেরাপিউটিক এক্সারসাইজ', duration: 30, price: 50000 },
+              { code: 'EX', nameEn: 'Therapeutic Exercise', nameBn: 'থেরাপিউটিক এক্সারসাইজ', duration: 30, price: 50000 },
+              { code: 'IRR', nameEn: 'IRR (Infrared Radiation)', nameBn: 'ইনফ্রারেড রেডিয়েশন', duration: 15, price: 25000 },
+              { code: 'WAX', nameEn: 'Wax Bath Therapy', nameBn: 'ওয়াক্স বাথ থেরাপি', duration: 20, price: 30000 },
+              { code: 'PHYSIO', nameEn: 'Physiotherapy & Rehab', nameBn: 'ফিজিওথেরাপি ও পুনর্বাসন', duration: 30, price: 50000 },
+            ];
+
+            const insertMod = sqlite.prepare(`
+              INSERT OR IGNORE INTO modalities (id, code, name_en, name_bn, default_duration_min, default_price_paisa, is_active)
+              VALUES (?, ?, ?, ?, ?, ?, 1)
+            `);
+
+            for (const m of standardModalities) {
+              insertMod.run(`mod-${m.code.toLowerCase()}`, m.code, m.nameEn, m.nameBn, m.duration, m.price);
+            }
+          } catch (modErr) {
+            console.error('Error ensuring modalities in db.module:', modErr);
+          }
+
           // Ensure bulletins table exists
           sqlite.exec(`
             CREATE TABLE IF NOT EXISTS bulletins (

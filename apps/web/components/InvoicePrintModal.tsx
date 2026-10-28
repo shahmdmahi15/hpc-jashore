@@ -1,10 +1,11 @@
 // apps/web/components/InvoicePrintModal.tsx
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { Button } from './ui/button';
-import { Printer, FileText, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Printer, FileText, CheckCircle2, AlertCircle, Download, Loader2 } from 'lucide-react';
+import { printElementViaIframe, generateElementPdf } from '../lib/print-pdf';
 
 export interface InvoiceItem {
   itemType?: string;
@@ -97,13 +98,82 @@ export default function InvoicePrintModal({
 }: InvoicePrintModalProps) {
   if (!data) return null;
 
-  const handlePrint = () => {
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'visible';
-    window.print();
-    setTimeout(() => {
-      document.body.style.overflow = prevOverflow;
-    }, 500);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
+  const [isPrinting, setIsPrinting] = useState(false);
+
+  const handlePrint = async () => {
+    setIsPrinting(true);
+    try {
+      const isMobile =
+        typeof navigator !== 'undefined' &&
+        (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent) ||
+          (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
+
+      if (isMobile) {
+        window.print();
+      } else {
+        await printElementViaIframe('hpc-invoice-custom-sheet', {
+          pageTitle: `HPC_Invoice_${data.billNumber}`,
+          pageSize: '5.5in 8.27in',
+          pageMargin: '4mm 5mm',
+          extraCss: `
+            @page {
+              size: 5.5in 8.27in;
+              margin: 4mm 5mm;
+            }
+            #hpc-invoice-custom-sheet {
+              width: 100% !important;
+              max-width: 5.5in !important;
+              height: calc(8.27in - 8mm) !important;
+              max-height: calc(8.27in - 8mm) !important;
+              margin: 0 auto !important;
+              display: flex !important;
+              flex-direction: column !important;
+              justify-content: space-between !important;
+              box-sizing: border-box !important;
+              background: #ffffff !important;
+              color: #000000 !important;
+              border: 1px solid #d4d4d8 !important;
+              border-radius: 4px !important;
+              overflow: hidden !important;
+              page-break-after: avoid !important;
+              break-after: avoid !important;
+              page-break-inside: avoid !important;
+              break-inside: avoid !important;
+            }
+          `,
+        });
+      }
+    } catch {
+      window.print();
+    } finally {
+      setIsPrinting(false);
+    }
+  };
+
+  const handleDownloadPdf = async () => {
+    setIsExportingPdf(true);
+    try {
+      const { url } = await generateElementPdf('hpc-invoice-custom-sheet', {
+        filename: `HPC_Invoice_${data.billNumber}.pdf`,
+        orientation: 'portrait',
+        format: [140, 210],
+        scale: 2.5,
+      });
+
+      const isMobile =
+        typeof navigator !== 'undefined' &&
+        (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent) ||
+          (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
+
+      if (isMobile && url) {
+        window.open(url, '_blank');
+      }
+    } catch (err) {
+      console.error('PDF export failed:', err);
+    } finally {
+      setIsExportingPdf(false);
+    }
   };
 
   const formattedDate = data.createdAt
@@ -241,6 +311,7 @@ export default function InvoicePrintModal({
         {/* STRICT HPC CUSTOM PAPER (5.50in × 8.27in / 140mm × 210mm)      */}
         {/* ============================================================== */}
         <div
+          id="hpc-invoice-custom-sheet"
           className="sheet-invoice-hpc print-hpc-paper bg-white text-zinc-950 rounded-xl border border-zinc-300 shadow-md mx-auto my-2 w-full font-sans"
           style={{
             maxWidth: '5.5in',
@@ -467,19 +538,52 @@ export default function InvoicePrintModal({
         </div>
 
         {/* Modal Bottom Actions (Screen Only) */}
-        <div className="flex items-center justify-between gap-3 pt-3 border-t border-border/60 print-hidden">
-          <Button variant="outline" size="sm" onClick={onClose} className="rounded-xl cursor-pointer">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-2 pt-3 border-t border-border/60 print-hidden">
+          <Button variant="outline" size="sm" onClick={onClose} className="w-full sm:w-auto rounded-xl cursor-pointer">
             বন্ধ করুন (Close)
           </Button>
 
-          <Button
-            size="sm"
-            onClick={handlePrint}
-            className="rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold gap-1.5 shadow-md shadow-emerald-500/20 cursor-pointer"
-          >
-            <Printer className="size-4" />
-            <span>প্রিন্ট HPC সাইজ ইনভয়েস (5.5&quot; × 8.27&quot;)</span>
-          </Button>
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleDownloadPdf}
+              disabled={isExportingPdf}
+              className="flex-1 sm:flex-initial rounded-xl border-emerald-600/40 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 font-semibold gap-1.5 cursor-pointer shadow-2xs"
+            >
+              {isExportingPdf ? (
+                <>
+                  <Loader2 className="size-3.5 animate-spin text-emerald-600" />
+                  <span>পিডিএফ হচ্ছে...</span>
+                </>
+              ) : (
+                <>
+                  <Download className="size-3.5 text-emerald-600 dark:text-emerald-400" />
+                  <span>HPC সাইজ পিডিএফ</span>
+                </>
+              )}
+            </Button>
+
+            <Button
+              size="sm"
+              onClick={handlePrint}
+              disabled={isPrinting}
+              className="flex-1 sm:flex-initial rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold gap-1.5 shadow-md shadow-emerald-500/20 cursor-pointer"
+            >
+              {isPrinting ? (
+                <>
+                  <Loader2 className="size-3.5 animate-spin" />
+                  <span>প্রিন্টার লোড...</span>
+                </>
+              ) : (
+                <>
+                  <Printer className="size-4" />
+                  <span>প্রিন্ট HPC সাইজ ইনভয়েস (5.5&quot; × 8.27&quot;)</span>
+                </>
+              )}
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>

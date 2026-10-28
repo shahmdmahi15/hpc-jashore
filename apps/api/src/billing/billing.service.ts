@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import { and, desc, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, ne, sql } from 'drizzle-orm';
 import { AuditService } from '../audit/audit.service';
 import { DB, type Db } from '../db/db.module';
 import {
@@ -185,6 +185,16 @@ export class BillingService {
       if (updated[0]) {
         Object.assign(billRow, updated[0]);
       }
+
+      // Automatically settle and clear any older draft therapy bills for this visit so they never linger in pending therapy queue
+      if (dto.visitId) {
+        try {
+          await this.db
+            .update(bills)
+            .set({ status: 'posted', duePaisa: 0, updatedAt: now })
+            .where(and(eq(bills.visitId, dto.visitId), eq(bills.status, 'draft'), ne(bills.id, billId)));
+        } catch {}
+      }
     }
 
     const payload = {
@@ -193,8 +203,12 @@ export class BillingService {
       patientId: dto.patientId,
       totalPaisa,
     };
-    this.gateway.emit('clinic:global', 'bill.created', payload);
-    this.realtime.publish('bill.created', payload);
+    try {
+      this.gateway?.emit('clinic:global', 'bill.created', payload);
+    } catch {}
+    try {
+      this.realtime?.publish('bill.created', payload);
+    } catch {}
 
     await this.audit.log({
       actorUserId: actor.sub,

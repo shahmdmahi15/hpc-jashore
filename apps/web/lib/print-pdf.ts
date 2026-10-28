@@ -171,11 +171,37 @@ export async function printElementViaIframe(
               }
               .sheet-invoice-hpc,
               .sheet-invoice-hpc *,
+              #hpc-invoice-custom-sheet,
+              #hpc-invoice-custom-sheet *,
               .sheet-prescription,
               .sheet-prescription *,
               .sheet-report,
               .sheet-report * {
                 visibility: visible !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+              }
+              #hpc-invoice-custom-sheet {
+                display: flex !important;
+                flex-direction: column !important;
+                justify-content: space-between !important;
+                visibility: visible !important;
+                box-sizing: border-box !important;
+                width: 100% !important;
+                max-width: 5.5in !important;
+                height: calc(8.27in - 8mm) !important;
+                max-height: calc(8.27in - 8mm) !important;
+                margin: 0 auto !important;
+                background: #ffffff !important;
+                color: #09090b !important;
+                padding: 2.5mm 3.5mm !important;
+                border: 1px solid #d4d4d8 !important;
+                border-radius: 4px !important;
+                overflow: hidden !important;
+                page-break-after: avoid !important;
+                break-after: avoid !important;
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
               }
               ${options.extraCss || ''}
             </style>

@@ -423,6 +423,8 @@ export const api = {
     getBill: (id: string) => apiFetch<any>(`/billing/bills/${id}`),
     createBill: (data: any) =>
       apiFetch<any>('/billing/bills', { method: 'POST', body: JSON.stringify(data) }),
+    payBill: (billId: string, data: { amountPaisa: number; method: string; txnId?: string }) =>
+      apiFetch<any>(`/billing/bills/${billId}/pay`, { method: 'POST', body: JSON.stringify(data) }),
     recordPayment: (data: any) =>
       apiFetch<any>('/billing/payments', { method: 'POST', body: JSON.stringify(data) }),
     getDues: () => apiFetch<any[]>('/billing/dues'),
