@@ -398,6 +398,10 @@ export const api = {
     cancelCall: (data: any) =>
       apiFetch<any>('/therapy/cancel-call', { method: 'POST', body: JSON.stringify(data) }),
     getActiveSessions: () => apiFetch<any[]>('/therapy/sessions/active'),
+    getTodaySessions: (therapistStaffId?: string) =>
+      apiFetch<any[]>(
+        `/therapy/sessions/today${therapistStaffId ? `?therapistStaffId=${therapistStaffId}` : ''}`,
+      ),
     startSession: (data: any) =>
       apiFetch<any>('/therapy/sessions/start', { method: 'POST', body: JSON.stringify(data) }),
     completeSession: (id: string, data: any) =>

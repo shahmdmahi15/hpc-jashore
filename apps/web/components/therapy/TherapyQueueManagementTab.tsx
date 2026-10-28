@@ -75,6 +75,12 @@ export interface TherapyQueueItem {
   modalityCode?: string;
   modalityName?: string;
   modalityNameBn?: string;
+  doctorPlans?: any[];
+  hasDoctorPlan?: boolean;
+  hasRunningSession?: boolean;
+  sessionId?: string | null;
+  durationMinutes?: number | null;
+  startedAt?: string | null;
   toldTime?: string | null;
   checkedInAt?: string;
   punctualityStatus?: string | null;
@@ -121,6 +127,7 @@ export function TherapyQueueManagementTab() {
   const [sendToCashierPatient, setSendToCashierPatient] = useState<TherapyQueueItem | null>(null);
   const [switchRoomPatient, setSwitchRoomPatient] = useState<TherapyQueueItem | null>(null);
   const [builderPatient, setBuilderPatient] = useState<TherapyQueueItem | null>(null);
+  const [builderInitialPlans, setBuilderInitialPlans] = useState<any[]>([]);
 
   const fetchData = useCallback(async (isSilent = false) => {
     if (!isSilent) setRefreshing(true);
@@ -337,24 +344,33 @@ export function TherapyQueueManagementTab() {
         (as) => as.patientId === patient.patientId || as.visitId === patient.visitId,
       );
       const targetSessionId =
-        activeSession?.sessionId || (patient as any).sessionId || activeSession?.id || patient.visitId;
+        activeSession?.sessionId || (patient as any).sessionId || activeSession?.id;
 
-      const durationMin = activeSession?.startedAt
-        ? Math.max(1, Math.round((Date.now() - new Date(activeSession.startedAt).getTime()) / 60000))
-        : Number(activeSession?.durationMinutes || 15);
+      if (targetSessionId) {
+        const durationMin = activeSession?.startedAt
+          ? Math.max(1, Math.round((Date.now() - new Date(activeSession.startedAt).getTime()) / 60000))
+          : Number(activeSession?.durationMinutes || 15);
 
-      await api.therapy.completeSession(targetSessionId, {
-        durationMinutes: durationMin,
-        outcomeNote: 'Session completed by therapist',
-        notes: 'Session completed by therapist',
-      });
+        await api.therapy
+          .completeSession(targetSessionId, {
+            durationMinutes: durationMin,
+            outcomeNote: 'Session completed by therapist',
+            notes: 'Session completed by therapist',
+          })
+          .catch((err) => {
+            console.warn('API completeSession warning:', err);
+          });
+      }
 
       toast.success(
-        `রোগী ${patient.patientNameBn || patient.patientNameEn} এর থেরাপি সেশন সফলভাবে সম্পন্ন হয়েছে!`,
+        `রোগী ${patient.patientNameBn || patient.patientNameEn} এর থেরাপি সেশন সমাপ্ত হয়েছে। অনুগ্রহ করে ক্যাশিয়ারে ফরোয়ার্ড করুন।`,
       );
+      // Immediately open Cashier Forwarding Modal
+      setSendToCashierPatient(patient);
       await fetchData(true);
     } catch (err: any) {
-      toast.error(err?.message || 'সেশন সম্পন্ন করতে ব্যর্থ হয়েছে');
+      toast.error(err?.message || 'সেশন সম্পন্ন করতে ত্রুটি');
+      setSendToCashierPatient(patient);
     } finally {
       setCallingVisitId(null);
     }
@@ -579,6 +595,12 @@ export function TherapyQueueManagementTab() {
             const activeSession = activeSessions.find(
               (as) => as.patientId === patient.patientId || as.visitId === patient.visitId,
             );
+            const isSessionRunning = Boolean(
+              isInTherapy &&
+                (activeSession || patient.hasRunningSession || patient.sessionId) &&
+                (activeSession?.startedAt || patient.startedAt),
+            );
+
             const modalityCode = activeSession?.modalityCode || patient.modalityCode || 'PHYSIO';
             const modalityName =
               activeSession?.modalityNameBn ||
@@ -586,11 +608,15 @@ export function TherapyQueueManagementTab() {
               patient.modalityNameBn ||
               patient.modalityName ||
               'ফিজিওথেরাপি ও পুনর্বাসন';
-            const startedAt = activeSession?.startedAt || (patient as any).startedAt;
+            const startedAt = activeSession?.startedAt || patient.startedAt;
             const durationMinutes = Number(
-              activeSession?.durationMinutes || (patient as any).durationMinutes || 20,
+              activeSession?.durationMinutes || patient.durationMinutes || 15,
             );
-            const roomName = activeSession?.bedName || patient.assignedRoomName || 'থেরাপি রুম';
+            const roomName =
+              activeSession?.roomName ||
+              activeSession?.bedName ||
+              patient.assignedRoomName ||
+              'থেরাপি হল';
 
             const elapsedSec = startedAt
               ? Math.max(0, Math.floor((nowTick - new Date(startedAt).getTime()) / 1000))
@@ -677,6 +703,16 @@ export function TherapyQueueManagementTab() {
                         )}
                         {patient.ageYears && <span>• {patient.ageYears} বছর</span>}
                       </div>
+                      {/* Prominent Room Marker Badge */}
+                      <div className="mt-1 flex items-center gap-1">
+                        <Badge
+                          variant="outline"
+                          className="text-[10.5px] font-bold border-cyan-500/40 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 px-2 py-0.5"
+                        >
+                          <Building2 className="size-3 mr-1 inline" />
+                          <span>রুম: {roomName}</span>
+                        </Badge>
+                      </div>
                     </div>
                   </div>
 
@@ -702,53 +738,89 @@ export function TherapyQueueManagementTab() {
 
                 {/* Running Therapy Live Status Card */}
                 {isInTherapy ? (
-                  <div className="space-y-2 mb-4 p-2.5 rounded-xl border border-cyan-500/30 bg-gradient-to-br from-cyan-500/10 via-emerald-500/5 to-cyan-500/5 shadow-xs">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-1.5 flex-wrap min-w-0">
-                        <Badge className="bg-cyan-600 hover:bg-cyan-500 text-white font-black text-[10px] tracking-wide shrink-0">
-                          ⚡ [{modalityCode}]
+                  isSessionRunning ? (
+                    <div className="space-y-2 mb-4 p-2.5 rounded-xl border border-cyan-500/30 bg-gradient-to-br from-cyan-500/10 via-emerald-500/5 to-cyan-500/5 shadow-xs">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+                          <Badge className="bg-cyan-600 hover:bg-cyan-500 text-white font-black text-[10px] tracking-wide shrink-0">
+                            ⚡ [{modalityCode}]
+                          </Badge>
+                          <span className="font-bold text-xs sm:text-sm text-foreground truncate">
+                            {modalityName}
+                          </span>
+                        </div>
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] border-cyan-500/50 text-cyan-600 dark:text-cyan-400 shrink-0 font-bold"
+                        >
+                          <Building2 className="size-3 mr-1 inline" />
+                          {roomName}
                         </Badge>
-                        <span className="font-bold text-xs sm:text-sm text-foreground truncate">
-                          {modalityName}
-                        </span>
                       </div>
-                      <Badge
-                        variant="outline"
-                        className="text-[10px] border-cyan-500/50 text-cyan-600 dark:text-cyan-400 shrink-0 font-bold"
-                      >
-                        <Building2 className="size-3 mr-1 inline" />
-                        {roomName}
-                      </Badge>
-                    </div>
 
-                    <div className="space-y-1 bg-background/80 p-2 rounded-lg border border-border/60">
-                      <div className="flex items-center justify-between text-xs font-mono font-bold">
-                        <span className="flex items-center gap-1 text-cyan-600 dark:text-cyan-400">
-                          <Activity className="size-3.5 animate-pulse text-emerald-500" />
-                          <span>চলমান: {formatSec(elapsedSec)}</span>
-                        </span>
-                        {isOvertime ? (
-                          <span className="text-rose-600 dark:text-rose-400 flex items-center gap-1 animate-pulse font-extrabold">
-                            <AlertCircle className="size-3" />
-                            <span>+ {formatSec(elapsedSec - totalSec)} অতিরিক্ত</span>
+                      <div className="space-y-1 bg-background/80 p-2 rounded-lg border border-border/60">
+                        <div className="flex items-center justify-between text-xs font-mono font-bold">
+                          <span className="flex items-center gap-1 text-cyan-600 dark:text-cyan-400">
+                            <Activity className="size-3.5 animate-pulse text-emerald-500" />
+                            <span>চলমান: {formatSec(elapsedSec)}</span>
                           </span>
-                        ) : (
-                          <span className="text-muted-foreground font-medium text-[11px]">
-                            বাকি: {formatSec(remainingSec)} / {durationMinutes} মি:
+                          {isOvertime ? (
+                            <span className="text-rose-600 dark:text-rose-400 flex items-center gap-1 animate-pulse font-extrabold">
+                              <AlertCircle className="size-3" />
+                              <span>+ {formatSec(elapsedSec - totalSec)} অতিরিক্ত</span>
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground font-medium text-[11px]">
+                              বাকি: {formatSec(remainingSec)} / {durationMinutes} মি:
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="w-full bg-muted/80 h-2 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full transition-all duration-300 ${
+                              isOvertime ? 'bg-rose-500' : 'bg-cyan-500'
+                            }`}
+                            style={{ width: `${progressPercent}%` }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-2 mb-4 p-2.5 rounded-xl border border-amber-500/40 bg-amber-500/5 shadow-xs">
+                      <div className="flex items-center justify-between gap-2">
+                        <Badge className="bg-amber-500/20 text-amber-800 dark:text-amber-300 border-amber-500/40 text-[10px] font-bold">
+                          মডালিটি শুরুর অপেক্ষায় (Pending Start)
+                        </Badge>
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] border-cyan-500/50 text-cyan-600 dark:text-cyan-400 shrink-0 font-bold"
+                        >
+                          <Building2 className="size-3 mr-1 inline" />
+                          {roomName}
+                        </Badge>
+                      </div>
+
+                      <div className="p-2 rounded-lg bg-background/80 border border-border/60 text-xs space-y-1">
+                        <div className="font-semibold text-foreground flex items-center gap-1.5">
+                          <Sparkles className="size-3.5 text-amber-500 shrink-0" />
+                          <span>
+                            ডাক্তারের প্ল্যান: {patient.modalityNameBn || patient.modalityName || patient.modalityCode}
                           </span>
+                        </div>
+                        {patient.doctorPlans && patient.doctorPlans.length > 0 && (
+                          <div className="text-[11px] text-muted-foreground flex items-center gap-1 font-mono">
+                            <span>সিকোয়েন্স:</span>
+                            <span className="text-foreground font-semibold">
+                              {patient.doctorPlans
+                                .map((pl: any) => `${pl.modalityCode} (${pl.durationMinutes}মি)`)
+                                .join(' → ')}
+                            </span>
+                          </div>
                         )}
                       </div>
-
-                      <div className="w-full bg-muted/80 h-2 rounded-full overflow-hidden">
-                        <div
-                          className={`h-full transition-all duration-300 ${
-                            isOvertime ? 'bg-rose-500' : 'bg-cyan-500'
-                          }`}
-                          style={{ width: `${progressPercent}%` }}
-                        />
-                      </div>
                     </div>
-                  </div>
+                  )
                 ) : (
                   <div className="space-y-1.5 text-xs text-muted-foreground mb-4 bg-muted/30 p-2.5 rounded-lg border border-border/40">
                     <div className="flex items-center justify-between">
@@ -795,14 +867,24 @@ export function TherapyQueueManagementTab() {
                       <span>থেরাপি শুরু করুন (Mark in Therapy)</span>
                     </Button>
 
-                    <div className="grid grid-cols-3 gap-1.5">
+                    <div className="grid grid-cols-4 gap-1">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setPlansPatient(patient)}
+                        className="h-8 text-[11px] border-cyan-500/40 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-500/10 gap-1 font-semibold cursor-pointer active:scale-95 px-1"
+                      >
+                        <ClipboardList className="size-3" />
+                        <span>প্ল্যান</span>
+                      </Button>
+
                       <Button
                         size="sm"
                         variant="outline"
                         onClick={() => setSwitchRoomPatient(patient)}
-                        className="h-8 text-xs border-indigo-500/40 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/10 gap-1 font-semibold cursor-pointer active:scale-95"
+                        className="h-8 text-[11px] border-indigo-500/40 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/10 gap-1 font-semibold cursor-pointer active:scale-95 px-1"
                       >
-                        <ArrowRightLeft className="size-3.5" />
+                        <ArrowRightLeft className="size-3" />
                         <span>রুম বদল</span>
                       </Button>
 
@@ -811,9 +893,9 @@ export function TherapyQueueManagementTab() {
                         variant="outline"
                         onClick={() => handleRecallPatient(patient)}
                         disabled={callingVisitId === patient.visitId}
-                        className="h-8 text-xs border-amber-500/40 text-amber-500 hover:bg-amber-500/10 gap-1 font-semibold cursor-pointer active:scale-95"
+                        className="h-8 text-[11px] border-amber-500/40 text-amber-500 hover:bg-amber-500/10 gap-1 font-semibold cursor-pointer active:scale-95 px-1"
                       >
-                        <Volume2 className="size-3.5" />
+                        <Volume2 className="size-3" />
                         <span>ডাকুন</span>
                       </Button>
 
@@ -822,9 +904,9 @@ export function TherapyQueueManagementTab() {
                         variant="outline"
                         onClick={() => handleCancelCall(patient)}
                         disabled={callingVisitId === patient.visitId}
-                        className="h-8 text-xs border-red-500/40 text-red-500 hover:bg-red-500/10 gap-1 font-semibold cursor-pointer active:scale-95"
+                        className="h-8 text-[11px] border-red-500/40 text-red-500 hover:bg-red-500/10 gap-1 font-semibold cursor-pointer active:scale-95 px-1"
                       >
-                        <XCircle className="size-3.5" />
+                        <XCircle className="size-3" />
                         <span>বাতিল</span>
                       </Button>
                     </div>
@@ -967,6 +1049,38 @@ export function TherapyQueueManagementTab() {
                       </Button>
                     </div>
 
+                    <div className="grid grid-cols-2 gap-1.5 pt-0.5">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setPlansPatient(patient)}
+                        className="h-8 text-xs border-cyan-500/40 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-500/10 gap-1 font-semibold cursor-pointer active:scale-95"
+                      >
+                        <ClipboardList className="size-3.5 text-cyan-400" />
+                        <span>সকল প্ল্যান (Plans)</span>
+                      </Button>
+
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() =>
+                          setFilesPatient({
+                            id: patient.patientId,
+                            name: patient.patientNameBn || patient.patientNameEn,
+                            nameEn: patient.patientNameEn,
+                            nameBn: patient.patientNameBn,
+                            mrn: patient.mrn,
+                            phone: patient.phone,
+                            visitId: patient.visitId,
+                          })
+                        }
+                        className="h-8 text-xs border-purple-500/40 text-purple-600 dark:text-purple-400 hover:bg-purple-500/10 gap-1 font-semibold cursor-pointer active:scale-95"
+                      >
+                        <FolderOpen className="size-3.5 text-purple-400" />
+                        <span>সকল ফাইল (Files)</span>
+                      </Button>
+                    </div>
+
                     <Button
                       variant="ghost"
                       size="sm"
@@ -1020,9 +1134,10 @@ export function TherapyQueueManagementTab() {
           if (!open) setPlansPatient(null);
         }}
         patient={plansPatient}
-        onOpenPlanBuilder={(p) => {
+        onOpenPlanBuilder={(p, initialPlans) => {
           setPlansPatient(null);
           setBuilderPatient(p);
+          setBuilderInitialPlans(initialPlans || []);
         }}
       />
 
@@ -1030,7 +1145,12 @@ export function TherapyQueueManagementTab() {
       {builderPatient && (
         <TreatmentPlanBuilderModal
           open={Boolean(builderPatient)}
-          onOpenChange={(op) => !op && setBuilderPatient(null)}
+          onOpenChange={(op) => {
+            if (!op) {
+              setBuilderPatient(null);
+              setBuilderInitialPlans([]);
+            }
+          }}
           patient={{
             id: builderPatient.patientId,
             nameEn: builderPatient.patientNameEn,
@@ -1041,8 +1161,31 @@ export function TherapyQueueManagementTab() {
             ageYears: builderPatient.ageYears,
           }}
           visitId={builderPatient.visitId}
+          initialPlans={
+            builderInitialPlans.length > 0
+              ? builderInitialPlans.map((p) => ({
+                  modalityCode: p.modalityCode,
+                  modalityName: p.modalityNameBn || p.modalityNameEn || p.modalityCode,
+                  totalSessionsPrescribed: p.totalSessionsPrescribed || 10,
+                  frequency: p.frequency || 'daily',
+                  durationMinutes: p.durationMinutes || p.calculatedDuration || 15,
+                  notes: p.clinicalNoteText || p.clinicalNote || p.notes || '',
+                }))
+              : builderPatient.doctorPlans && builderPatient.doctorPlans.length > 0
+              ? builderPatient.doctorPlans.map((p: any) => ({
+                  modalityCode: p.modalityCode,
+                  modalityName: p.modalityNameBn || p.modalityNameEn || p.modalityCode,
+                  totalSessionsPrescribed: p.totalSessionsPrescribed || 10,
+                  frequency: p.frequency || 'daily',
+                  durationMinutes: p.durationMinutes || 15,
+                  notes: p.clinicalNote || '',
+                }))
+              : undefined
+          }
           onPlansSaved={() => {
             fetchData(true);
+            setBuilderPatient(null);
+            setBuilderInitialPlans([]);
           }}
         />
       )}
@@ -1054,9 +1197,10 @@ export function TherapyQueueManagementTab() {
           if (!open) setStartSessionPatient(null);
         }}
         patient={startSessionPatient}
-        onOpenPlanBuilder={(p) => {
+        onOpenPlanBuilder={(p, initialPlans) => {
           setStartSessionPatient(null);
           setBuilderPatient(p);
+          setBuilderInitialPlans(initialPlans || []);
         }}
         onSuccess={() => fetchData(true)}
       />
@@ -1149,15 +1293,15 @@ export function SendToCashierModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[95vw] max-w-lg p-0 overflow-hidden border-border bg-card shadow-2xl rounded-2xl">
-        <DialogHeader className="p-4 sm:p-5 border-b border-border bg-muted/40">
+      <DialogContent className="w-[95vw] max-w-lg max-h-[88vh] flex flex-col p-0 overflow-hidden border-border bg-card shadow-2xl rounded-2xl">
+        <DialogHeader className="p-4 sm:p-5 border-b border-border bg-muted/40 shrink-0">
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
               <CreditCard className="size-5" />
             </div>
             <div>
               <DialogTitle className="text-base sm:text-lg font-bold text-foreground">
-                ক্যাশিয়ারে পাঠান ও ফি লক করুন (Send to Cashier)
+                ক্যাশিয়ারে পাঠান ও ফি নিশ্চিত করুন (Send to Cashier)
               </DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground mt-0.5">
                 হ্যান্ডলার কর্তৃক নির্ধারিত ফিক্সড ফি সরাসরি ক্যাশিয়ারে ফরোয়ার্ড করা হবে
@@ -1166,107 +1310,109 @@ export function SendToCashierModal({
           </div>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="p-4 sm:p-5 space-y-4">
-          {/* Patient Quick Info Card */}
-          <div className="p-3 rounded-xl bg-muted/40 border border-border/80 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="size-11 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
-                <Clock className="size-5" />
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto flex flex-col min-h-0">
+          <div className="p-4 sm:p-5 space-y-4 flex-1">
+            {/* Patient Quick Info Card */}
+            <div className="p-3 rounded-xl bg-muted/40 border border-border/80 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="size-11 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                  <Clock className="size-5" />
+                </div>
+                <div>
+                  <div className="font-bold text-sm sm:text-base text-foreground">
+                    {patient.patientNameBn || patient.patientNameEn}
+                  </div>
+                  <div className="text-xs text-muted-foreground font-mono">
+                    MRN: {patient.mrn} {patient.phone ? `· ${patient.phone}` : ''}
+                  </div>
+                </div>
               </div>
-              <div>
-                <div className="font-bold text-sm sm:text-base text-foreground">
-                  {patient.patientNameBn || patient.patientNameEn}
-                </div>
-                <div className="text-xs text-muted-foreground font-mono">
-                  MRN: {patient.mrn} {patient.phone ? `· ${patient.phone}` : ''}
-                </div>
+              <Badge variant="outline" className="border-cyan-500/40 text-cyan-400 text-xs">
+                {patient.assignedRoomName || 'Therapy Room'}
+              </Badge>
+            </div>
+
+            {/* Fixed Therapy Fee Input */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold text-foreground flex items-center justify-between">
+                <span>ফিক্সড থেরাপি ফি (Fixed Fee ৳) *</span>
+                <span className="text-[11px] font-normal text-muted-foreground">ডিফল্ট: ৳৩০০</span>
+              </Label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-emerald-500">৳</span>
+                <Input
+                  type="number"
+                  min="0"
+                  step="50"
+                  required
+                  value={feeTaka}
+                  onChange={(e) => setFeeTaka(Number(e.target.value))}
+                  className="pl-8 h-10 font-mono text-base font-bold bg-card"
+                  placeholder="300"
+                />
+              </div>
+              {/* Quick Fee Presets */}
+              <div className="flex items-center gap-1.5 pt-1">
+                {[200, 300, 400, 500, 600, 800].map((preset) => (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => setFeeTaka(preset)}
+                    className={`text-[11px] font-mono px-2 py-0.5 rounded border transition-all cursor-pointer ${
+                      feeTaka === preset
+                        ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400 font-bold'
+                        : 'border-border bg-muted/40 text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    ৳{preset}
+                  </button>
+                ))}
               </div>
             </div>
-            <Badge variant="outline" className="border-cyan-500/40 text-cyan-400 text-xs">
-              {patient.assignedRoomName || 'Therapy Room'}
-            </Badge>
-          </div>
 
-          {/* Fixed Therapy Fee Input */}
-          <div className="space-y-1.5">
-            <Label className="text-xs font-bold text-foreground flex items-center justify-between">
-              <span>ফিক্সড থেরাপি ফি (Fixed Fee ৳) *</span>
-              <span className="text-[11px] font-normal text-muted-foreground">ডিফল্ট: ৳৩০০</span>
-            </Label>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-emerald-500">৳</span>
+            {/* Modality Description */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold text-foreground">
+                মডালিটি বিবরণ (Modality Description) *
+              </Label>
               <Input
-                type="number"
-                min="0"
-                step="50"
+                type="text"
                 required
-                value={feeTaka}
-                onChange={(e) => setFeeTaka(Number(e.target.value))}
-                className="pl-8 h-10 font-mono text-base font-bold bg-card"
-                placeholder="300"
+                value={modalityCode}
+                onChange={(e) => setModalityCode(e.target.value)}
+                className="h-10 text-xs sm:text-sm bg-card"
+                placeholder="e.g. IFT + Ultrasound Therapy + Traction"
               />
             </div>
-            {/* Quick Fee Presets */}
-            <div className="flex items-center gap-1.5 pt-1">
-              {[200, 300, 400, 500, 600, 800].map((preset) => (
-                <button
-                  key={preset}
-                  type="button"
-                  onClick={() => setFeeTaka(preset)}
-                  className={`text-[11px] font-mono px-2 py-0.5 rounded border transition-all cursor-pointer ${
-                    feeTaka === preset
-                      ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400 font-bold'
-                      : 'border-border bg-muted/40 text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  ৳{preset}
-                </button>
-              ))}
+
+            {/* Handler Notes */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold text-foreground">
+                হ্যান্ডলার নোট (Notes) - ঐচ্ছিক
+              </Label>
+              <Textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                rows={2}
+                className="text-xs sm:text-sm bg-card resize-none"
+                placeholder="সেশন সংক্রান্ত কোনো মন্তব্য বা বিশেষ নির্দেশনা..."
+              />
             </div>
-          </div>
 
-          {/* Modality Description */}
-          <div className="space-y-1.5">
-            <Label className="text-xs font-bold text-foreground">
-              মডালিটি বিবরণ (Modality Description) *
-            </Label>
-            <Input
-              type="text"
-              required
-              value={modalityCode}
-              onChange={(e) => setModalityCode(e.target.value)}
-              className="h-10 text-xs sm:text-sm bg-card"
-              placeholder="e.g. IFT + Ultrasound Therapy + Traction"
-            />
-          </div>
-
-          {/* Handler Notes */}
-          <div className="space-y-1.5">
-            <Label className="text-xs font-bold text-foreground">
-              হ্যান্ডলার নোট (Notes) - ঐচ্ছিক
-            </Label>
-            <Textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={2}
-              className="text-xs sm:text-sm bg-card resize-none"
-              placeholder="সেশন সংক্রান্ত কোনো মন্তব্য বা বিশেষ নির্দেশনা..."
-            />
-          </div>
-
-          {/* Locked Notice Alert */}
-          <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-500 text-xs flex items-start gap-2.5">
-            <Lock className="size-4 shrink-0 mt-0.5" />
-            <div className="leading-relaxed">
-              <strong>🔒 এই ফি অপরিবর্তনযোগ্য (Locked) থাকবে:</strong>
-              <p className="text-[11px] text-amber-500/90 mt-0.5">
-                ক্যাশিয়ার এই ফি পরিবর্তন করতে পারবেন না। ক্যাশিয়ার কেবল এই নির্ধারিত ফি গ্রহণ করে রিসেপশনে চেক-আউটের জন্য পাঠাবেন।
-              </p>
+            {/* Locked Notice Alert */}
+            <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-500 text-xs flex items-start gap-2.5">
+              <Lock className="size-4 shrink-0 mt-0.5" />
+              <div className="leading-relaxed">
+                <strong>🔒 এই ফি অপরিবর্তনযোগ্য (Locked) থাকবে:</strong>
+                <p className="text-[11px] text-amber-500/90 mt-0.5">
+                  ক্যাশিয়ার এই ফি পরিবর্তন করতে পারবেন না। ক্যাশিয়ার কেবল এই নির্ধারিত ফি গ্রহণ করে রিসেপশনে চেক-আউটের জন্য পাঠাবেন।
+                </p>
+              </div>
             </div>
           </div>
 
           {/* Dialog Footer Actions */}
-          <DialogFooter className="pt-2 flex flex-row items-center justify-end gap-2 border-t border-border/50">
+          <DialogFooter className="p-3 sm:p-4 flex flex-row items-center justify-end gap-2 border-t border-border/50 bg-muted/20 shrink-0">
             <Button
               type="button"
               variant="outline"
@@ -1302,7 +1448,7 @@ interface AllPlansModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   patient: TherapyQueueItem | null;
-  onOpenPlanBuilder?: (patient: TherapyQueueItem) => void;
+  onOpenPlanBuilder?: (patient: TherapyQueueItem, initialPlans?: any[]) => void;
 }
 
 export function AllPlansModal({
@@ -1381,7 +1527,7 @@ export function AllPlansModal({
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => onOpenPlanBuilder(patient)}
+                    onClick={() => onOpenPlanBuilder(patient, plans)}
                     className="h-8 text-xs border-cyan-500/40 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-500/10 gap-1.5 shrink-0 cursor-pointer"
                   >
                     <Sparkles className="size-3.5 text-cyan-500" />
@@ -1596,7 +1742,7 @@ interface StartTherapySessionModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   patient: TherapyQueueItem | null;
-  onOpenPlanBuilder?: (patient: TherapyQueueItem) => void;
+  onOpenPlanBuilder?: (patient: TherapyQueueItem, initialPlans?: any[]) => void;
   onSuccess: () => void;
 }
 
@@ -1726,8 +1872,8 @@ export function StartTherapySessionModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[95vw] max-w-lg p-0 overflow-hidden border-border bg-card shadow-2xl rounded-2xl">
-        <DialogHeader className="p-4 sm:p-5 border-b border-border bg-muted/40">
+      <DialogContent className="w-[95vw] max-w-lg max-h-[88vh] flex flex-col p-0 overflow-hidden border-border bg-card shadow-2xl rounded-2xl">
+        <DialogHeader className="p-4 sm:p-5 border-b border-border bg-muted/40 shrink-0">
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-500 border border-amber-500/20">
               <Play className="size-5" />
@@ -1743,258 +1889,260 @@ export function StartTherapySessionModal({
           </div>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="p-4 sm:p-5 space-y-4">
-          {loadingData ? (
-            <div className="py-8 text-center text-xs text-muted-foreground flex items-center justify-center gap-2">
-              <RefreshCw className="size-4 animate-spin text-amber-500" />
-              <span>ট্রিটমেন্ট প্ল্যান ও ক্যাটালগ যাচাই করা হচ্ছে...</span>
-            </div>
-          ) : (
-            <>
-              {/* Doctor Plan Rule Status Banner */}
-              {hasDoctorPlans ? (
-                <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-xs space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400">
-                      <Sparkles className="size-3.5" />
-                      <span>ডাক্তার কর্তৃক নির্ধারিত সিকোয়েন্সড প্ল্যান প্রযোজ্য</span>
-                    </span>
-                    <Badge className="bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 border-emerald-500/30 text-[10px]">
-                      {doctorPlans.length} টি নির্ধারিত ধাপ
-                    </Badge>
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto flex flex-col min-h-0">
+          <div className="p-4 sm:p-5 space-y-4 flex-1">
+            {loadingData ? (
+              <div className="py-8 text-center text-xs text-muted-foreground flex items-center justify-center gap-2">
+                <RefreshCw className="size-4 animate-spin text-amber-500" />
+                <span>ট্রিটমেন্ট প্ল্যান ও ক্যাটালগ যাচাই করা হচ্ছে...</span>
+              </div>
+            ) : (
+              <>
+                {/* Doctor Plan Rule Status Banner */}
+                {hasDoctorPlans ? (
+                  <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-xs space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400">
+                        <Sparkles className="size-3.5" />
+                        <span>ডাক্তার কর্তৃক নির্ধারিত সিকোয়েন্সড প্ল্যান প্রযোজ্য</span>
+                      </span>
+                      <Badge className="bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 border-emerald-500/30 text-[10px]">
+                        {doctorPlans.length} টি নির্ধারিত ধাপ
+                      </Badge>
+                    </div>
+                    <div className="flex items-center justify-between gap-2 pt-1 border-t border-emerald-500/20 text-[11px]">
+                      <span className="text-muted-foreground">হ্যান্ডলার প্রয়োজন অনুযায়ী সময় বা মডালিটি পরিবর্তন করতে পারবেন</span>
+                      {onOpenPlanBuilder && (
+                        <button
+                          type="button"
+                          onClick={() => onOpenPlanBuilder(patient, doctorPlans)}
+                          className="text-emerald-600 dark:text-emerald-400 font-semibold hover:underline cursor-pointer shrink-0"
+                        >
+                          ✏️ প্ল্যান এডিট
+                        </button>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex items-center justify-between gap-2 pt-1 border-t border-emerald-500/20 text-[11px]">
-                    <span className="text-muted-foreground">হ্যান্ডলার প্রয়োজন অনুযায়ী সময় বা মডালিটি পরিবর্তন করতে পারবেন</span>
+                ) : (
+                  <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-400 text-xs flex items-start justify-between gap-2.5">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="size-4 shrink-0 mt-0.5 text-amber-500" />
+                      <div className="leading-relaxed">
+                        <strong>আজকের জন্য ডাক্তারের কোনো নির্দিষ্ট প্ল্যান নেই:</strong>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">
+                          ক্যাটালগ থেকে যেকোনো মডালিটি সিলেক্ট করে সেশন শুরু করুন অথবা নতুন প্ল্যান সাজান।
+                        </p>
+                      </div>
+                    </div>
                     {onOpenPlanBuilder && (
-                      <button
+                      <Button
                         type="button"
-                        onClick={() => onOpenPlanBuilder(patient)}
-                        className="text-emerald-600 dark:text-emerald-400 font-semibold hover:underline cursor-pointer shrink-0"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => onOpenPlanBuilder(patient, doctorPlans)}
+                        className="h-7 text-xs border-amber-500/40 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 shrink-0"
                       >
-                        ✏️ প্ল্যান এডিট
-                      </button>
+                        ➕ প্ল্যান তৈরি
+                      </Button>
                     )}
                   </div>
-                </div>
-              ) : (
-                <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-400 text-xs flex items-start justify-between gap-2.5">
-                  <div className="flex items-start gap-2">
-                    <AlertTriangle className="size-4 shrink-0 mt-0.5 text-amber-500" />
-                    <div className="leading-relaxed">
-                      <strong>আজকের জন্য ডাক্তারের কোনো নির্দিষ্ট প্ল্যান নেই:</strong>
-                      <p className="text-[11px] text-muted-foreground mt-0.5">
-                        ক্যাটালগ থেকে যেকোনো মডালিটি সিলেক্ট করে সেশন শুরু করুন অথবা নতুন প্ল্যান সাজান।
-                      </p>
-                    </div>
-                  </div>
-                  {onOpenPlanBuilder && (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      onClick={() => onOpenPlanBuilder(patient)}
-                      className="h-7 text-xs border-amber-500/40 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 shrink-0"
-                    >
-                      ➕ প্ল্যান তৈরি
-                    </Button>
-                  )}
-                </div>
-              )}
+                )}
 
-              {/* Modality Selector with Source Toggle */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label className="text-xs font-bold text-foreground">
-                    মডালিটি নির্বাচন (Select Modality) *
-                  </Label>
-                  {hasDoctorPlans && (
-                    <div className="flex rounded-lg bg-muted p-0.5 text-[10px] font-semibold border border-border">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setModalitySourceTab('plan');
-                          if (doctorPlans.length > 0) {
-                            setSelectedModalityCode(doctorPlans[0].modalityCode);
-                            setSelectedPlanId(doctorPlans[0].id);
-                            setDurationMinutes(doctorPlans[0].calculatedDuration || 15);
-                          }
-                        }}
-                        className={cn(
-                          'py-1 px-2 rounded transition-all cursor-pointer',
-                          modalitySourceTab === 'plan'
-                            ? 'bg-card text-foreground shadow-xs font-bold'
-                            : 'text-muted-foreground hover:text-foreground'
-                        )}
-                      >
-                        📋 প্ল্যান ({doctorPlans.length})
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setModalitySourceTab('catalog');
-                          setSelectedPlanId(undefined);
-                        }}
-                        className={cn(
-                          'py-1 px-2 rounded transition-all cursor-pointer',
-                          modalitySourceTab === 'catalog'
-                            ? 'bg-card text-foreground shadow-xs font-bold'
-                            : 'text-muted-foreground hover:text-foreground'
-                        )}
-                      >
-                        ➕ ক্যাটালগ
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                {hasDoctorPlans && modalitySourceTab === 'plan' ? (
-                  <div className="space-y-1.5 max-h-48 overflow-y-auto p-1">
-                    {doctorPlans.map((plan, idx) => {
-                      const isSelected = selectedModalityCode === plan.modalityCode && selectedPlanId === plan.id;
-                      return (
+                {/* Modality Selector with Source Toggle */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-bold text-foreground">
+                      মডালিটি নির্বাচন (Select Modality) *
+                    </Label>
+                    {hasDoctorPlans && (
+                      <div className="flex rounded-lg bg-muted p-0.5 text-[10px] font-semibold border border-border">
                         <button
-                          key={plan.id}
                           type="button"
                           onClick={() => {
-                            setSelectedModalityCode(plan.modalityCode);
-                            setSelectedPlanId(plan.id);
-                            if (plan.calculatedDuration) {
-                              setDurationMinutes(plan.calculatedDuration);
+                            setModalitySourceTab('plan');
+                            if (doctorPlans.length > 0) {
+                              setSelectedModalityCode(doctorPlans[0].modalityCode);
+                              setSelectedPlanId(doctorPlans[0].id);
+                              setDurationMinutes(doctorPlans[0].calculatedDuration || 15);
                             }
                           }}
                           className={cn(
-                            'w-full p-2.5 rounded-xl border text-left transition-all flex items-center justify-between text-xs cursor-pointer',
-                            isSelected
-                              ? 'border-emerald-500 bg-emerald-500/10 text-foreground font-bold shadow-xs'
-                              : 'border-border bg-card hover:bg-muted/50 text-foreground'
+                            'py-1 px-2 rounded transition-all cursor-pointer',
+                            modalitySourceTab === 'plan'
+                              ? 'bg-card text-foreground shadow-xs font-bold'
+                              : 'text-muted-foreground hover:text-foreground'
                           )}
                         >
-                          <div className="flex items-start gap-2.5">
-                            <Badge className="bg-emerald-600 text-white font-mono text-[10px] shrink-0 mt-0.5">
-                              ধাপ {plan.sequenceOrder || idx + 1}
-                            </Badge>
-                            <div>
-                              <div className="flex items-center gap-1.5">
-                                <span className="font-semibold text-foreground">
-                                  {plan.modalityNameBn || plan.modalityNameEn || plan.modalityCode}
-                                </span>
-                                <span className="font-mono text-[10px] text-muted-foreground">
-                                  ({plan.modalityCode})
-                                </span>
-                              </div>
-                              <div className="text-[10px] text-muted-foreground mt-0.5">
-                                নির্ধারিত সময়: <strong>{plan.calculatedDuration || 15} মিনিট</strong> • সেশন:{' '}
-                                <strong>
-                                  {plan.completedSessions || 0} / {plan.totalSessionsPrescribed}
-                                </strong>
-                                {plan.clinicalNoteText ? ` • নোট: ${plan.clinicalNoteText}` : ''}
-                              </div>
-                            </div>
-                          </div>
+                          📋 প্ল্যান ({doctorPlans.length})
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setModalitySourceTab('catalog');
+                            setSelectedPlanId(undefined);
+                          }}
+                          className={cn(
+                            'py-1 px-2 rounded transition-all cursor-pointer',
+                            modalitySourceTab === 'catalog'
+                              ? 'bg-card text-foreground shadow-xs font-bold'
+                              : 'text-muted-foreground hover:text-foreground'
+                          )}
+                        >
+                          ➕ ক্যাটালগ
+                        </button>
+                      </div>
+                    )}
+                  </div>
 
-                          <Badge
+                  {hasDoctorPlans && modalitySourceTab === 'plan' ? (
+                    <div className="space-y-1.5 max-h-48 overflow-y-auto p-1">
+                      {doctorPlans.map((plan, idx) => {
+                        const isSelected = selectedModalityCode === plan.modalityCode && selectedPlanId === plan.id;
+                        return (
+                          <button
+                            key={plan.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedModalityCode(plan.modalityCode);
+                              setSelectedPlanId(plan.id);
+                              if (plan.calculatedDuration) {
+                                setDurationMinutes(plan.calculatedDuration);
+                              }
+                            }}
                             className={cn(
-                              'text-[10px]',
+                              'w-full p-2.5 rounded-xl border text-left transition-all flex items-center justify-between text-xs cursor-pointer',
                               isSelected
-                                ? 'bg-emerald-600 text-white'
-                                : 'bg-muted text-muted-foreground border border-border'
+                                ? 'border-emerald-500 bg-emerald-500/10 text-foreground font-bold shadow-xs'
+                                : 'border-border bg-card hover:bg-muted/50 text-foreground'
                             )}
                           >
-                            {isSelected ? 'নির্বাচিত' : 'বাছাই'}
-                          </Badge>
-                        </button>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <Select
-                    value={selectedModalityCode}
-                    onValueChange={(val) => {
-                      setSelectedModalityCode(val);
-                      setSelectedPlanId(undefined);
-                      const mod = modalitiesCatalog.find((m) => m.code === val);
-                      if (mod?.defaultDurationMin) {
-                        setDurationMinutes(mod.defaultDurationMin);
-                      }
-                    }}
-                  >
-                    <SelectTrigger className="h-10 text-xs sm:text-sm bg-card">
-                      <SelectValue placeholder="ক্যাটালগ থেকে মডালিটি বেছে নিন" />
-                    </SelectTrigger>
-                    <SelectContent
-                      position="popper"
-                      side="bottom"
-                      align="start"
-                      sideOffset={4}
-                      className="max-h-56 overflow-y-auto z-50 bg-popover text-popover-foreground border border-border shadow-xl rounded-xl"
-                    >
-                      {modalitiesCatalog.length > 0 ? (
-                        modalitiesCatalog.map((mod) => (
-                          <SelectItem key={mod.code} value={mod.code} className="text-xs">
-                            {mod.nameEn} ({mod.code}) {mod.nameBn ? `• ${mod.nameBn}` : ''}
-                          </SelectItem>
-                        ))
-                      ) : (
-                        <>
-                          <SelectItem value="IFT">IFT (Interferential Therapy)</SelectItem>
-                          <SelectItem value="UST">UST (Ultrasound Therapy)</SelectItem>
-                          <SelectItem value="TRACTION">Traction (Cervical / Lumbar)</SelectItem>
-                          <SelectItem value="SWD">SWD (Shortwave Diathermy)</SelectItem>
-                          <SelectItem value="TENS">TENS (Electrical Stimulation)</SelectItem>
-                          <SelectItem value="EXERCISE">Therapeutic Exercise</SelectItem>
-                          <SelectItem value="IRR">IRR (Infrared Radiation)</SelectItem>
-                          <SelectItem value="WAX">Wax Bath Therapy</SelectItem>
-                          <SelectItem value="PHYSIO">Physiotherapy & Rehab</SelectItem>
-                        </>
-                      )}
-                    </SelectContent>
-                  </Select>
-                )}
-              </div>
+                            <div className="flex items-start gap-2.5">
+                              <Badge className="bg-emerald-600 text-white font-mono text-[10px] shrink-0 mt-0.5">
+                                ধাপ {plan.sequenceOrder || idx + 1}
+                              </Badge>
+                              <div>
+                                <div className="flex items-center gap-1.5">
+                                  <span className="font-semibold text-foreground">
+                                    {plan.modalityNameBn || plan.modalityNameEn || plan.modalityCode}
+                                  </span>
+                                  <span className="font-mono text-[10px] text-muted-foreground">
+                                    ({plan.modalityCode})
+                                  </span>
+                                </div>
+                                <div className="text-[10px] text-muted-foreground mt-0.5">
+                                  নির্ধারিত সময়: <strong>{plan.calculatedDuration || 15} মিনিট</strong> • সেশন:{' '}
+                                  <strong>
+                                    {plan.completedSessions || 0} / {plan.totalSessionsPrescribed}
+                                  </strong>
+                                  {plan.clinicalNoteText ? ` • নোট: ${plan.clinicalNoteText}` : ''}
+                                </div>
+                              </div>
+                            </div>
 
-              {/* Duration Selector */}
-              <div className="space-y-1.5">
-                <Label className="text-xs font-bold text-foreground flex items-center justify-between">
-                  <span>সেশন সময়কাল (Duration in Minutes)</span>
-                  <span className="font-mono font-bold text-amber-500 dark:text-amber-400">
-                    {durationMinutes} মিনিট
-                  </span>
-                </Label>
-                <div className="grid grid-cols-5 gap-2 pt-1">
-                  {[10, 15, 20, 25, 30].map((mins) => (
-                    <button
-                      key={mins}
-                      type="button"
-                      onClick={() => setDurationMinutes(mins)}
-                      className={cn(
-                        'h-9 rounded-lg font-mono text-xs font-bold border transition-all cursor-pointer',
-                        durationMinutes === mins
-                          ? 'bg-amber-500/20 border-amber-500 text-amber-500 dark:text-amber-400 shadow-xs'
-                          : 'border-border bg-muted/40 text-muted-foreground hover:text-foreground'
-                      )}
+                            <Badge
+                              className={cn(
+                                'text-[10px]',
+                                isSelected
+                                  ? 'bg-emerald-600 text-white'
+                                  : 'bg-muted text-muted-foreground border border-border'
+                              )}
+                            >
+                              {isSelected ? 'নির্বাচিত' : 'বাছাই'}
+                            </Badge>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <Select
+                      value={selectedModalityCode}
+                      onValueChange={(val) => {
+                        setSelectedModalityCode(val);
+                        setSelectedPlanId(undefined);
+                        const mod = modalitiesCatalog.find((m) => m.code === val);
+                        if (mod?.defaultDurationMin) {
+                          setDurationMinutes(mod.defaultDurationMin);
+                        }
+                      }}
                     >
-                      {mins}মি
-                    </button>
-                  ))}
+                      <SelectTrigger className="h-10 text-xs sm:text-sm bg-card">
+                        <SelectValue placeholder="ক্যাটালগ থেকে মডালিটি বেছে নিন" />
+                      </SelectTrigger>
+                      <SelectContent
+                        position="popper"
+                        side="bottom"
+                        align="start"
+                        sideOffset={4}
+                        className="max-h-56 overflow-y-auto z-50 bg-popover text-popover-foreground border border-border shadow-xl rounded-xl"
+                      >
+                        {modalitiesCatalog.length > 0 ? (
+                          modalitiesCatalog.map((mod) => (
+                            <SelectItem key={mod.code} value={mod.code} className="text-xs">
+                              {mod.nameEn} ({mod.code}) {mod.nameBn ? `• ${mod.nameBn}` : ''}
+                            </SelectItem>
+                          ))
+                        ) : (
+                          <>
+                            <SelectItem value="IFT">IFT (Interferential Therapy)</SelectItem>
+                            <SelectItem value="UST">UST (Ultrasound Therapy)</SelectItem>
+                            <SelectItem value="TRACTION">Traction (Cervical / Lumbar)</SelectItem>
+                            <SelectItem value="SWD">SWD (Shortwave Diathermy)</SelectItem>
+                            <SelectItem value="TENS">TENS (Electrical Stimulation)</SelectItem>
+                            <SelectItem value="EXERCISE">Therapeutic Exercise</SelectItem>
+                            <SelectItem value="IRR">IRR (Infrared Radiation)</SelectItem>
+                            <SelectItem value="WAX">Wax Bath Therapy</SelectItem>
+                            <SelectItem value="PHYSIO">Physiotherapy & Rehab</SelectItem>
+                          </>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
-              </div>
 
-              {/* Session Notes */}
-              <div className="space-y-1.5">
-                <Label className="text-xs font-bold text-foreground">
-                  সেশন নোট / মন্তব্য (ঐচ্ছিক)
-                </Label>
-                <Input
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="যেমন: রোগীর সহ্যক্ষমতা ভালো, মৃদু ব্যথা..."
-                  className="h-8 text-xs bg-card"
-                />
-              </div>
-            </>
-          )}
+                {/* Duration Selector */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-bold text-foreground flex items-center justify-between">
+                    <span>সেশন সময়কাল (Duration in Minutes)</span>
+                    <span className="font-mono font-bold text-amber-500 dark:text-amber-400">
+                      {durationMinutes} মিনিট
+                    </span>
+                  </Label>
+                  <div className="grid grid-cols-5 gap-2 pt-1">
+                    {[10, 15, 20, 25, 30].map((mins) => (
+                      <button
+                        key={mins}
+                        type="button"
+                        onClick={() => setDurationMinutes(mins)}
+                        className={cn(
+                          'h-9 rounded-lg font-mono text-xs font-bold border transition-all cursor-pointer',
+                          durationMinutes === mins
+                            ? 'bg-amber-500/20 border-amber-500 text-amber-500 dark:text-amber-400 shadow-xs'
+                            : 'border-border bg-muted/40 text-muted-foreground hover:text-foreground'
+                        )}
+                      >
+                        {mins}মি
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
-          <DialogFooter className="pt-2 flex flex-row items-center justify-end gap-2 border-t border-border/50">
+                {/* Session Notes */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-bold text-foreground">
+                    সেশন নোট / মন্তব্য (ঐচ্ছিক)
+                  </Label>
+                  <Input
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    placeholder="যেমন: রোগীর সহ্যক্ষমতা ভালো, মৃদু ব্যথা..."
+                    className="h-8 text-xs bg-card"
+                  />
+                </div>
+              </>
+            )}
+          </div>
+
+          <DialogFooter className="p-3 sm:p-4 flex flex-row items-center justify-end gap-2 border-t border-border/50 bg-muted/20 shrink-0">
             <Button
               type="button"
               variant="outline"

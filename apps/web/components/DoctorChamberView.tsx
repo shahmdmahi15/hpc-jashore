@@ -81,6 +81,8 @@ import {
   Gift,
   CreditCard,
   HelpCircle,
+  Building2,
+  ClipboardList,
 } from 'lucide-react';
 
 export interface DoctorChamberProps {
@@ -1111,14 +1113,14 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
           {/* RUNNING THERAPY LIVE SESSIONS MONITOR (Doctor View)       */}
           {/* ========================================================= */}
           {runningTherapies.length > 0 && (
-            <Card className="mb-4 border-amber-500/30 bg-gradient-to-r from-amber-500/5 via-emerald-500/5 to-transparent shadow-xs overflow-hidden">
+            <Card className="mb-4 border-cyan-500/40 bg-gradient-to-r from-cyan-500/5 via-emerald-500/5 to-transparent shadow-xs overflow-hidden">
               <CardHeader className="py-2.5 px-4 border-b border-border/50 flex flex-row items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span className="flex size-2 rounded-full bg-amber-500 animate-ping" />
+                  <span className="flex size-2 rounded-full bg-cyan-500 animate-ping" />
                   <span className="font-bold text-xs sm:text-sm text-foreground flex items-center gap-1.5">
-                    <span>⚡ থেরাপি হলে চলমান সেশন ({runningTherapies.length} জন রোগী)</span>
+                    <span>⚡ থেরাপি হলে চলমান সেশন ও লাইভ ট্র্যাকার ({runningTherapies.length} জন রোগী)</span>
                   </span>
-                  <Badge variant="outline" className="border-amber-500/40 text-amber-700 dark:text-amber-300 text-[10px] font-mono font-bold">
+                  <Badge variant="outline" className="border-cyan-500/40 text-cyan-700 dark:text-cyan-300 text-[10px] font-mono font-bold">
                     LIVE
                   </Badge>
                 </div>
@@ -1127,7 +1129,7 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
                   variant="ghost"
                   size="sm"
                   onClick={() => setShowTherapyMonitor(!showTherapyMonitor)}
-                  className="h-7 text-xs text-muted-foreground hover:text-foreground"
+                  className="h-7 text-xs text-muted-foreground hover:text-foreground cursor-pointer"
                 >
                   {showTherapyMonitor ? 'সংকুচিত করুন' : 'সম্প্রসারিত করুন'}
                 </Button>
@@ -1135,7 +1137,7 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
 
               {showTherapyMonitor && (
                 <CardContent className="p-3">
-                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2.5">
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                     {runningTherapies.map((session, sIdx) => {
                       const durMin = Number(session.durationMinutes) || 15;
                       const startMs = session.startedAt ? new Date(session.startedAt).getTime() : Date.now();
@@ -1153,70 +1155,98 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
                       const elapsedFormatted = `${elMin.toString().padStart(2, '0')}:${elS.toString().padStart(2, '0')}`;
                       const remainingFormatted = `${remMin.toString().padStart(2, '0')}:${remS.toString().padStart(2, '0')}`;
 
+                      const roomDisplay = session.roomName || session.bedName || 'থেরাপি হল';
+
                       return (
                         <div
                           key={session.sessionId || session.visitId || sIdx}
-                          className="p-3 rounded-xl border border-border/70 bg-card/90 shadow-2xs space-y-2 text-xs"
+                          className="p-3.5 rounded-xl border border-cyan-500/30 bg-card/95 shadow-xs space-y-2.5 text-xs relative overflow-hidden"
                         >
-                          <div className="flex items-start justify-between gap-1.5">
+                          {/* Room Number Marker & Patient Header */}
+                          <div className="flex items-start justify-between gap-2">
                             <div>
-                              <div className="font-bold text-foreground">
-                                {session.patientNameBn || session.patientNameEn || 'Patient'}
+                              <div className="font-bold text-sm text-foreground flex items-center gap-1.5">
+                                <span>{session.patientNameBn || session.patientNameEn || 'Patient'}</span>
                               </div>
-                              <div className="text-[10px] font-mono text-muted-foreground">
-                                MRN: {session.mrn} · {session.bedName ? `রুম: ${session.bedName}` : 'থেরাপি হল'}
+                              <div className="text-[11px] font-mono text-muted-foreground mt-0.5">
+                                MRN: {session.mrn}
                               </div>
                             </div>
-                            <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30 text-[10px] font-mono">
-                              {session.modalityCode || 'TH'}
+                            {/* Prominent Room Marker Badge */}
+                            <Badge className="bg-cyan-600/15 border-cyan-500/40 text-cyan-700 dark:text-cyan-300 font-bold text-[10.5px] px-2 py-0.5 shrink-0">
+                              <Building2 className="size-3 mr-1 inline" />
+                              {roomDisplay}
                             </Badge>
                           </div>
 
-                          {/* Current Modality & Countdown */}
-                          <div className="p-2 rounded-lg bg-muted/40 border border-border/50 flex items-center justify-between">
-                            <div>
-                              <div className="font-bold text-emerald-600 dark:text-emerald-400 text-[11px] flex items-center gap-1">
-                                <span>⚡</span>
-                                <span>{session.modalityNameBn || session.modalityNameEn || session.modalityCode}</span>
+                          {/* Full Plan Sequence Badge */}
+                          {session.planSummary && (
+                            <div className="p-1.5 rounded-lg bg-muted/40 border border-border/50 text-[11px] flex items-center gap-1.5">
+                              <ClipboardList className="size-3.5 text-cyan-500 shrink-0" />
+                              <span className="text-muted-foreground font-medium">নির্ধারিত প্ল্যান:</span>
+                              <span className="font-mono font-bold text-foreground truncate">
+                                {session.planSummary}
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Currently Running Modality by Handler & Live Timer */}
+                          <div className="p-2.5 rounded-xl bg-gradient-to-br from-cyan-500/10 via-emerald-500/5 to-transparent border border-cyan-500/30 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-1.5">
+                                <Badge className="bg-cyan-600 text-white font-mono text-[10px] font-extrabold">
+                                  ⚡ [{session.modalityCode}]
+                                </Badge>
+                                <span className="font-bold text-xs text-foreground truncate">
+                                  {session.modalityNameBn || session.modalityNameEn || session.modalityCode}
+                                </span>
                               </div>
-                              <div className="text-[10px] text-muted-foreground font-mono">
+                              <div className="text-[10px] font-mono text-muted-foreground">
                                 মোট: {durMin} মিনিট
                               </div>
                             </div>
-                            <div className="text-right">
+
+                            <div className="flex items-center justify-between text-xs font-mono font-bold">
+                              <span className="text-cyan-600 dark:text-cyan-400 flex items-center gap-1">
+                                <Activity className="size-3 animate-pulse text-emerald-500" />
+                                <span>অতিবাহিত: {elapsedFormatted}</span>
+                              </span>
                               {isOvertime ? (
                                 <Badge className="bg-rose-500 text-white font-mono text-[10px] animate-pulse">
                                   + {Math.floor((elapsedSec - totalSec) / 60)}m অতিরিক্ত
                                 </Badge>
                               ) : (
-                                <div className="font-mono font-bold text-amber-600 dark:text-amber-400 text-xs">
+                                <span className="text-amber-600 dark:text-amber-400">
                                   বাকি: {remainingFormatted}
-                                </div>
+                                </span>
                               )}
-                              <div className="text-[9.5px] font-mono text-muted-foreground mt-0.5">
-                                অতিবাহিত: {elapsedFormatted}
-                              </div>
+                            </div>
+
+                            {/* Progress bar */}
+                            <div className="w-full bg-muted/80 h-1.5 rounded-full overflow-hidden">
+                              <div
+                                className={cn(
+                                  'h-full transition-all duration-1000',
+                                  isOvertime ? 'bg-rose-500' : 'bg-cyan-500'
+                                )}
+                                style={{ width: `${progressPct}%` }}
+                              />
                             </div>
                           </div>
 
-                          {/* Progress bar */}
-                          <div className="w-full bg-muted/60 h-1.5 rounded-full overflow-hidden">
-                            <div
-                              className={cn(
-                                'h-full transition-all duration-1000',
-                                isOvertime ? 'bg-rose-500' : 'bg-emerald-500'
-                              )}
-                              style={{ width: `${progressPct}%` }}
-                            />
-                          </div>
-
                           {/* Next Modality indicator */}
-                          <div className="text-[10px] text-muted-foreground flex items-center justify-between pt-0.5">
-                            <span className="font-medium text-foreground">পরবর্তী থেরাপি:</span>
-                            <span className="text-cyan-700 dark:text-cyan-300 font-semibold font-mono">
-                              {session.nextModality || 'পরবর্তী ধাপ শিডিউল্ড'}
-                            </span>
-                          </div>
+                          {session.nextModality ? (
+                            <div className="text-[10px] text-muted-foreground flex items-center justify-between pt-0.5">
+                              <span className="font-medium text-foreground">পরবর্তী থেরাপি:</span>
+                              <Badge variant="outline" className="text-[10px] border-amber-500/40 text-amber-700 dark:text-amber-300 font-mono">
+                                ⏭️ {session.nextModality}
+                              </Badge>
+                            </div>
+                          ) : (
+                            <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium text-right pt-0.5">
+                              ✓ বর্তমান ধাপ সম্পন্ন হলে সেশন শেষ হবে
+                            </div>
+                          )}
                         </div>
                       );
                     })}

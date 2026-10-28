@@ -166,6 +166,45 @@ export function TreatmentPlanBuilderModal({
         setLoadingExisting(true);
         const plans = await api.therapy.getPlans(patientId);
         setExistingPlans(plans || []);
+
+        // If initialPlans was not provided or empty, auto-load active plans from DB
+        if ((!initialPlans || initialPlans.length === 0) && Array.isArray(plans) && plans.length > 0) {
+          const activeOnes = plans.filter((p: any) => p.status === 'active');
+          if (activeOnes.length > 0) {
+            setSelectedPlans(
+              activeOnes
+                .map((p: any, idx: number) => {
+                  let seq = idx + 1;
+                  let dur = p.defaultDurationMin || 15;
+                  let noteText = p.notes;
+                  if (p.notes) {
+                    try {
+                      const parsed =
+                        typeof p.notes === 'string' && p.notes.startsWith('{')
+                          ? JSON.parse(p.notes)
+                          : null;
+                      if (parsed) {
+                        if (parsed.sequence) seq = Number(parsed.sequence);
+                        if (parsed.durationMin) dur = Number(parsed.durationMin);
+                        noteText = (parsed.clinicalNote || parsed.note || '').trim();
+                      }
+                    } catch {}
+                  }
+                  return {
+                    modalityCode: p.modalityCode,
+                    modalityName: p.modalityNameEn || p.modalityCode,
+                    modalityNameBn: p.modalityNameBn || '',
+                    durationMinutes: dur,
+                    sequenceOrder: seq,
+                    totalSessionsPrescribed: p.totalSessionsPrescribed || 10,
+                    frequency: p.frequency || 'daily',
+                    notes: noteText || '',
+                  };
+                })
+                .sort((a, b) => a.sequenceOrder - b.sequenceOrder),
+            );
+          }
+        }
       } catch (err: any) {
         console.warn('Failed to fetch existing therapy plans:', err?.message);
       } finally {

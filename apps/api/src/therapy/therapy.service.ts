@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import { and, desc, eq, isNull, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 import { AuditService } from '../audit/audit.service';
 import { DB, type Db } from '../db/db.module';
 import {
@@ -436,7 +436,7 @@ export class TherapyService {
 
   async getTodaySessions(therapistStaffId?: string) {
     const today = new Date().toISOString().slice(0, 10);
-    const conditions = [];
+    const conditions = [sql`${therapySessions.createdAt} LIKE ${today + '%'}`];
     if (therapistStaffId) {
       conditions.push(eq(therapySessions.therapistStaffId, therapistStaffId));
     }
@@ -446,16 +446,23 @@ export class TherapyService {
         session: therapySessions,
         patient: patients,
         therapist: users,
+        modality: modalities,
       })
       .from(therapySessions)
       .innerJoin(patients, eq(therapySessions.patientId, patients.id))
       .leftJoin(users, eq(therapySessions.therapistStaffId, users.id))
+      .leftJoin(modalities, eq(therapySessions.modalityCode, modalities.code))
+      .where(and(...conditions))
       .orderBy(desc(therapySessions.createdAt));
 
     return rows.map((r) => ({
       ...r.session,
       patientName: r.patient.nameEn,
+      patientNameBn: r.patient.nameBn || r.patient.nameEn,
       patientMrn: r.patient.mrn,
+      patientPhone: r.patient.phone,
+      modalityNameEn: r.modality?.nameEn || r.session.modalityCode,
+      modalityNameBn: r.modality?.nameBn || r.session.modalityCode,
       bedCode: null,
       machineCode: null,
       therapistName: r.therapist?.displayName ?? 'Therapist',
@@ -841,12 +848,96 @@ export class TherapyService {
 
     const activePatientIds = new Set(activeSessions.map((s) => s.patient.id));
 
+    // 3. Load all rooms for friendly labels
+    const allRooms = await this.getRooms().catch(() => []);
+
+    // 4. Load all active doctor therapy plans for relevant patients
+    const patientIds = relevantVisits.map((rv) => rv.patient.id);
+    let allPlans: any[] = [];
+    if (patientIds.length > 0) {
+      try {
+        allPlans = await this.db
+          .select({
+            plan: therapyPlans,
+            modality: modalities,
+          })
+          .from(therapyPlans)
+          .leftJoin(modalities, eq(therapyPlans.modalityCode, modalities.code))
+          .where(
+            and(
+              inArray(therapyPlans.patientId, patientIds),
+              eq(therapyPlans.status, 'active')
+            )
+          )
+          .orderBy(asc(therapyPlans.createdAt));
+      } catch (err) {
+        console.warn('Failed to load active therapy plans for queue:', err);
+      }
+    }
+
+    const plansByPatientId = new Map<string, any[]>();
+    for (const ap of allPlans) {
+      const pId = ap.plan.patientId;
+      if (!plansByPatientId.has(pId)) {
+        plansByPatientId.set(pId, []);
+      }
+      let seq = plansByPatientId.get(pId)!.length + 1;
+      let dur = ap.modality?.defaultDurationMin || 15;
+      let clinicalNote = '';
+      if (ap.plan.notes) {
+        try {
+          const parsed =
+            typeof ap.plan.notes === 'string' && ap.plan.notes.startsWith('{')
+              ? JSON.parse(ap.plan.notes)
+              : null;
+          if (parsed) {
+            if (parsed.sequence) seq = Number(parsed.sequence);
+            if (parsed.durationMin) dur = Number(parsed.durationMin);
+            clinicalNote = (parsed.clinicalNote || parsed.note || '').trim();
+          }
+        } catch {}
+      }
+      plansByPatientId.get(pId)!.push({
+        id: ap.plan.id,
+        modalityCode: ap.plan.modalityCode,
+        modalityNameEn: ap.modality?.nameEn || ap.plan.modalityCode,
+        modalityNameBn: ap.modality?.nameBn || ap.plan.modalityCode,
+        sequenceOrder: seq,
+        durationMinutes: dur,
+        totalSessionsPrescribed: ap.plan.totalSessionsPrescribed,
+        completedSessions: ap.plan.completedSessions,
+        frequency: ap.plan.frequency,
+        clinicalNote,
+      });
+    }
+
+    for (const plist of plansByPatientId.values()) {
+      plist.sort((a, b) => a.sequenceOrder - b.sequenceOrder);
+    }
+
     const nowServing: any[] = [];
     const waiting: any[] = [];
     const inTherapyPatients: any[] = [];
 
     for (const { visit: v, patient: p, booking: b } of relevantVisits) {
       const isCalling = (v as any).status === 'calling';
+      const patPlans = plansByPatientId.get(p.id) || [];
+      const hasDoctorPlan = patPlans.length > 0;
+      const primaryPlan = patPlans[0];
+
+      const defaultModCode = primaryPlan?.modalityCode || 'PHYSIO';
+      const defaultModNameEn = primaryPlan?.modalityNameEn || 'Physiotherapy & Rehab';
+      const defaultModNameBn = primaryPlan?.modalityNameBn || 'ফিজিওথেরাপি ও পুনর্বাসন';
+
+      const effectiveRoomId = (v as any).calledRoomId || v.roomId || null;
+      let effectiveRoomName = (v as any).calledRoomName || null;
+      if (!effectiveRoomName && effectiveRoomId) {
+        const foundR = allRooms.find((r) => r.id === effectiveRoomId);
+        if (foundR) {
+          effectiveRoomName = foundR.name;
+        }
+      }
+
       const item = {
         id: v.id,
         visitId: v.id,
@@ -864,11 +955,14 @@ export class TherapyService {
           : v.status === 'in_therapy' || activePatientIds.has(p.id)
           ? 'in_therapy'
           : 'waiting',
-        assignedRoomId: (v as any).calledRoomId || v.roomId || null,
-        assignedRoomName: (v as any).calledRoomName || null,
-        modalityCode: 'PHYSIO',
-        modalityName: 'Physiotherapy & Rehab',
-        modalityNameBn: 'ফিজিওথেরাপি ও পুনর্বাসন',
+        assignedRoomId: effectiveRoomId,
+        assignedRoomName: effectiveRoomName,
+        modalityCode: defaultModCode,
+        modalityName: defaultModNameEn,
+        modalityNameBn: defaultModNameBn,
+        doctorPlans: patPlans,
+        hasDoctorPlan,
+        hasRunningSession: false,
         toldTime: v.toldTime || b?.toldTime || null,
         checkedInAt: v.checkedInAt || v.createdAt,
         punctualityStatus: v.punctualityStatus || b?.punctualityStatus || null,
@@ -878,6 +972,7 @@ export class TherapyService {
 
       const matchingSession = activeSessions.find((as) => as.patient.id === p.id);
       if (matchingSession) {
+        item.hasRunningSession = true;
         item.modalityCode = matchingSession.session.modalityCode;
         item.modalityName = matchingSession.modality?.nameEn || matchingSession.session.modalityCode;
         item.modalityNameBn = matchingSession.modality?.nameBn || matchingSession.session.modalityCode;
@@ -902,49 +997,46 @@ export class TherapyService {
       nowServing,
       inSession: inTherapyPatients,
       inTherapy: inTherapyPatients,
-      activeSessions: [
-        ...activeSessions
-          .filter(({ patient: p }) => {
-            const matchingV = relevantVisits.find((rv) => rv.patient.id === p.id);
-            // Strictly exclude if visit is checked out, cancelled, or not currently active for therapy
-            if (!matchingV) return false;
-            if (matchingV.visit.status === 'checked_out' || matchingV.visit.status === 'cancelled') return false;
-            return true;
-          })
-          .map(({ session: s, patient: p, modality: m }) => {
-            const matchingV = relevantVisits.find((rv) => rv.patient.id === p.id);
-            return {
-              sessionId: s.id,
-              visitId: matchingV?.visit.id || null,
-              patientId: p.id,
-              patientNameEn: p.nameEn,
-              patientNameBn: p.nameBn,
-              mrn: p.mrn,
-              bedName: matchingV?.visit.roomId || null,
-              modalityCode: s.modalityCode,
-              modalityNameEn: m?.nameEn || s.modalityCode,
-              modalityNameBn: m?.nameBn || s.modalityCode,
-              startedAt: s.startedAt,
-              durationMinutes: s.durationMinutes || 20,
-            };
-          }),
-        ...inTherapyPatients
-          .filter((it) => !activeSessions.some((as) => as.patient.id === it.patientId))
-          .map((it) => ({
-            sessionId: it.visitId,
-            visitId: it.visitId,
-            patientId: it.patientId,
-            patientNameEn: it.patientNameEn,
-            patientNameBn: it.patientNameBn,
-            mrn: it.mrn,
-            bedName: it.assignedRoomName,
-            modalityCode: it.modalityCode,
-            modalityNameEn: it.modalityName,
-            modalityNameBn: it.modalityNameBn,
-            startedAt: it.calledAt || it.checkedInAt,
-            durationMinutes: 20,
-          })),
-      ],
+      activeSessions: activeSessions
+        .filter(({ patient: p }) => {
+          const matchingV = relevantVisits.find((rv) => rv.patient.id === p.id);
+          // Strictly exclude if visit is checked out, cancelled, or not currently active for therapy
+          if (!matchingV) return false;
+          if (matchingV.visit.status === 'checked_out' || matchingV.visit.status === 'cancelled') return false;
+          return true;
+        })
+        .map(({ session: s, patient: p, modality: m }) => {
+          const matchingV = relevantVisits.find((rv) => rv.patient.id === p.id);
+          const patPlans = plansByPatientId.get(p.id) || [];
+          const effectiveRoomId = matchingV?.visit.roomId || (matchingV?.visit as any)?.calledRoomId || s.bedId;
+          const foundR = allRooms.find((r) => r.id === effectiveRoomId);
+          const roomLabel = foundR?.name || (matchingV?.visit as any)?.calledRoomName || 'থেরাপি হল';
+
+          const currentPlanIdx = patPlans.findIndex((pl) => pl.modalityCode === s.modalityCode);
+          const nextPlan = currentPlanIdx >= 0 && currentPlanIdx + 1 < patPlans.length ? patPlans[currentPlanIdx + 1] : null;
+
+          return {
+            sessionId: s.id,
+            visitId: matchingV?.visit.id || null,
+            patientId: p.id,
+            patientNameEn: p.nameEn,
+            patientNameBn: p.nameBn,
+            mrn: p.mrn,
+            roomId: effectiveRoomId,
+            roomName: roomLabel,
+            bedName: roomLabel,
+            modalityCode: s.modalityCode,
+            modalityNameEn: m?.nameEn || s.modalityCode,
+            modalityNameBn: m?.nameBn || s.modalityCode,
+            startedAt: s.startedAt,
+            durationMinutes: s.durationMinutes || 15,
+            doctorPlans: patPlans,
+            planSummary: patPlans.length > 0
+              ? patPlans.map((pl) => `${pl.modalityCode} (${pl.durationMinutes}মি)`).join(' → ')
+              : `${s.modalityCode} (${s.durationMinutes || 15}মি)`,
+            nextModality: nextPlan ? `${nextPlan.modalityCode} (${nextPlan.durationMinutes}মি)` : null,
+          };
+        }),
     };
   }
 
