@@ -67,7 +67,8 @@ export default function TherapyHallView({ session: propSession }: TherapyHallPro
     if (
       event.type.startsWith('therapy.') ||
       event.type.startsWith('session.') ||
-      event.type.startsWith('visit.')
+      event.type.startsWith('visit.') ||
+      event.type.startsWith('queue.')
     ) {
       loadData();
     }
@@ -75,7 +76,7 @@ export default function TherapyHallView({ session: propSession }: TherapyHallPro
 
   useEffect(() => {
     loadData();
-    const interval = setInterval(loadData, 10000);
+    const interval = setInterval(loadData, 3000);
     return () => clearInterval(interval);
   }, []);
 

@@ -96,6 +96,12 @@ export class TherapyController {
     );
   }
 
+  @Get('sessions/active')
+  @Roles('admin', 'doctor', 'cashier', 'receptionist', 'handler')
+  getActiveSessions() {
+    return this.therapy.getActiveSessions();
+  }
+
   @Get('sessions/today')
   getTodaySessions(@Query('therapistStaffId') therapistStaffId?: string) {
     return this.therapy.getTodaySessions(therapistStaffId);

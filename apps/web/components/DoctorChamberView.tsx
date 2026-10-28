@@ -305,17 +305,27 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
     try {
       const qData = await api.therapy.getQueue();
       if (qData) {
-        setRunningTherapies(qData.activeSessions || qData.inTherapy || []);
+        const raw = qData.activeSessions || qData.inTherapy || [];
+        const active = raw.filter(
+          (s: any) => s.status !== 'checked_out' && s.status !== 'cancelled'
+        );
+        setRunningTherapies(active);
       }
     } catch {}
   };
 
   useEffect(() => {
     fetchRunningTherapies();
-    const interval = setInterval(() => {
+    const tickInterval = setInterval(() => {
       setTherapyTick((t) => t + 1);
     }, 1000);
-    return () => clearInterval(interval);
+    const syncInterval = setInterval(() => {
+      fetchRunningTherapies();
+    }, 3000);
+    return () => {
+      clearInterval(tickInterval);
+      clearInterval(syncInterval);
+    };
   }, []);
 
   // Acoustic chime when new patient arrives
@@ -355,7 +365,12 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
     ) {
       loadQueue(undefined, true);
     }
-    if (event.type.startsWith('therapy.')) {
+    if (
+      event.type.startsWith('therapy.') ||
+      event.type.startsWith('session.') ||
+      event.type.startsWith('visit.') ||
+      event.type.startsWith('queue.')
+    ) {
       fetchRunningTherapies();
     }
     if (event.type.startsWith('patient.assessment_')) {

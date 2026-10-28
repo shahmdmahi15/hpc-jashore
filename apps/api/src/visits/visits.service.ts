@@ -1258,6 +1258,21 @@ export class VisitsService {
         ),
       );
 
+    // Explicitly complete any remaining in-progress therapy sessions for this patient
+    await this.db
+      .update(therapySessions)
+      .set({
+        status: 'completed',
+        endedAt: now,
+        updatedAt: now,
+      })
+      .where(
+        and(
+          eq(therapySessions.patientId, item.patient.id),
+          eq(therapySessions.status, 'in_progress'),
+        ),
+      );
+
     // Departure slip payload
     const departureSlip = await this.getDepartureSlip(visitId);
 
@@ -1266,6 +1281,19 @@ export class VisitsService {
       patientId: item.patient.id,
       patientName: item.patient.nameEn,
       checkedOutAt: now,
+    });
+    this.gateway.emit('clinic:global', 'visit.updated', {
+      visitId,
+      patientId: item.patient.id,
+      status: 'checked_out',
+    });
+    this.gateway.emit('clinic:global', 'therapy.session_completed', {
+      visitId,
+      patientId: item.patient.id,
+    });
+    this.gateway.emit('clinic:global', 'therapy.queue_updated', {
+      visitId,
+      patientId: item.patient.id,
     });
     this.gateway.emit('clinic:global', 'queue.updated', {
       type: 'consultation',

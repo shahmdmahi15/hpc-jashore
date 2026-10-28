@@ -389,9 +389,9 @@ export default function MedicineDirectoryView() {
                 <Label className="text-xs font-semibold">ফর্ম (Dosage Form) *</Label>
                 <Select value={form} onValueChange={setForm}>
                   <SelectTrigger className="text-xs">
-                    <SelectValue />
+                    <SelectValue placeholder="ফর্ম নির্বাচন করুন" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent position="popper" side="bottom" sideOffset={4} className="max-h-56 overflow-y-auto">
                     {MEDICINE_FORMS.map((f) => (
                       <SelectItem key={f.value} value={f.value}>
                         {f.label}

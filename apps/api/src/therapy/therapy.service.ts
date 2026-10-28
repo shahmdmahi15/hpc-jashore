@@ -804,6 +804,25 @@ export class TherapyService {
     }
 
     // 2. Active Sessions
+    // Auto-complete any stale in_progress sessions (started > 3 hours ago or linked to checked_out/cancelled visits)
+    await this.db
+      .update(therapySessions)
+      .set({
+        status: 'completed',
+        endedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      })
+      .where(
+        and(
+          eq(therapySessions.status, 'in_progress'),
+          or(
+            sql`datetime(${therapySessions.startedAt}) < datetime('now', '-3 hours')`,
+            sql`${therapySessions.patientId} IN (SELECT patient_id FROM visits WHERE status IN ('checked_out', 'cancelled') AND visit_date = ${today})`
+          )
+        )
+      )
+      .catch(() => {});
+
     const activeSessions = await this.db
       .select({
         session: therapySessions,
@@ -813,7 +832,12 @@ export class TherapyService {
       .from(therapySessions)
       .innerJoin(patients, eq(therapySessions.patientId, patients.id))
       .leftJoin(modalities, eq(therapySessions.modalityCode, modalities.code))
-      .where(eq(therapySessions.status, 'in_progress'));
+      .where(
+        and(
+          eq(therapySessions.status, 'in_progress'),
+          sql`${therapySessions.startedAt} LIKE ${today + '%'}`
+        )
+      );
 
     const activePatientIds = new Set(activeSessions.map((s) => s.patient.id));
 
@@ -879,23 +903,31 @@ export class TherapyService {
       inSession: inTherapyPatients,
       inTherapy: inTherapyPatients,
       activeSessions: [
-        ...activeSessions.map(({ session: s, patient: p, modality: m }) => {
-          const matchingV = relevantVisits.find((rv) => rv.patient.id === p.id);
-          return {
-            sessionId: s.id,
-            visitId: matchingV?.visit.id || null,
-            patientId: p.id,
-            patientNameEn: p.nameEn,
-            patientNameBn: p.nameBn,
-            mrn: p.mrn,
-            bedName: matchingV?.visit.roomId || null,
-            modalityCode: s.modalityCode,
-            modalityNameEn: m?.nameEn || s.modalityCode,
-            modalityNameBn: m?.nameBn || s.modalityCode,
-            startedAt: s.startedAt,
-            durationMinutes: s.durationMinutes || 20,
-          };
-        }),
+        ...activeSessions
+          .filter(({ patient: p }) => {
+            const matchingV = relevantVisits.find((rv) => rv.patient.id === p.id);
+            // Strictly exclude if visit is checked out, cancelled, or not currently active for therapy
+            if (!matchingV) return false;
+            if (matchingV.visit.status === 'checked_out' || matchingV.visit.status === 'cancelled') return false;
+            return true;
+          })
+          .map(({ session: s, patient: p, modality: m }) => {
+            const matchingV = relevantVisits.find((rv) => rv.patient.id === p.id);
+            return {
+              sessionId: s.id,
+              visitId: matchingV?.visit.id || null,
+              patientId: p.id,
+              patientNameEn: p.nameEn,
+              patientNameBn: p.nameBn,
+              mrn: p.mrn,
+              bedName: matchingV?.visit.roomId || null,
+              modalityCode: s.modalityCode,
+              modalityNameEn: m?.nameEn || s.modalityCode,
+              modalityNameBn: m?.nameBn || s.modalityCode,
+              startedAt: s.startedAt,
+              durationMinutes: s.durationMinutes || 20,
+            };
+          }),
         ...inTherapyPatients
           .filter((it) => !activeSessions.some((as) => as.patient.id === it.patientId))
           .map((it) => ({
@@ -1378,6 +1410,21 @@ export class TherapyService {
       })
       .where(eq(visits.id, visit.id));
 
+    // Mark any running therapy sessions for this patient as completed
+    await this.db
+      .update(therapySessions)
+      .set({
+        status: 'completed',
+        endedAt: now,
+        updatedAt: now,
+      })
+      .where(
+        and(
+          eq(therapySessions.patientId, visit.patientId),
+          eq(therapySessions.status, 'in_progress'),
+        ),
+      );
+
     try {
       await this.db.insert(patientTimelineEvents).values({
         id: randomUUID(),
@@ -1440,6 +1487,12 @@ export class TherapyService {
 
     this.gateway?.emit('clinic:global', 'bill.created', billPayload);
     this.realtime?.publish('bill.created', billPayload);
+
+    this.gateway?.emit('clinic:global', 'therapy.session_completed', therapyPayload);
+    this.realtime?.publish('therapy.session_completed', therapyPayload);
+
+    this.gateway?.emit('clinic:global', 'therapy.queue_updated', therapyPayload);
+    this.realtime?.publish('therapy.queue_updated', therapyPayload);
 
     await this.audit.log({
       actorUserId: actor.sub,
@@ -1750,5 +1803,10 @@ export class TherapyService {
     });
 
     return createdPlans;
+  }
+
+  async getActiveSessions() {
+    const queue = await this.getQueue();
+    return queue.activeSessions;
   }
 }
