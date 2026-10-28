@@ -816,6 +816,7 @@ export const patientIntakeForms = sqliteTable('patient_intake_forms', {
 
   // 5. Reception Notes & Status
   specialNotes: text('special_notes'),
+  consultationFeeTaka: integer('consultation_fee_taka'),
   status: text('status').notNull().default('submitted').$type<IntakeFormStatus>(),
   forwardedToCashierAt: text('forwarded_to_cashier_at'),
   billedAt: text('billed_at'),

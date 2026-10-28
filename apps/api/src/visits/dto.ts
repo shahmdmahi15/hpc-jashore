@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  IsBoolean,
   IsIn,
   IsInt,
   IsNotEmpty,
@@ -112,6 +113,16 @@ export class SendToDoctorQueueDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @ApiPropertyOptional({ description: 'Whether consultation is free (৳0)' })
+  @IsOptional()
+  @IsBoolean()
+  isFree?: boolean;
+
+  @ApiPropertyOptional({ description: 'Consultation fee in Taka if fee-based' })
+  @IsOptional()
+  @IsInt()
+  feeTaka?: number;
 }
 
 export class CallSerialDto {

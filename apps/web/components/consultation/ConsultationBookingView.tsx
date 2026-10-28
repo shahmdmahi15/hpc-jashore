@@ -29,6 +29,7 @@ import {
   Tag,
   FileText,
   Sparkles,
+  CreditCard,
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -60,6 +61,7 @@ import {
 import { Label } from '../ui/label';
 import { Textarea } from '../ui/textarea';
 import { toast } from 'sonner';
+import { cn } from '../../lib/utils';
 import { useLanguage } from '../../lib/i18n';
 import { api } from '../../lib/api';
 import {
@@ -127,8 +129,10 @@ export function ConsultationBookingView({ defaultDoctorId }: ConsultationBooking
   const [cancelReason, setCancelReason] = useState<string>('');
   const [isCancelModalOpen, setIsCancelModalOpen] = useState<boolean>(false);
 
-  // Free Direct Queue Modal States (Report Showing, Talk, Follow-up etc)
+  // Direct Queue Modal States (Free instant vs Fee-based cashier flow)
   const [isFreeQueueModalOpen, setIsFreeQueueModalOpen] = useState<boolean>(false);
+  const [queueFeeType, setQueueFeeType] = useState<'free' | 'paid'>('free');
+  const [queueFeeAmount, setQueueFeeAmount] = useState<number>(500);
   const [freePatientSearch, setFreePatientSearch] = useState<string>('');
   const [freePatientResults, setFreePatientResults] = useState<PatientRecord[]>([]);
   const [selectedFreePatient, setSelectedFreePatient] = useState<PatientRecord | null>(null);
@@ -272,8 +276,19 @@ export function ConsultationBookingView({ defaultDoctorId }: ConsultationBooking
     }
   };
 
-  // Free Queue Submission
-  const handleFreeQueueSubmit = async () => {
+  // Doctor Selection change for Direct Queue
+  const handleQueueDoctorChange = (docId: string) => {
+    setFreeDoctorId(docId);
+    const doc = doctors.find((d) => d.id === docId);
+    if (doc?.consultationFeeTaka) {
+      setQueueFeeAmount(doc.consultationFeeTaka);
+    } else if (doc?.consultationFeePaisa) {
+      setQueueFeeAmount(Math.round(doc.consultationFeePaisa / 100));
+    }
+  };
+
+  // Direct Queue Submission (Free instant vs Fee-based cashier collection)
+  const handleQueueSubmit = async () => {
     if (!selectedFreePatient) {
       toast.error(language === 'bn' ? 'রোগী নির্বাচন করুন' : 'Select a patient');
       return;
@@ -297,27 +312,38 @@ export function ConsultationBookingView({ defaultDoctorId }: ConsultationBooking
           patientId: selectedFreePatient.id,
           doctorId: docId,
           priority: 'normal',
-          notes: `Free Consultation: ${freeReason}`,
+          notes: queueFeeType === 'free' ? `Free Consultation: ${freeReason}` : `Paid Consultation (৳${queueFeeAmount}): ${freeReason}`,
         });
       }
 
-      // 2. Send to doctor queue
-      await api.visits.sendToDoctorQueue(activeVisit.id, {
+      // 2. Send to doctor queue (supports isFree and feeTaka)
+      const res = await api.visits.sendToDoctorQueue(activeVisit.id, {
         doctorId: docId,
         reason: freeReason,
         notes: freeNotes,
+        isFree: queueFeeType === 'free',
+        feeTaka: queueFeeType === 'paid' ? Number(queueFeeAmount) || 500 : 0,
       });
 
-      toast.success(
-        language === 'bn'
-          ? `রোগী ${selectedFreePatient.nameEn} কে সফলভাবে চেম্বার কিউতে পাঠানো হয়েছে (ফ্রি)!`
-          : `Patient ${selectedFreePatient.nameEn} sent to doctor queue (Free)!`
-      );
+      if (res?.forwardedToCashier) {
+        toast.success(
+          language === 'bn'
+            ? `রোগী ${selectedFreePatient.nameEn}-কে কনসালটেশন ফি (৳${res.feeTaka}) গ্রহণের জন্য ক্যাশিয়ারে পাঠানো হয়েছে! ক্যাশিয়ার ফি গ্রহণ করলে সরাসরি ডাক্তারের কিউতে চলে যাবে।`
+            : `Patient ${selectedFreePatient.nameEn} sent to Cashier for fee collection (৳${res.feeTaka})! Will enter doctor queue upon payment.`
+        );
+      } else {
+        toast.success(
+          language === 'bn'
+            ? `রোগী ${selectedFreePatient.nameEn} কে সফলভাবে চেম্বার কিউতে পাঠানো হয়েছে (ফ্রি)!`
+            : `Patient ${selectedFreePatient.nameEn} sent to doctor queue (Free)!`
+        );
+      }
 
       setIsFreeQueueModalOpen(false);
       setSelectedFreePatient(null);
       setFreePatientSearch('');
       setFreeNotes('');
+      setQueueFeeType('free');
       await loadData();
     } catch (err: any) {
       toast.error(err?.message || (language === 'bn' ? 'কিউতে যোগ করতে ব্যর্থ হয়েছে' : 'Failed to add to queue'));
@@ -1326,7 +1352,7 @@ export function ConsultationBookingView({ defaultDoctorId }: ConsultationBooking
         </DialogContent>
       </Dialog>
 
-      {/* Free Direct Patient to Doctor Queue Modal */}
+      {/* Direct Patient to Doctor Queue Modal (Dual-path: Instant Free vs Cashier Fee-collection) */}
       <Dialog open={isFreeQueueModalOpen} onOpenChange={setIsFreeQueueModalOpen}>
         <DialogContent className="max-w-lg p-4 sm:p-6 bg-card border-border shadow-2xl rounded-2xl">
           <DialogHeader className="pb-3 border-b border-border/60">
@@ -1336,18 +1362,68 @@ export function ConsultationBookingView({ defaultDoctorId }: ConsultationBooking
               </span>
               <span>
                 {language === 'bn'
-                  ? 'ডাক্তারের পরামর্শ কিউতে সরাসরি প্রেরণ (ফ্রি)'
-                  : 'Add Patient to Doctor Queue (Free)'}
+                  ? 'ডাক্তারের পরামর্শ কিউতে রোগী যোগ করুন'
+                  : 'Add Patient to Doctor Queue'}
               </span>
             </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground mt-0.5">
               {language === 'bn'
-                ? 'রিপোর্ট দেখানো, ডাক্তারের সাথে জরুরি কথা বলা বা ফলো-আপের জন্য কোনো পেমেন্ট ছাড়াই সরাসরি কিউতে প্রেরণ করুন।'
-                : 'Send patient to doctor consultation queue without fee for report showing, consultation, or follow-up.'}
+                ? 'বিনামূল্যে সরাসরি ডাক্তারের কিউতে প্রেরণ করুন অথবা ক্যাশিয়ারে ফি আদায়ের মাধ্যমে কিউতে যুক্ত করুন।'
+                : 'Send patient directly to doctor queue for free, or route via cashier for fee collection.'}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-2 text-xs">
+            {/* 0. Fee Type Toggle (Free vs Fee-Based) */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-foreground">
+                {language === 'bn' ? 'পরামর্শের ধরন ও ফি নির্বাচন করুন *' : 'Consultation Fee Mode *'}
+              </Label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setQueueFeeType('free')}
+                  className={cn(
+                    "p-2.5 rounded-xl border text-left flex items-center gap-2.5 transition-all cursor-pointer",
+                    queueFeeType === 'free'
+                      ? "border-emerald-500 bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 font-bold shadow-xs"
+                      : "border-border/70 hover:bg-muted/40 text-muted-foreground"
+                  )}
+                >
+                  <span className="text-base">🆓</span>
+                  <div>
+                    <div className="text-xs font-semibold leading-tight">
+                      {language === 'bn' ? 'সম্পূর্ণ ফ্রি (৳০)' : 'Free (৳0)'}
+                    </div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5">
+                      {language === 'bn' ? 'রিপোর্ট / তাৎক্ষণিক কিউ' : 'Instant Queue'}
+                    </div>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setQueueFeeType('paid')}
+                  className={cn(
+                    "p-2.5 rounded-xl border text-left flex items-center gap-2.5 transition-all cursor-pointer",
+                    queueFeeType === 'paid'
+                      ? "border-cyan-500 bg-cyan-500/15 text-cyan-800 dark:text-cyan-300 font-bold shadow-xs"
+                      : "border-border/70 hover:bg-muted/40 text-muted-foreground"
+                  )}
+                >
+                  <span className="text-base">💳</span>
+                  <div>
+                    <div className="text-xs font-semibold leading-tight">
+                      {language === 'bn' ? 'ফি প্রযোজ্য (পেইড)' : 'Fee Applicable'}
+                    </div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5">
+                      {language === 'bn' ? 'ক্যাশিয়ারে ফি আদায়' : 'Via Cashier Desk'}
+                    </div>
+                  </div>
+                </button>
+              </div>
+            </div>
+
             {/* 1. Patient Selection */}
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold text-foreground">
@@ -1415,7 +1491,7 @@ export function ConsultationBookingView({ defaultDoctorId }: ConsultationBooking
               <Label className="text-xs font-semibold text-foreground">
                 {language === 'bn' ? 'কনসালট্যান্ট ডাক্তার নির্বাচন করুন *' : 'Target Doctor *'}
               </Label>
-              <Select value={freeDoctorId} onValueChange={setFreeDoctorId}>
+              <Select value={freeDoctorId} onValueChange={handleQueueDoctorChange}>
                 <SelectTrigger className="h-9 text-xs">
                   <SelectValue placeholder="-- ডাক্তার নির্বাচন করুন --" />
                 </SelectTrigger>
@@ -1428,6 +1504,36 @@ export function ConsultationBookingView({ defaultDoctorId }: ConsultationBooking
                 </SelectContent>
               </Select>
             </div>
+
+            {/* If Paid: Consultation Fee Input */}
+            {queueFeeType === 'paid' && (
+              <div className="p-3 rounded-xl border border-cyan-500/30 bg-cyan-500/5 space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                    <CreditCard className="size-3.5 text-cyan-600 dark:text-cyan-400" />
+                    <span>{language === 'bn' ? 'কনসালটেশন ফি (টাকা) *' : 'Consultation Fee (BDT) *'}</span>
+                  </Label>
+                  <Badge variant="outline" className="text-[10px] border-cyan-500/40 text-cyan-700 dark:text-cyan-300">
+                    {language === 'bn' ? 'ক্যাশিয়ার আদায়যোগ্য' : 'Cashier Collectible'}
+                  </Badge>
+                </div>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-muted-foreground text-xs">৳</span>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={queueFeeAmount}
+                    onChange={(e) => setQueueFeeAmount(Number(e.target.value) || 0)}
+                    className="pl-7 h-9 text-xs font-mono font-bold"
+                  />
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  {language === 'bn'
+                    ? '💡 ক্যাশিয়ার ফি গ্রহণ করার সাথে সাথে রোগী স্বয়ংক্রিয়ভাবে রিয়েলটাইমে ডাক্তারের চেম্বার কিউতে সিরিয়াল সহ প্রবেশ করবে।'
+                    : '💡 Once Cashier collects this fee, the patient will automatically enter the Doctor live queue.'}
+                </p>
+              </div>
+            )}
 
             {/* 3. Reason for Consultation */}
             <div className="space-y-1.5">
@@ -1444,6 +1550,9 @@ export function ConsultationBookingView({ defaultDoctorId }: ConsultationBooking
                   </SelectItem>
                   <SelectItem value="পরামর্শ / কথা বলতে চান (Want to Talk / General Consultation)">
                     💬 পরামর্শ / কথা বলতে চান (Want to Talk / Consultation)
+                  </SelectItem>
+                  <SelectItem value="নতুন কনসালটেশন (New Consultation)">
+                    🩺 নতুন কনসালটেশন (New Consultation)
                   </SelectItem>
                   <SelectItem value="ফলো-আপ চেকআপ (Follow-up Evaluation)">
                     🔄 ফলো-আপ চেকআপ (Follow-up Evaluation)
@@ -1470,14 +1579,32 @@ export function ConsultationBookingView({ defaultDoctorId }: ConsultationBooking
                 placeholder={language === 'bn' ? 'যেমন: এমআরআই রিপোর্ট দেখাবেন, পেছনের ব্যথা বেড়ে গেছে ইত্যাদি...' : 'e.g. Bringing MRI report, pain increased...'}
                 value={freeNotes}
                 onChange={(e) => setFreeNotes(e.target.value)}
-                className="text-xs min-h-[60px]"
+                className="text-xs min-h-[55px]"
               />
             </div>
 
-            <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-[11px] flex items-center justify-between">
-              <span className="font-semibold">ফি গ্রহণ: বিনামূল্যে (Free - ৳0)</span>
-              <Badge className="bg-emerald-500 text-black font-bold text-[10px]">সম্পূর্ণ ফ্রি</Badge>
-            </div>
+            {/* Bottom Status Banner */}
+            {queueFeeType === 'free' ? (
+              <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-[11px] flex items-center justify-between">
+                <div className="flex items-center gap-1.5 font-semibold">
+                  <span>🆓</span>
+                  <span>{language === 'bn' ? 'ফি গ্রহণ: সম্পূর্ণ ফ্রি (Free - ৳0)' : 'Fee: Free of Charge (৳0)'}</span>
+                </div>
+                <Badge className="bg-emerald-500 text-black font-bold text-[10px]">
+                  {language === 'bn' ? 'সরাসরি কিউ' : 'Direct Queue'}
+                </Badge>
+              </div>
+            ) : (
+              <div className="p-2.5 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-800 dark:text-cyan-300 text-[11px] flex items-center justify-between">
+                <div className="flex items-center gap-1.5 font-semibold">
+                  <span>💳</span>
+                  <span>{language === 'bn' ? `ধার্যকৃত ফি: ৳${queueFeeAmount}` : `Applicable Fee: ৳${queueFeeAmount}`}</span>
+                </div>
+                <Badge className="bg-cyan-600 text-white font-bold text-[10px]">
+                  {language === 'bn' ? 'ক্যাশিয়ারে ফরোয়ার্ড' : 'Forward to Cashier'}
+                </Badge>
+              </div>
+            )}
           </div>
 
           <DialogFooter className="flex flex-row justify-between gap-2 pt-3 border-t border-border/60">
@@ -1494,16 +1621,25 @@ export function ConsultationBookingView({ defaultDoctorId }: ConsultationBooking
             <Button
               type="button"
               size="sm"
-              onClick={handleFreeQueueSubmit}
+              onClick={handleQueueSubmit}
               disabled={freeSubmitting || !selectedFreePatient}
-              className="bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs gap-1.5 shadow-sm active:scale-95"
+              className={cn(
+                "font-bold text-xs gap-1.5 shadow-sm active:scale-95 text-white",
+                queueFeeType === 'free' ? "bg-cyan-600 hover:bg-cyan-500" : "bg-emerald-600 hover:bg-emerald-500"
+              )}
             >
               {freeSubmitting ? (
                 <RefreshCw className="size-3.5 animate-spin" />
-              ) : (
+              ) : queueFeeType === 'free' ? (
                 <Send className="size-3.5" />
+              ) : (
+                <CreditCard className="size-3.5" />
               )}
-              <span>{language === 'bn' ? 'কিউতে যুক্ত করুন' : 'Add to Doctor Queue'}</span>
+              <span>
+                {queueFeeType === 'free'
+                  ? (language === 'bn' ? 'সরাসরি কিউতে যুক্ত করুন (ফ্রি)' : 'Add to Queue (Instant Free)')
+                  : (language === 'bn' ? `ক্যাশিয়ারে পাঠান (ফি: ৳${queueFeeAmount})` : `Send to Cashier (Fee: ৳${queueFeeAmount})`)}
+              </span>
             </Button>
           </DialogFooter>
         </DialogContent>

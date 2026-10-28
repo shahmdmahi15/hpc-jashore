@@ -1237,6 +1237,7 @@ export type Db = BetterSQLite3Database<typeof schema>;
                 referral_source TEXT,
                 referral_other_details TEXT,
                 special_notes TEXT,
+                consultation_fee_taka INTEGER,
                 status TEXT NOT NULL DEFAULT 'submitted',
                 forwarded_to_cashier_at TEXT,
                 billed_at TEXT,
@@ -1356,6 +1357,14 @@ export type Db = BetterSQLite3Database<typeof schema>;
 
           // Clean up orphan active serials where visit is already checked out or cancelled,
           // and establish SQLite triggers so visits checkout atomically and permanently completes serials.
+          try {
+            const intakeCols = sqlite.prepare("PRAGMA table_info(patient_intake_forms)").all() as Array<{ name: string }>;
+            const intakeColNames = new Set(intakeCols.map((c) => c.name));
+            if (!intakeColNames.has('consultation_fee_taka')) {
+              sqlite.exec("ALTER TABLE patient_intake_forms ADD COLUMN consultation_fee_taka INTEGER");
+            }
+          } catch {}
+
           try {
             sqlite.exec(`
               UPDATE serials

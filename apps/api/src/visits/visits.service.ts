@@ -1377,6 +1377,123 @@ export class VisitsService {
       ? `[${dto.reason}] ${dto?.notes || ''}`.trim()
       : dto?.notes || item.visit.notes;
 
+    // DUAL-PATH LOGIC:
+    // If NOT free (i.e. fee-based consultation where isFree === false and feeTaka > 0):
+    // Forward patient to Cashier for fee collection first!
+    if (dto?.isFree === false && dto?.feeTaka !== undefined && dto?.feeTaka > 0) {
+      const feeTaka = dto.feeTaka;
+      await this.db
+        .update(visits)
+        .set({
+          doctorId,
+          currentLocation: 'Cashier',
+          notes: visitReasonNote,
+          updatedAt: now,
+        })
+        .where(eq(visits.id, visitId));
+
+      // Check if an intake form exists for this visit
+      const existingIntakes = await this.db
+        .select()
+        .from(patientIntakeForms)
+        .where(eq(patientIntakeForms.visitId, visitId))
+        .limit(1);
+
+      let intakeResult: any;
+
+      if (existingIntakes[0]) {
+        await this.db
+          .update(patientIntakeForms)
+          .set({
+            doctorId,
+            consultationFeeTaka: feeTaka,
+            status: 'forwarded_to_cashier',
+            specialNotes: visitReasonNote,
+            forwardedToCashierAt: now,
+            updatedAt: now,
+          })
+          .where(eq(patientIntakeForms.id, existingIntakes[0].id));
+        intakeResult = {
+          ...existingIntakes[0],
+          doctorId,
+          consultationFeeTaka: feeTaka,
+          status: 'forwarded_to_cashier',
+          specialNotes: visitReasonNote,
+          forwardedToCashierAt: now,
+          doctorFee: feeTaka,
+          doctorName: item.doctor?.displayName || 'Doctor',
+          patient: item.patient,
+          tokenNumber: item.visit.tokenNumber,
+        };
+      } else {
+        const intakeId = randomUUID();
+        const actorUser = await this.db.select().from(users).where(eq(users.id, actor.sub));
+        const receptionistName = actorUser[0]?.displayName || 'Reception';
+        const newIntake = {
+          id: intakeId,
+          patientId: item.patient.id,
+          visitId,
+          doctorId,
+          receptionistId: actor.sub,
+          receptionistName,
+          date: today,
+          name: item.patient.nameBn || item.patient.nameEn,
+          ageYears: item.patient.ageYears ?? null,
+          phone: item.patient.phone,
+          gender: (item.patient.gender as any) || 'male',
+          chiefComplaint: dto?.reason || 'ডাক্তার কনসালটেশন (Doctor Consultation)',
+          specialNotes: visitReasonNote,
+          consultationFeeTaka: feeTaka,
+          status: 'forwarded_to_cashier' as const,
+          forwardedToCashierAt: now,
+          createdAt: now,
+          updatedAt: now,
+        };
+        await this.db.insert(patientIntakeForms).values(newIntake);
+        intakeResult = {
+          ...newIntake,
+          doctorFee: feeTaka,
+          doctorName: item.doctor?.displayName || 'Doctor',
+          patient: item.patient,
+          tokenNumber: item.visit.tokenNumber,
+        };
+      }
+
+      // Log timeline event
+      try {
+        await this.db.insert(patientTimelineEvents).values({
+          id: randomUUID(),
+          patientId: item.patient.id,
+          visitId,
+          intakeFormId: intakeResult.id,
+          step: 'forwarded_to_cashier',
+          titleEn: 'Forwarded to Cashier for Fee Collection',
+          titleBn: 'কনসালটেশন ফি গ্রহণের জন্য ক্যাশিয়ারে পাঠানো হয়েছে',
+          descriptionEn: `Consultation fee: ৳${feeTaka}. Assigned doctor: ${item.doctor?.displayName || 'Doctor'}. Reason: ${dto?.reason || 'Consultation'}`,
+          descriptionBn: `কনসালটেশন ফি: ৳${feeTaka}। নির্ধারিত ডাক্তার: ${item.doctor?.displayName || 'ডাক্তার'}। কারণ: ${dto?.reason || 'পরামর্শ'}`,
+          actorId: actor.sub,
+          actorName: actor.role,
+          actorRole: actor.role,
+          date: today,
+          occurredAt: now,
+        });
+      } catch {}
+
+      // Emit realtime events
+      this.gateway.emit('clinic:global', 'intake.created', intakeResult);
+      this.gateway.emit('clinic:global', 'intake.forwarded_to_cashier', intakeResult);
+      this.gateway.emit('clinic:global', 'visit.routed', { visitId, currentLocation: 'Cashier' });
+      this.gateway.emit('clinic:global', 'queue.updated', { scope: 'reception', date: today });
+      this.realtime.publish('intake.forwarded_to_cashier', intakeResult);
+
+      return {
+        ok: true,
+        forwardedToCashier: true,
+        feeTaka,
+        intake: intakeResult,
+      };
+    }
+
     await this.db
       .update(visits)
       .set({

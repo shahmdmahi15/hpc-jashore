@@ -85,8 +85,10 @@ export default function ReceptionView() {
   // Patient Dues State
   const [patientDues, setPatientDues] = useState<any[]>([]);
 
-  // Send to Doctor Chamber Queue Modal State (Free: Report Showing, Discussion, etc.)
+  // Send to Doctor Chamber Queue Modal State (Dual-path: Instant Free vs Cashier Fee-collection)
   const [sendToDoctorVisit, setSendToDoctorVisit] = useState<any | null>(null);
+  const [sendToDoctorFeeType, setSendToDoctorFeeType] = useState<'free' | 'paid'>('free');
+  const [sendToDoctorFeeAmount, setSendToDoctorFeeAmount] = useState<number>(500);
   const [sendToDoctorSelectedId, setSendToDoctorSelectedId] = useState<string>('');
   const [sendToDoctorReason, setSendToDoctorReason] = useState<string>('রিপোর্ট দেখানো (Show Investigation Report)');
   const [sendToDoctorNotes, setSendToDoctorNotes] = useState<string>('');
@@ -139,33 +141,27 @@ export default function ReceptionView() {
       const patId = sendToDoctorVisit.patient?.id || sendToDoctorVisit.patientId;
       const docId = sendToDoctorSelectedId || sendToDoctorVisit.doctorId || (doctors[0]?.id ?? '');
 
-      await api.visits.sendToDoctorQueue(sendToDoctorVisit.id, {
+      const res = await api.visits.sendToDoctorQueue(sendToDoctorVisit.id, {
         doctorId: docId,
         reason: sendToDoctorReason,
         notes: sendToDoctorNotes,
+        isFree: sendToDoctorFeeType === 'free',
+        feeTaka: sendToDoctorFeeType === 'paid' ? Number(sendToDoctorFeeAmount) || 500 : 0,
       });
 
-      // Add timeline event
-      if (patId) {
-        try {
-          await api.patients.addTimelineEvent(patId, {
-            step: 'forwarded_to_doctor',
-            titleEn: 'Added to Doctor Chamber Queue (Free)',
-            titleBn: 'ডাক্তারের চেম্বার কিউতে পাঠানো হয়েছে (ফ্রি)',
-            descriptionEn: `Reason: ${sendToDoctorReason}. Notes: ${sendToDoctorNotes || 'None'}`,
-            descriptionBn: `কারণ: ${sendToDoctorReason}। নোট: ${sendToDoctorNotes || 'প্রযোজ্য নয়'}`,
-            visitId: sendToDoctorVisit.id,
-          });
-        } catch {
-          // ignore timeline failure
-        }
+      if (res?.forwardedToCashier) {
+        toast.success(
+          `রোগী ${sendToDoctorVisit.patient?.nameBn || sendToDoctorVisit.patient?.nameEn || ''}-কে কনসালটেশন ফি (৳${res.feeTaka}) আদায়ের জন্য ক্যাশিয়ারে পাঠানো হয়েছে! ক্যাশিয়ার ফি গ্রহণ করলে সরাসরি ডাক্তারের কিউতে চলে যাবে।`
+        );
+      } else {
+        toast.success(
+          `রোগী ${sendToDoctorVisit.patient?.nameBn || sendToDoctorVisit.patient?.nameEn || ''} কে ডাক্তারের চেম্বার কিউতে পাঠানো হয়েছে (ফ্রি)!`
+        );
       }
 
-      toast.success(
-        `রোগী ${sendToDoctorVisit.patient?.nameBn || sendToDoctorVisit.patient?.nameEn || ''} কে ডাক্তারের চেম্বার কিউতে পাঠানো হয়েছে (ফ্রি)!`
-      );
       setSendToDoctorVisit(null);
       setSendToDoctorNotes('');
+      setSendToDoctorFeeType('free');
       await loadData();
     } catch (err: any) {
       toast.error(err?.message || 'ডাক্তার কিউতে পাঠাতে ব্যর্থ হয়েছে');
@@ -994,17 +990,18 @@ export default function ReceptionView() {
         </Dialog>
       )}
 
-      {/* Send to Doctor Chamber Queue Modal (Free Consultation / Report Review) */}
+      {/* Send to Doctor Chamber Queue Modal (Dual-path: Instant Free vs Cashier Fee-collection) */}
       {sendToDoctorVisit && (
         <Dialog open={Boolean(sendToDoctorVisit)} onOpenChange={(op) => !op && setSendToDoctorVisit(null)}>
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle className="text-base font-bold flex items-center gap-2">
                 <Stethoscope className="size-5 text-cyan-600" />
-                ডাক্তারের চেম্বার কিউতে সরাসরি পাঠান (ফ্রি)
+                ডাক্তারের চেম্বার কিউতে রোগী পাঠান
               </DialogTitle>
             </DialogHeader>
             <div className="py-3 space-y-3.5 text-xs">
+              {/* Patient info */}
               <div className="p-3 rounded-lg border border-border/60 bg-muted/20 space-y-1">
                 <div>
                   <strong>রোগী:</strong>{' '}
@@ -1019,10 +1016,61 @@ export default function ReceptionView() {
                 </div>
               </div>
 
+              {/* Fee Mode Toggle */}
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold">পরামর্শের ধরন ও ফি নির্ধারণ *</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSendToDoctorFeeType('free')}
+                    className={cn(
+                      "p-2.5 rounded-xl border text-left flex items-center gap-2 transition-all cursor-pointer",
+                      sendToDoctorFeeType === 'free'
+                        ? "border-emerald-500 bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 font-bold shadow-xs"
+                        : "border-border/70 hover:bg-muted/40 text-muted-foreground"
+                    )}
+                  >
+                    <span className="text-base">🆓</span>
+                    <div>
+                      <div className="text-xs font-semibold leading-tight">সম্পূর্ণ ফ্রি (৳০)</div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5">সরাসরি কিউতে প্রবেশ</div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSendToDoctorFeeType('paid')}
+                    className={cn(
+                      "p-2.5 rounded-xl border text-left flex items-center gap-2 transition-all cursor-pointer",
+                      sendToDoctorFeeType === 'paid'
+                        ? "border-cyan-500 bg-cyan-500/15 text-cyan-800 dark:text-cyan-300 font-bold shadow-xs"
+                        : "border-border/70 hover:bg-muted/40 text-muted-foreground"
+                    )}
+                  >
+                    <span className="text-base">💳</span>
+                    <div>
+                      <div className="text-xs font-semibold leading-tight">ফি প্রযোজ্য (পেইড)</div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5">ক্যাশিয়ারে ফি আদায়</div>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
               {/* Doctor Selection */}
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold">পরামর্শের ডাক্তার নির্বাচন করুন *</Label>
-                <Select value={sendToDoctorSelectedId} onValueChange={setSendToDoctorSelectedId}>
+                <Select
+                  value={sendToDoctorSelectedId}
+                  onValueChange={(val) => {
+                    setSendToDoctorSelectedId(val);
+                    const doc = staffList.find((s: any) => s.id === val);
+                    if (doc?.consultationFeeTaka) {
+                      setSendToDoctorFeeAmount(doc.consultationFeeTaka);
+                    } else if (doc?.consultationFeePaisa) {
+                      setSendToDoctorFeeAmount(Math.round(doc.consultationFeePaisa / 100));
+                    }
+                  }}
+                >
                   <SelectTrigger className="h-9 text-xs">
                     <SelectValue placeholder="ডাক্তার নির্বাচন করুন" />
                   </SelectTrigger>
@@ -1035,6 +1083,34 @@ export default function ReceptionView() {
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* Fee Input if Paid */}
+              {sendToDoctorFeeType === 'paid' && (
+                <div className="p-3 rounded-xl border border-cyan-500/30 bg-cyan-500/5 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-semibold flex items-center gap-1.5">
+                      <CreditCard className="size-3.5 text-cyan-600 dark:text-cyan-400" />
+                      <span>কনসালটেশন ফি (টাকা) *</span>
+                    </Label>
+                    <Badge variant="outline" className="text-[10px] border-cyan-500/40 text-cyan-700 dark:text-cyan-300">
+                      ক্যাশিয়ার আদায়যোগ্য
+                    </Badge>
+                  </div>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-muted-foreground text-xs">৳</span>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={sendToDoctorFeeAmount}
+                      onChange={(e) => setSendToDoctorFeeAmount(Number(e.target.value) || 0)}
+                      className="pl-7 h-9 text-xs font-mono font-bold"
+                    />
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    💡 ক্যাশিয়ার এই ফি গ্রহণ করার সাথে সাথে রোগী স্বয়ংক্রিয়ভাবে রিয়েলটাইমে ডাক্তারের চেম্বার কিউতে সিরিয়াল সহ যুক্ত হবে।
+                  </p>
+                </div>
+              )}
 
               {/* Reason for Visit */}
               <div className="space-y-1.5">
@@ -1049,6 +1125,9 @@ export default function ReceptionView() {
                     </SelectItem>
                     <SelectItem value="পরামর্শ / কথা বলতে চান (Want to Talk / General Consultation)">
                       💬 পরামর্শ / কথা বলতে চান (Want to Talk / Consultation)
+                    </SelectItem>
+                    <SelectItem value="নতুন কনসালটেশন (New Consultation)">
+                      🩺 নতুন কনসালটেশন (New Consultation)
                     </SelectItem>
                     <SelectItem value="ফলো-আপ চেকআপ (Follow-up Evaluation)">
                       🔄 ফলো-আপ চেকআপ (Follow-up Evaluation)
@@ -1077,10 +1156,17 @@ export default function ReceptionView() {
                 />
               </div>
 
-              <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-[11px] flex items-center justify-between">
-                <span className="font-semibold">ফি গ্রহণ: বিনামূল্যে (Free - ৳0)</span>
-                <Badge className="bg-emerald-500 text-black font-bold text-[10px]">ফ্রি কনসালটেশন</Badge>
-              </div>
+              {sendToDoctorFeeType === 'free' ? (
+                <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-[11px] flex items-center justify-between">
+                  <span className="font-semibold">ফি গ্রহণ: বিনামূল্যে (Free - ৳0)</span>
+                  <Badge className="bg-emerald-500 text-black font-bold text-[10px]">সরাসরি কিউ</Badge>
+                </div>
+              ) : (
+                <div className="p-2.5 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-800 dark:text-cyan-300 text-[11px] flex items-center justify-between">
+                  <span className="font-semibold">ধার্যকৃত ফি: ৳{sendToDoctorFeeAmount}</span>
+                  <Badge className="bg-cyan-600 text-white font-bold text-[10px]">ক্যাশিয়ারে ফরোয়ার্ড</Badge>
+                </div>
+              )}
             </div>
             <DialogFooter className="flex items-center justify-between gap-2">
               <Button
@@ -1096,16 +1182,24 @@ export default function ReceptionView() {
                 size="sm"
                 onClick={handleConfirmSendToDoctor}
                 disabled={sendingToDoctor}
-                className="text-xs bg-cyan-600 hover:bg-cyan-500 text-white gap-1.5 font-bold"
+                className={cn(
+                  "text-xs text-white gap-1.5 font-bold",
+                  sendToDoctorFeeType === 'free' ? "bg-cyan-600 hover:bg-cyan-500" : "bg-emerald-600 hover:bg-emerald-500"
+                )}
               >
                 {sendingToDoctor ? (
                   <>
                     <Loader2 className="size-3 animate-spin" /> পাঠানো হচ্ছে...
                   </>
-                ) : (
+                ) : sendToDoctorFeeType === 'free' ? (
                   <>
                     <Send className="size-3" />
-                    কিউতে যুক্ত করুন
+                    সরাসরি কিউতে যুক্ত করুন (ফ্রি)
+                  </>
+                ) : (
+                  <>
+                    <CreditCard className="size-3" />
+                    ক্যাশিয়ারে পাঠান (ফি: ৳{sendToDoctorFeeAmount})
                   </>
                 )}
               </Button>

@@ -683,7 +683,9 @@ export class PatientsService {
       patient: r.patient,
       tokenNumber: r.visit?.tokenNumber,
       doctorName: r.doctor?.displayName || null,
-      doctorFee: r.doctor?.consultationFeePaisa ? Math.round(r.doctor.consultationFeePaisa / 100) : 500,
+      doctorFee: r.form.consultationFeeTaka != null && r.form.consultationFeeTaka > 0
+        ? r.form.consultationFeeTaka
+        : (r.doctor?.consultationFeePaisa ? Math.round(r.doctor.consultationFeePaisa / 100) : 500),
       chamberRoomNumber: r.chamber?.roomNumber || null,
       doctor: r.doctor
         ? {
@@ -723,7 +725,9 @@ export class PatientsService {
       patient: item.patient,
       tokenNumber: item.visit?.tokenNumber,
       doctorName: item.doctor?.displayName || null,
-      doctorFee: item.doctor?.consultationFeePaisa ? Math.round(item.doctor.consultationFeePaisa / 100) : 500,
+      doctorFee: item.form.consultationFeeTaka != null && item.form.consultationFeeTaka > 0
+        ? item.form.consultationFeeTaka
+        : (item.doctor?.consultationFeePaisa ? Math.round(item.doctor.consultationFeePaisa / 100) : 500),
       chamberRoomNumber: item.chamber?.roomNumber || null,
       doctor: item.doctor
         ? {
@@ -948,9 +952,12 @@ export class PatientsService {
     const chamberName = docItem.chamber?.name || `Chamber ${chamberNumber}`;
     const doctorStaffId = docItem.user.id;
 
-    // 2. Resolve Consultation Fee & Payment - strictly FIXED to doctor's consultation fee on users table
-    // Cannot be customized, reduced, or overridden
-    const feePaisa = docItem.user.consultationFeePaisa ?? 50000;
+    // 2. Resolve Consultation Fee & Payment (respects specified fee, intake fee, or doctor's configured fee)
+    const feePaisa = (dto.feeTaka != null && dto.feeTaka > 0)
+      ? dto.feeTaka * 100
+      : (intake.consultationFeeTaka != null && intake.consultationFeeTaka > 0)
+        ? intake.consultationFeeTaka * 100
+        : (docItem.user.consultationFeePaisa ?? 50000);
     const feeTaka = Math.round(feePaisa / 100);
     const paymentMethod = dto.paymentMethod || 'cash';
 

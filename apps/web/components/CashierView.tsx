@@ -346,6 +346,7 @@ export default function CashierView({ session: propSession }: CashierProps = {})
   };
 
   const getDoctorFixedFeeTaka = (intake: any) => {
+    if (intake.consultationFeeTaka != null && intake.consultationFeeTaka > 0) return intake.consultationFeeTaka;
     if (intake.doctorFee) return intake.doctorFee;
     const doc = staffList.find((s: any) => s.id === intake.doctorId || s.userId === intake.doctorId);
     if (doc?.consultationFeeTaka) return doc.consultationFeeTaka;
