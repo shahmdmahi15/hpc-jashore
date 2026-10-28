@@ -527,7 +527,32 @@ select:-webkit-autofill:active {
     visibility: hidden;
   }
 
-  /* 2. Hide dialog overlay, close button, interactive buttons and screen-only elements */
+  /* 2. COMPLETELY REMOVE background dashboard and sibling portals from print layout flow when printing sheets/modals */
+  body:has(#hpc-intake-a4-sheet) > *:not([data-radix-portal]),
+  body.printing-intake-a4 > *:not([data-radix-portal]),
+  body:has(.sheet-invoice-hpc) > *:not([data-radix-portal]),
+  body:has(#hpc-thermal-80mm-slip) > *:not([data-radix-portal]),
+  body:has(.sheet-prescription) > *:not([data-radix-portal]) {
+    display: none !important;
+    height: 0 !important;
+    max-height: 0 !important;
+    overflow: hidden !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Completely suppress any background portals (such as the edit modal behind the print preview modal) */
+  body:has(#hpc-intake-a4-sheet) [data-radix-portal]:not(:has(#hpc-intake-a4-sheet)),
+  body.printing-intake-a4 [data-radix-portal]:not(:has(#hpc-intake-a4-sheet)) {
+    display: none !important;
+    height: 0 !important;
+    max-height: 0 !important;
+    overflow: hidden !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* 3. Hide dialog overlay, close button, interactive buttons and screen-only elements */
   [data-radix-dialog-overlay],
   [data-radix-dialog-close],
   .dialog-header-actions,
@@ -696,7 +721,6 @@ select:-webkit-autofill:active {
     margin-left: auto !important;
     margin-right: auto !important;
     box-shadow: none !important;
-    border: none !important;
     font-family: var(--font-poppins, 'Poppins'), 'Hind Siliguri', 'Noto Sans Bengali', system-ui, sans-serif !important;
   }
 

@@ -167,12 +167,36 @@ export function IntakeAssessmentPrintModal({
     }
   }, [open, targetPatientId, data, intake, intakeForm, initialForm, propPatient, initialPatient]);
 
+  // Manage printing body class for strict single-page print isolation
+  useEffect(() => {
+    if (!open) return;
+
+    document.body.classList.add('printing-intake-a4');
+
+    const handleBeforePrint = () => {
+      document.body.classList.add('printing-intake-a4');
+    };
+    const handleAfterPrint = () => {
+      // keep it while open
+    };
+
+    window.addEventListener('beforeprint', handleBeforePrint);
+    window.addEventListener('afterprint', handleAfterPrint);
+
+    return () => {
+      document.body.classList.remove('printing-intake-a4');
+      window.removeEventListener('beforeprint', handleBeforePrint);
+      window.removeEventListener('afterprint', handleAfterPrint);
+    };
+  }, [open]);
+
   if (!open) return null;
 
   const raw = data || intake || intakeForm || initialForm || fetchedForm || {};
   const pat = propPatient || initialPatient || fetchedPatient || raw.patient || {};
 
   const handlePrint = () => {
+    document.body.classList.add('printing-intake-a4');
     window.print();
   };
 
@@ -274,7 +298,7 @@ export function IntakeAssessmentPrintModal({
             /* Printable A4 Sheet: Guaranteed to fit exactly 1 Single A4 page centered */
             <div
               id="hpc-intake-a4-sheet"
-              className="sheet-report-a4 bg-white text-black shadow-2xl rounded-sm p-[6mm_8mm] w-[210mm] max-w-[210mm] min-h-[297mm] text-[10px] leading-snug font-sans mx-auto flex flex-col justify-between border-[1.5px] border-emerald-800 print:!shadow-none print:!border-[1.5px] print:!border-emerald-800 print:!p-[5mm_6mm] print:!m-0 print:!w-[190mm] print:!max-w-[190mm] print:!min-h-[275mm] print:!max-h-[279mm] print:!overflow-hidden"
+              className="sheet-report-a4 bg-white text-black shadow-2xl rounded-sm p-[6mm_8mm] w-[210mm] max-w-[210mm] min-h-[297mm] text-[10px] leading-snug font-sans mx-auto flex flex-col justify-between border-[1.5px] border-emerald-800 print:!shadow-none print:!border-[1.5px] print:!border-emerald-800 print:!p-[5mm_6mm] print:!mx-auto print:!my-0 print:!w-[190mm] print:!max-w-[190mm] print:!h-[275mm] print:!max-h-[275mm] print:!overflow-hidden"
               style={{
                 fontFamily: "'Hind Siliguri', 'Noto Sans Bengali', var(--font-poppins), system-ui, sans-serif",
                 boxSizing: 'border-box',
@@ -582,12 +606,11 @@ export function IntakeAssessmentPrintModal({
             margin: 8mm 10mm;
           }
           @media print {
-            /* 1. Global Reset: Strictly eliminate dark theme leakage during print */
+            /* 1. Global Reset: Strictly eliminate dark theme leakage and lock to single page */
             :root,
             html,
             body,
-            .dark,
-            [data-theme='dark'] {
+            body.printing-intake-a4 {
               --background: #ffffff !important;
               --foreground: #000000 !important;
               --card: #ffffff !important;
@@ -602,24 +625,28 @@ export function IntakeAssessmentPrintModal({
               padding: 0 !important;
               width: 100% !important;
               height: 100% !important;
-              min-height: 0 !important;
-              overflow: visible !important;
+              max-height: 297mm !important;
+              overflow: hidden !important;
               -webkit-print-color-adjust: exact !important;
               print-color-adjust: exact !important;
             }
 
-            /* 2. Hide all page content by default */
-            body * {
-              visibility: hidden;
+            /* 2. COMPLETELY REMOVE background dashboard and sibling portals from layout flow!
+                  This eliminates all ghost layout height (which causes blank page 1 and page 2 spills) */
+            body > *:not([data-radix-portal]),
+            body.printing-intake-a4 > *:not([data-radix-portal]),
+            [data-radix-portal]:not(:has(#hpc-intake-a4-sheet)),
+            body.printing-intake-a4 [data-radix-portal]:not(:has(#hpc-intake-a4-sheet)) {
+              display: none !important;
+              visibility: hidden !important;
+              height: 0 !important;
+              max-height: 0 !important;
+              overflow: hidden !important;
+              margin: 0 !important;
+              padding: 0 !important;
             }
 
-            /* 3. Make the A4 sheet and all its inner children visible */
-            #hpc-intake-a4-sheet,
-            #hpc-intake-a4-sheet * {
-              visibility: visible !important;
-            }
-
-            /* 4. Strictly hide interactive UI, overlays, close buttons, navs */
+            /* 3. Hide all non-printable buttons, overlays, navbars */
             nav,
             header,
             aside,
@@ -638,55 +665,36 @@ export function IntakeAssessmentPrintModal({
               visibility: hidden !important;
             }
 
-            /* 5. Neutralize all modal wrappers, backdrop containers, and flex centers */
-            [role="dialog"],
-            [data-radix-portal],
-            [data-dialog-root],
-            [data-dialog-content],
-            div[class*="fixed inset-0"],
-            div[class*="overflow-y-auto"],
-            div[class*="items-center"],
-            div[class*="justify-center"],
+            /* 4. Neutralize the print portal wrapper so content starts at top of page 1 */
+            [data-radix-portal]:has(#hpc-intake-a4-sheet),
+            [role="dialog"]:has(#hpc-intake-a4-sheet),
+            [data-dialog-content]:has(#hpc-intake-a4-sheet),
             .sheet-report-wrapper {
               position: static !important;
               display: block !important;
-              float: none !important;
               transform: none !important;
-              animation: none !important;
-              width: 100% !important;
-              max-width: none !important;
-              min-height: 0 !important;
-              height: auto !important;
               margin: 0 !important;
               padding: 0 !important;
-              padding-top: 0 !important;
-              padding-bottom: 0 !important;
-              padding-left: 0 !important;
-              padding-right: 0 !important;
               border: none !important;
-              border-width: 0 !important;
-              box-shadow: none !important;
               background: transparent !important;
-              background-color: transparent !important;
-              backdrop-filter: none !important;
-              -webkit-backdrop-filter: none !important;
+              box-shadow: none !important;
+              width: 100% !important;
+              max-width: none !important;
+              height: auto !important;
               overflow: visible !important;
             }
 
-            /* 6. Robust Centered Single A4 Sheet */
+            /* 5. Robust Centered Single A4 Sheet: Guaranteed to fit exactly 1 page */
             #hpc-intake-a4-sheet {
               position: relative !important;
-              left: auto !important;
-              right: auto !important;
-              top: auto !important;
               display: flex !important;
               flex-direction: column !important;
               justify-content: space-between !important;
               box-sizing: border-box !important;
               width: 190mm !important;
               max-width: 190mm !important;
-              min-height: 275mm !important;
-              max-height: 279mm !important;
+              height: 275mm !important;
+              max-height: 275mm !important;
               margin: 0 auto !important;
               margin-left: auto !important;
               margin-right: auto !important;
@@ -698,12 +706,21 @@ export function IntakeAssessmentPrintModal({
               border-radius: 4px !important;
               box-shadow: none !important;
               overflow: hidden !important;
+              visibility: visible !important;
               page-break-before: avoid !important;
               page-break-after: avoid !important;
               page-break-inside: avoid !important;
               break-before: avoid !important;
               break-after: avoid !important;
               break-inside: avoid !important;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+
+            #hpc-intake-a4-sheet * {
+              visibility: visible !important;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
             }
 
             .break-inside-avoid {
