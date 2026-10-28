@@ -409,11 +409,14 @@ export function IntakeAssessmentPrintModal({
               <div className="border-b-2 border-emerald-800 pb-2 mb-2 break-inside-avoid">
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 relative shrink-0">
+                    <div className="w-12 h-12 relative shrink-0" style={{ width: '48px', height: '48px', minWidth: '48px', minHeight: '48px', maxWidth: '48px', maxHeight: '48px' }}>
                       <img
                         src="/hpclogo-transparent.png"
                         alt="HPC Logo"
+                        width={48}
+                        height={48}
                         className="w-12 h-12 object-contain shrink-0"
+                        style={{ width: '48px', height: '48px', maxWidth: '48px', maxHeight: '48px', objectFit: 'contain' }}
                         onError={(e) => {
                           const target = e.target as HTMLElement;
                           target.style.display = 'none';

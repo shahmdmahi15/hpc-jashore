@@ -711,6 +711,16 @@ select:-webkit-autofill:active {
     font-family: var(--font-poppins, 'Poppins'), 'Hind Siliguri', 'Noto Sans Bengali', system-ui, sans-serif !important;
   }
 
+  .sheet-invoice-hpc img,
+  #hpc-invoice-custom-sheet img {
+    max-width: 44px !important;
+    max-height: 44px !important;
+    width: 38px !important;
+    height: 38px !important;
+    object-fit: contain !important;
+    display: block !important;
+  }
+
   /* A4 Standard Reports (Doctor Prescriptions, Intakes, Pain Assessments, Daily Audits) */
   .sheet-report,
   .sheet-report-a4 {

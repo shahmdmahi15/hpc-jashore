@@ -141,6 +141,15 @@ export default function InvoicePrintModal({
               page-break-inside: avoid !important;
               break-inside: avoid !important;
             }
+            #hpc-invoice-custom-sheet img,
+            .sheet-invoice-hpc img {
+              max-width: 40px !important;
+              max-height: 40px !important;
+              width: 34px !important;
+              height: 34px !important;
+              object-fit: contain !important;
+              display: block !important;
+            }
           `,
         });
       }
@@ -327,25 +336,89 @@ export default function InvoicePrintModal({
           <div>
             {/* Bilingual HPC Header & Official Branding */}
             <div className="border-b-2 border-emerald-600 pb-1.5 text-center">
-              <div className="flex items-center justify-center gap-2.5 mb-1">
-                <div className="w-12 h-12 rounded-lg overflow-hidden border border-emerald-500/50 shrink-0 relative bg-emerald-50 p-0.5 flex items-center justify-center">
+              <div
+                className="flex items-center justify-center gap-2 mb-1"
+                style={{
+                  display: 'flex',
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                }}
+              >
+                <div
+                  className="rounded-lg overflow-hidden border border-emerald-500/50 shrink-0 relative bg-emerald-50 p-0.5 flex items-center justify-center"
+                  style={{
+                    width: '38px',
+                    height: '38px',
+                    minWidth: '38px',
+                    minHeight: '38px',
+                    maxWidth: '38px',
+                    maxHeight: '38px',
+                    overflow: 'hidden',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: '#ecfdf5',
+                    border: '1px solid #10b981',
+                    borderRadius: '6px',
+                    flexShrink: 0,
+                  }}
+                >
                   <img
                     src="/hpclogo-transparent.png"
                     alt="HPC Logo"
-                    className="w-full h-full object-contain"
+                    width={34}
+                    height={34}
+                    className="w-8 h-8 object-contain"
+                    style={{
+                      width: '34px',
+                      height: '34px',
+                      maxWidth: '34px',
+                      maxHeight: '34px',
+                      objectFit: 'contain',
+                      display: 'block',
+                    }}
                     onError={(e) => {
                       (e.target as HTMLElement).style.display = 'none';
                     }}
                   />
                 </div>
-                <div className="text-left">
-                  <h1 className="text-[13.5px] sm:text-[15px] font-black text-emerald-900 leading-tight tracking-tight">
+                <div className="text-left" style={{ textAlign: 'left' }}>
+                  <h1
+                    className="text-[13.5px] sm:text-[15px] font-black text-emerald-900 leading-tight tracking-tight"
+                    style={{
+                      color: '#064e3b',
+                      fontSize: '13.5px',
+                      fontWeight: 900,
+                      lineHeight: 1.15,
+                      margin: 0,
+                    }}
+                  >
                     এইচপিসি হেলথ অ্যান্ড পেইন কেয়ার সেন্টার, যশোর
                   </h1>
-                  <h2 className="text-[10px] sm:text-[11px] font-bold text-zinc-800 leading-tight">
+                  <h2
+                    className="text-[10px] sm:text-[11px] font-bold text-zinc-800 leading-tight"
+                    style={{
+                      color: '#27272a',
+                      fontSize: '10px',
+                      fontWeight: 700,
+                      lineHeight: 1.15,
+                      margin: '1px 0 0 0',
+                    }}
+                  >
                     HPC Health &amp; Pain Care Center, Jashore
                   </h2>
-                  <p className="text-[8.5px] font-semibold text-emerald-700 leading-tight mt-0.5">
+                  <p
+                    className="text-[8.5px] font-semibold text-emerald-700 leading-tight mt-0.5"
+                    style={{
+                      color: '#047857',
+                      fontSize: '8.5px',
+                      fontWeight: 600,
+                      lineHeight: 1.15,
+                      marginTop: '1px',
+                    }}
+                  >
                     আধুনিক ফিজিওথেরাপি, পেইন ম্যানেজমেন্ট ও রিহ্যাবিলিটেশন সেন্টার
                   </p>
                 </div>

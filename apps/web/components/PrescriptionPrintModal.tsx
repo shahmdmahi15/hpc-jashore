@@ -156,7 +156,10 @@ export default function PrescriptionPrintModal({
                 <img
                   src="/hpclogo-transparent.png"
                   alt="HPC Logo"
+                  width={44}
+                  height={44}
                   className="w-11 h-11 object-contain shrink-0 mt-0.5"
+                  style={{ width: '44px', height: '44px', maxWidth: '44px', maxHeight: '44px', objectFit: 'contain' }}
                   onError={(e) => {
                     (e.target as HTMLElement).style.display = 'none';
                   }}

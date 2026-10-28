@@ -54,6 +54,23 @@ export async function printElementViaIframe(
         stylesHtml += node.outerHTML;
       });
 
+      // Extract all inline and loaded cssRules directly so that they are guaranteed to exist inside the iframe without relying on async network requests
+      let extractedCss = '';
+      try {
+        for (let i = 0; i < document.styleSheets.length; i++) {
+          const sheet = document.styleSheets[i];
+          try {
+            if (sheet.cssRules) {
+              for (let j = 0; j < sheet.cssRules.length; j++) {
+                extractedCss += sheet.cssRules[j].cssText + '\n';
+              }
+            }
+          } catch {
+            // cross-origin stylesheets (like google fonts) might throw SecurityError; that's fine
+          }
+        }
+      } catch {}
+
       // 2. Clean up any stale print iframe before spawning a new one
       const oldIframe = document.getElementById('hpc-print-isolated-iframe');
       if (oldIframe) {
@@ -92,6 +109,7 @@ export async function printElementViaIframe(
       const pageSize = options.pageSize || 'A4 portrait';
       const pageMargin = options.pageMargin || '6mm 8mm';
       const pageTitle = options.pageTitle || 'HPC Jashore Document';
+      const originUrl = typeof window !== 'undefined' ? window.location.origin : '';
 
       // 4. Write isolated standalone document with comprehensive visibility overrides
       iframeDoc.open();
@@ -100,11 +118,15 @@ export async function printElementViaIframe(
         <html lang="bn">
           <head>
             <meta charset="utf-8" />
+            <base href="${originUrl}/">
             <title>${pageTitle}</title>
             <link rel="preconnect" href="https://fonts.googleapis.com">
             <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
             <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
             ${stylesHtml}
+            <style>
+              ${extractedCss}
+            </style>
             <style>
               @page {
                 size: ${pageSize};
@@ -202,6 +224,27 @@ export async function printElementViaIframe(
                 break-after: avoid !important;
                 page-break-inside: avoid !important;
                 break-inside: avoid !important;
+              }
+              /* Universal Print Image Containment: Never let any logo or asset explode to natural resolution */
+              img {
+                max-width: 100% !important;
+                height: auto !important;
+              }
+              #hpc-invoice-custom-sheet img,
+              .sheet-invoice-hpc img {
+                max-width: 44px !important;
+                max-height: 44px !important;
+                width: 38px !important;
+                height: 38px !important;
+                object-fit: contain !important;
+                display: block !important;
+              }
+              #hpc-intake-a4-sheet img,
+              .sheet-report-a4 img,
+              .prescription-sheet-container img {
+                max-width: 50px !important;
+                max-height: 50px !important;
+                object-fit: contain !important;
               }
               ${options.extraCss || ''}
             </style>
