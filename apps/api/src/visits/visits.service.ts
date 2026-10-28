@@ -31,6 +31,8 @@ import {
   users,
   visits,
   type PunctualityStatus,
+  type DayOfWeek,
+  type SlotHour,
 } from '../db/schema';
 import { EventsGateway } from '../realtime/events.gateway';
 import { RealtimeService } from '../realtime/realtime.service';
@@ -41,9 +43,43 @@ import type {
   CheckOutDto,
   RoutePatientDto,
   SendToDoctorQueueDto,
+  SendToTherapyQueueDto,
   RequestConsultationAdjustmentDto,
   ProcessConsultationAdjustmentDto,
 } from './dto';
+
+export function resolveServiceNames(typeStr?: string | null): {
+  serviceType: string;
+  serviceNameEn: string;
+  serviceNameBn: string;
+} {
+  const rawType = (typeStr || 'therapy').toLowerCase().trim();
+  let serviceNameEn = 'therapy';
+  let serviceNameBn = 'থেরাপির';
+
+  if (rawType === 'checkup' || rawType === 'check up' || rawType.includes('চেকআপ')) {
+    serviceNameEn = 'checkup';
+    serviceNameBn = 'চেকআপের';
+  } else if (rawType === 'assessment' || rawType.includes('অ্যাসেসমেন্ট')) {
+    serviceNameEn = 'assessment';
+    serviceNameBn = 'অ্যাসেসমেন্টের';
+  } else if (rawType === 'consultation' || rawType.includes('পরামর্শ')) {
+    serviceNameEn = 'consultation';
+    serviceNameBn = 'পরামর্শের';
+  } else if (rawType === 'therapy' || rawType.includes('থেরাপি') || !rawType) {
+    serviceNameEn = 'therapy';
+    serviceNameBn = 'থেরাপির';
+  } else {
+    serviceNameEn = typeStr?.trim() || 'therapy';
+    serviceNameBn = `${serviceNameEn} এর`;
+  }
+
+  return {
+    serviceType: serviceNameEn,
+    serviceNameEn,
+    serviceNameBn,
+  };
+}
 
 export const todayDateString = () => {
   const dhakaFormatter = new Intl.DateTimeFormat('en-CA', {
@@ -1683,6 +1719,255 @@ export class VisitsService {
     return { ok: true, serialNumber: nextSerialNum, serialId };
   }
 
+  async sendToTherapyQueue(
+    actor: { sub: string; role: string },
+    visitId: string,
+    dto: SendToTherapyQueueDto,
+    meta?: { ip?: string | null; requestId?: string | null },
+  ) {
+    const rows = await this.db
+      .select({
+        visit: visits,
+        patient: patients,
+        room: rooms,
+      })
+      .from(visits)
+      .innerJoin(patients, eq(visits.patientId, patients.id))
+      .leftJoin(rooms, eq(visits.roomId, rooms.id))
+      .where(eq(visits.id, visitId));
+
+    const item = rows[0];
+    if (!item) throw new NotFoundException('Visit not found');
+
+    if (item.visit.status === 'checked_out' || item.visit.status === 'cancelled') {
+      throw new BadRequestException('Patient is not currently checked in');
+    }
+
+    const today = item.visit.visitDate || todayDateString();
+    const now = new Date().toISOString();
+    const therapyType = dto.therapyType?.trim() || item.visit.therapyType || 'therapy';
+    const targetRoomId = dto.roomId || item.visit.roomId || null;
+
+    let targetRoomName = dto.roomName || null;
+    if (!targetRoomName && targetRoomId) {
+      const roomRow = await this.db.select().from(rooms).where(eq(rooms.id, targetRoomId));
+      if (roomRow[0]) {
+        targetRoomName = roomRow[0].name;
+      }
+    }
+
+    const updatedNotes = dto.notes
+      ? (item.visit.notes ? `${item.visit.notes} | ${dto.notes.trim()}` : dto.notes.trim())
+      : item.visit.notes;
+
+    // Check if patient already has an active therapy slot booking for today
+    let activeBookingId = item.visit.therapyBookingId;
+    let existingBooking = null;
+
+    if (activeBookingId) {
+      const bRows = await this.db
+        .select()
+        .from(therapySlotBookings)
+        .where(
+          and(
+            eq(therapySlotBookings.id, activeBookingId),
+            isNull(therapySlotBookings.deletedAt),
+            ne(therapySlotBookings.status, 'cancelled'),
+          ),
+        );
+      existingBooking = bRows[0] || null;
+    }
+
+    if (!existingBooking) {
+      const bRows = await this.db
+        .select()
+        .from(therapySlotBookings)
+        .where(
+          and(
+            eq(therapySlotBookings.patientId, item.patient.id),
+            eq(therapySlotBookings.bookingDate, today),
+            isNull(therapySlotBookings.deletedAt),
+            ne(therapySlotBookings.status, 'cancelled'),
+          ),
+        )
+        .limit(1);
+      existingBooking = bRows[0] || null;
+    }
+
+    if (existingBooking) {
+      activeBookingId = existingBooking.id;
+      try {
+        await this.db
+          .update(therapySlotBookings)
+          .set({ therapyType, updatedAt: now })
+          .where(eq(therapySlotBookings.id, existingBooking.id));
+      } catch {}
+    } else {
+      // Create a complimentary ৳0 booking so it appears cleanly everywhere
+      const bookingId = randomUUID();
+      const dateClean = today.replace(/-/g, '');
+      const randSuffix = Math.floor(1000 + Math.random() * 9000);
+      const bookingNumber = `TSB-${dateClean}-${randSuffix}`;
+
+      const dayOfWeekName = new Intl.DateTimeFormat('en-US', {
+        weekday: 'long',
+        timeZone: 'Asia/Dhaka',
+      }).format(new Date()) as DayOfWeek;
+
+      const dhakaHour = Number(
+        new Intl.DateTimeFormat('en-US', {
+          hour: 'numeric',
+          hour12: false,
+          timeZone: 'Asia/Dhaka',
+        }).format(new Date()),
+      );
+      const startHour12 = dhakaHour % 12 === 0 ? 12 : dhakaHour % 12;
+      const startAmPm = dhakaHour < 12 ? 'AM' : 'PM';
+      const endHour24 = (dhakaHour + 1) % 24;
+      const endHour12 = endHour24 % 12 === 0 ? 12 : endHour24 % 12;
+      const endAmPm = endHour24 < 12 ? 'AM' : 'PM';
+      const calculatedSlotHour = `${startHour12}:00 ${startAmPm} - ${endHour12}:00 ${endAmPm}` as SlotHour;
+
+      await this.db.insert(therapySlotBookings).values({
+        id: bookingId,
+        bookingNumber,
+        patientId: item.patient.id,
+        bookingDate: today,
+        dayOfWeek: dayOfWeekName,
+        slotHour: calculatedSlotHour,
+        toldTime: item.visit.toldTime || null,
+        patientGender: item.patient.gender === 'female' ? 'female' : 'male',
+        capacityType: 'regular',
+        status: 'attended',
+        therapyType,
+        checkedInAt: item.visit.checkedInAt || now,
+        punctualityStatus: item.visit.punctualityStatus || 'on_time',
+        delayMinutes: item.visit.delayMinutes || 0,
+        notes: `Complimentary ${therapyType} assignment (৳0)`,
+        bookedBy: actor.sub,
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      activeBookingId = bookingId;
+    }
+
+    // Update visit
+    await this.db
+      .update(visits)
+      .set({
+        currentLocation: 'therapy_hall',
+        status: 'checked_in',
+        therapyType,
+        roomId: targetRoomId,
+        calledRoomId: targetRoomId,
+        calledRoomName: targetRoomName,
+        notes: updatedNotes,
+        therapyBookingId: activeBookingId,
+        updatedAt: now,
+      })
+      .where(eq(visits.id, visitId));
+
+    try {
+      (this.db as any).session?.client
+        ?.prepare(
+          'UPDATE visits SET current_location = ?, status = ?, therapy_type = ?, room_id = ?, called_room_id = ?, called_room_name = ?, therapy_booking_id = ?, updated_at = ? WHERE id = ?',
+        )
+        ?.run(
+          'therapy_hall',
+          'checked_in',
+          therapyType,
+          targetRoomId,
+          targetRoomId,
+          targetRoomName,
+          activeBookingId,
+          now,
+          visitId,
+        );
+    } catch {}
+
+    // When routed to therapy, complete any open/waiting consultation serials for this visit
+    await this.db
+      .update(serials)
+      .set({ status: 'completed', completedAt: now, updatedAt: now })
+      .where(
+        and(
+          eq(serials.visitId, visitId),
+          inArray(serials.status, ['waiting', 'called', 'in_chamber']),
+        ),
+      );
+
+    const sInfo = resolveServiceNames(therapyType);
+    const routedPayload = {
+      visitId,
+      patientId: item.patient.id,
+      patientNameEn: item.patient.nameEn,
+      patientNameBn: item.patient.nameBn || item.patient.nameEn,
+      tokenNumber: item.visit.tokenNumber,
+      previousLocation: item.visit.currentLocation,
+      currentLocation: 'therapy_hall',
+      status: 'waiting',
+      therapyType,
+      serviceType: sInfo.serviceType,
+      serviceNameEn: sInfo.serviceNameEn,
+      serviceNameBn: sInfo.serviceNameBn,
+      roomId: targetRoomId,
+      roomName: targetRoomName,
+    };
+
+    this.gateway.emit('clinic:global', 'visit.routed', routedPayload);
+    this.gateway.emit('clinic:global', 'patient.routed', routedPayload);
+    this.gateway.emit('clinic:global', 'queue.updated', { scope: 'therapy', date: today, visitId, therapyType });
+    this.gateway.emit('clinic:global', 'queue.updated', { scope: 'reception', date: today, visitId });
+    this.gateway.emit('clinic:global', 'tv:updated', { source: 'visit.send_to_therapy_queue', visitId });
+
+    this.realtime.publish('visit.routed', routedPayload);
+    this.realtime.publish('patient.routed', routedPayload);
+    this.realtime.publish('queue.updated', { scope: 'therapy', date: today, visitId, therapyType });
+    this.realtime.publish('queue.updated', { scope: 'reception', date: today, visitId });
+    this.realtime.publish('tv:updated', { source: 'visit.send_to_therapy_queue', visitId });
+
+    const typeTitleEn = therapyType.charAt(0).toUpperCase() + therapyType.slice(1);
+    let typeTitleBn = sInfo.serviceNameBn.replace(/এর$/, '').trim();
+    if (!typeTitleBn) typeTitleBn = 'থেরাপি';
+
+    try {
+      await this.db.insert(patientTimelineEvents).values({
+        id: randomUUID(),
+        patientId: item.patient.id,
+        visitId,
+        step: 'sent_to_therapy_queue',
+        titleEn: `Sent to Therapy Queue (${typeTitleEn})`,
+        titleBn: `থেরাপি কিউতে পাঠানো হয়েছে (${typeTitleBn})`,
+        descriptionEn: `Patient sent to therapy queue for ${therapyType} by ${actor.role}. Free complimentary assignment (৳0).`,
+        descriptionBn: `${actor.role} কর্তৃক রোগীকে ${typeTitleBn}-এর জন্য থেরাপি কিউতে পাঠানো হয়েছে (৳০)।`,
+        actorId: actor.sub,
+        actorName: actor.role,
+        actorRole: actor.role,
+        metadataJson: JSON.stringify({ therapyType, roomId: targetRoomId, notes: dto?.notes }),
+        date: today,
+        occurredAt: now,
+      });
+    } catch (e) {
+      console.warn('Timeline log error:', e);
+    }
+
+    if (meta) {
+      await this.audit.log({
+        actorUserId: actor.sub,
+        actorRole: actor.role,
+        action: 'visits.send_to_therapy_queue',
+        entity: 'visits',
+        entityId: visitId,
+        after: { visitId, therapyType, roomId: targetRoomId },
+        ip: meta.ip,
+        requestId: meta.requestId,
+      });
+    }
+
+    return { ok: true, visitId, therapyType };
+  }
+
   async getDepartureSlip(visitId: string) {
     const rows = await this.db
       .select({
@@ -1922,6 +2207,7 @@ export class VisitsService {
         patientNameBn: patients.nameBn,
         roomNumber: rooms.roomNumber,
         roomName: rooms.name,
+        therapyType: visits.therapyType,
         updatedAt: visits.updatedAt,
       })
       .from(visits)
@@ -1942,6 +2228,7 @@ export class VisitsService {
           ? (/\d/.test(c.roomName) ? c.roomName : `${c.roomName} ${roomNum}`)
           : `Therapy Room ${roomNum}`;
         const tok = (c.tokenNumber && Number(c.tokenNumber) > 0) ? Number(c.tokenNumber) : 1;
+        const sInfo = resolveServiceNames(c.therapyType);
         return {
           sessionId: c.visitId,
           visitId: c.visitId,
@@ -1959,6 +2246,10 @@ export class VisitsService {
           status: 'calling',
           type: 'therapy',
           isTherapy: true,
+          therapyType: c.therapyType || 'therapy',
+          serviceType: sInfo.serviceType,
+          serviceNameEn: sInfo.serviceNameEn,
+          serviceNameBn: sInfo.serviceNameBn,
         };
       }),
       ...activeTherapies,
@@ -1975,6 +2266,7 @@ export class VisitsService {
         roomId: visits.roomId,
         roomNumber: rooms.roomNumber,
         roomName: rooms.name,
+        therapyType: visits.therapyType,
         checkedInAt: visits.checkedInAt,
         toldTime: visits.toldTime,
         punctualityStatus: visits.punctualityStatus,
@@ -2002,6 +2294,17 @@ export class VisitsService {
       .orderBy(visits.tokenNumber)
       .limit(30);
 
+    const mappedWaitingTherapies = waitingTherapies.map((w) => {
+      const sInfo = resolveServiceNames(w.therapyType);
+      return {
+        ...w,
+        therapyType: w.therapyType || 'therapy',
+        serviceType: sInfo.serviceType,
+        serviceNameEn: sInfo.serviceNameEn,
+        serviceNameBn: sInfo.serviceNameBn,
+      };
+    });
+
     return {
       date: today,
       clinicName: 'Health & Pain Care Center · Jashore',
@@ -2015,7 +2318,7 @@ export class VisitsService {
       },
       therapyQueue: {
         nowServing: therapyNowServing,
-        waiting: waitingTherapies,
+        waiting: mappedWaitingTherapies,
       },
       bulletinNotices: [
         'স্বাগতম: হেলথ অ্যান্ড পেইন কেয়ার সেন্টার (HPC) · যশোর | আধুনিক ফিজিওথেরাপি ও পুনর্বাসন কেন্দ্র',

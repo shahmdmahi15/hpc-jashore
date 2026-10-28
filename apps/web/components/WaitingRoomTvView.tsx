@@ -68,6 +68,8 @@ interface TherapyItem {
   toldTime?: string | null;
   punctualityStatus?: 'on_time' | 'moderate_delay' | 'critical_delay' | null;
   delayMinutes?: number | null;
+  therapyType?: string;
+  serviceType?: string;
 }
 
 interface TvSnapshotData {
@@ -277,8 +279,37 @@ export default function WaitingRoomTvView() {
         const roomNameEn = `Therapy Room ${roomDigits}`;
 
         if (isTherapy) {
-          // 1. Speak in native Bangla: থেরাপির জন্য রোগী <patient_name> কে <room_name> এ আসার জন্য অনুরোধ করা হচ্ছে।
-          const textBn = `থেরাপির জন্য রোগী ${patientBn} কে ${roomNameBn} এ আসার জন্য অনুরোধ করা হচ্ছে।`;
+          const rawServiceType = String(
+            latestCalled.therapyType || latestCalled.serviceType || 'therapy'
+          )
+            .toLowerCase()
+            .trim();
+          let enPurpose = 'therapy';
+          let bnPurpose = 'থেরাপির';
+
+          if (rawServiceType === 'checkup' || rawServiceType === 'check up' || rawServiceType.includes('চেকআপ')) {
+            enPurpose = 'checkup';
+            bnPurpose = 'চেকআপের';
+          } else if (rawServiceType === 'therapy' || rawServiceType.includes('থেরাপি')) {
+            enPurpose = 'therapy';
+            bnPurpose = 'থেরাপির';
+          } else if (rawServiceType === 'assessment' || rawServiceType.includes('অ্যাসেসমেন্ট')) {
+            enPurpose = 'assessment';
+            bnPurpose = 'অ্যাসেসমেন্টের';
+          } else if (rawServiceType === 'consultation' || rawServiceType.includes('পরামর্শ')) {
+            enPurpose = 'consultation';
+            bnPurpose = 'পরামর্শের';
+          } else if (rawServiceType === 'followup' || rawServiceType.includes('ফলো-আপ')) {
+            enPurpose = 'follow-up';
+            bnPurpose = 'ফলো-আপের';
+          } else {
+            enPurpose = latestCalled.therapyType || latestCalled.serviceType || 'therapy';
+            bnPurpose = latestCalled.serviceNameBn || `${enPurpose} এর`;
+          }
+
+          const bnPrefix = bnPurpose.endsWith('এর') || bnPurpose.endsWith('র') ? bnPurpose : `${bnPurpose} এর`;
+          // 1. Speak in native Bangla: <bnPrefix> জন্য রোগী <patient_name> কে <room_name> এ আসার জন্য অনুরোধ করা হচ্ছে।
+          const textBn = `${bnPrefix} জন্য রোগী ${patientBn} কে ${roomNameBn} এ আসার জন্য অনুরোধ করা হচ্ছে।`;
           const utteranceBn = new SpeechSynthesisUtterance(textBn);
           utteranceBn.lang = 'bn-BD';
           utteranceBn.rate = 0.9;
@@ -287,10 +318,10 @@ export default function WaitingRoomTvView() {
           const bnVoice = voices.find((v) => v.lang.startsWith('bn'));
           if (bnVoice) utteranceBn.voice = bnVoice;
 
-          // 2. Speak sequentially in English: Patient <patient_name>, please proceed to <room_name> for therapy.
+          // 2. Speak sequentially in English: Patient <patient_name>, please proceed to <room_name> for <enPurpose>.
           utteranceBn.onend = () => {
             setTimeout(() => {
-              const textEn = `Patient ${patientEn}, please proceed to ${roomNameEn} for therapy.`;
+              const textEn = `Patient ${patientEn}, please proceed to ${roomNameEn} for ${enPurpose}.`;
               const utteranceEn = new SpeechSynthesisUtterance(textEn);
               const enInVoice =
                 voices.find((v) => v.lang === 'en-IN' || v.lang.startsWith('en-IN')) ||
@@ -308,7 +339,7 @@ export default function WaitingRoomTvView() {
           };
 
           utteranceBn.onerror = () => {
-            const textEn = `Patient ${patientEn}, please proceed to ${roomNameEn} for therapy.`;
+            const textEn = `Patient ${patientEn}, please proceed to ${roomNameEn} for ${enPurpose}.`;
             const utteranceEn = new SpeechSynthesisUtterance(textEn);
             utteranceEn.lang = 'en-IN';
             utteranceEn.rate = 0.92;
@@ -932,11 +963,39 @@ export default function WaitingRoomTvView() {
               </div>
               <div className="text-left">
                 <div className="text-xs sm:text-sm uppercase tracking-widest text-emerald-100 font-bold">
-                  {activeCallAlert.type === 'therapy' || activeCallAlert.isTherapy
-                    ? (lang === 'bn' ? 'ফিজিওথেরাপি ও পুনর্বাসন' : 'Physiotherapy & Rehab')
-                    : (activeCallAlert.doctorNameEn || activeCallAlert.doctorName
-                        ? `ডাঃ ${activeCallAlert.doctorNameEn || activeCallAlert.doctorName}`
-                        : (lang === 'bn' ? 'ডাক্তার কনসাল্টেশন চেম্বার' : 'Doctor Consultation Chamber'))}
+                  {activeCallAlert.type === 'therapy' || activeCallAlert.isTherapy ? (
+                    (() => {
+                      const rawServiceType = String(
+                        activeCallAlert.therapyType || activeCallAlert.serviceType || 'therapy'
+                      )
+                        .toLowerCase()
+                        .trim();
+                      if (rawServiceType === 'checkup' || rawServiceType === 'check up' || rawServiceType.includes('চেকআপ')) {
+                        return lang === 'bn' ? 'চেকআপ ও মূল্যায়ন' : 'Check Up & Evaluation';
+                      }
+                      if (rawServiceType === 'assessment' || rawServiceType.includes('অ্যাসেসমেন্ট')) {
+                        return lang === 'bn' ? 'অ্যাসেসমেন্ট ও মূল্যায়ন' : 'Assessment & Evaluation';
+                      }
+                      if (rawServiceType === 'consultation' || rawServiceType.includes('পরামর্শ')) {
+                        return lang === 'bn' ? 'পরামর্শ ও রিভিউ' : 'Consultation & Review';
+                      }
+                      if (rawServiceType === 'followup' || rawServiceType.includes('ফলো-আপ')) {
+                        return lang === 'bn' ? 'ফলো-আপ মূল্যায়ন' : 'Follow-up Evaluation';
+                      }
+                      if (rawServiceType === 'therapy' || rawServiceType.includes('থেরাপি')) {
+                        return lang === 'bn' ? 'ফিজিওথেরাপি ও পুনর্বাসন' : 'Physiotherapy & Rehab';
+                      }
+                      return (
+                        activeCallAlert.therapyType ||
+                        activeCallAlert.serviceType ||
+                        (lang === 'bn' ? 'ফিজিওথেরাপি ও পুনর্বাসন' : 'Physiotherapy & Rehab')
+                      );
+                    })()
+                  ) : (
+                    activeCallAlert.doctorNameEn || activeCallAlert.doctorName
+                      ? `ডাঃ ${activeCallAlert.doctorNameEn || activeCallAlert.doctorName}`
+                      : (lang === 'bn' ? 'ডাক্তার কনসাল্টেশন চেম্বার' : 'Doctor Consultation Chamber')
+                  )}
                 </div>
                 <div className="text-2xl sm:text-4xl font-black font-mono text-white">
                   {activeCallAlert.type === 'therapy' || activeCallAlert.isTherapy

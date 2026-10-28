@@ -960,6 +960,8 @@ export class TherapyService {
         modalityCode: defaultModCode,
         modalityName: defaultModNameEn,
         modalityNameBn: defaultModNameBn,
+        therapyType: (v as any).therapyType || 'therapy',
+        serviceType: (v as any).therapyType || 'therapy',
         doctorPlans: patPlans,
         hasDoctorPlan,
         hasRunningSession: false,
@@ -1077,6 +1079,29 @@ export class TherapyService {
       targetRoomName = `${targetRoomName} ${roomNum}`;
     }
 
+    const effectiveTherapyType = dto.therapyType || dto.serviceType || (visitRow as any).therapyType || 'therapy';
+    const rawType = effectiveTherapyType.toLowerCase().trim();
+
+    let serviceNameEn = 'therapy';
+    let serviceNameBn = 'থেরাপির';
+
+    if (rawType === 'checkup' || rawType === 'check up' || rawType.includes('চেকআপ')) {
+      serviceNameEn = 'checkup';
+      serviceNameBn = 'চেকআপের';
+    } else if (rawType === 'assessment' || rawType.includes('অ্যাসেসমেন্ট')) {
+      serviceNameEn = 'assessment';
+      serviceNameBn = 'অ্যাসেসমেন্টের';
+    } else if (rawType === 'consultation' || rawType.includes('পরামর্শ')) {
+      serviceNameEn = 'consultation';
+      serviceNameBn = 'পরামর্শের';
+    } else if (rawType === 'therapy' || rawType.includes('থেরাপি') || !rawType) {
+      serviceNameEn = 'therapy';
+      serviceNameBn = 'থেরাপির';
+    } else {
+      serviceNameEn = dto.therapyType || dto.serviceType || (visitRow as any).therapyType || 'therapy';
+      serviceNameBn = `${serviceNameEn} এর`;
+    }
+
     // Update visit status to calling
     await this.db
       .update(visits)
@@ -1084,6 +1109,10 @@ export class TherapyService {
         status: 'calling' as any,
         currentLocation: 'therapy_hall',
         roomId: targetRoomId,
+        calledRoomId: targetRoomId,
+        calledRoomName: targetRoomName,
+        calledAt: now,
+        therapyType: effectiveTherapyType,
         updatedAt: now,
       })
       .where(eq(visits.id, visitRow.id));
@@ -1092,10 +1121,18 @@ export class TherapyService {
     try {
       (this.db as any).session?.client
         ?.prepare(
-          'UPDATE visits SET status = ?, called_room_id = ?, called_room_name = ?, called_at = ?, updated_at = ? WHERE id = ?',
+          'UPDATE visits SET status = ?, called_room_id = ?, called_room_name = ?, called_at = ?, therapy_type = ?, updated_at = ? WHERE id = ?',
         )
-        ?.run('calling', targetRoomId, targetRoomName, now, now, visitRow.id);
-    } catch {}
+        ?.run('calling', targetRoomId, targetRoomName, now, effectiveTherapyType, visitRow.id);
+    } catch {
+      try {
+        (this.db as any).session?.client
+          ?.prepare(
+            'UPDATE visits SET status = ?, called_room_id = ?, called_room_name = ?, called_at = ?, updated_at = ? WHERE id = ?',
+          )
+          ?.run('calling', targetRoomId, targetRoomName, now, visitRow.id);
+      } catch {}
+    }
 
     const tok = (visitRow.tokenNumber && Number(visitRow.tokenNumber) > 0) ? Number(visitRow.tokenNumber) : 1;
     const payload = {
@@ -1108,9 +1145,13 @@ export class TherapyService {
       roomId: targetRoomId,
       roomName: targetRoomName,
       roomNumber: roomNum,
-      modality: dto.modalityCode || 'Physiotherapy & Rehab',
+      modality: dto.modalityCode || (serviceNameEn === 'therapy' ? 'Physiotherapy & Rehab' : serviceNameEn),
       type: 'therapy',
       isTherapy: true,
+      therapyType: serviceNameEn,
+      serviceType: serviceNameEn,
+      serviceNameEn,
+      serviceNameBn,
       calledAt: now,
     };
 
@@ -1277,6 +1318,29 @@ export class TherapyService {
       targetRoomName = `${targetRoomName} ${roomNum}`;
     }
 
+    const effectiveTherapyType = dto.therapyType || dto.serviceType || (visitRow as any).therapyType || 'therapy';
+    const rawType = effectiveTherapyType.toLowerCase().trim();
+
+    let serviceNameEn = 'therapy';
+    let serviceNameBn = 'থেরাপির';
+
+    if (rawType === 'checkup' || rawType === 'check up' || rawType.includes('চেকআপ')) {
+      serviceNameEn = 'checkup';
+      serviceNameBn = 'চেকআপের';
+    } else if (rawType === 'assessment' || rawType.includes('অ্যাসেসমেন্ট')) {
+      serviceNameEn = 'assessment';
+      serviceNameBn = 'অ্যাসেসমেন্টের';
+    } else if (rawType === 'consultation' || rawType.includes('পরামর্শ')) {
+      serviceNameEn = 'consultation';
+      serviceNameBn = 'পরামর্শের';
+    } else if (rawType === 'therapy' || rawType.includes('থেরাপি') || !rawType) {
+      serviceNameEn = 'therapy';
+      serviceNameBn = 'থেরাপির';
+    } else {
+      serviceNameEn = dto.therapyType || dto.serviceType || (visitRow as any).therapyType || 'therapy';
+      serviceNameBn = `${serviceNameEn} এর`;
+    }
+
     const tok = (visitRow.tokenNumber && Number(visitRow.tokenNumber) > 0) ? Number(visitRow.tokenNumber) : 1;
     const payload = {
       visitId: visitRow.id,
@@ -1290,6 +1354,11 @@ export class TherapyService {
       roomNumber: roomNum,
       type: 'therapy',
       isTherapy: true,
+      therapyType: serviceNameEn,
+      serviceType: serviceNameEn,
+      serviceNameEn,
+      serviceNameBn,
+      isRecall: true,
       calledAt: now,
     };
 

@@ -22,6 +22,7 @@ import {
   CheckOutDto,
   RoutePatientDto,
   SendToDoctorQueueDto,
+  SendToTherapyQueueDto,
   RequestConsultationAdjustmentDto,
   ProcessConsultationAdjustmentDto,
 } from './dto';
@@ -170,6 +171,24 @@ export class VisitsController {
     @Req() req: Request,
   ) {
     return this.visits.sendToDoctorQueue(
+      { sub: user.sub, role: user.role },
+      visitId,
+      dto,
+      this.meta(req),
+    );
+  }
+
+  @Post(':id/send-to-therapy-queue')
+  @ApiBearerAuth()
+  @UseGuards(JwtAccessAuthGuard, RolesGuard)
+  @Roles('admin', 'receptionist', 'cashier', 'doctor', 'handler')
+  sendToTherapyQueue(
+    @CurrentUser() user: RequestUser,
+    @Param('id') visitId: string,
+    @Body() dto: SendToTherapyQueueDto,
+    @Req() req: Request,
+  ) {
+    return this.visits.sendToTherapyQueue(
       { sub: user.sub, role: user.role },
       visitId,
       dto,

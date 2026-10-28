@@ -330,6 +330,14 @@ export const api = {
         method: 'POST',
         body: JSON.stringify(dto || {}),
       }),
+    sendToTherapyQueue: (
+      visitId: string,
+      dto?: { therapyType?: string; roomId?: string; roomName?: string; notes?: string }
+    ) =>
+      apiFetch<any>(`/visits/${visitId}/send-to-therapy-queue`, {
+        method: 'POST',
+        body: JSON.stringify(dto || {}),
+      }),
     checkOut: (visitId: string, dto?: { notes?: string; allowWithDues?: boolean; nextFollowUpDate?: string }) =>
       apiFetch<any>(`/visits/${visitId}/check-out`, {
         method: 'POST',

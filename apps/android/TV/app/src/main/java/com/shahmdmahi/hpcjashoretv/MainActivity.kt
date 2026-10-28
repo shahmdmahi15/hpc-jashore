@@ -64,7 +64,9 @@ data class ConsultationPatient(
     val doctorName: String = "",
     val chamber: String = "Chamber 1",
     val priority: String = "regular",
-    val isTherapy: Boolean = false
+    val isTherapy: Boolean = false,
+    val serviceType: String = "therapy",
+    val serviceNameBn: String? = null
 )
 
 data class TherapyPatient(
@@ -338,6 +340,9 @@ class MainActivity : ComponentActivity() {
                                 } else {
                                     "Therapy Room $roomNum"
                                 }
+                                val rawServiceType = payload.optString("therapyType", payload.optString("serviceType", "therapy")).trim()
+                                val serviceType = if (rawServiceType.isBlank()) "therapy" else rawServiceType
+                                val serviceNameBn = if (payload.has("serviceNameBn") && !payload.isNull("serviceNameBn")) payload.getString("serviceNameBn") else null
                                 val calledPat = ConsultationPatient(
                                     serialNumber = if (token > 0) token else 1,
                                     tokenNumber = if (token > 0) token else 1,
@@ -345,7 +350,9 @@ class MainActivity : ComponentActivity() {
                                     patientNameBn = patNameBn,
                                     doctorName = "",
                                     chamber = chamberStr,
-                                    isTherapy = true
+                                    isTherapy = true,
+                                    serviceType = serviceType,
+                                    serviceNameBn = serviceNameBn
                                 )
                                 lastCallKey = "therapy_${token}_${System.currentTimeMillis()}"
                                 triggerCallAlert(calledPat)
@@ -1317,6 +1324,9 @@ class MainActivity : ComponentActivity() {
                                     val roomStr = if (Regex("\\d").containsMatchIn(rawRoom)) rawRoom else "$rawRoom $roomNum"
                                     val tok = obj.optInt("tokenNumber", 1)
                                     val resolvedTok = if (tok > 0) tok else 1
+                                    val rawServiceType = obj.optString("therapyType", obj.optString("serviceType", "therapy")).trim()
+                                    val serviceType = if (rawServiceType.isBlank()) "therapy" else rawServiceType
+                                    val serviceNameBn = if (obj.has("serviceNameBn") && !obj.isNull("serviceNameBn")) obj.getString("serviceNameBn") else null
                                     calledPatient = ConsultationPatient(
                                         serialNumber = resolvedTok,
                                         tokenNumber = resolvedTok,
@@ -1325,7 +1335,9 @@ class MainActivity : ComponentActivity() {
                                         doctorName = "",
                                         chamber = roomStr,
                                         priority = obj.optString("priority", "regular"),
-                                        isTherapy = true
+                                        isTherapy = true,
+                                        serviceType = serviceType,
+                                        serviceNameBn = serviceNameBn
                                     )
                                     break
                                 }
@@ -1539,8 +1551,27 @@ class MainActivity : ComponentActivity() {
             val roomDigitsBn = toBnDigits(roomDigits)
             val roomNameBn = "থেরাপি রুম $roomDigitsBn"
             val roomNameEn = "Therapy Room $roomDigits"
-            banglaText = "থেরাপির জন্য রোগী $patientNameBn কে $roomNameBn এ আসার জন্য অনুরোধ করা হচ্ছে।"
-            englishText = "Patient $patientNameEn, please proceed to $roomNameEn for therapy."
+
+            val cleanType = patient.serviceType.lowercase().trim()
+            val (enPurpose, bnPurpose) = when {
+                cleanType == "checkup" || cleanType == "check up" || cleanType == "check_up" || cleanType.contains("চেকআপ") ->
+                    Pair("checkup", "চেকআপের")
+                cleanType == "assessment" || cleanType.contains("অ্যাসেসমেন্ট") ->
+                    Pair("assessment", "অ্যাসেসমেন্টের")
+                cleanType == "consultation" || cleanType.contains("পরামর্শ") ->
+                    Pair("consultation", "পরামর্শের")
+                cleanType == "therapy" || cleanType.contains("থেরাপি") ->
+                    Pair("therapy", "থেরাপির")
+                else -> {
+                    val customEn = patient.serviceType.ifBlank { "therapy" }
+                    val customBn = patient.serviceNameBn ?: "$customEn এর"
+                    Pair(customEn, customBn)
+                }
+            }
+
+            val bnPrefix = if (bnPurpose.endsWith("এর") || bnPurpose.endsWith("র")) bnPurpose else "$bnPurpose এর"
+            banglaText = "$bnPrefix জন্য রোগী $patientNameBn কে $roomNameBn এ আসার জন্য অনুরোধ করা হচ্ছে।"
+            englishText = "Patient $patientNameEn, please proceed to $roomNameEn for $enPurpose."
         } else {
             val chamberDigits = chamber.replace(Regex("[^0-9]"), "").ifBlank { "1" }
             val chamberDigitsBn = toBnDigits(chamberDigits)
@@ -2001,7 +2032,19 @@ fun CallingAlertOverlay(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = if (patient.isTherapy) {
-                            if (isBn) "ফিজিওথেরাপি ও পুনর্বাসন" else "PHYSIOTHERAPY & REHAB"
+                            val cleanType = patient.serviceType.lowercase().trim()
+                            when {
+                                cleanType == "checkup" || cleanType == "check up" || cleanType == "check_up" || cleanType.contains("চেকআপ") ->
+                                    if (isBn) "চেকআপ ও মূল্যায়ন" else "CHECK UP & EVALUATION"
+                                cleanType == "assessment" || cleanType.contains("অ্যাসেসমেন্ট") ->
+                                    if (isBn) "ফিজিওথেরাপি অ্যাসেসমেন্ট" else "PHYSIOTHERAPY ASSESSMENT"
+                                cleanType == "consultation" || cleanType.contains("পরামর্শ") ->
+                                    if (isBn) "পরামর্শ ও নির্দেশনা" else "CONSULTATION & GUIDANCE"
+                                cleanType == "therapy" || cleanType.contains("থেরাপি") ->
+                                    if (isBn) "ফিজিওথেরাপি ও পুনর্বাসন" else "PHYSIOTHERAPY & REHAB"
+                                else ->
+                                    if (isBn) (patient.serviceNameBn ?: patient.serviceType) else patient.serviceType.uppercase()
+                            }
                         } else {
                             if (patient.doctorName.isNotBlank()) "ডাঃ ${patient.doctorName}" else (if (isBn) "ডাক্তার কনসাল্টেশন চেম্বার" else "DOCTOR CONSULTATION CHAMBER")
                         },

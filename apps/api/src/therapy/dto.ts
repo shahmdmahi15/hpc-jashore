@@ -233,6 +233,16 @@ export class CallTherapyPatientDto {
   @IsOptional()
   @IsString()
   modalityCode?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  therapyType?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  serviceType?: string;
 }
 
 export class MarkInTherapyDto {
@@ -265,6 +275,16 @@ export class MarkInTherapyDto {
   @IsOptional()
   @IsString()
   modalityCode?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  therapyType?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  serviceType?: string;
 }
 
 export class RecallTherapyPatientDto {
@@ -296,6 +316,16 @@ export class RecallTherapyPatientDto {
   @ApiPropertyOptional()
   @IsOptional()
   roomNumber?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  therapyType?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  serviceType?: string;
 }
 
 export class CancelTherapyCallDto {

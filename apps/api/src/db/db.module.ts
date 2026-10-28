@@ -920,6 +920,9 @@ export type Db = BetterSQLite3Database<typeof schema>;
             if (!bookingColNames.has('rejection_reason')) {
               sqlite.exec("ALTER TABLE therapy_slot_bookings ADD COLUMN rejection_reason TEXT");
             }
+            if (!bookingColNames.has('therapy_type')) {
+              sqlite.exec("ALTER TABLE therapy_slot_bookings ADD COLUMN therapy_type TEXT DEFAULT 'therapy'");
+            }
           } catch (bookingErr) {
             console.error('Error initializing therapy_slot_bookings table:', bookingErr);
           }
@@ -954,6 +957,9 @@ export type Db = BetterSQLite3Database<typeof schema>;
             }
             if (!visitColNames.has('consultation_booking_id')) {
               sqlite.exec("ALTER TABLE visits ADD COLUMN consultation_booking_id TEXT");
+            }
+            if (!visitColNames.has('therapy_type')) {
+              sqlite.exec("ALTER TABLE visits ADD COLUMN therapy_type TEXT DEFAULT 'therapy'");
             }
             if (!visitColNames.has('discharge_notes')) {
               sqlite.exec("ALTER TABLE visits ADD COLUMN discharge_notes TEXT");
@@ -1144,6 +1150,9 @@ export type Db = BetterSQLite3Database<typeof schema>;
             const visitColNames = new Set(visitCols.map((c) => c.name));
             if (!visitColNames.has('consultation_booking_id')) {
               sqlite.exec("ALTER TABLE visits ADD COLUMN consultation_booking_id TEXT");
+            }
+            if (!visitColNames.has('therapy_type')) {
+              sqlite.exec("ALTER TABLE visits ADD COLUMN therapy_type TEXT DEFAULT 'therapy'");
             }
             if (!visitColNames.has('discharge_notes')) {
               sqlite.exec("ALTER TABLE visits ADD COLUMN discharge_notes TEXT");

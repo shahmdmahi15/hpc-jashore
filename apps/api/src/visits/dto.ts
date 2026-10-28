@@ -168,3 +168,25 @@ export class ProcessConsultationAdjustmentDto {
   @IsString()
   notes?: string;
 }
+
+export class SendToTherapyQueueDto {
+  @ApiPropertyOptional({ description: 'Therapy assignment type, e.g. checkup, therapy, assessment, consultation, or custom string' })
+  @IsOptional()
+  @IsString()
+  therapyType?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  roomId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  roomName?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  notes?: string;
+}

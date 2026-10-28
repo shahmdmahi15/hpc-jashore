@@ -75,6 +75,8 @@ export interface TherapyQueueItem {
   modalityCode?: string;
   modalityName?: string;
   modalityNameBn?: string;
+  therapyType?: string;
+  serviceType?: string;
   doctorPlans?: any[];
   hasDoctorPlan?: boolean;
   hasRunningSession?: boolean;
@@ -270,6 +272,8 @@ export function TherapyQueueManagementTab() {
         roomName,
         roomNumber: Number(roomNumber),
         modalityCode: patient.modalityCode || 'PHYSIO',
+        therapyType: patient.therapyType || patient.serviceType || 'therapy',
+        serviceType: patient.therapyType || patient.serviceType || 'therapy',
       });
       toast.success(
         `রোগী ${patient.patientNameBn || patient.patientNameEn} কে রুম ${roomNumber} (${roomName}) এ ডাকা হয়েছে! টিভি স্ক্রিনে ঘোষণা পাঠানো হয়েছে।`,
@@ -312,6 +316,8 @@ export function TherapyQueueManagementTab() {
         patientId: patient.patientId,
         roomId: patient.assignedRoomId || undefined,
         roomName: patient.assignedRoomName || undefined,
+        therapyType: patient.therapyType || patient.serviceType || 'therapy',
+        serviceType: patient.therapyType || patient.serviceType || 'therapy',
       });
       toast.success('টিভি ও স্পিকারে পুনরায় ঘোষণা পাঠানো হয়েছে (Re-announced)');
     } catch (err: any) {
@@ -703,8 +709,8 @@ export function TherapyQueueManagementTab() {
                         )}
                         {patient.ageYears && <span>• {patient.ageYears} বছর</span>}
                       </div>
-                      {/* Prominent Room Marker Badge */}
-                      <div className="mt-1 flex items-center gap-1">
+                      {/* Prominent Room Marker Badge & Service Assignment Marker */}
+                      <div className="mt-1 flex items-center gap-1.5 flex-wrap">
                         <Badge
                           variant="outline"
                           className="text-[10.5px] font-bold border-cyan-500/40 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 px-2 py-0.5"
@@ -712,6 +718,48 @@ export function TherapyQueueManagementTab() {
                           <Building2 className="size-3 mr-1 inline" />
                           <span>রুম: {roomName}</span>
                         </Badge>
+                        {(() => {
+                          const rawType = (
+                            patient.therapyType ||
+                            patient.serviceType ||
+                            'therapy'
+                          )
+                            .toLowerCase()
+                            .trim();
+                          if (rawType === 'checkup') {
+                            return (
+                              <Badge className="bg-purple-500/15 border-purple-500/40 text-purple-700 dark:text-purple-300 font-bold text-[10.5px]">
+                                🩺 চেকআপ (Check Up)
+                              </Badge>
+                            );
+                          }
+                          if (rawType === 'assessment') {
+                            return (
+                              <Badge className="bg-blue-500/15 border-blue-500/40 text-blue-700 dark:text-blue-300 font-bold text-[10.5px]">
+                                📋 অ্যাসেসমেন্ট (Assessment)
+                              </Badge>
+                            );
+                          }
+                          if (rawType === 'consultation') {
+                            return (
+                              <Badge className="bg-amber-500/15 border-amber-500/40 text-amber-700 dark:text-amber-300 font-bold text-[10.5px]">
+                                💬 পরামর্শ (Consultation)
+                              </Badge>
+                            );
+                          }
+                          if (rawType === 'therapy') {
+                            return (
+                              <Badge className="bg-emerald-500/15 border-emerald-500/40 text-emerald-700 dark:text-emerald-300 font-bold text-[10.5px]">
+                                ⚡ থেরাপি (Therapy)
+                              </Badge>
+                            );
+                          }
+                          return (
+                            <Badge className="bg-cyan-500/15 border-cyan-500/40 text-cyan-700 dark:text-cyan-300 font-bold text-[10.5px]">
+                              🏷️ {patient.therapyType || patient.serviceType}
+                            </Badge>
+                          );
+                        })()}
                       </div>
                     </div>
                   </div>

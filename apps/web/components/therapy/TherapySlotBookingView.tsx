@@ -1,7 +1,7 @@
 // apps/web/components/therapy/TherapySlotBookingView.tsx
 'use client';
 
-import React, { useState, useEffect, useTransition, useCallback } from 'react';
+import React, { useState, useEffect, useTransition, useCallback, useMemo } from 'react';
 import {
   Calendar,
   Clock,
@@ -29,6 +29,8 @@ import {
   ArrowRight,
   UserCheck,
   RotateCcw,
+  Send,
+  Building2,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui/card';
 import { Button } from '../ui/button';
@@ -41,6 +43,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '../ui/dialog';
+import { Label } from '../ui/label';
+import { Textarea } from '../ui/textarea';
+import { cn } from '../../lib/utils';
+import { api } from '../../lib/api';
 import {
   Table,
   TableBody,
@@ -158,6 +172,7 @@ export function TherapySlotBookingView() {
 
   const [isPending, startTransition] = useTransition();
   const [isBookModalOpen, setIsBookModalOpen] = useState(false);
+  const [isAddQueueModalOpen, setIsAddQueueModalOpen] = useState(false);
   const [modalSlotHour, setModalSlotHour] = useState<SlotHour | undefined>(undefined);
   const [actionInProgressId, setActionInProgressId] = useState<string | null>(null);
   const [bookingToCancelId, setBookingToCancelId] = useState<string | null>(null);
@@ -356,6 +371,15 @@ export function TherapySlotBookingView() {
           >
             <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${isPending ? 'animate-spin' : ''}`} />
             {isBn ? 'রিফ্রেশ' : 'Refresh'}
+          </Button>
+
+          <Button
+            type="button"
+            onClick={() => setIsAddQueueModalOpen(true)}
+            className="h-10 px-3.5 text-xs sm:text-sm font-semibold rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white shadow-xs transition-all active:scale-95 cursor-pointer"
+          >
+            <Send className="w-4 h-4 mr-1.5" />
+            {isBn ? 'কিউতে রোগী যোগ করুন (ফ্রি)' : 'Add to Queue (Free)'}
           </Button>
 
           <Button
@@ -997,6 +1021,15 @@ export function TherapySlotBookingView() {
         }}
       />
 
+      {/* Free Add To Therapy Queue Modal */}
+      <AddToTherapyQueueModal
+        open={isAddQueueModalOpen}
+        onOpenChange={setIsAddQueueModalOpen}
+        onSuccess={() => {
+          loadData();
+        }}
+      />
+
       {/* CONFIRM CANCEL THERAPY BOOKING ALERT DIALOG */}
       <AlertDialog
         open={Boolean(bookingToCancelId)}
@@ -1029,5 +1062,434 @@ export function TherapySlotBookingView() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  );
+}
+
+interface AddToTherapyQueueModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSuccess?: () => void;
+}
+
+export function AddToTherapyQueueModal({
+  open,
+  onOpenChange,
+  onSuccess,
+}: AddToTherapyQueueModalProps) {
+  const { language } = useLanguage();
+  const isBn = language === 'bn';
+
+  const [patientSearch, setPatientSearch] = useState('');
+  const [selectedVisit, setSelectedVisit] = useState<any | null>(null);
+  const [serviceType, setServiceType] = useState<string>('therapy');
+  const [customServiceName, setCustomServiceName] = useState('');
+  const [selectedRoomId, setSelectedRoomId] = useState<string>('auto');
+  const [notes, setNotes] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [visits, setVisits] = useState<any[]>([]);
+  const [rooms, setRooms] = useState<any[]>([]);
+  const [loadingVisits, setLoadingVisits] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setLoadingVisits(true);
+      Promise.all([
+        api.visits.getToday().catch(() => []),
+        api.therapy.getRooms().catch(() => []),
+      ])
+        .then(([visitsRes, roomsRes]) => {
+          const active = (visitsRes || []).filter(
+            (v: any) => v.status !== 'checked_out' && v.status !== 'cancelled' && v.patient,
+          );
+          setVisits(active);
+
+          const isTherapyOnly = (r: any) => {
+            const type = (r.type || '').toLowerCase();
+            const name = (r.name || '').toLowerCase();
+            const id = (r.id || '').toLowerCase();
+            if (
+              type.includes('doctor') ||
+              type.includes('consultation') ||
+              type.includes('cashier') ||
+              type.includes('staff') ||
+              type.includes('waiting') ||
+              name.includes('consultation') ||
+              name.includes('chamber') ||
+              name.includes('চেম্বার') ||
+              name.includes('cashier') ||
+              name.includes('waiting') ||
+              name.includes('reception')
+            ) {
+              return false;
+            }
+            return (
+              type === 'therapy_room' ||
+              type === 'therapy_hall' ||
+              id.includes('th-') ||
+              id.includes('tr-') ||
+              name.includes('therapy') ||
+              name.includes('hall') ||
+              name.includes('rehab') ||
+              name.includes('থেরাপি')
+            );
+          };
+
+          const filteredRooms = (roomsRes || []).filter(isTherapyOnly);
+          setRooms(
+            filteredRooms.length > 0
+              ? filteredRooms
+              : [
+                  {
+                    id: 'room-th-01',
+                    roomNumber: 'TH-01',
+                    name: 'Male Physiotherapy & Rehab Hall (পুরুষ ফিজিওথেরাপি হল)',
+                  },
+                  {
+                    id: 'room-th-02',
+                    roomNumber: 'TH-02',
+                    name: 'Female Physiotherapy & Rehab Hall (মহিলা ফিজিওথেরাপি হল)',
+                  },
+                ],
+          );
+        })
+        .finally(() => setLoadingVisits(false));
+    } else {
+      setSelectedVisit(null);
+      setPatientSearch('');
+      setServiceType('therapy');
+      setCustomServiceName('');
+      setSelectedRoomId('auto');
+      setNotes('');
+    }
+  }, [open]);
+
+  const filteredVisits = useMemo(() => {
+    const q = patientSearch.toLowerCase().trim();
+    if (!q) return visits;
+    return visits.filter((v: any) => {
+      const p = v.patient;
+      if (!p) return false;
+      return (
+        p.nameEn?.toLowerCase().includes(q) ||
+        (p.nameBn && p.nameBn.includes(q)) ||
+        p.mrn?.toLowerCase().includes(q) ||
+        (p.phone && p.phone.includes(q))
+      );
+    });
+  }, [visits, patientSearch]);
+
+  const SERVICE_OPTIONS = [
+    { id: 'therapy', labelEn: 'Therapy', labelBn: 'থেরাপি', icon: '⚡' },
+    { id: 'checkup', labelEn: 'Check Up', labelBn: 'চেকআপ', icon: '🩺' },
+    { id: 'assessment', labelEn: 'Assessment', labelBn: 'অ্যাসেসমেন্ট', icon: '📋' },
+    { id: 'consultation', labelEn: 'Consultation', labelBn: 'পরামর্শ', icon: '💬' },
+    { id: 'followup', labelEn: 'Follow-up', labelBn: 'ফলো-আপ', icon: '🔄' },
+    { id: 'other', labelEn: 'Other', labelBn: 'অন্যান্য', icon: '✏️' },
+  ];
+
+  const handleSubmit = async () => {
+    if (!selectedVisit) {
+      toast.error(isBn ? 'রোগী নির্বাচন করুন' : 'Please select a patient');
+      return;
+    }
+
+    const finalTherapyType =
+      serviceType === 'other' ? customServiceName.trim() || 'other' : serviceType;
+
+    const selectedRoom = rooms.find((r) => r.id === selectedRoomId);
+    const roomId = selectedRoomId && selectedRoomId !== 'auto' ? selectedRoomId : undefined;
+    const roomName = selectedRoom?.name || undefined;
+
+    try {
+      setSubmitting(true);
+      await api.visits.sendToTherapyQueue(selectedVisit.id, {
+        therapyType: finalTherapyType,
+        roomId,
+        roomName,
+        notes: notes.trim() || undefined,
+      });
+
+      toast.success(
+        isBn
+          ? `রোগী ${selectedVisit.patient?.nameEn || ''} কে সরাসরি থেরাপি কিউতে পাঠানো হয়েছে (ফ্রি)!`
+          : `Patient ${selectedVisit.patient?.nameEn || ''} added to therapy queue (Free)!`,
+      );
+      onOpenChange(false);
+      onSuccess?.();
+    } catch (err: any) {
+      toast.error(
+        err?.message ||
+          (isBn ? 'থেরাপি কিউতে যুক্ত করতে ব্যর্থ হয়েছে' : 'Failed to add to therapy queue'),
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg w-full max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
+            <Send className="size-5 text-cyan-600" />
+            <span>
+              {isBn ? 'থেরাপি কিউতে রোগী যোগ করুন (ফ্রি)' : 'Add Patient to Therapy Queue (Free)'}
+            </span>
+          </DialogTitle>
+          <DialogDescription className="text-xs">
+            {isBn
+              ? 'কোনো ফি ছাড়াই রোগীকে সরাসরি থেরাপি কিউতে পাঠান।'
+              : 'Send patient directly to therapy queue with zero fee.'}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 py-2">
+          {/* Free Notice Banner */}
+          <div className="p-3 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-800 dark:text-cyan-300">
+            <div className="flex items-center gap-2 font-bold text-xs sm:text-sm">
+              <span>🆓</span>
+              <span>
+                {isBn
+                  ? 'সম্পূর্ণ ফ্রি (ফি মুক্ত - ৳০) · Instant Queue'
+                  : '100% Free of Charge (৳0) · Instant Queue'}
+              </span>
+            </div>
+            <p className="text-[11px] sm:text-xs text-muted-foreground mt-1 leading-relaxed">
+              {isBn
+                ? 'রোগীকে সরাসরি হ্যান্ডলার কিউতে পাঠানো হবে। কোনো পেমেন্ট আদায়ের প্রয়োজন নেই।'
+                : 'Patient will be sent directly to the handler queue. No payment collection required.'}
+            </p>
+          </div>
+
+          {/* Checked-in Patient Selection */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs font-semibold text-foreground">
+                {isBn ? 'উপস্থিত চেক-ইন করা রোগী নির্বাচন করুন *' : 'Select Checked-In Patient *'}
+              </Label>
+              <Badge variant="secondary" className="text-[10px] font-mono">
+                {loadingVisits
+                  ? '...'
+                  : `${filteredVisits.length} ${isBn ? 'জন উপস্থিত' : 'present'}`}
+              </Badge>
+            </div>
+
+            {selectedVisit ? (
+              <div className="p-3 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-between">
+                <div>
+                  <div className="font-bold text-foreground text-xs sm:text-sm">
+                    {selectedVisit.patient?.nameEn}{' '}
+                    {selectedVisit.patient?.nameBn ? `(${selectedVisit.patient?.nameBn})` : ''}
+                  </div>
+                  <div className="text-[11px] font-mono text-muted-foreground mt-0.5">
+                    MRN: {selectedVisit.patient?.mrn} · Phone: {selectedVisit.patient?.phone}
+                    {selectedVisit.tokenNumber && (
+                      <span className="ml-2 font-bold text-cyan-600 dark:text-cyan-400">
+                        {isBn ? 'টোকেন:' : 'Token:'} {selectedVisit.tokenNumber}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSelectedVisit(null)}
+                  className="size-7 p-0 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="size-4" />
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <div className="relative">
+                  <Search className="size-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    placeholder={
+                      isBn
+                        ? 'চেক-ইন করা রোগীর নাম, ফোন বা MRN দিয়ে খুঁজুন...'
+                        : 'Search checked-in patients by name, phone, or MRN...'
+                    }
+                    value={patientSearch}
+                    onChange={(e) => setPatientSearch(e.target.value)}
+                    className="pl-8 h-9 text-xs"
+                  />
+                </div>
+                {loadingVisits ? (
+                  <div className="p-4 text-center text-xs text-muted-foreground flex items-center justify-center gap-2">
+                    <RefreshCw className="size-3.5 animate-spin text-cyan-600" />
+                    <span>{isBn ? 'চেক-ইন করা রোগী খোঁজা হচ্ছে...' : 'Loading checked-in patients...'}</span>
+                  </div>
+                ) : filteredVisits.length > 0 ? (
+                  <div className="max-h-44 overflow-y-auto border border-border rounded-xl divide-y divide-border/60 bg-background">
+                    {filteredVisits.map((v: any) => {
+                      const p = v.patient;
+                      return (
+                        <div
+                          key={v.id}
+                          onClick={() => {
+                            setSelectedVisit(v);
+                            setPatientSearch('');
+                          }}
+                          className="p-2.5 hover:bg-muted/50 cursor-pointer flex items-center justify-between transition-colors"
+                        >
+                          <div>
+                            <div className="font-bold text-foreground text-xs flex items-center gap-1.5">
+                              <span>{p.nameEn}</span>
+                              {p.nameBn && (
+                                <span className="font-normal text-muted-foreground">({p.nameBn})</span>
+                              )}
+                            </div>
+                            <div className="text-muted-foreground font-mono text-[11px] mt-0.5">
+                              <span>{p.phone}</span>
+                              {v.tokenNumber && (
+                                <span className="ml-2 font-bold text-cyan-600">
+                                  {isBn ? 'টোকেন:' : 'Token:'} {v.tokenNumber}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] font-mono bg-emerald-500/10 text-emerald-600 border-emerald-500/30"
+                          >
+                            MRN: {p.mrn}
+                          </Badge>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="p-4 rounded-xl border border-dashed border-border/80 bg-muted/20 text-center space-y-1">
+                    <p className="text-xs font-semibold text-muted-foreground">
+                      {isBn
+                        ? 'আজকের উপস্থিত কোনো চেক-ইন করা রোগী পাওয়া যায়নি'
+                        : 'No checked-in patients found'}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground/80">
+                      {isBn
+                        ? 'থেরাপি কিউতে পাঠানোর জন্য রোগীকে প্রথমে রিসেপশনে চেক-ইন করুন।'
+                        : 'Please check-in the patient at the reception desk first.'}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Service Type Selection */}
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold text-foreground">
+              {isBn ? 'সেবা ও এসাইনমেন্টের ধরন (Service Type) *' : 'Service Type / Assignment *'}
+            </Label>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {SERVICE_OPTIONS.map((opt) => {
+                const isSelected = serviceType === opt.id;
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => setServiceType(opt.id)}
+                    className={cn(
+                      'p-2.5 rounded-xl border text-left flex items-center gap-2 transition-all cursor-pointer',
+                      isSelected
+                        ? 'border-cyan-500 bg-cyan-500/15 text-cyan-800 dark:text-cyan-300 font-bold shadow-xs'
+                        : 'border-border/70 hover:bg-muted/40 text-muted-foreground',
+                    )}
+                  >
+                    <span className="text-base">{opt.icon}</span>
+                    <span className="text-xs">{isBn ? opt.labelBn : opt.labelEn}</span>
+                  </button>
+                );
+              })}
+            </div>
+            {serviceType === 'other' && (
+              <Input
+                placeholder={
+                  isBn
+                    ? 'কাস্টম সেবার নাম লিখুন (যেমন: ড্রাই নিডলিং)...'
+                    : 'Enter custom service name...'
+                }
+                value={customServiceName}
+                onChange={(e) => setCustomServiceName(e.target.value)}
+                className="h-9 text-xs mt-2"
+              />
+            )}
+          </div>
+
+          {/* Room / Hall Selector */}
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold text-foreground">
+              {isBn ? 'রুম / হল নির্বাচন (ঐচ্ছিক)' : 'Therapy Hall / Room (Optional)'}
+            </Label>
+            <Select value={selectedRoomId} onValueChange={setSelectedRoomId}>
+              <SelectTrigger className="h-9 text-xs">
+                <SelectValue
+                  placeholder={
+                    isBn ? '-- রুম / হল নির্বাচন করুন --' : '-- Select Room / Hall --'
+                  }
+                />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="auto">
+                  {isBn ? '⚡ স্বয়ংক্রিয় / যেকোনো খালি হল' : '⚡ Auto / Any Available Hall'}
+                </SelectItem>
+                {rooms.map((r) => (
+                  <SelectItem key={r.id} value={r.id}>
+                    {r.name || `Room ${r.roomNumber || r.code}`}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Notes / Instructions */}
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold text-muted-foreground">
+              {isBn ? 'অতিরিক্ত মন্তব্য / নির্দেশনা (ঐচ্ছিক)' : 'Notes / Instructions (Optional)'}
+            </Label>
+            <Textarea
+              placeholder={
+                isBn
+                  ? 'যেমন: কাঁধের ব্যথার জন্য বিশেষ সতর্কতা, ৩য় সেশন ইত্যাদি...'
+                  : 'e.g. Special precaution for shoulder pain, 3rd session, etc...'
+              }
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              className="text-xs min-h-[55px]"
+            />
+          </div>
+        </div>
+
+        <DialogFooter className="flex flex-row justify-between gap-2 pt-3 border-t border-border/60">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => onOpenChange(false)}
+            disabled={submitting}
+            className="text-xs"
+          >
+            {isBn ? 'বাতিল' : 'Cancel'}
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            onClick={handleSubmit}
+            disabled={submitting || !selectedVisit}
+            className="font-bold text-xs gap-1.5 shadow-sm active:scale-95 text-white bg-cyan-600 hover:bg-cyan-500 cursor-pointer"
+          >
+            {submitting ? (
+              <RefreshCw className="size-3.5 animate-spin" />
+            ) : (
+              <Send className="size-3.5" />
+            )}
+            <span>
+              {isBn ? 'সরাসরি কিউতে যুক্ত করুন (ফ্রি)' : 'Add to Therapy Queue (Instant Free)'}
+            </span>
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
