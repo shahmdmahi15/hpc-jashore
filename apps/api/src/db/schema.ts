@@ -235,6 +235,7 @@ export const therapySlotConfigs = sqliteTable('therapy_slot_configs', {
 export const patients = sqliteTable('patients', {
   id: text('id').primaryKey(),
   mrn: text('mrn').notNull().unique(),
+  legacyId: text('legacy_id'),
   nameEn: text('name_en').notNull(),
   nameBn: text('name_bn'),
   phone: text('phone').notNull().unique(),

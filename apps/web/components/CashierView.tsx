@@ -24,6 +24,7 @@ import { PatientTimelineModal } from './patient/PatientTimelineModal';
 import { IntakeAssessmentPrintModal } from './patient/IntakeAssessmentPrintModal';
 import InvoicePrintModal from './InvoicePrintModal';
 import { TherapyQueueManagementTab } from './therapy/TherapyQueueManagementTab';
+import { getLegacyFileInfo, matchesPatientSearch } from '../lib/legacy-patient';
 import {
   FileText,
   Clock,
@@ -193,6 +194,7 @@ export default function CashierView({ session: propSession }: CashierProps = {})
 
   // Bill Creation State
   const [selectedPatientId, setSelectedPatientId] = useState('');
+  const [cashierPatientSearch, setCashierPatientSearch] = useState('');
   const [billItems, setBillItems] = useState<any[]>([
     { itemType: 'consultation', description: 'Doctor Consultation', unitPriceTaka: 500, quantity: 1 },
     { itemType: 'therapy', description: 'Interferential Therapy (IFT)', unitPriceTaka: 300, quantity: 1 },
@@ -1307,8 +1309,17 @@ export default function CashierView({ session: propSession }: CashierProps = {})
                           {intake.phone} • {intake.gender === 'female' ? 'মহিলা' : 'পুরুষ'}
                           {intake.ageYears ? ` • ${intake.ageYears} বছর` : ''}
                         </div>
-                        <div className="text-[11px] font-mono text-zinc-500 mt-0.5">
-                          MRN: {intake.patient?.mrn || 'N/A'}
+                        <div className="text-[11px] font-mono text-zinc-500 mt-0.5 flex items-center gap-1.5 flex-wrap">
+                          <span>MRN: {intake.patient?.mrn || 'N/A'}</span>
+                          {(() => {
+                            const leg = intake.patient?.legacyId || getLegacyFileInfo(intake.patient || intake.notes).fileNo;
+                            if (!leg) return null;
+                            return (
+                              <Badge variant="outline" className="text-[9px] py-0 px-1 border-amber-500/50 bg-amber-500/10 text-amber-700 dark:text-amber-300">
+                                📁 #{leg}
+                              </Badge>
+                            );
+                          })()}
                         </div>
                       </div>
                       <Badge variant="outline" className="border-emerald-500/50 text-emerald-600 dark:text-emerald-400 text-[10px]">
@@ -1508,19 +1519,42 @@ export default function CashierView({ session: propSession }: CashierProps = {})
 
                 <CardContent>
                   <form onSubmit={handleCreateBill} className="flex flex-col gap-4" autoComplete="off" data-lpignore="true" data-1p-ignore="true">
-                    {/* Patient Selection using shadcn/ui */}
+                    {/* Patient Selection with Search */}
                     <div className="space-y-1.5">
                       <Label className="text-xs font-semibold text-muted-foreground">{isBn ? 'রোগী নির্বাচন করুন *' : 'Select Patient *'}</Label>
+                      <div className="relative mb-1.5">
+                        <Input
+                          type="text"
+                          placeholder={isBn ? 'পুরাতন আইডি (xxxx), রেজি নম্বর, নাম বা ফোন...' : 'Filter Legacy ID (xxxx), MRN, Name, Phone...'}
+                          value={cashierPatientSearch}
+                          onChange={(e) => setCashierPatientSearch(e.target.value)}
+                          className="h-8 text-xs font-medium pl-3 pr-7"
+                        />
+                        {cashierPatientSearch && (
+                          <button
+                            type="button"
+                            onClick={() => setCashierPatientSearch('')}
+                            className="absolute right-2 top-2 text-xs text-muted-foreground hover:text-foreground"
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
                       <Select value={selectedPatientId} onValueChange={setSelectedPatientId}>
                         <SelectTrigger className="w-full">
                           <SelectValue placeholder={isBn ? '-- রোগী নির্বাচন করুন --' : '-- Select Patient --'} />
                         </SelectTrigger>
-                        <SelectContent>
-                          {patients.map((p) => (
-                            <SelectItem key={p.id} value={p.id}>
-                              {p.mrn} · {p.nameEn} ({p.phone})
-                            </SelectItem>
-                          ))}
+                        <SelectContent className="max-h-64">
+                          {patients
+                            .filter((p) => matchesPatientSearch(p, cashierPatientSearch))
+                            .map((p) => {
+                              const leg = p.legacyId || getLegacyFileInfo(p).fileNo;
+                              return (
+                                <SelectItem key={p.id} value={p.id}>
+                                  {p.mrn} {leg ? `[📁 #${leg}]` : ''} · {p.nameEn} ({p.phone})
+                                </SelectItem>
+                              );
+                            })}
                         </SelectContent>
                       </Select>
                     </div>

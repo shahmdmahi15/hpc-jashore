@@ -68,6 +68,7 @@ export class PatientsService {
         isNull(patients.deletedAt),
         or(
           like(patients.mrn, pattern),
+          like(patients.legacyId, pattern),
           like(patients.phone, pattern),
           like(patients.nameEn, pattern),
           like(patients.nameBn, pattern),
@@ -122,6 +123,7 @@ export class PatientsService {
     const row = {
       id: randomUUID(),
       mrn,
+      legacyId: dto.legacyId?.trim() || null,
       nameEn: dto.nameEn.trim(),
       nameBn: dto.nameBn?.trim() ?? null,
       phone: dto.phone.trim(),
@@ -248,6 +250,7 @@ export class PatientsService {
     if (dto.contraindications !== undefined) patch.contraindications = dto.contraindications.trim();
     if (dto.notes !== undefined) patch.notes = dto.notes ? dto.notes.trim() : null;
     if (dto.consentSigned !== undefined) patch.consentSigned = dto.consentSigned ? 1 : 0;
+    if (dto.legacyId !== undefined) patch.legacyId = dto.legacyId ? dto.legacyId.trim() : null;
 
     await this.db.update(patients).set(patch).where(eq(patients.id, id));
     const after = await this.get(id);

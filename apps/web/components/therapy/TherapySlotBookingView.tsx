@@ -547,8 +547,8 @@ export function TherapySlotBookingView() {
           <Input
             placeholder={
               isBn
-                ? (isBn ? 'রোগীর নাম, আইডি, ফোন অথবা বুকিং নম্বর দিয়ে খুঁজুন...' : 'Search by patient name, MRN, phone, or booking number...')
-                : 'Search by patient name, MRN, phone, or booking number...'
+                ? 'পুরাতন আইডি (xxxx), রেজি নম্বর, নাম, ফোন বা বুকিং নম্বর...'
+                : 'Search by Legacy ID (xxxx), MRN, patient name, phone, or booking number...'
             }
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}

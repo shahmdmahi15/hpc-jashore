@@ -38,6 +38,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { toast } from 'sonner';
 import { useLanguage } from '../../lib/i18n';
 import { api } from '../../lib/api';
+import { getLegacyFileInfo } from '../../lib/legacy-patient';
 
 function toBnDigits(value: string | number | null | undefined): string {
   if (value === null || value === undefined) return '';
@@ -141,6 +142,15 @@ export function Patient360HistoryModal({
                 <Badge variant="outline" className="font-mono text-xs border-emerald-500/40 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 font-bold">
                   MRN: {patient?.mrn || 'N/A'}
                 </Badge>
+                {(() => {
+                  const leg = patient?.legacyId || getLegacyFileInfo(patient).fileNo;
+                  if (!leg) return null;
+                  return (
+                    <Badge variant="outline" className="font-mono text-xs border-amber-500/50 text-amber-700 dark:text-amber-300 bg-amber-500/10 font-bold">
+                      📁 #{leg}
+                    </Badge>
+                  );
+                })()}
                 <DialogTitle className="text-xl font-bold text-foreground flex items-center gap-2">
                   <User className="w-5 h-5 text-emerald-500" />
                   <span>{displayName}</span>

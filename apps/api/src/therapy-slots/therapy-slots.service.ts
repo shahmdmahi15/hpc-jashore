@@ -698,7 +698,9 @@ export class TherapySlotsService {
           like(patients.nameEn, pattern),
           like(patients.nameBn, pattern),
           like(patients.mrn, pattern),
+          like(patients.legacyId, pattern),
           like(patients.phone, pattern),
+          like(patients.address, pattern),
         )!,
       );
     }
@@ -730,6 +732,7 @@ export class TherapySlotsService {
         patient: {
           id: patients.id,
           mrn: patients.mrn,
+          legacyId: patients.legacyId,
           nameEn: patients.nameEn,
           nameBn: patients.nameBn,
           phone: patients.phone,
@@ -737,6 +740,7 @@ export class TherapySlotsService {
           gender: patients.gender,
           ageYears: patients.ageYears,
           bloodGroup: patients.bloodGroup,
+          address: patients.address,
         },
         bookedByUser: {
           id: users.id,
@@ -823,6 +827,7 @@ export class TherapySlotsService {
         patient: {
           id: patients.id,
           mrn: patients.mrn,
+          legacyId: patients.legacyId,
           nameEn: patients.nameEn,
           nameBn: patients.nameBn,
           phone: patients.phone,
@@ -830,6 +835,7 @@ export class TherapySlotsService {
           gender: patients.gender,
           ageYears: patients.ageYears,
           bloodGroup: patients.bloodGroup,
+          address: patients.address,
         },
         bookedByUser: {
           id: users.id,

@@ -39,6 +39,7 @@ import {
 import { toast } from 'sonner';
 import { useLanguage } from '../../lib/i18n';
 import { updatePatientAction, type PatientRecord, type PatientDetailRecord } from '../../lib/actions/patients';
+import { getLegacyFileInfo, formatLegacyNotes } from '../../lib/legacy-patient';
 
 interface EditPatientDialogProps {
   patient: PatientRecord | null;
@@ -60,6 +61,7 @@ export function EditPatientDialog({
 
   const [isPending, startTransition] = useTransition();
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [legacyId, setLegacyId] = useState('');
 
   const [form, setForm] = useState({
     name: '',
@@ -79,6 +81,8 @@ export function EditPatientDialog({
 
   useEffect(() => {
     if (patient) {
+      const legacyInfo = getLegacyFileInfo(patient);
+      setLegacyId(patient.legacyId || legacyInfo.fileNo || '');
       setForm({
         name: patient.nameEn || patient.nameBn || '',
         phone: patient.phone || '',
@@ -132,11 +136,14 @@ export function EditPatientDialog({
       }
     }
 
+    const finalNotes = formatLegacyNotes(Boolean(legacyId.trim()), legacyId.trim(), form.notes);
+
     startTransition(async () => {
       const res = await updatePatientAction(patient.id, {
         nameEn: name,
         nameBn: name,
         phone: cleanPhone,
+        legacyId: legacyId.trim(),
         email: form.email.trim() || undefined,
         gender: form.gender,
         ageYears: form.ageYears ? parseInt(form.ageYears, 10) : undefined,
@@ -147,7 +154,7 @@ export function EditPatientDialog({
         allergies: form.allergies.trim() || undefined,
         chronicConditions: form.chronicConditions.trim() || undefined,
         contraindications: form.contraindications.trim() || undefined,
-        notes: form.notes.trim() || undefined,
+        notes: finalNotes || undefined,
         consentSigned: 1,
       });
 
@@ -289,6 +296,29 @@ export function EditPatientDialog({
                     className="h-10 pl-9 font-mono text-sm tracking-wide"
                   />
                 </div>
+              </div>
+
+              {/* Legacy Patient ID (xxxx) */}
+              <div className="space-y-1.5 sm:col-span-3 bg-amber-500/5 dark:bg-amber-950/20 p-3 rounded-xl border border-amber-500/30">
+                <Label htmlFor="edit-legacy-id" className="text-xs font-bold flex items-center justify-between text-amber-700 dark:text-amber-300">
+                  <span className="flex items-center gap-1.5">
+                    <FileText className="w-3.5 h-3.5 text-amber-600" />
+                    <span>{isBn ? 'পুরাতন আইডি / ফাইল নং (Legacy Patient ID - xxxx)' : 'Legacy Patient ID / Paper File No. (xxxx)'}</span>
+                  </span>
+                  <span className="text-[11px] font-normal text-muted-foreground font-mono">({isBn ? 'ঐচ্ছিক' : 'Optional'})</span>
+                </Label>
+                <Input
+                  id="edit-legacy-id"
+                  placeholder={isBn ? 'যেমন: 1042 বা 0231 (পুরাতন আইডি)' : 'e.g. 1042 or 0231 (Legacy ID)'}
+                  value={legacyId}
+                  onChange={(e) => setLegacyId(e.target.value)}
+                  className="h-10 text-sm font-mono border-amber-500/40 bg-background focus-visible:ring-amber-500"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  {isBn
+                    ? 'ক্লিনিকের পুরাতন কাগজের ফাইলের আইডি নম্বর। এটি যোগ করলে যে কোনো স্থান থেকে পুরাতন আইডি দিয়ে সার্চ করা যাবে।'
+                    : 'Clinic legacy paper record number. Allows instant search across the whole system via this legacy ID.'}
+                </p>
               </div>
             </div>
           </div>

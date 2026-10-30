@@ -8,6 +8,7 @@ import { useLanguage } from '../lib/i18n';
 import { useRealtime } from '../lib/use-realtime';
 import { cn } from '../lib/utils';
 import PrescriptionPrintModal from './PrescriptionPrintModal';
+import { getLegacyFileInfo } from '../lib/legacy-patient';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
@@ -1387,8 +1388,18 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
                                 </Badge>
                               )}
                             </div>
-                            <div className="text-xs text-muted-foreground flex flex-wrap gap-x-2 gap-y-0.5">
+                            <div className="text-xs text-muted-foreground flex flex-wrap gap-x-2 gap-y-0.5 items-center">
                               <span>MRN: <strong className="text-foreground">{s.patient?.mrn || 'N/A'}</strong></span>
+                              {(() => {
+                                const leg = s.patient?.legacyId || getLegacyFileInfo(s.patient).fileNo;
+                                if (!leg) return null;
+                                return (
+                                  <>
+                                    <span>•</span>
+                                    <span className="text-amber-700 dark:text-amber-300 font-bold bg-amber-500/10 px-1 rounded text-[11px]">📁 #{leg}</span>
+                                  </>
+                                );
+                              })()}
                               <span>•</span>
                               <span>ফোন: <strong className="text-foreground font-mono">{s.patient?.phone || 'N/A'}</strong></span>
                             </div>
@@ -1608,7 +1619,7 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
                             )}
                           </h2>
                           <div className="text-xs sm:text-sm text-muted-foreground mt-1">
-                            {isBn ? 'এমআরএন:' : 'MRN:'} <strong className="text-foreground">{activeSerial.patient?.mrn || 'N/A'}</strong> · {isBn ? 'আগমনের সময়:' : 'Arrival:'} {activeSerial.checkedInAt ? new Date(activeSerial.checkedInAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : (activeSerial.bookingTime || (isBn ? 'আজ' : 'Today'))}
+                            {isBn ? 'এমআরএন:' : 'MRN:'} <strong className="text-foreground">{activeSerial.patient?.mrn || 'N/A'}</strong>{activeSerial.patient?.legacyId ? ` · ${isBn ? 'পুরাতন আইডি:' : 'Legacy ID:'} #${activeSerial.patient.legacyId}` : ''} · {isBn ? 'আগমনের সময়:' : 'Arrival:'} {activeSerial.checkedInAt ? new Date(activeSerial.checkedInAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : (activeSerial.bookingTime || (isBn ? 'আজ' : 'Today'))}
                             {activeSerial.patient?.ageYears ? ` · ${isBn ? 'বয়স:' : 'Age:'} ${activeSerial.patient.ageYears} ${isBn ? 'বছর' : 'Y'}` : ''}
                             {activeSerial.patient?.gender ? ` · ${isBn ? 'লিঙ্গ:' : 'Gender:'} ${activeSerial.patient.gender === 'female' ? (isBn ? 'নারী' : 'Female') : activeSerial.patient.gender === 'male' ? (isBn ? 'পুরুষ' : 'Male') : (isBn ? 'অন্যান্য' : 'Other')}` : ''}
                             {activeSerial.patient?.phone ? ` · ${isBn ? 'ফোন:' : 'Phone:'} ${activeSerial.patient.phone}` : ''}

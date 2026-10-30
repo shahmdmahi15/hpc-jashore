@@ -212,6 +212,15 @@ for DB_FILE in "${DB_LOCATIONS[@]}"; do
       echo "   [ADDING] Added mrp_paisa to medicines"
     fi
 
+    # 6. Ensure patients table has legacy_id
+    echo "📁 Ensuring patients table has legacy_id column..."
+    PATIENT_COLS=$(sqlite3 "$DB_FILE" "PRAGMA table_info('patients');" | awk -F'|' '{print $2}')
+    if ! echo "$PATIENT_COLS" | grep -qw "legacy_id"; then
+      sqlite3 "$DB_FILE" "ALTER TABLE patients ADD COLUMN legacy_id TEXT;"
+      sqlite3 "$DB_FILE" "CREATE INDEX IF NOT EXISTS idx_patients_legacy_id ON patients(legacy_id);"
+      echo "   [ADDING] Added legacy_id to patients"
+    fi
+
     echo "📊 Current users schema in $DB_FILE:"
     sqlite3 "$DB_FILE" "PRAGMA table_info('users');"
   fi

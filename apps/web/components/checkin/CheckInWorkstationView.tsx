@@ -272,11 +272,16 @@ export function CheckInWorkstationView() {
       ).toLowerCase();
       const mrn = (v.patient?.mrn || '').toLowerCase();
       const phone = (v.patient?.phone || '').toLowerCase();
+      const legacyId = (v.patient?.legacyId || '').toLowerCase();
+      const address = (v.patient?.address || '').toLowerCase();
+      const query = liveSearchQuery.toLowerCase().trim();
       const searchMatch =
-        !liveSearchQuery.trim() ||
-        pName.includes(liveSearchQuery.toLowerCase().trim()) ||
-        mrn.includes(liveSearchQuery.toLowerCase().trim()) ||
-        phone.includes(liveSearchQuery.toLowerCase().trim());
+        !query ||
+        pName.includes(query) ||
+        mrn.includes(query) ||
+        legacyId.includes(query) ||
+        phone.includes(query) ||
+        address.includes(query);
 
       if (!searchMatch) return false;
 
@@ -896,7 +901,7 @@ export function CheckInWorkstationView() {
             <Card className="lg:col-span-5 p-4 rounded-2xl border border-border/50 shadow-2xs space-y-4">
               <div>
                 <Label className="text-xs font-bold text-foreground">
-                  {isBn ? '১. রোগী অনুসন্ধান (নাম, ফোন বা রেজি নম্বর)' : '1. Search Patient (Name, Phone or MRN)'}
+                  {isBn ? '১. রোগী অনুসন্ধান (পুরাতন আইডি, রেজি নম্বর, নাম বা ফোন)' : '1. Search Patient (Legacy ID, MRN, Name, Phone)'}
                 </Label>
                 <div className="relative mt-1.5">
                   <Search className="absolute left-3 top-2.5 w-4 h-4 text-muted-foreground" />
@@ -904,9 +909,9 @@ export function CheckInWorkstationView() {
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder={
-                      isBn ? 'রোগীর নাম, ফোন নম্বর বা রেজি নম্বর লিখুন...' : 'Search Name, Phone, or MRN...'
+                      isBn ? 'পুরাতন আইডি (xxxx), রেজি নম্বর (MRN), নাম, মোবাইল বা ঠিকানা...' : 'Search by Legacy ID (xxxx), MRN, Name, Phone, Address...'
                     }
-                    className="pl-9 text-xs sm:text-sm h-10"
+                    className="pl-9 text-xs sm:text-sm h-10 font-medium"
                   />
                   {isSearching && (
                     <Loader2 className="absolute right-3 top-2.5 w-4 h-4 animate-spin text-muted-foreground" />
@@ -920,33 +925,48 @@ export function CheckInWorkstationView() {
                   <span className="text-[11px] font-semibold text-muted-foreground px-1">
                     {isBn ? `পাওয়া গেছে (${toBnNum(searchResults.length)} জন)` : `Found (${searchResults.length} patients)`}
                   </span>
-                  {searchResults.map((p) => (
-                    <div
-                      key={p.id}
-                      onClick={() => {
-                        setSelectedPatient(p);
-                        setSearchResults([]);
-                        setSearchQuery(`${p.nameEn} (${p.mrn})`);
-                      }}
-                      className="p-2.5 rounded-lg border border-border/40 bg-card hover:border-emerald-500/50 hover:bg-emerald-500/5 cursor-pointer transition-all flex items-center justify-between"
-                    >
-                      <div className="min-w-0">
-                        <div className="text-xs font-bold text-foreground truncate">
-                          {isBn ? p.nameBn || p.nameEn : p.nameEn}
+                  {searchResults.map((p) => {
+                    const legInfo = getLegacyFileInfo(p);
+                    const legDisplay = p.legacyId || legInfo.fileNo;
+                    return (
+                      <div
+                        key={p.id}
+                        onClick={() => {
+                          setSelectedPatient(p);
+                          setSearchResults([]);
+                          setSearchQuery(`${p.nameEn} (${p.mrn}${legDisplay ? ` | #${legDisplay}` : ''})`);
+                        }}
+                        className="p-2.5 rounded-lg border border-border/40 bg-card hover:border-emerald-500/50 hover:bg-emerald-500/5 cursor-pointer transition-all flex items-center justify-between"
+                      >
+                        <div className="min-w-0">
+                          <div className="text-xs font-bold text-foreground truncate flex items-center gap-1.5">
+                            <span>{isBn ? p.nameBn || p.nameEn : p.nameEn}</span>
+                            {legDisplay && (
+                              <Badge variant="outline" className="text-[9px] py-0 px-1 border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300">
+                                📁 #{legDisplay}
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="text-[11px] font-mono text-muted-foreground flex items-center gap-2 mt-0.5 flex-wrap">
+                            <span>{p.mrn}</span>
+                            <span>•</span>
+                            <span>{p.phone}</span>
+                            {p.address && (
+                              <>
+                                <span>•</span>
+                                <span className="truncate max-w-[120px]">{p.address}</span>
+                              </>
+                            )}
+                            <span>•</span>
+                            <span className="capitalize">{p.gender}</span>
+                          </div>
                         </div>
-                        <div className="text-[11px] font-mono text-muted-foreground flex items-center gap-2 mt-0.5">
-                          <span>{p.mrn}</span>
-                          <span>•</span>
-                          <span>{p.phone}</span>
-                          <span>•</span>
-                          <span className="capitalize">{p.gender}</span>
-                        </div>
+                        <Button size="sm" variant="ghost" className="h-7 px-2 text-xs text-emerald-600">
+                          {isBn ? 'নির্বাচন' : 'Select'}
+                        </Button>
                       </div>
-                      <Button size="sm" variant="ghost" className="h-7 px-2 text-xs text-emerald-600">
-                        {isBn ? 'নির্বাচন' : 'Select'}
-                      </Button>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
 

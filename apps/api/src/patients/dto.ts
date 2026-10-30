@@ -96,6 +96,12 @@ export class CreatePatientDto {
   @IsString()
   notes?: string;
 
+  @ApiPropertyOptional({ description: 'Legacy patient ID from old paper files / records (format xxxx)' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  legacyId?: string;
+
   @ApiPropertyOptional({ description: 'Consent signed flag (0 or 1)' })
   @IsOptional()
   @IsInt()
@@ -187,6 +193,12 @@ export class UpdatePatientDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @ApiPropertyOptional({ description: 'Legacy patient ID from old paper files / records (format xxxx)' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  legacyId?: string;
 
   @ApiPropertyOptional()
   @IsOptional()

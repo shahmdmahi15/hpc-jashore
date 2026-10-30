@@ -70,7 +70,9 @@ export interface TherapyQueueItem {
   patientNameEn: string;
   patientNameBn?: string;
   mrn: string;
+  legacyId?: string | null;
   phone?: string;
+  address?: string | null;
   gender?: string;
   ageYears?: number;
   priority?: string;
@@ -409,12 +411,16 @@ export function TherapyQueueManagementTab() {
         return false;
       }
 
+      const q = searchQuery.toLowerCase().trim();
       const matchSearch =
-        searchQuery === '' ||
-        p.patientNameEn.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (p.patientNameBn && p.patientNameBn.includes(searchQuery)) ||
-        p.mrn.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        String(p.tokenNumber).includes(searchQuery);
+        q === '' ||
+        p.patientNameEn.toLowerCase().includes(q) ||
+        (p.patientNameBn && p.patientNameBn.toLowerCase().includes(q)) ||
+        p.mrn.toLowerCase().includes(q) ||
+        (p.legacyId && p.legacyId.toLowerCase().includes(q)) ||
+        (p.phone && p.phone.toLowerCase().includes(q)) ||
+        (p.address && p.address.toLowerCase().includes(q)) ||
+        String(p.tokenNumber).includes(q);
 
       const matchPriority = priorityFilter === 'all' || p.priority === priorityFilter;
       const matchStatus = statusFilter === 'all' || p.status === statusFilter;
@@ -508,7 +514,7 @@ export function TherapyQueueManagementTab() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
             <Input
               type="text"
-              placeholder={isBn ? 'রোগীর নাম, ফোন বা আইডি দিয়ে খুঁজুন...' : 'Search by name, phone or MRN...'}
+              placeholder={isBn ? 'পুরাতন আইডি (xxxx), রেজি নম্বর, নাম বা ফোন...' : 'Search by Legacy ID (xxxx), MRN, Name, Phone...'}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9 h-9 text-xs sm:text-sm bg-card/60"

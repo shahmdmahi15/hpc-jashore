@@ -156,6 +156,7 @@ export function CreatePatientDialog({
         nameEn: name,
         nameBn: name,
         phone: cleanPhone,
+        legacyId: isOldPatient && legacyFileNo.trim() ? legacyFileNo.trim() : undefined,
         email: form.email.trim() || undefined,
         gender: form.gender,
         ageYears: form.ageYears ? parseInt(form.ageYears, 10) : undefined,
@@ -317,13 +318,12 @@ export function CreatePatientDialog({
                     <div className="space-y-1.5">
                       <Label htmlFor="create-legacy-file-no" className="text-xs font-bold text-amber-700 dark:text-amber-300 flex items-center gap-1.5">
                         <FileText className="w-3.5 h-3.5 text-amber-600" />
-                        <span>{isBn ? 'পুরাতন ফাইল নম্বর / Old Paper File No.' : 'Old Paper File No.'}</span>
-                        <span className="text-[11px] font-normal text-muted-foreground font-mono">({isBn ? 'ঐচ্ছিক' : 'Optional'})</span>
+                        <span>{isBn ? 'পুরাতন আইডি / ফাইল নং (Legacy ID - xxxx)' : 'Legacy Patient ID / File No. (xxxx)'}</span>
                       </Label>
                       <Input
                         id="create-legacy-file-no"
                         type="text"
-                        placeholder={isBn ? 'যেমন: F-1082 বা আলমারি ফাইল নং...' : 'e.g. F-1082 or Cabinet File #...'}
+                        placeholder={isBn ? 'যেমন: 1042 বা 0231 (পুরাতন আইডি)' : 'e.g. 1042 or 0231 (Legacy ID)'}
                         value={legacyFileNo}
                         onChange={(e) => setLegacyFileNo(e.target.value)}
                         className="h-10 font-mono text-sm border-amber-500/40 bg-background focus-visible:ring-amber-500"
@@ -334,8 +334,8 @@ export function CreatePatientDialog({
                       <Sparkles className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
                       <span>
                         {isBn
-                          ? 'সংরক্ষণের পর রোগী সরাসরি সিস্টেমের পুরাতন তালিকাভুক্ত হবেন। পুনরায় ইনটেক মূল্যায়ন পূরণ করা আবশ্যক হবে না।'
-                          : 'Patient will be registered as an existing legacy file holder. Physical records remain valid; intake form is bypassed.'}
+                          ? 'রোগী নিবন্ধিত হওয়ার পর পুরাতন আইডি (xxxx), নতুন রেজি নম্বর (MRN), নাম, ঠিকানা বা ফোন নম্বর দিয়ে যে কোনো স্থান থেকে সহজেই খুঁজে পাবেন।'
+                          : 'After registration, search this patient from anywhere using their Legacy ID (xxxx), new MRN, name, address, or phone number.'}
                       </span>
                     </div>
                   </div>

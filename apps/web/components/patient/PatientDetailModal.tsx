@@ -138,14 +138,14 @@ export function PatientDetailModal({
                       </button>
 
                       {(() => {
-                        const legacy = getLegacyFileInfo(detail.notes);
+                        const legacy = getLegacyFileInfo(detail);
                         if (!legacy.isLegacy) return null;
                         return (
                           <Badge
                             variant="outline"
                             className="text-xs font-semibold border-amber-500/60 bg-amber-500/15 text-amber-700 dark:text-amber-300 px-2 py-0.5 gap-1.5"
                           >
-                            <span>📁 {isBn ? 'পুরাতন পেপার ফাইল' : 'Legacy Paper File'}</span>
+                            <span>📁 {isBn ? 'পুরাতন আইডি' : 'Legacy ID'}</span>
                             {legacy.fileNo && (
                               <span className="font-mono font-bold text-amber-900 dark:text-amber-100 bg-amber-500/25 px-1 rounded">
                                 #{legacy.fileNo}

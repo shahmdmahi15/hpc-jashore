@@ -291,7 +291,9 @@ export function ConsultationBookingView({ defaultDoctorId }: ConsultationBooking
         p.nameEn?.toLowerCase().includes(q) ||
         (p.nameBn && p.nameBn.includes(q)) ||
         p.mrn?.toLowerCase().includes(q) ||
-        (p.phone && p.phone.includes(q))
+        (p.legacyId && p.legacyId.toLowerCase().includes(q)) ||
+        (p.phone && p.phone.includes(q)) ||
+        (p.address && p.address.toLowerCase().includes(q))
       );
     });
   }, [checkedInVisits, freePatientSearch]);
@@ -646,8 +648,8 @@ export function ConsultationBookingView({ defaultDoctorId }: ConsultationBooking
                 <Input
                   placeholder={
                     language === 'bn'
-                      ? 'রোগীর নাম, ফোন, রেজি নম্বর বা সিরিয়াল খুঁজুন...'
-                      : 'Search patient name, MRN, phone...'
+                      ? 'পুরাতন আইডি (xxxx), রেজি নম্বর, নাম বা ফোন দিয়ে খুঁজুন...'
+                      : 'Search by Legacy ID (xxxx), MRN, name, phone, or address...'
                   }
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}

@@ -39,6 +39,7 @@ import {
 } from '../ui/select';
 import { toast } from 'sonner';
 import { useLanguage } from '../../lib/i18n';
+import { getLegacyFileInfo } from '../../lib/legacy-patient';
 import {
   createTherapyBookingAction,
   getTherapySlotAvailabilityAction,
@@ -411,12 +412,12 @@ export function BookTherapySlotDialog({
                     <Input
                       placeholder={
                         isBn
-                          ? (isBn ? 'রোগীর নাম, মোবাইল নম্বর অথবা আইডি দিয়ে খুঁজুন...' : 'Search by patient name, mobile, or MRN...')
-                          : 'Search by patient name, phone number, or MRN...'
+                          ? 'পুরাতন আইডি (xxxx), রেজি নম্বর, নাম বা ফোন...'
+                          : 'Search by Legacy ID (xxxx), MRN, name, phone, or address...'
                       }
                       value={patientQuery}
                       onChange={(e) => setPatientQuery(e.target.value)}
-                      className="pl-9 pr-9 h-10 text-xs sm:text-sm"
+                      className="pl-9 pr-9 h-10 text-xs sm:text-sm font-medium"
                     />
                     {isSearchingPatient && (
                       <Loader2 className="w-4 h-4 absolute right-3 top-3 animate-spin text-muted-foreground" />
@@ -426,43 +427,56 @@ export function BookTherapySlotDialog({
                   {/* Dropdown Results */}
                   {searchResults.length > 0 && (
                     <div className="absolute z-50 left-0 right-0 top-11 mt-1 bg-popover border border-border rounded-xl shadow-xl max-h-60 overflow-y-auto divide-y divide-border/50">
-                      {searchResults.map((p) => (
-                        <div
-                          key={p.id}
-                          onClick={() => {
-                            setSelectedPatient(p);
-                            setSearchResults([]);
-                          }}
-                          className="p-2.5 hover:bg-accent cursor-pointer flex items-center justify-between transition-colors"
-                        >
-                          <div className="space-y-0.5">
-                            <div className="flex items-center gap-2">
-                              <span className="font-semibold text-xs sm:text-sm text-foreground">
-                                {isBn && p.nameBn ? p.nameBn : p.nameEn}
-                              </span>
-                              <Badge
-                                variant="outline"
-                                className={`text-[10px] ${
-                                  p.gender === 'male'
-                                    ? 'text-blue-600 border-blue-500/30'
-                                    : 'text-rose-600 border-rose-500/30'
-                                }`}
-                              >
-                                {p.gender === 'male' ? (isBn ? 'পুরুষ' : 'Male') : (isBn ? 'মহিলা' : 'Female')}
-                              </Badge>
+                      {searchResults.map((p) => {
+                        const leg = p.legacyId || getLegacyFileInfo(p).fileNo;
+                        return (
+                          <div
+                            key={p.id}
+                            onClick={() => {
+                              setSelectedPatient(p);
+                              setSearchResults([]);
+                            }}
+                            className="p-2.5 hover:bg-accent cursor-pointer flex items-center justify-between transition-colors"
+                          >
+                            <div className="space-y-0.5">
+                              <div className="flex items-center gap-2">
+                                <span className="font-semibold text-xs sm:text-sm text-foreground">
+                                  {isBn && p.nameBn ? p.nameBn : p.nameEn}
+                                </span>
+                                {leg && (
+                                  <Badge variant="outline" className="text-[9px] py-0 px-1 border-amber-500/50 bg-amber-500/10 text-amber-700 dark:text-amber-300">
+                                    📁 #{leg}
+                                  </Badge>
+                                )}
+                                <Badge
+                                  variant="outline"
+                                  className={`text-[10px] ${
+                                    p.gender === 'male'
+                                      ? 'text-blue-600 border-blue-500/30'
+                                      : 'text-rose-600 border-rose-500/30'
+                                  }`}
+                                >
+                                  {p.gender === 'male' ? (isBn ? 'পুরুষ' : 'Male') : (isBn ? 'মহিলা' : 'Female')}
+                                </Badge>
+                              </div>
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
+                                <span className="font-mono">{p.mrn}</span>
+                                <span>•</span>
+                                <span>{p.phone}</span>
+                                {p.address && (
+                                  <>
+                                    <span>•</span>
+                                    <span className="truncate max-w-[120px]">{p.address}</span>
+                                  </>
+                                )}
+                              </div>
                             </div>
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                              <span className="font-mono">{p.mrn}</span>
-                              <span>•</span>
-                              <span>{p.phone}</span>
-                            </div>
-                          </div>
 
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="ghost"
-                            className="h-7 px-2 text-xs text-emerald-600"
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 px-2 text-xs text-emerald-600"
                           >
                             {isBn ? 'বাছাই' : 'Select'}
                           </Button>

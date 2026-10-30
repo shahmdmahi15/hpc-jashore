@@ -9,6 +9,7 @@ export type { PatientClinicalStatus } from '../api';
 export interface PatientRecord {
   id: string;
   mrn: string;
+  legacyId?: string | null;
   nameEn: string;
   nameBn?: string | null;
   phone: string;
@@ -67,6 +68,7 @@ export interface CreatePatientInput {
   nameEn: string;
   nameBn?: string;
   phone: string;
+  legacyId?: string;
   email?: string;
   ageYears?: number;
   gender: 'male' | 'female';
@@ -86,6 +88,7 @@ export interface UpdatePatientInput {
   nameEn?: string;
   nameBn?: string;
   phone?: string;
+  legacyId?: string;
   email?: string;
   ageYears?: number;
   gender?: 'male' | 'female';

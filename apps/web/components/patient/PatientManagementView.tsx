@@ -257,12 +257,12 @@ export function PatientManagementView() {
               <Input
                 placeholder={
                   isBn
-                    ? 'রেজি নম্বর, নাম, মোবাইল নম্বর, ইমেইল বা ঠিকানা দিয়ে খুঁজুন...'
-                    : 'Search by MRN, name, phone (01XXXXXXXXX), email, or address...'
+                    ? 'পুরাতন আইডি (xxxx), নতুন রেজি নম্বর (MRN), নাম, মোবাইল বা ঠিকানা দিয়ে খুঁজুন...'
+                    : 'Search by Legacy ID (xxxx), new MRN, name, phone (01XXXXXXXXX), or address...'
                 }
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 pr-8 h-10 text-xs sm:text-sm bg-background"
+                className="pl-9 pr-8 h-10 text-xs sm:text-sm bg-background font-medium"
               />
               {searchQuery && (
                 <button
@@ -392,14 +392,14 @@ export function PatientManagementView() {
                       </button>
 
                       {(() => {
-                        const legacy = getLegacyFileInfo(patient.notes);
+                        const legacy = getLegacyFileInfo(patient);
                         if (!legacy.isLegacy) return null;
                         return (
                           <Badge
                             variant="outline"
                             className="text-[10px] py-0 px-1.5 border-amber-500/50 bg-amber-500/10 text-amber-700 dark:text-amber-300 font-semibold gap-1 shrink-0"
                           >
-                            <span>📁 {isBn ? 'পুরাতন ফাইল' : 'Paper File'}</span>
+                            <span>📁 {isBn ? 'পুরাতন আইডি' : 'Legacy ID'}</span>
                             {legacy.fileNo && (
                               <span className="font-mono font-bold text-amber-900 dark:text-amber-100">
                                 #{legacy.fileNo}
@@ -594,16 +594,16 @@ export function PatientManagementView() {
                             )}
                           </button>
                           {(() => {
-                            const legacy = getLegacyFileInfo(patient.notes);
+                            const legacy = getLegacyFileInfo(patient);
                             if (!legacy.isLegacy) return null;
                             return (
                               <div className="pt-0.5">
                                 <Badge
                                   variant="outline"
                                   className="text-[10px] py-0 px-1.5 border-amber-500/50 bg-amber-500/10 text-amber-700 dark:text-amber-300 font-medium inline-flex items-center gap-1"
-                                  title={isBn ? 'সফটওয়্যার চালুর পূর্বের পুরাতন পেপার ফাইল' : 'Existing physical paper file'}
+                                  title={isBn ? 'সফটওয়্যার চালুর পূর্বের পুরাতন পেপার ফাইল / আইডি' : 'Existing legacy paper record / ID'}
                                 >
-                                  <span>📁 {isBn ? 'পুরাতন ফাইল' : 'Paper File'}</span>
+                                  <span>📁 {isBn ? 'পুরাতন আইডি' : 'Legacy ID'}</span>
                                   {legacy.fileNo && (
                                     <span className="font-mono font-bold text-amber-900 dark:text-amber-100">
                                       #{legacy.fileNo}

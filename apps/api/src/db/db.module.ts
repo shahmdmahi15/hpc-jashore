@@ -565,7 +565,7 @@ export type Db = BetterSQLite3Database<typeof schema>;
             }
           } catch {}
 
-          // Ensure email and notes columns in patients
+          // Ensure email, notes, and legacy_id columns in patients
           try {
             const patientCols = sqlite.prepare("PRAGMA table_info(patients)").all() as Array<{ name: string }>;
             const patientColNames = new Set(patientCols.map((c) => c.name));
@@ -574,6 +574,10 @@ export type Db = BetterSQLite3Database<typeof schema>;
             }
             if (!patientColNames.has('notes')) {
               sqlite.exec("ALTER TABLE patients ADD COLUMN notes TEXT");
+            }
+            if (!patientColNames.has('legacy_id')) {
+              sqlite.exec("ALTER TABLE patients ADD COLUMN legacy_id TEXT");
+              sqlite.exec("CREATE INDEX IF NOT EXISTS idx_patients_legacy_id ON patients(legacy_id)");
             }
           } catch {}
 

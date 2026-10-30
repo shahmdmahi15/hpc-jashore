@@ -202,6 +202,8 @@ export class ChatService {
             or(
               eq(patients.mrn, potentialMrn),
               like(patients.mrn, `%${potentialMrn}%`),
+              eq(patients.legacyId, potentialMrn),
+              like(patients.legacyId, `%${potentialMrn}%`),
             ),
           )
           .limit(1);
@@ -333,11 +335,13 @@ export class ChatService {
         .select({
           id: patients.id,
           mrn: patients.mrn,
+          legacyId: patients.legacyId,
           nameEn: patients.nameEn,
           nameBn: patients.nameBn,
           phone: patients.phone,
           ageYears: patients.ageYears,
           gender: patients.gender,
+          address: patients.address,
         })
         .from(patients)
         .where(
@@ -348,7 +352,9 @@ export class ChatService {
                   like(patients.nameEn, pattern),
                   like(patients.nameBn, pattern),
                   like(patients.mrn, pattern),
+                  like(patients.legacyId, pattern),
                   like(patients.phone, pattern),
+                  like(patients.address, pattern),
                 ),
               )
             : isNull(patients.deletedAt),

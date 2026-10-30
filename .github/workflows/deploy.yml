@@ -111,18 +111,23 @@ jobs:
             echo "🔨 Building API on Lightsail..."
             NODE_OPTIONS="--max-old-space-size=2048" pnpm --filter @hpc/api build
 
-            echo "⚡ Building Web with Next.js Turbopack on Lightsail (single worker for low-memory stability)..."
-            rm -f apps/web/.next/lock || true
+            echo "⚡ Building Web with Next.js Turbopack on Lightsail in isolated staging folder (prevents live 500 during build)..."
+            rm -rf apps/web/.next_build
 
-            # Preserve previous static chunks in backup to merge with new build
-            mkdir -p /tmp/next_static_backup
-            cp -r apps/web/.next/static/* /tmp/next_static_backup/ 2>/dev/null || true
+            NEXT_CPU_NUM=1 NEXT_DIST_DIR=.next_build NODE_OPTIONS="--max-old-space-size=1536" pnpm --filter @hpc/web build
 
-            NEXT_CPU_NUM=1 NODE_OPTIONS="--max-old-space-size=1536" pnpm --filter @hpc/web build
+            # Merge previous static chunks into new build so clients holding cached HTML never get 404 on CSS or JS
+            if [ -d apps/web/.next/static ]; then
+              cp -n -r apps/web/.next/static/* apps/web/.next_build/static/ 2>/dev/null || true
+            fi
 
-            # Merge previous static chunks so clients holding cached HTML never get 404 on CSS or JS
-            cp -n -r /tmp/next_static_backup/* apps/web/.next/static/ 2>/dev/null || true
-            rm -rf /tmp/next_static_backup
+            echo "🔄 Atomically swapping Next.js build directories with zero downtime..."
+            rm -rf apps/web/.next_old
+            if [ -d apps/web/.next ]; then
+              mv apps/web/.next apps/web/.next_old
+            fi
+            mv apps/web/.next_build apps/web/.next
+            rm -rf apps/web/.next_old
 
             echo "🔄 Executing Zero-Downtime PM2 Rolling Reload..."
             # 1. Reload API and verify health before touching web

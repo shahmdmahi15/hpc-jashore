@@ -160,7 +160,7 @@ export async function getPatientClinicalStatus(
 
   // 1. Verify Patient Exists
   const patientRows = await db
-    .select({ id: patients.id, notes: patients.notes })
+    .select({ id: patients.id, notes: patients.notes, legacyId: patients.legacyId })
     .from(patients)
     .where(and(eq(patients.id, patientId), isNull(patients.deletedAt)))
     .limit(1);
@@ -171,6 +171,7 @@ export async function getPatientClinicalStatus(
 
   const patientNotes = patientRows[0].notes || '';
   const isLegacyPaperPatient =
+    Boolean(patientRows[0].legacyId?.trim()) ||
     patientNotes.includes('পুরাতন ফাইল') ||
     patientNotes.includes('[legacy_paper_file]') ||
     patientNotes.includes('Old Patient (Paper File)');
