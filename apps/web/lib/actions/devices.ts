@@ -153,9 +153,9 @@ export async function getLatestTvVersionAction(): Promise<{
 }> {
   try {
     const data = await serverFetch<{ latestVersion?: string }>('/updates/check?platform=android-tv');
-    return { success: true, latestVersion: data?.latestVersion || '0.1.54' };
+    return { success: true, latestVersion: data?.latestVersion || '0.1.55' };
   } catch (err: any) {
-    return { success: false, latestVersion: '0.1.54', error: err?.message || 'Failed to check updates' };
+    return { success: false, latestVersion: '0.1.55', error: err?.message || 'Failed to check updates' };
   }
 }
 

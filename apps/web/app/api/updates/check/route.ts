@@ -12,11 +12,11 @@ export async function GET(request: NextRequest) {
       cache: 'no-store',
     });
     if (!res.ok) {
-      return NextResponse.json({ updateAvailable: false, latestVersion: '0.1.54' }, { status: res.status });
+      return NextResponse.json({ updateAvailable: false, latestVersion: '0.1.55' }, { status: res.status });
     }
     const data = await res.json();
     return NextResponse.json(data);
   } catch {
-    return NextResponse.json({ updateAvailable: false, latestVersion: '0.1.54' });
+    return NextResponse.json({ updateAvailable: false, latestVersion: '0.1.55' });
   }
 }

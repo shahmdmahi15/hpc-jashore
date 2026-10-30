@@ -172,7 +172,7 @@ export default function UsersAndDeviceManagementView() {
   const [tvDevices, setTvDevices] = useState<TvDeviceRecord[]>([]);
   const [sessions, setSessions] = useState<UserSessionRecord[]>([]);
   const [loading, setLoading] = useState(true);
-  const [latestTvVersion, setLatestTvVersion] = useState<string>('0.1.54');
+  const [latestTvVersion, setLatestTvVersion] = useState<string>('0.1.55');
 
   // Filter & Search states
   const [searchQuery, setSearchQuery] = useState('');
