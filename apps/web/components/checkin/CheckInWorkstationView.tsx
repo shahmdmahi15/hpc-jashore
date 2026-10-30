@@ -32,7 +32,9 @@ import {
   Radio,
   Eye,
   PhoneCall,
+  FolderArchive,
 } from 'lucide-react';
+import { getLegacyFileInfo } from '../../lib/legacy-patient';
 import { TherapyQueueManagementTab } from '../therapy/TherapyQueueManagementTab';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
@@ -444,6 +446,11 @@ export function CheckInWorkstationView() {
     };
   }, [selectedPatient?.id]);
 
+  const legacyFileInfo = useMemo(() => {
+    return getLegacyFileInfo(selectedPatient?.notes);
+  }, [selectedPatient?.notes]);
+  const isLegacyPatient = legacyFileInfo.isLegacy;
+
   // Filter out any cancelled or deleted bookings from todayBookings
   const validTodayBookings = useMemo(() => {
     return (data?.todayBookings || []).filter(
@@ -454,10 +461,10 @@ export function CheckInWorkstationView() {
   // Filtered list according to tab pill (Pending, Attended, All)
   const displayedTodayBookings = useMemo(() => {
     if (todayBookingFilter === 'pending') {
-      return validTodayBookings.filter((b) => b.status !== 'attended');
+      return validTodayBookings.filter((b) => b.status !== 'attended' && (b.status as any) !== 'completed');
     }
     if (todayBookingFilter === 'attended') {
-      return validTodayBookings.filter((b) => b.status === 'attended');
+      return validTodayBookings.filter((b) => b.status === 'attended' || (b.status as any) === 'completed');
     }
     return validTodayBookings;
   }, [validTodayBookings, todayBookingFilter]);
@@ -470,6 +477,7 @@ export function CheckInWorkstationView() {
         (b) =>
           b.patientId === selectedPatient.id &&
           b.status !== 'attended' &&
+          (b.status as any) !== 'completed' &&
           b.status !== 'cancelled',
       ) || null
     );
@@ -888,7 +896,7 @@ export function CheckInWorkstationView() {
             <Card className="lg:col-span-5 p-4 rounded-2xl border border-border/50 shadow-2xs space-y-4">
               <div>
                 <Label className="text-xs font-bold text-foreground">
-                  {isBn ? '১. রোগী অনুসন্ধান (নাম, ফোন বা MRN)' : '1. Search Patient (Name, Phone or MRN)'}
+                  {isBn ? '১. রোগী অনুসন্ধান (নাম, ফোন বা রেজি নম্বর)' : '1. Search Patient (Name, Phone or MRN)'}
                 </Label>
                 <div className="relative mt-1.5">
                   <Search className="absolute left-3 top-2.5 w-4 h-4 text-muted-foreground" />
@@ -896,7 +904,7 @@ export function CheckInWorkstationView() {
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder={
-                      isBn ? 'রোগীর নাম, ফোন নম্বর বা HPC-2026-XXXXX লিখুন...' : 'Search Name, Phone, or MRN...'
+                      isBn ? 'রোগীর নাম, ফোন নম্বর বা রেজি নম্বর লিখুন...' : 'Search Name, Phone, or MRN...'
                     }
                     className="pl-9 text-xs sm:text-sm h-10"
                   />
@@ -965,6 +973,14 @@ export function CheckInWorkstationView() {
                         <Badge variant="outline" className="text-[10px] animate-pulse">
                           {isBn ? 'স্ট্যাটাস যাচাই...' : 'Checking status...'}
                         </Badge>
+                      ) : isLegacyPatient ? (
+                        <Badge className="bg-amber-600 hover:bg-amber-600 text-white font-bold text-[10px] shadow-2xs gap-1">
+                          <FolderArchive className="size-3" />
+                          <span>
+                            {isBn ? 'পুরাতন ফাইল রোগী' : 'Legacy Paper Patient'}
+                            {legacyFileInfo.fileNo ? ` (#${legacyFileInfo.fileNo})` : ''}
+                          </span>
+                        </Badge>
                       ) : selectedClinicalStatus?.patientType === 'brand_new' ? (
                         <Badge className="bg-blue-600 hover:bg-blue-600 text-white font-bold text-[10px] shadow-2xs gap-1">
                           <span className="size-1.5 rounded-full bg-white animate-ping" />
@@ -1013,7 +1029,26 @@ export function CheckInWorkstationView() {
                   </div>
 
                   {/* Recognition Advisory Alerts */}
-                  {selectedClinicalStatus?.patientType === 'brand_new' && (
+                  {isLegacyPatient ? (
+                    <Alert variant="warning" className="p-2.5 text-xs border-amber-500/40 bg-amber-500/10">
+                      <FolderArchive className="size-3.5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                      <div className="space-y-0.5">
+                        <AlertTitle className="text-xs font-bold text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
+                          <span>{isBn ? 'পুরাতন পেপার ফাইল বিদ্যমান (ইনটেক পূরণ আবশ্যক নয়)' : 'Legacy Paper File on Record (Intake Bypassed)'}</span>
+                          {legacyFileInfo.fileNo && (
+                            <span className="font-mono text-[10px] px-1.5 py-0.2 rounded bg-amber-500/25 text-amber-900 dark:text-amber-100 font-bold">
+                              #{legacyFileInfo.fileNo}
+                            </span>
+                          )}
+                        </AlertTitle>
+                        <AlertDescription className="text-[11px] text-amber-700/90 dark:text-amber-300/90">
+                          {isBn
+                            ? 'এই রোগীর পূর্ববর্তী চিকিৎসার ইতিহাস ক্লিনিকের পেপার ফাইলে সংরক্ষিত আছে। ডিজিটাল ইনটেক ফরম পূরণ করা বাধ্যতামূলক নয়—আপনি সরাসরি ডাক্তার সিরিয়াল বা থেরাপিতে চেক-ইন করাতে পারেন।'
+                            : 'Medical history is already documented in physical clinic files. Digital intake form is optional; proceed directly to consultation or therapy.'}
+                        </AlertDescription>
+                      </div>
+                    </Alert>
+                  ) : selectedClinicalStatus?.patientType === 'brand_new' ? (
                     <Alert variant="info" className="p-2.5 text-xs">
                       <Sparkles className="size-3.5 text-sky-500 shrink-0" />
                       <div className="space-y-0.5">
@@ -1027,7 +1062,7 @@ export function CheckInWorkstationView() {
                         </AlertDescription>
                       </div>
                     </Alert>
-                  )}
+                  ) : null}
 
                   {selectedClinicalStatus?.patientType === 'lapsed_reintake' && (
                     <Alert variant="warning" className="p-2.5 text-xs">
@@ -1155,7 +1190,7 @@ export function CheckInWorkstationView() {
                         </div>
                         <div>
                           <div className="text-xs font-bold text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
-                            {isBn ? 'স্বয়ংক্রিয় থেরাপি কিউ (Auto Therapy Queue)' : 'Automatic Therapy Queue Entry'}
+                            {isBn ? 'স্বয়ংক্রিয় থেরাপি কিউ' : 'Automatic Therapy Queue Entry'}
                             <Badge className="text-[10px] bg-emerald-600 hover:bg-emerald-600 text-white font-mono px-1.5 py-0">
                               {isBn ? 'স্লট নিশ্চিত' : 'Active Slot'}
                             </Badge>
@@ -1186,7 +1221,7 @@ export function CheckInWorkstationView() {
                     <div className="pt-2 border-t border-emerald-500/20 flex flex-wrap items-center justify-between gap-2 text-xs">
                       <div className="flex items-center gap-2">
                         <span className="text-muted-foreground text-[11px]">
-                          {isBn ? 'নির্ধারিত সময় (Told Time):' : 'Told Time:'}
+                          {isBn ? 'নির্ধারিত সময়:' : 'Told Time:'}
                         </span>
                         <strong className="font-mono text-foreground font-bold">
                           {matchedBooking.toldTime || (isBn ? 'নির্দিষ্ট নয়' : 'Not set')}
@@ -1212,7 +1247,7 @@ export function CheckInWorkstationView() {
                         </div>
                         <div>
                           <div className="text-xs font-bold text-sky-900 dark:text-sky-200 flex items-center gap-1.5">
-                            {isBn ? 'অপেক্ষাগার চেক-ইন (Waiting Room Arrival)' : 'Waiting Room Arrival (Consultation)'}
+                            {isBn ? 'অপেক্ষাগার চেক-ইন' : 'Waiting Room Arrival (Consultation)'}
                             <Badge variant="outline" className="text-[10px] border-sky-500/40 text-sky-700 dark:text-sky-300 font-mono">
                               {matchedConsultationBooking.slotTime}
                             </Badge>
@@ -1238,7 +1273,7 @@ export function CheckInWorkstationView() {
                       </div>
                       <div>
                         <div className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                          {isBn ? 'সাধারণ ক্লিনিক চেক-ইন (General Walk-In)' : 'General Walk-In Check-In'}
+                          {isBn ? 'সাধারণ ক্লিনিক চেক-ইন' : 'General Walk-In Check-In'}
                           <Badge variant="secondary" className="text-[10px] font-mono">
                             {isBn ? 'ওয়েটিং রুম' : 'Waiting Room'}
                           </Badge>
@@ -1258,7 +1293,7 @@ export function CheckInWorkstationView() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <Label className="text-xs font-semibold text-foreground">
-                    {isBn ? 'নির্ধারিত সময় (Told Time - ঐচ্ছিক)' : 'Told Time (Optional)'}
+                    {isBn ? 'নির্ধারিত সময় (ঐচ্ছিক)' : 'Told Time (Optional)'}
                   </Label>
                   <Input
                     type="text"
@@ -1274,16 +1309,16 @@ export function CheckInWorkstationView() {
 
                 <div>
                   <Label className="text-xs font-semibold text-foreground">
-                    {isBn ? 'অগ্রাধিকার (Priority)' : 'Priority'}
+                    {isBn ? 'অগ্রাধিকার' : 'Priority'}
                   </Label>
                   <Select value={priority} onValueChange={(v: string) => setPriority(v as any)}>
                     <SelectTrigger className="mt-1 h-9 text-xs">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="normal">{isBn ? 'সাধারণ (Normal)' : 'Normal'}</SelectItem>
-                      <SelectItem value="emergency">{isBn ? '🚨 জরুরি (Emergency)' : '🚨 Emergency'}</SelectItem>
-                      <SelectItem value="vip">{isBn ? '⭐ ভিআইপি (VIP)' : '⭐ VIP'}</SelectItem>
+                      <SelectItem value="normal">{isBn ? 'সাধারণ' : 'Normal'}</SelectItem>
+                      <SelectItem value="emergency">{isBn ? '🚨 জরুরি' : '🚨 Emergency'}</SelectItem>
+                      <SelectItem value="vip">{isBn ? '⭐ ভিআইপি' : '⭐ VIP'}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -1897,7 +1932,7 @@ export function CheckInWorkstationView() {
                   type="text"
                   placeholder={
                     isBn
-                      ? 'নাম, ফোন বা MRN নম্বর...'
+                      ? 'নাম, ফোন বা রেজি নম্বর...'
                       : 'Search by name, phone or MRN...'
                   }
                   value={liveSearchQuery}
@@ -2183,15 +2218,23 @@ export function CheckInWorkstationView() {
       <CreatePatientDialog
         open={isCreatePatientOpen}
         onOpenChange={setIsCreatePatientOpen}
-        onSuccess={(newPatient) => {
+        onSuccess={(newPatient, isOldPatient) => {
           setSelectedPatient(newPatient);
           setSearchQuery(`${newPatient.nameEn} (${newPatient.mrn})`);
           setIsCreatePatientOpen(false);
-          toast.success(
-            isBn
-              ? `রোগী ${newPatient.nameEn} (${newPatient.mrn}) সফলভাবে নিবন্ধিত হয়েছে!`
-              : `Patient ${newPatient.nameEn} (${newPatient.mrn}) registered successfully!`,
-          );
+          if (isOldPatient) {
+            toast.success(
+              isBn
+                ? `পুরাতন রোগী ${newPatient.nameEn} (${newPatient.mrn}) নিবন্ধিত (ইনটেক ফরম বাদ)!`
+                : `Legacy patient ${newPatient.nameEn} (${newPatient.mrn}) registered (Intake bypassed)!`,
+            );
+          } else {
+            toast.success(
+              isBn
+                ? `রোগী ${newPatient.nameEn} (${newPatient.mrn}) সফলভাবে নিবন্ধিত হয়েছে!`
+                : `Patient ${newPatient.nameEn} (${newPatient.mrn}) registered successfully!`,
+            );
+          }
         }}
       />
 
@@ -2290,7 +2333,7 @@ export function CheckInWorkstationView() {
               <div className="font-bold text-xs text-zinc-900 leading-tight">
                 {isBn ? 'এইচপিসি হেলথ অ্যান্ড পেইন কেয়ার সেন্টার' : 'HPC Health & Pain Care Center'}
               </div>
-              <div className="text-[10px] text-zinc-600">চাঁচড়া ডালমিল মোড়, যশোর · hpc@toufiquzzaman.com</div>
+              <div className="text-[10px] text-zinc-600">{isBn ? 'চাঁচড়া ডালমিল মোড়, যশোর' : 'Chanchra Dalmill More, Jashore · hpc@toufiquzzaman.com'}</div>
               <div className="border-t border-b border-dashed border-zinc-400 py-2 my-1">
                 {slipModalData.serialNumber != null && (
                   <div className="mb-1.5 pb-1 border-b border-dashed border-zinc-300">

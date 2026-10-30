@@ -14,6 +14,8 @@ import { ConsultationBookingView } from '../../components/consultation/Consultat
 import { ClinicRealtimeChatView } from '../../components/chat/ClinicRealtimeChatView';
 import { useLanguage } from '../../lib/i18n';
 import { useChatNotifier } from '../../lib/use-chat-notifier';
+import { useDashboardBadges } from '../../lib/use-dashboard-badges';
+import { WorkstationTabBadge } from '../../components/WorkstationTabBadge';
 import {
   CreditCard,
   AlertCircle,
@@ -106,6 +108,7 @@ export default function CashierPage() {
   const { language } = useLanguage();
   const [activeTab, setActiveTab] = useState('dues');
   const { unreadCount } = useChatNotifier(activeTab === 'chat');
+  const badges = useDashboardBadges();
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -152,6 +155,9 @@ export default function CashierPage() {
                     >
                       <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
                       <span>{language === 'bn' ? tab.titleBn : tab.titleEn}</span>
+                      {tab.id === 'dues' && (
+                        <WorkstationTabBadge count={badges.cashierUnpaid} color="amber" pulse={activeTab !== 'dues'} />
+                      )}
                       {isChat && unreadCount > 0 && (
                         <span className="flex items-center gap-1 ml-1">
                           <span className="size-2 rounded-full bg-rose-500 animate-ping" />
@@ -171,6 +177,14 @@ export default function CashierPage() {
             </TabsContent>
 
             <TabsContent value="dues" className="mt-4 focus-visible:outline-none">
+              <CashierView />
+            </TabsContent>
+
+            <TabsContent value="paids" className="mt-4 focus-visible:outline-none">
+              <CashierView />
+            </TabsContent>
+
+            <TabsContent value="refunds" className="mt-4 focus-visible:outline-none">
               <CashierView />
             </TabsContent>
 
@@ -194,7 +208,7 @@ export default function CashierPage() {
               <ClinicRealtimeChatView />
             </TabsContent>
 
-            {CASHIER_TABS.filter((t) => t.id !== 'checkin' && t.id !== 'checkout' && t.id !== 'dues' && t.id !== 'consultation_serial' && t.id !== 'patients' && t.id !== 'therapy_slot' && t.id !== 'chat').map((tab) => (
+            {CASHIER_TABS.filter((t) => t.id !== 'checkin' && t.id !== 'checkout' && t.id !== 'dues' && t.id !== 'paids' && t.id !== 'refunds' && t.id !== 'consultation_serial' && t.id !== 'patients' && t.id !== 'therapy_slot' && t.id !== 'chat').map((tab) => (
               <TabsContent key={tab.id} value={tab.id} className="mt-4 focus-visible:outline-none">
                 <WorkstationTabPlaceholder
                   titleEn={tab.titleEn}

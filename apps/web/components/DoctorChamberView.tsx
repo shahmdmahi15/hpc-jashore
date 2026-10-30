@@ -4,6 +4,7 @@
 import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { api, UserSession, getSession } from '../lib/api';
+import { useLanguage } from '../lib/i18n';
 import { useRealtime } from '../lib/use-realtime';
 import { cn } from '../lib/utils';
 import PrescriptionPrintModal from './PrescriptionPrintModal';
@@ -187,6 +188,8 @@ export function resolvePatientClinicalStatus(
 
 export default function DoctorChamberView({ session: propSession }: DoctorChamberProps = {}) {
   const session = propSession || getSession();
+  const { language } = useLanguage();
+  const isBn = language === 'bn';
   const [queue, setQueue] = useState<any[]>([]);
   const [activeSerial, setActiveSerial] = useState<any>(null);
   const [medicinesList, setMedicinesList] = useState<any[]>([]);
@@ -302,7 +305,19 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
       if (q && q.length > 0) {
         setActiveSerial((prev: any) => {
           if (prev) {
-            return q.find((s: any) => s.id === prev.id) || null;
+            const found = q.find((s: any) => s.id === prev.id);
+            if (found) {
+              if (
+                found.status === prev.status &&
+                found.callCount === prev.callCount &&
+                found.patient?.id === prev.patient?.id &&
+                found.patient?.updatedAt === prev.patient?.updatedAt
+              ) {
+                return prev;
+              }
+              return found;
+            }
+            return null;
           }
           const inProgress = q.find((s: any) => s.status === 'in_chamber' || s.status === 'called');
           return inProgress || null;
@@ -587,10 +602,10 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
     try {
       setCallingActionLoading(true);
       await api.visits.recallSerial(id);
-      toast.info('রোগীকে পুনরায় চেম্বারে ডাকা হয়েছে (Re-announced on TV screens)!');
+      toast.info(isBn ? 'রোগীকে পুনরায় চেম্বারে ডাকা হয়েছে!' : 'Patient recalled to chamber (re-announced on TV screens)!');
       loadQueue();
     } catch (err: any) {
-      toast.error(err?.message || 'পুনরায় ডাকতে ব্যর্থ হয়েছে');
+      toast.error(err?.message || (isBn ? 'পুনরায় ডাকতে ব্যর্থ হয়েছে' : 'Failed to recall patient'));
     } finally {
       setCallingActionLoading(false);
     }
@@ -604,10 +619,10 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
       await api.visits.markInConsultation(id);
       setActiveSerial((prev: any) => ({ ...prev, status: 'in_chamber' }));
       setMobileTab('consultation');
-      toast.success('কনসালটেশন শুরু হয়েছে! রোগীকে ওয়েটিং কিউ স্ক্রিন থেকে সরানো হয়েছে।');
+      toast.success(isBn ? 'কনসালটেশন শুরু হয়েছে! রোগীকে ওয়েটিং কিউ স্ক্রিন থেকে সরানো হয়েছে।' : 'Consultation started! Patient moved from waiting screen.');
       loadQueue();
     } catch (err: any) {
-      toast.error(err?.message || 'কনসালটেশন শুরু করতে ব্যর্থ হয়েছে');
+      toast.error(err?.message || (isBn ? 'কনসালটেশন শুরু করতে ব্যর্থ হয়েছে' : 'Failed to start consultation'));
     } finally {
       setCallingActionLoading(false);
     }
@@ -620,10 +635,10 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
       setCallingActionLoading(true);
       await api.visits.cancelCall(id);
       setActiveSerial((prev: any) => ({ ...prev, status: 'waiting' }));
-      toast.warning('কল বাতিল করা হয়েছে। রোগী ওয়েটিং কিউতে অপেক্ষমাণ থাকবেন।');
+      toast.warning(isBn ? 'কল বাতিল করা হয়েছে। রোগী ওয়েটিং কিউতে অপেক্ষমাণ থাকবেন।' : 'Call canceled. Patient returned to waiting queue.');
       loadQueue();
     } catch (err: any) {
-      toast.error(err?.message || 'কল বাতিল করতে ব্যর্থ হয়েছে');
+      toast.error(err?.message || (isBn ? 'কল বাতিল করতে ব্যর্থ হয়েছে' : 'Failed to cancel call'));
     } finally {
       setCallingActionLoading(false);
     }
@@ -637,7 +652,7 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
         genericName: medicinesList[0]?.genericName || 'Paracetamol',
         dosage: '1+0+1',
         duration: '7 days',
-        instructions: 'খাবারের পর (After meals)',
+        instructions: isBn ? 'খাবারের পর' : 'After meals',
       },
     ]);
   };
@@ -823,7 +838,9 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
       (s.status === 'waiting' || s.status === 'called') &&
       s.visit?.status !== 'checked_out' &&
       !s.visit?.checkedOutAt &&
-      s.visit?.status !== 'cancelled'
+      s.visit?.status !== 'cancelled' &&
+      s.visit?.status !== 'billed' &&
+      s.visit?.currentLocation !== 'cashier'
   );
 
   // Punctuality Badge Helper
@@ -848,27 +865,27 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
     if (status === 'critical_delay') {
       return (
         <Badge className="bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30 text-[10px] font-bold">
-          🚨 অতিরিক্ত দেরি {delay ? `(${delay}মি)` : ''}
+          {isBn ? '🚨 অতিরিক্ত দেরি' : '🚨 Overdue'} {delay ? `(${delay}${isBn ? 'মি' : 'm'})` : ''}
         </Badge>
       );
     }
     if (status === 'early') {
       return (
         <Badge className="bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/30 text-[10px] font-bold">
-          ⚡ পূর্বে উপস্থিতি (Early)
+          {isBn ? '⚡ পূর্বে উপস্থিতি' : '⚡ Early Arrival'}
         </Badge>
       );
     }
     if (item.toldTime) {
       return (
         <Badge variant="outline" className="border-border text-muted-foreground text-[10px]">
-          🕒 সময়: {item.toldTime}
+          {isBn ? '🕒 সময়:' : '🕒 Time:'} {item.toldTime}
         </Badge>
       );
     }
     return (
       <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 text-[10px] font-bold">
-        ⏱️ সময়মতো (On-time)
+        {isBn ? '⏱️ সময়মতো' : '⏱️ On-time'}
       </Badge>
     );
   };
@@ -1049,11 +1066,11 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
             </span>
             <Select value={selectedDoctorId} onValueChange={handleDoctorChange}>
               <SelectTrigger className="w-full sm:w-[260px] h-9 text-xs font-semibold rounded-xl bg-card border-border/80 shadow-xs">
-                <SelectValue placeholder="সকল চেম্বার / All Doctors" />
+                <SelectValue placeholder={isBn ? 'সকল চেম্বার' : 'All Doctors'} />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all" className="text-xs font-medium">
-                  🏥 সকল চেম্বার / All Doctors
+                  🏥 {isBn ? 'সকল চেম্বার' : 'All Doctors'}
                 </SelectItem>
                 {doctorsList.map((doc: any) => {
                   const roomStr = doc.chamberRoomNumber
@@ -1067,7 +1084,11 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
                       value={doc.id || doc.userId}
                       className="text-xs font-medium"
                     >
-                      ডাঃ {doc.displayName || doc.fullName || 'Doctor'}{roomStr}
+                      {(() => {
+                        const rawDoc = doc.displayName || doc.fullName || '';
+                        const cleanDoc = rawDoc.replace(/^(?:ডাঃ|ডা\.|ডাক্তার|Dr\.|Dr\b|Doctor\b)\s*/i, '').trim();
+                        return cleanDoc ? (isBn ? `ডাক্তার ${cleanDoc}` : `Doctor ${cleanDoc}`) : (isBn ? 'ডাক্তার' : 'Doctor');
+                      })()}{roomStr}
                     </SelectItem>
                   );
                 })}
@@ -1338,7 +1359,12 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
                                 className="text-[10px] font-semibold bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/25 px-2 py-0.5 rounded-md"
                               >
                                 <Stethoscope className="size-3 mr-1 inline text-emerald-600 dark:text-emerald-400" />
-                                <span>ডাঃ {doctorName}</span>
+                                <span>
+                                  {(() => {
+                                    const cleanDoc = (doctorName || '').replace(/^(?:ডাঃ|ডা\.|ডাক্তার|Dr\.|Dr\b|Doctor\b)\s*/i, '').trim();
+                                    return cleanDoc ? (isBn ? `ডাক্তার ${cleanDoc}` : `Doctor ${cleanDoc}`) : (isBn ? 'ডাক্তার' : 'Doctor');
+                                  })()}
+                                </span>
                                 {roomNumber && (
                                   <span className="ml-1 text-muted-foreground font-mono font-normal">
                                     ({roomNumber.toString().toLowerCase().includes('room') ? roomNumber : `Room ${roomNumber}`})
@@ -1399,12 +1425,12 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
                                   {isPaid ? (
                                     <Badge className="bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/30 text-xs font-bold gap-1 shadow-2xs">
                                       <CreditCard className="size-3" />
-                                      <span>ফি পরিশোধিত: ৳{feeAmount}</span>
+                                      <span>{isBn ? 'ফি পরিশোধিত: ৳' : 'Fee Paid: BDT '}{feeAmount}</span>
                                     </Badge>
                                   ) : (
                                     <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 text-xs font-bold gap-1 shadow-2xs">
                                       <Gift className="size-3" />
-                                      <span>ফ্রি (Free Consultation)</span>
+                                      <span>{isBn ? 'ফ্রি' : 'Free Consultation'}</span>
                                     </Badge>
                                   )}
 
@@ -1414,7 +1440,7 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
                                       className="bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/30 text-xs font-semibold gap-1 shadow-2xs"
                                     >
                                       <HelpCircle className="size-3" />
-                                      <span>কারণ: {cleanReason}</span>
+                                      <span>{isBn ? 'কারণ: ' : 'Reason: '}{cleanReason}</span>
                                     </Badge>
                                   )}
                                 </div>
@@ -1438,7 +1464,7 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
                                   className="h-8 flex-1 text-xs font-bold border-teal-500/40 text-teal-600 dark:text-teal-400 hover:bg-teal-500/10 gap-1.5 active:scale-95"
                                 >
                                   <FileText className="size-3.5" />
-                                  <span>ইনটেক ফরম</span>
+                                  <span>{isBn ? 'ইনটেক ফরম' : 'Intake Form'}</span>
                                 </Button>
 
                                 <Button
@@ -1452,7 +1478,7 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
                                   className="h-8 flex-1 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white gap-1.5 shadow-sm shadow-emerald-500/20 active:scale-95"
                                 >
                                   <Volume2 className="size-3.5" />
-                                  <span>ডাকুন (Call)</span>
+                                  <span>{isBn ? 'ডাকুন' : 'Call'}</span>
                                 </Button>
                               </div>
                             ) : (
@@ -1571,7 +1597,7 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
                             </span>
                             {activeSerial.status === 'in_chamber' && (
                               <Badge className="bg-emerald-600 text-white text-[10px] font-bold">
-                                পরামর্শ কক্ষ সচল (In Chamber)
+                                {isBn ? 'পরামর্শ কক্ষ সচল' : 'In Chamber'}
                               </Badge>
                             )}
                           </div>
@@ -1582,10 +1608,10 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
                             )}
                           </h2>
                           <div className="text-xs sm:text-sm text-muted-foreground mt-1">
-                            MRN: <strong className="text-foreground">{activeSerial.patient?.mrn || 'N/A'}</strong> · আগমনের সময়: {activeSerial.checkedInAt ? new Date(activeSerial.checkedInAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : (activeSerial.bookingTime || 'আজ')}
-                            {activeSerial.patient?.ageYears ? ` · বয়স: ${activeSerial.patient.ageYears} Y` : ''}
-                            {activeSerial.patient?.gender ? ` · লিঙ্গ: ${activeSerial.patient.gender === 'female' ? 'নারী' : activeSerial.patient.gender === 'male' ? 'পুরুষ' : 'অন্যান্য'}` : ''}
-                            {activeSerial.patient?.phone ? ` · ফোন: ${activeSerial.patient.phone}` : ''}
+                            {isBn ? 'এমআরএন:' : 'MRN:'} <strong className="text-foreground">{activeSerial.patient?.mrn || 'N/A'}</strong> · {isBn ? 'আগমনের সময়:' : 'Arrival:'} {activeSerial.checkedInAt ? new Date(activeSerial.checkedInAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : (activeSerial.bookingTime || (isBn ? 'আজ' : 'Today'))}
+                            {activeSerial.patient?.ageYears ? ` · ${isBn ? 'বয়স:' : 'Age:'} ${activeSerial.patient.ageYears} ${isBn ? 'বছর' : 'Y'}` : ''}
+                            {activeSerial.patient?.gender ? ` · ${isBn ? 'লিঙ্গ:' : 'Gender:'} ${activeSerial.patient.gender === 'female' ? (isBn ? 'নারী' : 'Female') : activeSerial.patient.gender === 'male' ? (isBn ? 'পুরুষ' : 'Male') : (isBn ? 'অন্যান্য' : 'Other')}` : ''}
+                            {activeSerial.patient?.phone ? ` · ${isBn ? 'ফোন:' : 'Phone:'} ${activeSerial.patient.phone}` : ''}
                           </div>
                         </div>
 
@@ -1616,12 +1642,12 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
                                 {isActivePaid ? (
                                   <Badge className="bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/30 text-xs font-bold gap-1 shadow-2xs">
                                     <CreditCard className="size-3.5" />
-                                    <span>ফি পরিশোধিত: ৳{activeFeeAmount}</span>
+                                    <span>{isBn ? 'ফি পরিশোধিত: ৳' : 'Fee Paid: BDT '}{activeFeeAmount}</span>
                                   </Badge>
                                 ) : (
                                   <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 text-xs font-bold gap-1 shadow-2xs">
                                     <Gift className="size-3.5" />
-                                    <span>ফ্রি (Free Consultation)</span>
+                                    <span>{isBn ? 'ফ্রি' : 'Free Consultation'}</span>
                                   </Badge>
                                 )}
 
@@ -1664,7 +1690,7 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
                     <div className="flex items-center gap-2">
                       <Badge className="bg-emerald-600 text-white font-bold text-xs gap-1.5 py-1">
                         <Stethoscope className="size-3.5" />
-                        <span>কনসালটেশন টুলবার (Consultation Action Toolbar)</span>
+                        <span>{isBn ? 'কনসালটেশন টুলবার' : 'Consultation Action Toolbar'}</span>
                       </Badge>
                       <span className="text-xs text-muted-foreground hidden md:inline">
                         রোগীর সকল ফাইল, টাইমলাইন, প্রেসক্রিপশন ও থেরাপি প্ল্যান নিয়ন্ত্রণ করুন
@@ -1687,7 +1713,7 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
                       className="h-11 text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm flex flex-col items-center justify-center p-1 gap-0.5 active:scale-95 cursor-pointer"
                     >
                       <FilePlus className="size-4 shrink-0" />
-                      <span className="truncate w-full text-center">নতুন ফাইল</span>
+                      <span className="truncate w-full text-center">{isBn ? 'নতুন ফাইল' : 'New File'}</span>
                     </Button>
 
                     {/* 2. All Files */}
@@ -1699,7 +1725,7 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
                       className="h-11 text-xs font-bold border-purple-500/40 text-purple-600 dark:text-purple-400 hover:bg-purple-500/10 flex flex-col items-center justify-center p-1 gap-0.5 active:scale-95 cursor-pointer"
                     >
                       <FolderOpen className="size-4 shrink-0" />
-                      <span className="truncate w-full text-center">সকল ফাইল {assessmentFilesCount > 0 ? `(${assessmentFilesCount})` : ''}</span>
+                      <span className="truncate w-full text-center">{isBn ? 'সকল ফাইল' : 'All Files'} {assessmentFilesCount > 0 ? `(${assessmentFilesCount})` : ''}</span>
                     </Button>
 
                     {/* 3. Intake Assessment (A4 print) */}
@@ -1714,7 +1740,7 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
                       className="h-11 text-xs font-bold border-teal-500/40 text-teal-600 dark:text-teal-400 hover:bg-teal-500/10 flex flex-col items-center justify-center p-1 gap-0.5 active:scale-95 cursor-pointer"
                     >
                       <FileText className="size-4 shrink-0" />
-                      <span className="truncate w-full text-center">ইনটেক ফরম</span>
+                      <span className="truncate w-full text-center">{isBn ? 'ইনটেক ফরম' : 'Intake Form'}</span>
                     </Button>
 
                     {/* 4. Timeline */}
@@ -1825,7 +1851,7 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
                       className="h-9 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold gap-2 shadow-md shadow-emerald-500/20 active:scale-95 flex-1 min-w-[170px] cursor-pointer"
                     >
                       <CheckCircle className="size-4" />
-                      <span>Mark in Consultation (কনসালটেশন শুরু)</span>
+                      <span>{isBn ? 'কনসালটেশন শুরু' : 'Mark in Consultation'}</span>
                     </Button>
 
                     <Button
@@ -1836,7 +1862,7 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
                       className="h-9 px-4 border-amber-500/60 bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 font-bold gap-2 active:scale-95 flex-1 min-w-[140px] cursor-pointer"
                     >
                       <PhoneCall className="size-4" />
-                      <span>Recall (পুনরায় ডাকুন)</span>
+                      <span>{isBn ? 'পুনরায় ডাকুন' : 'Recall'}</span>
                     </Button>
 
                     <Button
@@ -1847,7 +1873,7 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
                       className="h-9 px-3.5 border border-border/80 hover:bg-rose-500/10 text-muted-foreground hover:text-rose-600 font-semibold gap-1.5 active:scale-95 cursor-pointer"
                     >
                       <XCircle className="size-4 text-rose-500" />
-                      <span>Cancel (কল বাতিল)</span>
+                      <span>{isBn ? 'কল বাতিল' : 'Cancel Call'}</span>
                     </Button>
                   </div>
                 </div>
@@ -1935,7 +1961,7 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
                               className="h-8 text-xs font-bold border-teal-500/40 text-teal-700 dark:text-teal-300 hover:bg-teal-500/10 gap-1.5 active:scale-95 cursor-pointer"
                             >
                               <Printer className="size-3.5" />
-                              <span>A4 প্রিন্ট</span>
+                              <span>{isBn ? 'প্রিন্ট' : 'Print A4'}</span>
                             </Button>
                           </div>
                         </div>
@@ -1946,7 +1972,7 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
                           {/* BP */}
                           <div className="p-2 sm:p-2.5 rounded-xl border border-border/70 bg-card/70 flex flex-col items-center text-center">
-                            <span className="text-[10px] font-bold text-muted-foreground uppercase">রক্তচাপ (BP)</span>
+                            <span className="text-[10px] font-bold text-muted-foreground uppercase">{isBn ? 'রক্তচাপ' : 'BP'}</span>
                             <span className="text-xs sm:text-sm font-black font-mono text-foreground mt-0.5">
                               {activeIntakeForm.bpSystolic ? `${activeIntakeForm.bpSystolic}/${activeIntakeForm.bpDiastolic || '--'}` : '—'}
                             </span>
@@ -1955,7 +1981,7 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
 
                           {/* Blood Sugar */}
                           <div className="p-2 sm:p-2.5 rounded-xl border border-border/70 bg-card/70 flex flex-col items-center text-center">
-                            <span className="text-[10px] font-bold text-muted-foreground uppercase">রক্তের শর্করা (RBS)</span>
+                            <span className="text-[10px] font-bold text-muted-foreground uppercase">{isBn ? 'রক্তের শর্করা' : 'Blood Sugar (RBS)'}</span>
                             <span className="text-xs sm:text-sm font-black font-mono text-foreground mt-0.5">
                               {activeIntakeForm.bloodSugar ? activeIntakeForm.bloodSugar : '—'}
                             </span>
@@ -1964,7 +1990,7 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
 
                           {/* Weight */}
                           <div className="p-2 sm:p-2.5 rounded-xl border border-border/70 bg-card/70 flex flex-col items-center text-center">
-                            <span className="text-[10px] font-bold text-muted-foreground uppercase">ওজন (Weight)</span>
+                            <span className="text-[10px] font-bold text-muted-foreground uppercase">{isBn ? 'ওজন' : 'Weight'}</span>
                             <span className="text-xs sm:text-sm font-black font-mono text-foreground mt-0.5">
                               {activeIntakeForm.weightKg ? activeIntakeForm.weightKg : '—'}
                             </span>
@@ -1973,7 +1999,7 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
 
                           {/* Pulse */}
                           <div className="p-2 sm:p-2.5 rounded-xl border border-border/70 bg-card/70 flex flex-col items-center text-center">
-                            <span className="text-[10px] font-bold text-muted-foreground uppercase">পালস (Pulse)</span>
+                            <span className="text-[10px] font-bold text-muted-foreground uppercase">{isBn ? 'পালস' : 'Pulse'}</span>
                             <span className="text-xs sm:text-sm font-black font-mono text-foreground mt-0.5">
                               {activeIntakeForm.pulseRate ? activeIntakeForm.pulseRate : '—'}
                             </span>
@@ -1982,7 +2008,7 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
 
                           {/* Temperature */}
                           <div className="p-2 sm:p-2.5 rounded-xl border border-border/70 bg-card/70 flex flex-col items-center text-center">
-                            <span className="text-[10px] font-bold text-muted-foreground uppercase">তাপমাত্রা (Temp)</span>
+                            <span className="text-[10px] font-bold text-muted-foreground uppercase">{isBn ? 'তাপমাত্রা' : 'Temp'}</span>
                             <span className="text-xs sm:text-sm font-black font-mono text-foreground mt-0.5">
                               {activeIntakeForm.temperatureF ? activeIntakeForm.temperatureF : '—'}
                             </span>
@@ -1991,7 +2017,7 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
 
                           {/* VAS Pain */}
                           <div className="p-2 sm:p-2.5 rounded-xl border border-border/70 bg-card/70 flex flex-col items-center text-center">
-                            <span className="text-[10px] font-bold text-muted-foreground uppercase">ব্যথার মাত্রা (VAS)</span>
+                            <span className="text-[10px] font-bold text-muted-foreground uppercase">{isBn ? 'ব্যথার মাত্রা' : 'Pain (VAS)'}</span>
                             <span className="text-xs sm:text-sm font-black font-mono text-rose-600 dark:text-rose-400 mt-0.5">
                               {activeIntakeForm.painSeverity ? `${activeIntakeForm.painSeverity}/10` : '—'}
                             </span>
@@ -2002,7 +2028,7 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
                         {/* Clinical Complaints & Region Details */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 pt-1 text-xs">
                           <div className="p-2.5 rounded-xl border border-border/60 bg-card/50 space-y-1">
-                            <span className="text-muted-foreground font-bold">প্রধান অভিযোগ (Chief Complaints):</span>
+                            <span className="text-muted-foreground font-bold">{isBn ? 'প্রধান অভিযোগ:' : 'Chief Complaints:'}</span>
                             <p className="font-semibold text-foreground text-xs leading-relaxed">
                               {activeIntakeForm.chiefComplaint || 'কোনো বিবরণ রেকর্ড করা নেই'}
                             </p>
@@ -2317,7 +2343,7 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
                           className="text-xs font-bold gap-1 cursor-pointer"
                         >
                           <Printer className="size-3.5" />
-                          <span>A4 প্রিন্ট</span>
+                          <span>{isBn ? 'প্রিন্ট' : 'Print A4'}</span>
                         </Button>
                       )}
                     </div>
@@ -2352,13 +2378,13 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
                   <CardContent className="space-y-3 pb-3 flex-1 flex flex-col justify-between">
                     <div className="p-3 rounded-xl bg-muted/30 border border-border/50 text-xs space-y-1">
                       <div className="flex justify-between items-center">
-                        <span className="font-semibold text-muted-foreground">ব্যথা মূল্যায়ন ফরম (Pain Sheet):</span>
+                        <span className="font-semibold text-muted-foreground">{isBn ? 'ব্যথা মূল্যায়ন ফরম:' : 'Pain Assessment Sheet:'}</span>
                         <span className="font-mono font-bold text-foreground">
-                          {assessmentFilesCount > 0 ? 'সংরক্ষিত আছে' : 'রেকর্ড করা হয়নি'}
+                          {assessmentFilesCount > 0 ? (isBn ? 'সংরক্ষিত আছে' : 'Recorded') : (isBn ? 'রেকর্ড করা হয়নি' : 'None')}
                         </span>
                       </div>
                       <div className="flex justify-between items-center text-[11px] text-muted-foreground">
-                        <span>বর্তমান VAS স্কোর:</span>
+                        <span>{isBn ? 'বর্তমান স্কোর:' : 'Current VAS Score:'}</span>
                         <span className="font-black text-rose-600 font-mono">{painScore}/10</span>
                       </div>
                     </div>
@@ -2460,7 +2486,7 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
                         className="text-xs font-semibold border-border/80 text-muted-foreground hover:text-foreground cursor-pointer"
                       >
                         <Printer className="size-3.5 mr-1" />
-                        <span>A4 প্রিন্ট</span>
+                        <span>{isBn ? 'প্রিন্ট' : 'Print A4'}</span>
                       </Button>
                     </div>
                   </CardContent>
@@ -2475,7 +2501,7 @@ export default function DoctorChamberView({ session: propSession }: DoctorChambe
                   <div className="space-y-1 text-center md:text-left">
                     <h3 className="text-base sm:text-lg font-black text-foreground flex items-center gap-2 justify-center md:justify-start">
                       <CheckCircle className="size-5 text-emerald-600 dark:text-emerald-400" />
-                      <span>কনসালটেশন সমাপ্তি ও পরবর্তী ডেস্কে প্রেরণ (Send Patient)</span>
+                      <span>{isBn ? 'কনসালটেশন সমাপ্তি ও পরবর্তী ডেস্কে প্রেরণ' : 'Complete Consultation & Route Patient'}</span>
                     </h3>
                     <p className="text-xs text-muted-foreground max-w-xl">
                       প্রেসক্রিপশন ও থেরাপি ট্রিটমেন্ট প্ল্যান প্রস্তুত হলে রোগীকে থেরাপি হল বা ক্যাশ কাউন্টারে পাঠান।

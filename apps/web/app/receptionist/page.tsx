@@ -13,6 +13,8 @@ import { ConsultationBookingView } from '../../components/consultation/Consultat
 import { ClinicRealtimeChatView } from '../../components/chat/ClinicRealtimeChatView';
 import { useLanguage } from '../../lib/i18n';
 import { useChatNotifier } from '../../lib/use-chat-notifier';
+import { useDashboardBadges } from '../../lib/use-dashboard-badges';
+import { WorkstationTabBadge } from '../../components/WorkstationTabBadge';
 import {
   UserCheck,
   LogOut,
@@ -62,7 +64,7 @@ const RECEPTIONIST_TABS = [
     titleBn: 'রোগী তালিকা',
     icon: Users,
     descriptionEn: 'Patient directory, MRN search, contact records, and registration history.',
-    descriptionBn: 'রোগীদের ডাটাবেস, এমআরএন (MRN) অনুসন্ধান এবং পূর্ববর্তী রেজিস্ট্রেশন রেকর্ড।',
+    descriptionBn: 'রোগীদের ডাটাবেস, রেজি নম্বর অনুসন্ধান এবং পূর্ববর্তী রেজিস্ট্রেশন রেকর্ড।',
   },
   {
     id: 'chat',
@@ -78,6 +80,7 @@ export default function ReceptionistPage() {
   const { language } = useLanguage();
   const [activeTab, setActiveTab] = useState('checkin');
   const { unreadCount } = useChatNotifier(activeTab === 'chat');
+  const badges = useDashboardBadges();
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -124,6 +127,12 @@ export default function ReceptionistPage() {
                     >
                       <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
                       <span>{language === 'bn' ? tab.titleBn : tab.titleEn}</span>
+                      {tab.id === 'consultation_serial' && (
+                        <WorkstationTabBadge count={badges.consultationWaiting} color="emerald" pulse={activeTab !== 'consultation_serial'} />
+                      )}
+                      {tab.id === 'therapy_slot' && (
+                        <WorkstationTabBadge count={badges.therapyWaiting} color="blue" pulse={activeTab !== 'therapy_slot'} />
+                      )}
                       {isChat && unreadCount > 0 && (
                         <span className="flex items-center gap-1 ml-1">
                           <span className="size-2 rounded-full bg-rose-500 animate-ping" />

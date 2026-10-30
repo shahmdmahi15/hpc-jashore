@@ -19,6 +19,7 @@ import { MailService } from '../mail/mail.service';
 import { RealtimeService } from '../realtime/realtime.service';
 import { EventsGateway } from '../realtime/events.gateway';
 import {
+  authVerificationCodes,
   refreshSessions,
   users,
   type Role,
@@ -37,9 +38,6 @@ interface ReqMeta {
 
 @Injectable()
 export class AuthService {
-  private readonly passwordResetCodes = new Map<string, { code: string; expiresAt: number }>();
-  private readonly emailVerificationCodes = new Map<string, { code: string; expiresAt: number }>();
-
   constructor(
     @Inject(DB) private readonly db: Db,
     private readonly jwt: JwtService,
@@ -394,9 +392,18 @@ export class AuthService {
 
     // Generate 6-digit verification code
     const code = Math.floor(100000 + Math.random() * 900000).toString();
-    this.emailVerificationCodes.set(normalized, {
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+
+    // Clean up any prior pending codes for this email and insert new persistent code
+    await this.db
+      .delete(authVerificationCodes)
+      .where(and(eq(authVerificationCodes.email, normalized), eq(authVerificationCodes.type, 'email_verification')));
+    await this.db.insert(authVerificationCodes).values({
+      id: randomUUID(),
+      email: normalized,
       code,
-      expiresAt: Date.now() + 24 * 60 * 60 * 1000,
+      type: 'email_verification',
+      expiresAt,
     });
 
     // Send verification email asynchronously
@@ -426,9 +433,18 @@ export class AuthService {
 
     // Generate 6-digit PIN
     const pin = Math.floor(100000 + Math.random() * 900000).toString();
-    this.passwordResetCodes.set(normalized, {
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+
+    // Clean up previous reset codes and insert persistent code
+    await this.db
+      .delete(authVerificationCodes)
+      .where(and(eq(authVerificationCodes.email, normalized), eq(authVerificationCodes.type, 'password_reset')));
+    await this.db.insert(authVerificationCodes).values({
+      id: randomUUID(),
+      email: normalized,
       code: pin,
-      expiresAt: Date.now() + 15 * 60 * 1000,
+      type: 'password_reset',
+      expiresAt,
     });
 
     if (user) {
@@ -452,9 +468,14 @@ export class AuthService {
 
   async resetPassword(dto: ResetPasswordDto, meta: ReqMeta) {
     const normalized = dto.email.trim().toLowerCase();
-    const cached = this.passwordResetCodes.get(normalized);
+    const rowsCode = await this.db
+      .select()
+      .from(authVerificationCodes)
+      .where(and(eq(authVerificationCodes.email, normalized), eq(authVerificationCodes.type, 'password_reset')));
+    const codeRecord = rowsCode[0];
 
-    if (!cached || cached.code !== dto.code.trim() || cached.expiresAt < Date.now()) {
+    const nowIso = new Date().toISOString();
+    if (!codeRecord || codeRecord.code !== dto.code.trim() || codeRecord.expiresAt < nowIso) {
       throw new BadRequestException('Invalid or expired password reset PIN.');
     }
 
@@ -474,7 +495,10 @@ export class AuthService {
       })
       .where(eq(users.id, user.id));
 
-    this.passwordResetCodes.delete(normalized);
+    // Delete used code
+    await this.db
+      .delete(authVerificationCodes)
+      .where(and(eq(authVerificationCodes.email, normalized), eq(authVerificationCodes.type, 'password_reset')));
 
     await this.audit.log({
       actorUserId: user.id,
@@ -494,9 +518,14 @@ export class AuthService {
 
   async verifyEmail(dto: VerifyEmailDto, meta: ReqMeta) {
     const normalized = dto.email.trim().toLowerCase();
-    const cached = this.emailVerificationCodes.get(normalized);
+    const rowsCode = await this.db
+      .select()
+      .from(authVerificationCodes)
+      .where(and(eq(authVerificationCodes.email, normalized), eq(authVerificationCodes.type, 'email_verification')));
+    const codeRecord = rowsCode[0];
 
-    if (!cached || cached.code !== dto.code.trim() || cached.expiresAt < Date.now()) {
+    const nowIso = new Date().toISOString();
+    if (!codeRecord || codeRecord.code !== dto.code.trim() || codeRecord.expiresAt < nowIso) {
       throw new BadRequestException('Invalid or expired email verification code.');
     }
 
@@ -522,7 +551,10 @@ export class AuthService {
       });
     }
 
-    this.emailVerificationCodes.delete(normalized);
+    // Delete used code
+    await this.db
+      .delete(authVerificationCodes)
+      .where(and(eq(authVerificationCodes.email, normalized), eq(authVerificationCodes.type, 'email_verification')));
 
     const isApproved = user?.isApproved === 1;
     return {
@@ -539,9 +571,17 @@ export class AuthService {
     const user = rows[0];
 
     const code = Math.floor(100000 + Math.random() * 900000).toString();
-    this.emailVerificationCodes.set(normalized, {
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+
+    await this.db
+      .delete(authVerificationCodes)
+      .where(and(eq(authVerificationCodes.email, normalized), eq(authVerificationCodes.type, 'email_verification')));
+    await this.db.insert(authVerificationCodes).values({
+      id: randomUUID(),
+      email: normalized,
       code,
-      expiresAt: Date.now() + 24 * 60 * 60 * 1000,
+      type: 'email_verification',
+      expiresAt,
     });
 
     if (user) {

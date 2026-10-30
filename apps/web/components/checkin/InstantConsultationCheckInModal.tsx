@@ -200,7 +200,7 @@ export function InstantConsultationCheckInModal({
       onSuccess({
         tokenNumber: assignedToken,
         serialNumber: assignedSerial,
-        doctorName: selectedDoctor?.displayName || 'Dr. Consultant',
+        doctorName: selectedDoctor?.displayName || 'Doctor Consultant',
         visitType,
         slotTime: selectedSlotTime,
         feeTaka: currentFee,
@@ -268,7 +268,7 @@ export function InstantConsultationCheckInModal({
           {/* 1. CONSULTATION TYPE SELECTOR (New, Follow Up, Report Show) */}
           <div className="space-y-1.5">
             <Label className="text-xs font-bold text-foreground flex items-center justify-between">
-              <span>{isBn ? '১. কনসালটেশনের ধরন (Consultation Type) *' : '1. Consultation Type *'}</span>
+              <span>{isBn ? '১. কনসালটেশনের ধরন *' : '1. Consultation Type *'}</span>
               <span className="text-[11px] font-normal text-muted-foreground">
                 {isBn ? 'নির্ধারিত কনসালটেশন ফি প্রযোজ্য' : 'Applicable doctor fee'}
               </span>
@@ -470,7 +470,7 @@ export function InstantConsultationCheckInModal({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <Label className="text-xs font-semibold text-foreground mb-1 block">
-                {isBn ? 'রোগীর অগ্রাধিকার (Priority)' : 'Patient Priority'}
+                {isBn ? 'রোগীর অগ্রাধিকার' : 'Patient Priority'}
               </Label>
               <Select value={priority} onValueChange={(v: any) => setPriority(v)}>
                 <SelectTrigger className="h-9 text-xs border-border bg-card">
@@ -478,13 +478,13 @@ export function InstantConsultationCheckInModal({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="normal" className="text-xs">
-                    {isBn ? 'সাধারণ (Normal)' : 'Normal'}
+                    {isBn ? 'সাধারণ' : 'Normal'}
                   </SelectItem>
                   <SelectItem value="emergency" className="text-xs text-rose-600 font-bold">
-                    {isBn ? 'জরুরি (Emergency)' : 'Emergency'}
+                    {isBn ? '🚨 জরুরি' : '🚨 Emergency'}
                   </SelectItem>
                   <SelectItem value="vip" className="text-xs text-amber-600 font-bold">
-                    {isBn ? 'বীর মুক্তিযোদ্ধা / ভিআইপি (VIP)' : 'VIP / Senior'}
+                    {isBn ? '⭐ বীর মুক্তিযোদ্ধা / ভিআইপি' : '⭐ VIP / Senior'}
                   </SelectItem>
                 </SelectContent>
               </Select>

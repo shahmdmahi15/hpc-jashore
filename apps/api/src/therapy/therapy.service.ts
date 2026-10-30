@@ -18,6 +18,7 @@ import {
   patientTimelineEvents,
   rooms,
   therapyPlans,
+  therapySessionModalities,
   therapySessions,
   therapySlotBookings,
   users,
@@ -63,34 +64,39 @@ export class TherapyService {
     const now = new Date().toISOString();
     const today = now.slice(0, 10);
 
-    // 0. Ensure foreign key target tables exist in SQLite so FK checks never fail
-    try {
-      (this.db as any).session?.client?.exec(`
-        CREATE TABLE IF NOT EXISTS machines (id TEXT PRIMARY KEY NOT NULL, name TEXT, modality_code TEXT, is_active INTEGER NOT NULL DEFAULT 1);
-        CREATE TABLE IF NOT EXISTS beds (id TEXT PRIMARY KEY NOT NULL, name TEXT, is_active INTEGER NOT NULL DEFAULT 1);
-      `);
-    } catch {}
+    // 1. Ensure all requested modalities exist in database so foreign key never fails
+    const rawCodes: string[] = [];
+    if (dto.modalityCodes && Array.isArray(dto.modalityCodes) && dto.modalityCodes.length > 0) {
+      rawCodes.push(...dto.modalityCodes);
+    } else if (dto.modalityCode) {
+      rawCodes.push(dto.modalityCode);
+    } else {
+      rawCodes.push('IFT');
+    }
 
-    // 1. Ensure modality exists in database so foreign key never fails
-    const modCode = (dto.modalityCode || 'IFT').trim();
-    const modRow = await this.db.select().from(modalities).where(eq(modalities.code, modCode));
-    if (!modRow[0]) {
-      try {
-        await this.db.insert(modalities).values({
-          id: `mod-${modCode.toLowerCase()}`,
-          code: modCode,
-          nameEn: `${modCode} Therapy`,
-          nameBn: `${modCode} থেরাপি`,
-          defaultDurationMin: dto.durationMinutes || 15,
-          defaultPricePaisa: 30000,
-          isActive: 1,
-        });
-      } catch {
+    const allModalityCodes = Array.from(new Set(rawCodes.map((c) => (c || '').trim()).filter(Boolean)));
+    const modCode = allModalityCodes[0] || 'IFT';
+
+    for (const code of allModalityCodes) {
+      const modRow = await this.db.select().from(modalities).where(eq(modalities.code, code));
+      if (!modRow[0]) {
         try {
-          (this.db as any).session?.client
-            ?.prepare('INSERT OR IGNORE INTO modalities (id, code, name_en, name_bn, default_duration_min, default_price_paisa, is_active) VALUES (?, ?, ?, ?, ?, ?, 1)')
-            ?.run(`mod-${modCode.toLowerCase()}`, modCode, `${modCode} Therapy`, `${modCode} থেরাপি`, dto.durationMinutes || 15, 30000);
-        } catch {}
+          await this.db.insert(modalities).values({
+            id: `mod-${code.toLowerCase()}`,
+            code: code,
+            nameEn: `${code} Therapy`,
+            nameBn: `${code} থেরাপি`,
+            defaultDurationMin: dto.durationMinutes || 15,
+            defaultPricePaisa: 30000,
+            isActive: 1,
+          });
+        } catch {
+          try {
+            (this.db as any).session?.client
+              ?.prepare('INSERT OR IGNORE INTO modalities (id, code, name_en, name_bn, default_duration_min, default_price_paisa, is_active) VALUES (?, ?, ?, ?, ?, ?, 1)')
+              ?.run(`mod-${code.toLowerCase()}`, code, `${code} Therapy`, `${code} থেরাপি`, dto.durationMinutes || 15, 30000);
+          } catch {}
+        }
       }
     }
 
@@ -125,6 +131,18 @@ export class TherapyService {
       }
     }
 
+    let sessionOutcomeNote = dto.notes ?? null;
+    if (allModalityCodes.length > 1) {
+      try {
+        sessionOutcomeNote = JSON.stringify({
+          notes: dto.notes || null,
+          modalityCodes: allModalityCodes,
+        });
+      } catch {
+        sessionOutcomeNote = dto.notes ?? null;
+      }
+    }
+
     const sessionId = randomUUID();
     const row = {
       id: sessionId,
@@ -137,7 +155,7 @@ export class TherapyService {
       startedAt: now,
       endedAt: null,
       durationMinutes: dto.durationMinutes ?? 0,
-      outcomeNote: dto.notes ?? null,
+      outcomeNote: sessionOutcomeNote,
       painScoreAfter: null,
       isOvertime: 0,
       createdAt: now,
@@ -164,11 +182,29 @@ export class TherapyService {
             ?.prepare(
               'INSERT INTO therapy_sessions (id, plan_id, patient_id, therapist_staff_id, bed_id, modality_code, status, started_at, duration_minutes, outcome_note, is_overtime, created_at, updated_at) VALUES (?, NULL, ?, NULL, NULL, ?, ?, ?, ?, ?, 0, ?, ?)'
             )
-            ?.run(sessionId, dto.patientId, modCode, 'in_progress', now, dto.durationMinutes ?? 15, dto.notes ?? null, now, now);
+            ?.run(sessionId, dto.patientId, modCode, 'in_progress', now, dto.durationMinutes ?? 15, sessionOutcomeNote, now, now);
         } catch (rawErr) {
           console.error('CRITICAL: All therapy_sessions insert attempts failed:', rawErr);
           throw rawErr;
         }
+      }
+    }
+
+    // Relational multi-modality tracking: record every modality executed in this therapy session
+    for (const code of allModalityCodes) {
+      try {
+        await this.db.insert(therapySessionModalities).values({
+          id: randomUUID(),
+          sessionId,
+          modalityCode: code,
+          durationMinutes: dto.durationMinutes ?? 15,
+          status: 'in_progress',
+          notes: dto.notes ?? null,
+          createdAt: now,
+          updatedAt: now,
+        });
+      } catch (modErr) {
+        console.warn('Could not insert therapySessionModalities row:', modErr);
       }
     }
 
@@ -297,8 +333,16 @@ export class TherapyService {
       if (visitRows[0]) {
         await this.db
           .update(visits)
-          .set({ currentLocation: 'reception', updatedAt: now })
+          .set({ currentLocation: 'reception', status: 'checked_in', updatedAt: now })
           .where(eq(visits.id, sessionId));
+
+        if (visitRows[0].therapyBookingId) {
+          await this.db
+            .update(therapySlotBookings)
+            .set({ status: 'completed', updatedAt: now })
+            .where(eq(therapySlotBookings.id, visitRows[0].therapyBookingId))
+            .catch(() => {});
+        }
         return { ok: true, visitId: sessionId, completedAt: now };
       }
       throw new NotFoundException('Therapy session not found');
@@ -324,15 +368,31 @@ export class TherapyService {
       })
       .where(eq(therapySessions.id, session.id));
 
-    // Route any active in_therapy visit for this patient to reception
+    // Route any active in_therapy visit for this patient to reception and set status to checked_in
     await this.db
       .update(visits)
       .set({
         currentLocation: 'reception',
+        status: 'checked_in',
         updatedAt: now,
       })
       .where(and(eq(visits.patientId, session.patientId), eq(visits.status, 'in_therapy')))
       .catch(() => {});
+
+    // Mark therapy slot booking completed for this patient/session today
+    try {
+      const today = now.slice(0, 10);
+      await this.db
+        .update(therapySlotBookings)
+        .set({ status: 'completed', updatedAt: now })
+        .where(
+          and(
+            eq(therapySlotBookings.patientId, session.patientId),
+            eq(therapySlotBookings.bookingDate, today),
+            sql`${therapySlotBookings.status} NOT IN ('cancelled', 'completed')`,
+          ),
+        );
+    } catch {}
 
     // Update therapy plan if applicable
     if (session.planId) {
@@ -465,6 +525,33 @@ export class TherapyService {
       modalityNameBn: r.modality?.nameBn || r.session.modalityCode,
       bedCode: null,
       machineCode: null,
+      therapistName: r.therapist?.displayName ?? 'Therapist',
+    }));
+  }
+
+  async getPatientSessions(patientId: string) {
+    const rows = await this.db
+      .select({
+        session: therapySessions,
+        patient: patients,
+        therapist: users,
+        modality: modalities,
+      })
+      .from(therapySessions)
+      .innerJoin(patients, eq(therapySessions.patientId, patients.id))
+      .leftJoin(users, eq(therapySessions.therapistStaffId, users.id))
+      .leftJoin(modalities, eq(therapySessions.modalityCode, modalities.code))
+      .where(eq(therapySessions.patientId, patientId))
+      .orderBy(desc(therapySessions.createdAt));
+
+    return rows.map((r) => ({
+      ...r.session,
+      patientName: r.patient.nameEn,
+      patientNameBn: r.patient.nameBn || r.patient.nameEn,
+      patientMrn: r.patient.mrn,
+      patientPhone: r.patient.phone,
+      modalityNameEn: r.modality?.nameEn || r.session.modalityCode,
+      modalityNameBn: r.modality?.nameBn || r.session.modalityCode,
       therapistName: r.therapist?.displayName ?? 'Therapist',
     }));
   }
@@ -748,7 +835,7 @@ export class TherapyService {
   async getQueue() {
     const today = new Date().toISOString().slice(0, 10);
 
-    // 1. All active therapy slot bookings for today
+    // 1. All active therapy slot bookings for today (excluding cancelled and completed)
     const todayBookings = await this.db
       .select({
         booking: therapySlotBookings,
@@ -759,7 +846,7 @@ export class TherapyService {
       .where(
         and(
           eq(therapySlotBookings.bookingDate, today),
-          sql`${therapySlotBookings.status} NOT IN ('cancelled')`,
+          sql`${therapySlotBookings.status} NOT IN ('cancelled', 'completed')`,
           isNull(therapySlotBookings.deletedAt),
         ),
       );
@@ -782,31 +869,61 @@ export class TherapyService {
       .where(eq(visits.visitDate, today))
       .orderBy(desc(visits.createdAt));
 
-    // Filter relevant visits: therapy_hall location, therapy status, or patient with booked therapy slot today
-    const relevantVisits = therapyVisits.filter(
-      ({ visit: v, patient: p }) =>
+    // Filter relevant visits: therapy_hall location, therapy status, or patient with active booked therapy slot today
+    // Strictly filter out visits where v.status IN ('billed', 'checked_out', 'cancelled') OR v.currentLocation === 'cashier'
+    const relevantVisits = therapyVisits.filter(({ visit: v, patient: p }) => {
+      if (
+        v.status === 'billed' ||
+        v.status === 'checked_out' ||
+        v.status === 'cancelled' ||
+        v.currentLocation === 'cashier'
+      ) {
+        return false;
+      }
+
+      return (
         v.currentLocation === 'therapy_hall' ||
         v.currentLocation === 'Therapy Hall' ||
         v.status === 'in_therapy' ||
         (v as any).status === 'calling' ||
         v.therapyBookingId !== null ||
-        bookingMapByPatientId.has(p.id),
-    );
+        bookingMapByPatientId.has(p.id)
+      );
+    });
 
     // Auto-link visits to slot booking if visits.therapyBookingId was null
+    // DO NOT set currentLocation = 'therapy_hall' if visit is already at 'cashier', 'billed', or 'checked_out'
     for (const item of relevantVisits) {
       if (!item.visit.therapyBookingId && bookingMapByPatientId.has(item.patient.id)) {
         const matchingBooking = bookingMapByPatientId.get(item.patient.id)!;
         item.booking = matchingBooking.booking;
-        this.db
-          .update(visits)
-          .set({
-            therapyBookingId: matchingBooking.booking.id,
-            currentLocation: 'therapy_hall',
-            updatedAt: new Date().toISOString(),
-          })
-          .where(eq(visits.id, item.visit.id))
-          .catch(() => {});
+
+        const isBilledOrAtCashier =
+          item.visit.status === 'billed' ||
+          item.visit.status === 'checked_out' ||
+          item.visit.status === 'cancelled' ||
+          item.visit.currentLocation === 'cashier';
+
+        if (!isBilledOrAtCashier) {
+          this.db
+            .update(visits)
+            .set({
+              therapyBookingId: matchingBooking.booking.id,
+              currentLocation: 'therapy_hall',
+              updatedAt: new Date().toISOString(),
+            })
+            .where(eq(visits.id, item.visit.id))
+            .catch(() => {});
+        } else {
+          this.db
+            .update(visits)
+            .set({
+              therapyBookingId: matchingBooking.booking.id,
+              updatedAt: new Date().toISOString(),
+            })
+            .where(eq(visits.id, item.visit.id))
+            .catch(() => {});
+        }
       }
     }
 
@@ -985,7 +1102,13 @@ export class TherapyService {
 
       if (isCalling) {
         nowServing.push(item);
-      } else if (v.status !== 'checked_out' && v.status !== 'cancelled') {
+      } else if (
+        v.status !== 'checked_out' &&
+        v.status !== 'cancelled' &&
+        v.status !== 'billed' &&
+        (v.status as any) !== 'completed' &&
+        v.currentLocation !== 'cashier'
+      ) {
         if (activePatientIds.has(p.id) || v.status === 'in_therapy') {
           inTherapyPatients.push(item);
         } else {
@@ -1002,9 +1125,17 @@ export class TherapyService {
       activeSessions: activeSessions
         .filter(({ patient: p }) => {
           const matchingV = relevantVisits.find((rv) => rv.patient.id === p.id);
-          // Strictly exclude if visit is checked out, cancelled, or not currently active for therapy
+          // Strictly exclude if visit is checked out, cancelled, billed, completed, or currently at cashier
           if (!matchingV) return false;
-          if (matchingV.visit.status === 'checked_out' || matchingV.visit.status === 'cancelled') return false;
+          if (
+            matchingV.visit.status === 'checked_out' ||
+            matchingV.visit.status === 'cancelled' ||
+            matchingV.visit.status === 'billed' ||
+            (matchingV.visit.status as any) === 'completed' ||
+            matchingV.visit.currentLocation === 'cashier'
+          ) {
+            return false;
+          }
           return true;
         })
         .map(({ session: s, patient: p, modality: m }) => {
@@ -1341,6 +1472,37 @@ export class TherapyService {
       serviceNameBn = `${serviceNameEn} এর`;
     }
 
+    // Update visit status to calling and persist therapyType
+    await this.db
+      .update(visits)
+      .set({
+        status: 'calling' as any,
+        currentLocation: 'therapy_hall',
+        roomId: targetRoomId,
+        calledRoomId: targetRoomId,
+        calledRoomName: targetRoomName,
+        calledAt: now,
+        therapyType: effectiveTherapyType,
+        updatedAt: now,
+      })
+      .where(eq(visits.id, visitRow.id));
+
+    try {
+      (this.db as any).session?.client
+        ?.prepare(
+          'UPDATE visits SET status = ?, called_room_id = ?, called_room_name = ?, called_at = ?, therapy_type = ?, updated_at = ? WHERE id = ?',
+        )
+        ?.run('calling', targetRoomId, targetRoomName, now, effectiveTherapyType, visitRow.id);
+    } catch {
+      try {
+        (this.db as any).session?.client
+          ?.prepare(
+            'UPDATE visits SET status = ?, called_room_id = ?, called_room_name = ?, called_at = ?, updated_at = ? WHERE id = ?',
+          )
+          ?.run('calling', targetRoomId, targetRoomName, now, visitRow.id);
+      } catch {}
+    }
+
     const tok = (visitRow.tokenNumber && Number(visitRow.tokenNumber) > 0) ? Number(visitRow.tokenNumber) : 1;
     const payload = {
       visitId: visitRow.id,
@@ -1352,6 +1514,7 @@ export class TherapyService {
       roomId: targetRoomId,
       roomName: targetRoomName,
       roomNumber: roomNum,
+      modality: (serviceNameEn === 'therapy' ? 'Physiotherapy & Rehab' : serviceNameEn),
       type: 'therapy',
       isTherapy: true,
       therapyType: serviceNameEn,
@@ -1494,14 +1657,26 @@ export class TherapyService {
 
     const now = new Date().toISOString();
     const today = now.slice(0, 10);
-    const feePaisa = Math.round(dto.feeTaka * 100);
-    const modalityCode = dto.modalityCode || 'PHYSIO';
+
+    const hasItems = Array.isArray(dto.items) && dto.items.length > 0;
+    const itemsTotalTaka = hasItems
+      ? dto.items!.reduce((acc, it) => acc + (Number(it.priceTaka) || 0), 0)
+      : 0;
+
+    const finalFeeTaka =
+      dto.feeTaka !== undefined && dto.feeTaka !== null
+        ? Number(dto.feeTaka)
+        : (hasItems ? itemsTotalTaka : 0);
+
+    const feePaisa = Math.round(finalFeeTaka * 100);
+    const modalityCode = dto.modalityCode || (hasItems && dto.items![0]?.modalityCode) || 'PHYSIO';
 
     const notesJson = JSON.stringify({
       isLockedByHandler: true,
-      fixedFeeTaka: dto.feeTaka,
+      fixedFeeTaka: finalFeeTaka,
       modalityCode,
       handlerNotes: dto.notes,
+      items: hasItems ? dto.items : [],
     });
 
     const existingDraftBill = await this.db
@@ -1551,42 +1726,130 @@ export class TherapyService {
       });
     }
 
-    await this.db.insert(billItems).values({
-      id: randomUUID(),
-      billId,
-      itemType: 'therapy',
-      description: `Therapy Session (${modalityCode}) - Fixed Fee`,
-      unitPricePaisa: feePaisa,
-      quantity: 1,
-      discountPaisa: 0,
-      totalPaisa: feePaisa,
-    });
+    if (hasItems) {
+      for (const item of dto.items!) {
+        const itemPricePaisa = Math.round((Number(item.priceTaka) || 0) * 100);
+        const itemDescription =
+          item.description ||
+          `Therapy Session (${item.modalityCode})${item.durationMinutes ? ` - ${item.durationMinutes} min` : ''}`;
 
-    await this.db
-      .update(visits)
-      .set({
-        currentLocation: 'cashier',
-        status: 'billed',
-        updatedAt: now,
-      })
-      .where(eq(visits.id, visit.id));
+        await this.db.insert(billItems).values({
+          id: randomUUID(),
+          billId,
+          itemType: 'therapy',
+          itemId: item.modalityCode,
+          description: itemDescription,
+          unitPricePaisa: itemPricePaisa,
+          quantity: 1,
+          discountPaisa: 0,
+          totalPaisa: itemPricePaisa,
+        });
+      }
+    } else {
+      await this.db.insert(billItems).values({
+        id: randomUUID(),
+        billId,
+        itemType: 'therapy',
+        itemId: modalityCode,
+        description: `Therapy Session (${modalityCode}) - Fixed Fee`,
+        unitPricePaisa: feePaisa,
+        quantity: 1,
+        discountPaisa: 0,
+        totalPaisa: feePaisa,
+      });
+    }
 
-    // Mark any running therapy sessions for this patient as completed
-    await this.db
-      .update(therapySessions)
-      .set({
-        status: 'completed',
-        endedAt: now,
-        updatedAt: now,
-      })
-      .where(
-        and(
-          eq(therapySessions.patientId, visit.patientId),
-          eq(therapySessions.status, 'in_progress'),
-        ),
-      );
+    // 1. Update visits to currentLocation = 'cashier', status = 'payment_pending' (payment pending until cashier collection)
+    try {
+      await this.db
+        .update(visits)
+        .set({
+          currentLocation: 'cashier',
+          status: 'payment_pending' as any,
+          updatedAt: now,
+        })
+        .where(eq(visits.id, visit.id));
+    } catch {
+      try {
+        (this.db as any).session?.client
+          ?.prepare("UPDATE visits SET current_location = 'cashier', status = 'payment_pending', updated_at = ? WHERE id = ?")
+          ?.run(now, visit.id);
+      } catch {}
+    }
+
+    // 2. Mark any matching therapySlotBookings for this patient/visit on today's date as 'completed'
+    try {
+      const bookingConditions = [
+        eq(therapySlotBookings.patientId, visit.patientId),
+        eq(therapySlotBookings.bookingDate, today),
+      ];
+      if (visit.therapyBookingId) {
+        await this.db
+          .update(therapySlotBookings)
+          .set({
+            status: 'completed',
+            updatedAt: now,
+          })
+          .where(
+            or(
+              eq(therapySlotBookings.id, visit.therapyBookingId),
+              and(...bookingConditions),
+            ),
+          );
+      } else {
+        await this.db
+          .update(therapySlotBookings)
+          .set({
+            status: 'completed',
+            updatedAt: now,
+          })
+          .where(and(...bookingConditions));
+      }
+    } catch (bookingErr) {
+      console.warn('Failed to mark therapySlotBookings as completed in sendToCashier:', bookingErr);
+      try {
+        (this.db as any).session?.client
+          ?.prepare(
+            "UPDATE therapy_slot_bookings SET status = 'completed', updated_at = ? WHERE (patient_id = ? AND booking_date = ?) OR id = ?"
+          )
+          ?.run(now, visit.patientId, today, visit.therapyBookingId || '');
+      } catch {}
+    }
+
+    // 3. Update therapySessions for this patient/visit to status: 'completed'
+    try {
+      await this.db
+        .update(therapySessions)
+        .set({
+          status: 'completed',
+          endedAt: now,
+          updatedAt: now,
+        })
+        .where(
+          and(
+            eq(therapySessions.patientId, visit.patientId),
+            sql`${therapySessions.status} IN ('in_progress', 'scheduled', 'paused')`,
+          ),
+        );
+    } catch (sessErr) {
+      console.warn('Failed to complete therapySessions in sendToCashier:', sessErr);
+      try {
+        (this.db as any).session?.client
+          ?.prepare(
+            "UPDATE therapy_sessions SET status = 'completed', ended_at = ?, updated_at = ? WHERE patient_id = ? AND status IN ('in_progress', 'scheduled', 'paused')"
+          )
+          ?.run(now, now, visit.patientId);
+      } catch {}
+    }
 
     try {
+      const descEn = hasItems
+        ? `Forwarded to cashier with ${dto.items!.length} modalities (total ৳${finalFeeTaka})`
+        : `Forwarded to cashier with fixed bill ৳${finalFeeTaka}`;
+      const descBn = hasItems
+        ? `হ্যান্ডলার কর্তৃক ${dto.items!.length}টি থেরাপি মোডালিটি বিল ৳${finalFeeTaka} সহ ক্যাশিয়ারে পাঠানো হয়েছে।`
+        : `হ্যান্ডলার কর্তৃক ফিক্সড বিল ৳${finalFeeTaka} সহ ক্যাশিয়ারে পাঠানো হয়েছে।`;
+
       await this.db.insert(patientTimelineEvents).values({
         id: randomUUID(),
         patientId: visit.patientId,
@@ -1594,15 +1857,16 @@ export class TherapyService {
         step: 'sent_to_cashier',
         titleEn: 'Forwarded to Cashier for Therapy Fee',
         titleBn: 'থেরাপি বিলের জন্য ক্যাশিয়ারে প্রেরণ',
-        descriptionEn: `Forwarded to cashier with fixed bill ৳${dto.feeTaka}`,
-        descriptionBn: `হ্যান্ডলার কর্তৃক ফিক্সড বিল ৳${dto.feeTaka} সহ ক্যাশিয়ারে পাঠানো হয়েছে।`,
+        descriptionEn: descEn,
+        descriptionBn: descBn,
         actorId: actor.sub || null,
         actorRole: actor.role || 'handler',
         metadataJson: JSON.stringify({
           billId,
-          feeTaka: dto.feeTaka,
+          feeTaka: finalFeeTaka,
           modalityCode,
           notes: dto.notes,
+          items: hasItems ? dto.items : [],
         }),
         occurredAt: now,
         date: today,
@@ -1616,11 +1880,12 @@ export class TherapyService {
       patientId: visit.patientId,
       billId,
       billNumber,
-      feeTaka: dto.feeTaka,
+      feeTaka: finalFeeTaka,
       feePaisa,
       modalityCode,
       currentLocation: 'cashier',
       status: 'billed',
+      items: hasItems ? dto.items : [],
     };
 
     const routePayload = {
@@ -1638,6 +1903,7 @@ export class TherapyService {
       patientId: visit.patientId,
       visitId: visit.id,
       totalPaisa: feePaisa,
+      items: hasItems ? dto.items : [],
     };
 
     this.gateway?.emit('clinic:global', 'therapy.sent_to_cashier', therapyPayload);
@@ -1666,10 +1932,11 @@ export class TherapyService {
         billNumber,
         visitId: visit.id,
         patientId: visit.patientId,
-        feeTaka: dto.feeTaka,
+        feeTaka: finalFeeTaka,
         feePaisa,
         modalityCode,
         notes: notesJson,
+        items: hasItems ? dto.items : [],
       },
       ip: meta.ip,
       requestId: meta.requestId,
@@ -1678,8 +1945,9 @@ export class TherapyService {
     return {
       success: true,
       billId,
-      feeTaka: dto.feeTaka,
+      feeTaka: finalFeeTaka,
       visitId: visit.id,
+      items: hasItems ? dto.items : [],
     };
   }
 

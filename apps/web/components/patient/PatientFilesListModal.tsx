@@ -33,7 +33,9 @@ import {
   Edit3,
 } from 'lucide-react';
 import { PainAssessmentFormModal } from './PainAssessmentFormModal';
+import { PainAssessmentPrintModal } from './PainAssessmentPrintModal';
 import { cn } from '@/lib/utils';
+import { useLanguage } from '@/lib/i18n';
 
 export interface PatientFilesListModalProps {
   open: boolean;
@@ -48,6 +50,7 @@ export interface PatientFilesListModalProps {
 }
 
 export function PatientFilesListModal({
+
   open,
   onOpenChange,
   patient,
@@ -58,6 +61,8 @@ export function PatientFilesListModal({
   onFileSelected,
   onCreateNew,
 }: PatientFilesListModalProps) {
+  const { language } = useLanguage();
+  const isBn = language === 'bn';
   const [loading, setLoading] = useState(false);
   const [files, setFiles] = useState<any[]>([]);
   const [search, setSearch] = useState('');
@@ -68,6 +73,7 @@ export function PatientFilesListModal({
 
   // Child modal state for creating a new file
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [selectedFileForPrint, setSelectedFileForPrint] = useState<any | null>(null);
 
   const fetchFiles = async () => {
     if (!patient?.id) return;
@@ -138,15 +144,15 @@ export function PatientFilesListModal({
               <div>
                 <div className="flex items-center gap-2">
                   <DialogTitle className="text-base sm:text-xl font-black text-foreground">
-                    রোগীর পূর্ববর্তী ফাইল ও রেকর্ডস (Old Assessment Files)
+                    {isBn ? 'রোগীর পূর্ববর্তী ফাইল ও রেকর্ডস' : 'Patient Assessment Files & Records'}
                   </DialogTitle>
                   <Badge variant="outline" className="border-purple-500/40 text-purple-600 dark:text-purple-400 font-mono text-xs">
-                    {files.length} {files.length === 1 ? 'FILE' : 'FILES'}
+                    {files.length} {files.length === 1 ? (isBn ? 'ফাইল' : 'FILE') : (isBn ? 'ফাইল' : 'FILES')}
                   </Badge>
                 </div>
                 <DialogDescription className="text-xs text-muted-foreground mt-0.5">
-                  রোগী: <strong className="text-foreground">{patient?.nameEn || patient?.name}</strong> · MRN:{' '}
-                  <strong className="text-foreground">{patient?.mrn || 'N/A'}</strong> · ফোন:{' '}
+                  {isBn ? 'রোগী:' : 'Patient:'} <strong className="text-foreground">{patient?.nameEn || patient?.name}</strong> · MRN:{' '}
+                  <strong className="text-foreground">{patient?.mrn || 'N/A'}</strong> · {isBn ? 'ফোন:' : 'Phone:'}{' '}
                   {patient?.phone || 'N/A'}
                 </DialogDescription>
               </div>
@@ -159,7 +165,7 @@ export function PatientFilesListModal({
                 className="h-8 sm:h-9 text-xs px-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold gap-1.5 shadow-md shadow-emerald-500/20 active:scale-95 cursor-pointer"
               >
                 <Plus className="size-3.5" />
-                <span>নতুন ফাইল (New File)</span>
+                <span>{isBn ? 'নতুন ফাইল' : 'New File'}</span>
               </Button>
             </div>
           </div>
@@ -248,12 +254,30 @@ export function PatientFilesListModal({
                         {file.doctorName && (
                           <span className="text-xs text-muted-foreground flex items-center gap-1">
                             <Stethoscope className="size-3.5 text-emerald-500" />
-                            <span>ডা. {file.doctorName}</span>
+                            <span>
+                              {(() => {
+                                const clean = file.doctorName.replace(/^(?:ডাঃ|ডা\.|ডাক্তার|Dr\.|Dr\b|Doctor\b)\s*/i, '').trim();
+                                return clean ? `ডাক্তার ${clean}` : 'ডাক্তার';
+                              })()}
+                            </span>
                           </span>
                         )}
                       </div>
 
                       <div className="flex items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedFileForPrint(file);
+                          }}
+                          className="h-7 px-2.5 text-xs font-semibold border-border/80 text-foreground hover:bg-muted gap-1 cursor-pointer"
+                        >
+                          <Printer className="size-3 text-emerald-600 dark:text-emerald-400" />
+                          <span>{isBn ? 'প্রিন্ট' : 'Print'}</span>
+                        </Button>
                         <Button
                           type="button"
                           variant="ghost"
@@ -262,10 +286,10 @@ export function PatientFilesListModal({
                             e.stopPropagation();
                             handleOpenFile(file);
                           }}
-                          className="h-7 px-2 text-xs font-semibold text-emerald-600 dark:text-emerald-400 group-hover:bg-emerald-500/10 gap-1"
+                          className="h-7 px-2 text-xs font-semibold text-emerald-600 dark:text-emerald-400 group-hover:bg-emerald-500/10 gap-1 cursor-pointer"
                         >
                           <Edit3 className="size-3" />
-                          <span>ফাইল দেখুন / এডিট</span>
+                          <span>{isBn ? 'ফাইল দেখুন ও এডিট' : 'View & Edit'}</span>
                           <ChevronRight className="size-3" />
                         </Button>
                       </div>
@@ -276,7 +300,7 @@ export function PatientFilesListModal({
                       <div className="md:col-span-2 space-y-1">
                         <div className="text-xs font-bold text-foreground flex items-center gap-1.5">
                           <Sparkles className="size-3.5 text-amber-500" />
-                          <span>রোগ নির্ণয় (Diagnosis):</span>
+                          <span>{isBn ? 'রোগ নির্ণয়:' : 'Diagnosis:'}</span>
                           <span className="text-emerald-700 dark:text-emerald-300 font-extrabold text-sm">
                             {file.diagnosis || 'নির্দিষ্ট করা হয়নি'}
                           </span>
@@ -285,7 +309,7 @@ export function PatientFilesListModal({
                         {/* Pain Areas */}
                         {painAreas.length > 0 && (
                           <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                            <span className="text-[11px] text-muted-foreground">ব্যথার স্থান:</span>
+                            <span className="text-[11px] text-muted-foreground">{isBn ? 'ব্যথার স্থান:' : 'Pain Areas:'}</span>
                             {painAreas.map((area) => (
                               <Badge
                                 key={area}
@@ -308,7 +332,7 @@ export function PatientFilesListModal({
                       <div className="p-2.5 rounded-lg border border-border/70 bg-muted/20 flex items-center justify-between gap-2">
                         <div>
                           <div className="text-[10px] uppercase font-bold text-muted-foreground">
-                            VAS Pain Score
+                            {isBn ? 'ভিএএস পেইন স্কোর' : 'VAS Pain Score'}
                           </div>
                           <div className="text-sm font-black font-mono text-foreground mt-0.5">
                             {initialVas}/10
@@ -370,7 +394,7 @@ export function PatientFilesListModal({
               onClick={() => onOpenChange(false)}
               className="h-8 px-4 text-xs"
             >
-              বন্ধ করুন (Close)
+              {isBn ? 'বন্ধ করুন' : 'Close'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -406,6 +430,18 @@ export function PatientFilesListModal({
           currentUser={currentUser}
           existingFile={null}
           onSuccess={handleFileSaved}
+        />
+      )}
+
+      {/* Direct A4 Clinical Sheet Print & Vector PDF Export Modal */}
+      {selectedFileForPrint && (
+        <PainAssessmentPrintModal
+          open={Boolean(selectedFileForPrint)}
+          onOpenChange={(op) => {
+            if (!op) setSelectedFileForPrint(null);
+          }}
+          data={selectedFileForPrint}
+          patient={patient}
         />
       )}
     </>

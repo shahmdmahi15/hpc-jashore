@@ -24,6 +24,7 @@ import {
 } from '@/components/ui/select';
 import { api } from '@/lib/api';
 import { toast } from 'sonner';
+import { useLanguage } from '@/lib/i18n';
 import {
   Send,
   CheckCircle2,
@@ -67,6 +68,8 @@ export function DoctorDispositionModal({
   onOpenPlanSection,
   onRoutingSuccess,
 }: DoctorDispositionModalProps) {
+  const { language } = useLanguage();
+  const isBn = language === 'bn';
   const [loading, setLoading] = useState(false);
   const [checkingDues, setCheckingDues] = useState(false);
   const [pendingDuePaisa, setPendingDuePaisa] = useState<number>(0);
@@ -254,7 +257,7 @@ export function DoctorDispositionModal({
             <div>
               <DialogTitle className="text-base sm:text-lg font-bold flex items-center gap-2">
                 <Send className="size-5 text-emerald-600 dark:text-emerald-400" />
-                <span>কনসালটেশন সমাপ্তি ও রোগী প্রেরণ (Patient Disposition)</span>
+                <span>{isBn ? 'কনসালটেশন সমাপ্তি ও রোগী প্রেরণ' : 'Complete Consultation & Patient Disposition'}</span>
               </DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground">
                 রোগী: <strong className="text-foreground">{patient?.nameEn || patient?.nameBn || 'Patient'}</strong>{' '}
@@ -306,7 +309,7 @@ export function DoctorDispositionModal({
               <div className="flex items-center gap-2">
                 <Receipt className="size-5 text-cyan-600 dark:text-cyan-400" />
                 <CardTitle className="text-sm sm:text-base font-bold text-foreground">
-                  ক্যাশিয়ারে পাঠান — ফি ও রিফান্ড সমন্বয় (Doctor Chamber Fee Adjustment)
+                  {isBn ? 'ক্যাশিয়ারে পাঠান — ফি ও রিফান্ড সমন্বয়' : 'Route to Cashier — Fee & Refund Adjustment'}
                 </CardTitle>
               </div>
               <Badge className="bg-cyan-600 text-white font-mono text-[10px]">
@@ -383,10 +386,10 @@ export function DoctorDispositionModal({
                       <SelectValue placeholder="-- কারণ নির্বাচন করুন --" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="পরামর্শ ফি সম্পূর্ণ মওকুফ">পরামর্শ ফি সম্পূর্ণ মওকুফ (Fee Waived)</SelectItem>
+                      <SelectItem value="পরামর্শ ফি সম্পূর্ণ মওকুফ">{isBn ? 'পরামর্শ ফি সম্পূর্ণ মওকুফ' : 'Consultation Fee Waived'}</SelectItem>
                       <SelectItem value="রোগী পরামর্শে সন্তুষ্ট নন / চিকিৎসা না নিয়ে প্রস্থান">রোগী পরামর্শে সন্তুষ্ট নন / চিকিৎসা না নিয়ে প্রস্থান</SelectItem>
-                      <SelectItem value="ডাক্তারের বিশেষ আংশিক ছাড়">ডাক্তারের বিশেষ আংশিক ছাড় (Special Discount)</SelectItem>
-                      <SelectItem value="ভুলবশত সংগৃহীত অতিরিক্ত ফি ফেরত">ভুলবশত সংগৃহীত অতিরিক্ত ফি ফেরত (Excess Fee Return)</SelectItem>
+                      <SelectItem value="ডাক্তারের বিশেষ আংশিক ছাড়">{isBn ? 'ডাক্তারের বিশেষ আংশিক ছাড়' : 'Doctor Special Discount'}</SelectItem>
+                      <SelectItem value="ভুলবশত সংগৃহীত অতিরিক্ত ফি ফেরত">{isBn ? 'ভুলবশত সংগৃহীত অতিরিক্ত ফি ফেরত' : 'Excess Fee Return'}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -586,7 +589,7 @@ export function DoctorDispositionModal({
                 <DoorOpen className="size-5 text-blue-600" />
               </div>
               <CardTitle className="text-sm sm:text-base font-bold mt-1 text-foreground">
-                থেরাপির প্রয়োজন নেই (No Therapy Needed)
+                {isBn ? 'থেরাপির প্রয়োজন নেই' : 'No Therapy Needed'}
               </CardTitle>
               <p className="text-xs text-muted-foreground leading-relaxed">
                 রোগীকে কেবল ওষুধ ও ঘরোয়া ব্যায়ামের পরামর্শ দেওয়া হয়েছে। সেন্টারে থেরাপির প্রয়োজন নেই।
@@ -648,7 +651,7 @@ export function DoctorDispositionModal({
                 <HeartPulse className="size-5 text-emerald-600" />
               </div>
               <CardTitle className="text-sm sm:text-base font-bold mt-1 text-foreground">
-                ফিজিওথেরাপি প্রয়োজন (Therapy Needed)
+                {isBn ? 'ফিজিওথেরাপি প্রয়োজন' : 'Therapy Needed'}
               </CardTitle>
               <p className="text-xs text-muted-foreground leading-relaxed">
                 রোগীর জন্য সেন্টারের থেরাপি হল / রিহ্যাব ফ্লোরে চিকিৎসা সেশন নির্ধারিত হয়েছে। থেরাপির পূর্বে কোনো পেমেন্ট লাগবে না—সকল বিলিং থেরাপির পরে সম্পন্ন হবে।
@@ -659,7 +662,7 @@ export function DoctorDispositionModal({
               <div className="p-2.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-emerald-900 dark:text-emerald-200 text-xs space-y-1">
                 <div className="flex items-center gap-1.5 font-bold">
                   <Sparkles className="size-4 text-emerald-600 shrink-0" />
-                  <span>অগ্রিম পেমেন্ট নেই (Pay After Therapy)</span>
+                  <span>{isBn ? 'অগ্রিম পেমেন্ট নেই' : 'Pay After Therapy (No Advance)'}</span>
                 </div>
                 <p className="text-[11px] text-muted-foreground">
                   নীতি অনুযায়ী থেরাপির পূর্বে কোনো বিল পরিশোধের প্রয়োজন নেই। রোগী সরাসরি থেরাপিস্টের কিউতে প্রবেশ করবেন এবং থেরাপি শেষে বিল পরিশোধ করবেন।
@@ -748,7 +751,7 @@ export function DoctorDispositionModal({
             onClick={() => onOpenChange(false)}
             className="text-xs text-muted-foreground cursor-pointer"
           >
-            বাতিল করুন (Close)
+            {isBn ? 'বাতিল' : 'Cancel'}
           </Button>
 
           <span className="text-[11px] text-muted-foreground">

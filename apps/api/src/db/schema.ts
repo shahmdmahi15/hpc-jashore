@@ -77,6 +77,18 @@ export const refreshSessions = sqliteTable('refresh_sessions', {
     .$defaultFn(() => new Date().toISOString()),
 });
 
+// Persistent email verification and password reset OTP codes (replaces in-memory Map)
+export const authVerificationCodes = sqliteTable('auth_verification_codes', {
+  id: text('id').primaryKey(),
+  email: text('email').notNull(),
+  code: text('code').notNull(),
+  type: text('type').notNull(), // 'password_reset' | 'email_verification'
+  expiresAt: text('expires_at').notNull(),
+  createdAt: text('created_at')
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+});
+
 // --- Numbering (MRN, bills, tokens share this pattern) ------------------------
 
 export const sequences = sqliteTable(
@@ -532,6 +544,21 @@ export const therapySessions = sqliteTable('therapy_sessions', {
   outcomeNote: text('outcome_note'),
   painScoreAfter: integer('pain_score_after'),
   isOvertime: integer('is_overtime').notNull().default(0),
+  ...timestamps,
+});
+
+export const therapySessionModalities = sqliteTable('therapy_session_modalities', {
+  id: text('id').primaryKey(),
+  sessionId: text('session_id')
+    .notNull()
+    .references(() => therapySessions.id, { onDelete: 'cascade' }),
+  modalityCode: text('modality_code').notNull(),
+  durationMinutes: integer('duration_minutes').notNull().default(15),
+  status: text('status')
+    .notNull()
+    .$type<'pending' | 'in_progress' | 'completed' | 'cancelled'>()
+    .default('pending'),
+  notes: text('notes'),
   ...timestamps,
 });
 

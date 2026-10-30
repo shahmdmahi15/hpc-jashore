@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { and, desc, eq, gte, lte, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, like, lte, or, sql } from 'drizzle-orm';
 import { DB, type Db } from '../db/db.module';
 import {
   bills,
@@ -15,12 +15,27 @@ import {
   visits,
 } from '../db/schema';
 
+function getDhakaDayRangeUtc(dateString: string): { startUtc: string; endUtc: string } {
+  const parts = dateString.split('-').map(Number);
+  const year = parts[0] || new Date().getFullYear();
+  const month = (parts[1] || 1) - 1;
+  const day = parts[2] || 1;
+  // Dhaka is UTC+6: midnight Dhaka is 18:00 UTC previous calendar date
+  const startMs = Date.UTC(year, month, day, 0, 0, 0) - 6 * 3600 * 1000;
+  const endMs = Date.UTC(year, month, day, 23, 59, 59, 999) - 6 * 3600 * 1000;
+  return {
+    startUtc: new Date(startMs).toISOString(),
+    endUtc: new Date(endMs).toISOString(),
+  };
+}
+
 @Injectable()
 export class ReportsService {
   constructor(@Inject(DB) private readonly db: Db) {}
 
   async getDailySummary(dateString?: string) {
-    const targetDate = dateString ?? new Date().toISOString().slice(0, 10);
+    const targetDate = dateString ?? new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Dhaka' }).format(new Date());
+    const { startUtc, endUtc } = getDhakaDayRangeUtc(targetDate);
 
     const dayVisits = await this.db
       .select()
@@ -30,9 +45,19 @@ export class ReportsService {
     const totalFootfall = dayVisits.length;
     const completedVisits = dayVisits.filter((v) => v.status === 'checked_out').length;
 
-    // Collections
-    const allPayments = await this.db.select().from(payments);
-    const dayPayments = allPayments.filter((p) => p.createdAt.startsWith(targetDate));
+    // Collections: SQL-level date range index filtering to eliminate heap exhaustion
+    const dayPayments = await this.db
+      .select({
+        amountPaisa: payments.amountPaisa,
+        method: payments.method,
+      })
+      .from(payments)
+      .where(
+        or(
+          and(gte(payments.createdAt, startUtc), lte(payments.createdAt, endUtc)),
+          like(payments.createdAt, `${targetDate}%`),
+        ),
+      );
 
     let cashTotal = 0;
     let bkashTotal = 0;
@@ -63,7 +88,7 @@ export class ReportsService {
     const totalCapacity = 10;
     const occupiedCapacity = (
       await this.db
-        .select()
+        .select({ id: therapySessions.id })
         .from(therapySessions)
         .where(eq(therapySessions.status, 'in_progress'))
     ).length;
@@ -71,12 +96,10 @@ export class ReportsService {
 
     return {
       date: targetDate,
-      // Flat properties for direct widget consumption
       footfall: totalFootfall,
       grossCollectionsPaisa: totalCollectionPaisa,
       bedOccupancyPercent,
       totalDuesPaisa: totalPendingDuesPaisa,
-      // Nested detailed properties for comprehensive reports
       footfallDetails: {
         total: totalFootfall,
         completed: completedVisits,
@@ -108,16 +131,24 @@ export class ReportsService {
   }
 
   async getModalityStats(dateString?: string) {
-    const targetDate = dateString ?? new Date().toISOString().slice(0, 10);
-    const allMods = await this.db.select().from(modalities).where(eq(modalities.isActive, 1));
-    const allSessions = await this.db.select().from(therapySessions);
-    const daySessions = allSessions.filter(
-      (s) =>
-        s.createdAt.startsWith(targetDate) ||
-        (s.startedAt && s.startedAt.startsWith(targetDate)),
-    );
+    const targetDate = dateString ?? new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Dhaka' }).format(new Date());
+    const { startUtc, endUtc } = getDhakaDayRangeUtc(targetDate);
 
-    // Standard clinical modalities at HPC Jashore
+    const allMods = await this.db.select().from(modalities).where(eq(modalities.isActive, 1));
+    const daySessions = await this.db
+      .select({
+        id: therapySessions.id,
+        modalityCode: therapySessions.modalityCode,
+      })
+      .from(therapySessions)
+      .where(
+        or(
+          and(gte(therapySessions.createdAt, startUtc), lte(therapySessions.createdAt, endUtc)),
+          like(therapySessions.createdAt, `${targetDate}%`),
+          like(therapySessions.startedAt, `${targetDate}%`),
+        ),
+      );
+
     const standardModalities = [
       { code: 'traction', nameEn: 'Traction Therapy (Cervical / Lumbar)', nameBn: 'ট্র্যাকশন থেরাপি', pricePaisa: 40000 },
       { code: 'swd', nameEn: 'Shortwave Diathermy (SWD)', nameBn: 'শর্টওয়েভ ডায়াথার্মি', pricePaisa: 35000 },
@@ -154,22 +185,37 @@ export class ReportsService {
   }
 
   async getDoctorStats(dateString?: string) {
-    const targetDate = dateString ?? new Date().toISOString().slice(0, 10);
+    const targetDate = dateString ?? new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Dhaka' }).format(new Date());
+    const { startUtc, endUtc } = getDhakaDayRangeUtc(targetDate);
+
     const doctors = await this.db
       .select()
       .from(users)
       .where(and(eq(users.role, 'doctor'), eq(users.approvalStatus, 'approved'), eq(users.isActive, 1)));
 
-    const allConsults = await this.db.select().from(consultations);
-    const allPrescriptions = await this.db.select().from(prescriptions);
+    const dayConsults = await this.db
+      .select({ id: consultations.id, doctorId: consultations.doctorId })
+      .from(consultations)
+      .where(
+        or(
+          and(gte(consultations.createdAt, startUtc), lte(consultations.createdAt, endUtc)),
+          like(consultations.createdAt, `${targetDate}%`),
+        ),
+      );
+
+    const dayPrescripts = await this.db
+      .select({ id: prescriptions.id, doctorId: prescriptions.doctorId })
+      .from(prescriptions)
+      .where(
+        or(
+          and(gte(prescriptions.createdAt, startUtc), lte(prescriptions.createdAt, endUtc)),
+          like(prescriptions.createdAt, `${targetDate}%`),
+        ),
+      );
 
     return doctors.map((doc) => {
-      const docConsults = allConsults.filter(
-        (c) => c.doctorId === doc.id && c.createdAt.startsWith(targetDate),
-      );
-      const docPrescripts = allPrescriptions.filter(
-        (p) => p.doctorId === doc.id && p.createdAt.startsWith(targetDate),
-      );
+      const docConsults = dayConsults.filter((c) => c.doctorId === doc.id);
+      const docPrescripts = dayPrescripts.filter((p) => p.doctorId === doc.id);
 
       return {
         id: doc.id,
@@ -188,7 +234,9 @@ export class ReportsService {
       .from(users)
       .where(and(eq(users.role, 'doctor'), eq(users.approvalStatus, 'approved'), eq(users.isActive, 1)));
 
-    const allConsults = await this.db.select().from(consultations);
+    const allConsults = await this.db
+      .select({ id: consultations.id, doctorId: consultations.doctorId })
+      .from(consultations);
 
     return doctors.map((doc) => {
       const docConsults = allConsults.filter((c) => c.doctorId === doc.id);
@@ -212,7 +260,14 @@ export class ReportsService {
       .from(users)
       .where(and(eq(users.role, 'handler'), eq(users.approvalStatus, 'approved'), eq(users.isActive, 1)));
 
-    const allSessions = await this.db.select().from(therapySessions);
+    const allSessions = await this.db
+      .select({
+        id: therapySessions.id,
+        therapistStaffId: therapySessions.therapistStaffId,
+        status: therapySessions.status,
+        isOvertime: therapySessions.isOvertime,
+      })
+      .from(therapySessions);
 
     return handlers.map((t) => {
       const mySessions = allSessions.filter((s) => s.therapistStaffId === t.id);
@@ -236,17 +291,20 @@ export class ReportsService {
   }
 
   async getPnlSummary() {
-    const allPayments = await this.db.select().from(payments);
-    const totalRevenuePaisa = allPayments.reduce((acc, p) => acc + p.amountPaisa, 0);
+    const paymentRows = await this.db
+      .select({ amountPaisa: payments.amountPaisa })
+      .from(payments);
+    const totalRevenuePaisa = paymentRows.reduce((acc, p) => acc + p.amountPaisa, 0);
 
-    const allExpenses = await this.db.select().from(expenses);
-    const totalExpensesPaisa = allExpenses.reduce((acc, e) => acc + e.amountPaisa, 0);
+    const expenseRows = await this.db
+      .select({ amountPaisa: expenses.amountPaisa, category: expenses.category })
+      .from(expenses);
+    const totalExpensesPaisa = expenseRows.reduce((acc, e) => acc + e.amountPaisa, 0);
 
     const netProfitPaisa = totalRevenuePaisa - totalExpensesPaisa;
 
-    // Group expenses by category
     const byCategory: Record<string, number> = {};
-    for (const exp of allExpenses) {
+    for (const exp of expenseRows) {
       byCategory[exp.category] = (byCategory[exp.category] ?? 0) + exp.amountPaisa;
     }
 
@@ -262,7 +320,7 @@ export class ReportsService {
   }
 
   async getFeedbackSummary() {
-    const rows = await this.db.select().from(feedback).orderBy(desc(feedback.createdAt));
+    const rows = await this.db.select().from(feedback).orderBy(desc(feedback.createdAt)).limit(50);
     const averageRating =
       rows.length > 0 ? (rows.reduce((acc, f) => acc + f.rating, 0) / rows.length).toFixed(1) : '5.0';
 

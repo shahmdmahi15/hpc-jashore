@@ -106,6 +106,34 @@ function getTvRoleIcon(role?: string) {
   }
 }
 
+function formatDoctorName(rawName?: string | null, lang: 'bn' | 'en' = 'bn'): string {
+  const trimmed = (rawName || '').trim();
+  if (
+    !trimmed ||
+    trimmed.toLowerCase() === 'doctor' ||
+    trimmed === 'ডাক্তার' ||
+    trimmed === 'ডাঃ' ||
+    trimmed === 'ডা.' ||
+    trimmed.toLowerCase() === 'dr' ||
+    trimmed.toLowerCase() === 'dr.'
+  ) {
+    return lang === 'bn' ? 'ডাক্তার' : 'Doctor';
+  }
+
+  let clean = trimmed.replace(/^(?:ডাঃ|ডা\.|ডাক্তার|Dr\.|Dr\b|Doctor\b)\s*/i, '').trim();
+
+  clean = clean
+    .replace(/\bDr\.\s*/gi, lang === 'bn' ? 'ডাক্তার ' : 'Doctor ')
+    .replace(/\bDr\b\s*/gi, lang === 'bn' ? 'ডাক্তার ' : 'Doctor ')
+    .replace(/ডাঃ\s*/g, lang === 'bn' ? 'ডাক্তার ' : 'Doctor ')
+    .replace(/ডা\.\s*/g, lang === 'bn' ? 'ডাক্তার ' : 'Doctor ')
+    .trim();
+
+  const prefix = lang === 'bn' ? 'ডাক্তার' : 'Doctor';
+  if (!clean) return prefix;
+  return clean.toLowerCase().startsWith(prefix.toLowerCase()) ? clean : `${prefix} ${clean}`;
+}
+
 export default function WaitingRoomTvView() {
   const [lang, setLang] = useState<Language>('bn');
   const [theme, setTheme] = useState<Theme>('dark');
@@ -171,7 +199,7 @@ export default function WaitingRoomTvView() {
     consultationQueue: { nowServing: [], waiting: [] },
     therapyQueue: { nowServing: [], waiting: [] },
     bulletinNotices: [
-      'স্বাগতম: হেলথ অ্যান্ড পেইন কেয়ার সেন্টার (HPC) · যশোর | আধুনিক ফিজিওথেরাপি ও পুনর্বাসন কেন্দ্র',
+      'স্বাগতম: হেলথ অ্যান্ড পেইন কেয়ার সেন্টার · যশোর | আধুনিক ফিজিওথেরাপি ও পুনর্বাসন কেন্দ্র',
       'আধুনিক ফিজিওথেরাপি, পুনর্বাসন ও পেইন ম্যানেজমেন্ট সেবা | সময় অনুযায়ী সেবা গ্রহণ করুন',
       'জরুরি হটলাইন: +880 1515-615188 | অনুগ্রহ করে আপনার নাম ও রুম নম্বর ডিসপ্লেতে লক্ষ্য করুন',
       'চাচড়া পুলিশ ফাঁড়ির বিপরীতে, ডালমিল মোড়, যশোর ৭৪০০ | আপনার নির্ধারিত সময়ে সেবা গ্রহণ করুন',
@@ -262,134 +290,173 @@ export default function WaitingRoomTvView() {
     }
   };
 
+  // Sequential FIFO Audio Call Queue: prevents announcement collision when multiple chambers call at once
+  const audioQueueRef = useRef<any[]>([]);
+  const isPlayingAudioRef = useRef(false);
+
+  const processAudioQueue = () => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+    if (audioQueueRef.current.length === 0) {
+      isPlayingAudioRef.current = false;
+      return;
+    }
+    isPlayingAudioRef.current = true;
+    const latestCalled = audioQueueRef.current.shift();
+    if (!latestCalled) {
+      isPlayingAudioRef.current = false;
+      return;
+    }
+
+    playChime();
+    setTimeout(() => {
+      const isTherapy = latestCalled.type === 'therapy' || latestCalled.isTherapy || !latestCalled.doctorNameEn;
+      const patientBn = latestCalled.patientNameBn || latestCalled.patientNameEn || 'রোগী';
+      const patientEn = latestCalled.patientNameEn || latestCalled.patientNameBn || 'Patient';
+      const rawRoom = latestCalled.roomName || (latestCalled.chamberRoomNumber ? `Room ${latestCalled.chamberRoomNumber}` : (latestCalled.roomNumber ? `Room ${latestCalled.roomNumber}` : 'Therapy Room 1'));
+      const roomDigits = String(rawRoom).replace(/\D/g, '') || String(latestCalled.roomNumber || latestCalled.chamberRoomNumber || '1');
+
+      const onAudioFinished = () => {
+        setTimeout(() => {
+          isPlayingAudioRef.current = false;
+          processAudioQueue();
+        }, 600);
+      };
+
+      if (isTherapy) {
+        const rawServiceType = String(
+          latestCalled.therapyType || latestCalled.serviceType || 'therapy'
+        )
+          .toLowerCase()
+          .trim();
+        let enPurpose = 'therapy';
+        let bnPurpose = 'থেরাপির';
+
+        if (rawServiceType === 'checkup' || rawServiceType === 'check up' || rawServiceType.includes('চেকআপ')) {
+          enPurpose = 'checkup';
+          bnPurpose = 'চেকআপের';
+        } else if (rawServiceType === 'therapy' || rawServiceType.includes('থেরাপি')) {
+          enPurpose = 'therapy';
+          bnPurpose = 'থেরাপির';
+        } else if (rawServiceType === 'assessment' || rawServiceType.includes('অ্যাসেসমেন্ট')) {
+          enPurpose = 'assessment';
+          bnPurpose = 'অ্যাসেসমেন্টের';
+        } else if (rawServiceType === 'consultation' || rawServiceType.includes('পরামর্শ')) {
+          enPurpose = 'consultation';
+          bnPurpose = 'পরামর্শের';
+        } else if (rawServiceType === 'followup' || rawServiceType.includes('ফলো-আপ')) {
+          enPurpose = 'follow-up';
+          bnPurpose = 'ফলো-আপের';
+        } else {
+          enPurpose = latestCalled.therapyType || latestCalled.serviceType || 'therapy';
+          bnPurpose = latestCalled.serviceNameBn || `${enPurpose} এর`;
+        }
+
+        const roomNameBn = `রুম ${toBnNum(roomDigits)}`;
+        const roomNameEn = `room ${roomDigits}`;
+
+        const bnPrefix = bnPurpose.endsWith('এর') || bnPurpose.endsWith('র') ? bnPurpose : `${bnPurpose} এর`;
+        const textBn = `${bnPrefix} জন্য রোগী ${patientBn} কে ${roomNameBn} এ আসার জন্য অনুরোধ করা হচ্ছে।`;
+        const utteranceBn = new SpeechSynthesisUtterance(textBn);
+        utteranceBn.lang = 'bn-BD';
+        utteranceBn.rate = 0.9;
+        utteranceBn.pitch = 1.0;
+
+        const bnVoice = voices.find((v) => v.lang.startsWith('bn'));
+        if (bnVoice) utteranceBn.voice = bnVoice;
+
+        utteranceBn.onend = () => {
+          setTimeout(() => {
+            const textEn = `Patient ${patientEn}, please proceed to ${roomNameEn} for ${enPurpose}.`;
+            const utteranceEn = new SpeechSynthesisUtterance(textEn);
+            const enInVoice =
+              voices.find((v) => v.lang === 'en-IN' || v.lang.startsWith('en-IN')) ||
+              voices.find((v) => v.lang.startsWith('en'));
+            if (enInVoice) {
+              utteranceEn.voice = enInVoice;
+              utteranceEn.lang = enInVoice.lang;
+            } else {
+              utteranceEn.lang = 'en-IN';
+            }
+            utteranceEn.rate = 0.92;
+            utteranceEn.pitch = 1.0;
+            utteranceEn.onend = onAudioFinished;
+            utteranceEn.onerror = onAudioFinished;
+            window.speechSynthesis.speak(utteranceEn);
+          }, 350);
+        };
+
+        utteranceBn.onerror = () => {
+          const textEn = `Patient ${patientEn}, please proceed to ${roomNameEn} for ${enPurpose}.`;
+          const utteranceEn = new SpeechSynthesisUtterance(textEn);
+          utteranceEn.lang = 'en-IN';
+          utteranceEn.rate = 0.92;
+          utteranceEn.onend = onAudioFinished;
+          utteranceEn.onerror = onAudioFinished;
+          window.speechSynthesis.speak(utteranceEn);
+        };
+
+        window.speechSynthesis.speak(utteranceBn);
+      } else {
+        // Doctor consultation speech
+        const rawDoctor = latestCalled.doctorNameBn || latestCalled.doctorName || latestCalled.doctorNameEn;
+        const doctorBn = formatDoctorName(rawDoctor, 'bn');
+        const doctorEn = formatDoctorName(latestCalled.doctorNameEn || latestCalled.doctorName, 'en');
+        const chamber = latestCalled.chamberRoomNumber || latestCalled.chamberName || '১';
+        const chamberDigits = String(chamber).replace(/\D/g, '') || '1';
+        const chamberDigitsBn = toBnNum(chamberDigits);
+        const textBn = `${doctorBn}, রোগী ${patientBn} কে ${chamberDigitsBn} নম্বর রুমে ডাকছেন`;
+        const textEn = `${doctorEn} is calling patient ${patientEn} to room number ${chamberDigits}`;
+        const utteranceBn = new SpeechSynthesisUtterance(textBn);
+        utteranceBn.lang = 'bn-BD';
+        utteranceBn.rate = 0.9;
+        utteranceBn.pitch = 1.0;
+
+        const bnVoice = voices.find((v) => v.lang.startsWith('bn'));
+        if (bnVoice) utteranceBn.voice = bnVoice;
+
+        utteranceBn.onend = () => {
+          setTimeout(() => {
+            const utteranceEn = new SpeechSynthesisUtterance(textEn);
+            const enInVoice =
+              voices.find((v) => v.lang === 'en-IN' || v.lang.startsWith('en-IN')) ||
+              voices.find((v) => v.lang.startsWith('en'));
+            if (enInVoice) {
+              utteranceEn.voice = enInVoice;
+              utteranceEn.lang = enInVoice.lang;
+            } else {
+              utteranceEn.lang = 'en-IN';
+            }
+            utteranceEn.rate = 0.92;
+            utteranceEn.pitch = 1.0;
+            utteranceEn.onend = onAudioFinished;
+            utteranceEn.onerror = onAudioFinished;
+            window.speechSynthesis.speak(utteranceEn);
+          }, 350);
+        };
+
+        utteranceBn.onerror = () => {
+          const utteranceEn = new SpeechSynthesisUtterance(textEn);
+          utteranceEn.lang = 'en-IN';
+          utteranceEn.rate = 0.92;
+          utteranceEn.onend = onAudioFinished;
+          utteranceEn.onerror = onAudioFinished;
+          window.speechSynthesis.speak(utteranceEn);
+        };
+
+        window.speechSynthesis.speak(utteranceBn);
+      }
+    }, 650);
+  };
+
   const triggerCallingAlert = (latestCalled: any) => {
     setActiveCallAlert(latestCalled);
     setCallCountdown(16);
 
     if (audioEnabled && typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      playChime();
-      setTimeout(() => {
-        window.speechSynthesis.cancel();
-        const isTherapy = latestCalled.type === 'therapy' || latestCalled.isTherapy || !latestCalled.doctorNameEn;
-        const patientBn = latestCalled.patientNameBn || latestCalled.patientNameEn || 'রোগী';
-        const patientEn = latestCalled.patientNameEn || latestCalled.patientNameBn || 'Patient';
-        const rawRoom = latestCalled.roomName || (latestCalled.chamberRoomNumber ? `Room ${latestCalled.chamberRoomNumber}` : (latestCalled.roomNumber ? `Room ${latestCalled.roomNumber}` : 'Therapy Room 1'));
-        const roomDigits = String(rawRoom).replace(/\D/g, '') || String(latestCalled.roomNumber || latestCalled.chamberRoomNumber || '1');
-        const roomNameBn = `থেরাপি রুম ${toBnNum(roomDigits)}`;
-        const roomNameEn = `Therapy Room ${roomDigits}`;
-
-        if (isTherapy) {
-          const rawServiceType = String(
-            latestCalled.therapyType || latestCalled.serviceType || 'therapy'
-          )
-            .toLowerCase()
-            .trim();
-          let enPurpose = 'therapy';
-          let bnPurpose = 'থেরাপির';
-
-          if (rawServiceType === 'checkup' || rawServiceType === 'check up' || rawServiceType.includes('চেকআপ')) {
-            enPurpose = 'checkup';
-            bnPurpose = 'চেকআপের';
-          } else if (rawServiceType === 'therapy' || rawServiceType.includes('থেরাপি')) {
-            enPurpose = 'therapy';
-            bnPurpose = 'থেরাপির';
-          } else if (rawServiceType === 'assessment' || rawServiceType.includes('অ্যাসেসমেন্ট')) {
-            enPurpose = 'assessment';
-            bnPurpose = 'অ্যাসেসমেন্টের';
-          } else if (rawServiceType === 'consultation' || rawServiceType.includes('পরামর্শ')) {
-            enPurpose = 'consultation';
-            bnPurpose = 'পরামর্শের';
-          } else if (rawServiceType === 'followup' || rawServiceType.includes('ফলো-আপ')) {
-            enPurpose = 'follow-up';
-            bnPurpose = 'ফলো-আপের';
-          } else {
-            enPurpose = latestCalled.therapyType || latestCalled.serviceType || 'therapy';
-            bnPurpose = latestCalled.serviceNameBn || `${enPurpose} এর`;
-          }
-
-          const bnPrefix = bnPurpose.endsWith('এর') || bnPurpose.endsWith('র') ? bnPurpose : `${bnPurpose} এর`;
-          // 1. Speak in native Bangla: <bnPrefix> জন্য রোগী <patient_name> কে <room_name> এ আসার জন্য অনুরোধ করা হচ্ছে।
-          const textBn = `${bnPrefix} জন্য রোগী ${patientBn} কে ${roomNameBn} এ আসার জন্য অনুরোধ করা হচ্ছে।`;
-          const utteranceBn = new SpeechSynthesisUtterance(textBn);
-          utteranceBn.lang = 'bn-BD';
-          utteranceBn.rate = 0.9;
-          utteranceBn.pitch = 1.0;
-
-          const bnVoice = voices.find((v) => v.lang.startsWith('bn'));
-          if (bnVoice) utteranceBn.voice = bnVoice;
-
-          // 2. Speak sequentially in English: Patient <patient_name>, please proceed to <room_name> for <enPurpose>.
-          utteranceBn.onend = () => {
-            setTimeout(() => {
-              const textEn = `Patient ${patientEn}, please proceed to ${roomNameEn} for ${enPurpose}.`;
-              const utteranceEn = new SpeechSynthesisUtterance(textEn);
-              const enInVoice =
-                voices.find((v) => v.lang === 'en-IN' || v.lang.startsWith('en-IN')) ||
-                voices.find((v) => v.lang.startsWith('en'));
-              if (enInVoice) {
-                utteranceEn.voice = enInVoice;
-                utteranceEn.lang = enInVoice.lang;
-              } else {
-                utteranceEn.lang = 'en-IN';
-              }
-              utteranceEn.rate = 0.92;
-              utteranceEn.pitch = 1.0;
-              window.speechSynthesis.speak(utteranceEn);
-            }, 350);
-          };
-
-          utteranceBn.onerror = () => {
-            const textEn = `Patient ${patientEn}, please proceed to ${roomNameEn} for ${enPurpose}.`;
-            const utteranceEn = new SpeechSynthesisUtterance(textEn);
-            utteranceEn.lang = 'en-IN';
-            utteranceEn.rate = 0.92;
-            window.speechSynthesis.speak(utteranceEn);
-          };
-
-          window.speechSynthesis.speak(utteranceBn);
-        } else {
-          // Doctor consultation speech
-          const doctor = latestCalled.doctorNameEn || latestCalled.doctorName || 'ডাক্তার';
-          const chamber = latestCalled.chamberRoomNumber || latestCalled.chamberName || '১';
-          const textBn = `ডাঃ ${doctor}, রোগী ${patientBn} কে ${chamber} নম্বর রুমে ডাকছেন`;
-          const utteranceBn = new SpeechSynthesisUtterance(textBn);
-          utteranceBn.lang = 'bn-BD';
-          utteranceBn.rate = 0.9;
-          utteranceBn.pitch = 1.0;
-
-          const bnVoice = voices.find((v) => v.lang.startsWith('bn'));
-          if (bnVoice) utteranceBn.voice = bnVoice;
-
-          utteranceBn.onend = () => {
-            setTimeout(() => {
-              const textEn = `Doctor ${doctor} is calling patient ${patientEn} to room number ${chamber}`;
-              const utteranceEn = new SpeechSynthesisUtterance(textEn);
-              const enInVoice =
-                voices.find((v) => v.lang === 'en-IN' || v.lang.startsWith('en-IN')) ||
-                voices.find((v) => v.lang.startsWith('en'));
-              if (enInVoice) {
-                utteranceEn.voice = enInVoice;
-                utteranceEn.lang = enInVoice.lang;
-              } else {
-                utteranceEn.lang = 'en-IN';
-              }
-              utteranceEn.rate = 0.92;
-              utteranceEn.pitch = 1.0;
-              window.speechSynthesis.speak(utteranceEn);
-            }, 350);
-          };
-
-          utteranceBn.onerror = () => {
-            const textEn = `Doctor ${doctor} is calling patient ${patientEn} to room number ${chamber}`;
-            const utteranceEn = new SpeechSynthesisUtterance(textEn);
-            utteranceEn.lang = 'en-IN';
-            utteranceEn.rate = 0.92;
-            window.speechSynthesis.speak(utteranceEn);
-          };
-
-          window.speechSynthesis.speak(utteranceBn);
-        }
-      }, 650);
+      audioQueueRef.current.push(latestCalled);
+      if (!isPlayingAudioRef.current) {
+        processAudioQueue();
+      }
     }
 
     if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
@@ -809,7 +876,7 @@ export default function WaitingRoomTvView() {
                 ? 'bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border-zinc-800 hover:text-emerald-400'
                 : 'bg-white hover:bg-zinc-100 text-zinc-800 border-zinc-200 hover:text-emerald-600'
             }`}
-            title="Hard Reload / হার্ড রিলোড"
+            title={lang === 'bn' ? 'হার্ড রিলোড' : 'Hard Reload'}
           >
             <RotateCw className="size-3.5 2xl:size-4" />
           </button>
@@ -941,7 +1008,7 @@ export default function WaitingRoomTvView() {
           <div className="w-full max-w-3xl p-6 sm:p-10 rounded-3xl border-4 border-emerald-500 bg-zinc-950 shadow-[0_0_120px_rgba(16,185,129,0.4)] text-center text-white relative overflow-hidden">
             <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-500/15 border border-emerald-500/40 text-emerald-400 text-xs sm:text-sm font-black uppercase tracking-widest mb-4 animate-pulse">
               <Radio className="size-4 animate-ping text-emerald-400" />
-              <span>{lang === 'bn' ? 'রোগীকে ডাকা হচ্ছে • NOW CALLING' : 'NOW CALLING PATIENT'}</span>
+              <span>{lang === 'bn' ? 'রোগীকে ডাকা হচ্ছে' : 'NOW CALLING PATIENT'}</span>
             </div>
 
             <div className="mb-2">
@@ -992,16 +1059,38 @@ export default function WaitingRoomTvView() {
                       );
                     })()
                   ) : (
-                    activeCallAlert.doctorNameEn || activeCallAlert.doctorName
-                      ? `ডাঃ ${activeCallAlert.doctorNameEn || activeCallAlert.doctorName}`
-                      : (lang === 'bn' ? 'ডাক্তার কনসাল্টেশন চেম্বার' : 'Doctor Consultation Chamber')
+                    (() => {
+                      const rawDoc = activeCallAlert.doctorNameBn || activeCallAlert.doctorName || activeCallAlert.doctorNameEn;
+                      const cleanDoc = (rawDoc || '')
+                        .replace(/^(?:ডাঃ|ডা\.|ডাক্তার|Dr\.|Dr\b|Doctor\b)\s*/i, '')
+                        .replace(/\bDr\.\s*/gi, lang === 'bn' ? 'ডাক্তার ' : 'Doctor ')
+                        .replace(/\bDr\b\s*/gi, lang === 'bn' ? 'ডাক্তার ' : 'Doctor ')
+                        .replace(/ডাঃ\s*/g, lang === 'bn' ? 'ডাক্তার ' : 'Doctor ')
+                        .replace(/ডা\.\s*/g, lang === 'bn' ? 'ডাক্তার ' : 'Doctor ')
+                        .trim();
+                      if (cleanDoc) {
+                        return formatDoctorName(cleanDoc, lang === 'bn' ? 'bn' : 'en');
+                      }
+                      return lang === 'bn' ? 'ডাক্তার কনসাল্টেশন চেম্বার' : 'Doctor Consultation Chamber';
+                    })()
                   )}
                 </div>
                 <div className="text-2xl sm:text-4xl font-black font-mono text-white">
                   {activeCallAlert.type === 'therapy' || activeCallAlert.isTherapy
-                    ? (lang === 'bn'
-                        ? `থেরাপি রুম ${toBnNum(String(activeCallAlert.roomName || activeCallAlert.roomNumber || '1').replace(/\D/g, '') || '১')}`
-                        : `THERAPY ROOM ${String(activeCallAlert.roomName || activeCallAlert.roomNumber || '1').replace(/\D/g, '') || '1'}`)
+                    ? (() => {
+                        const rawType = String(activeCallAlert.therapyType || activeCallAlert.serviceType || 'therapy').toLowerCase().trim();
+                        const roomNum = String(activeCallAlert.roomName || activeCallAlert.roomNumber || '1').replace(/\D/g, '') || '1';
+                        if (rawType === 'checkup' || rawType === 'check up' || rawType.includes('চেকআপ')) {
+                          return lang === 'bn' ? `রুম ${toBnNum(roomNum)}` : `ROOM ${roomNum}`;
+                        }
+                        if (rawType === 'assessment' || rawType.includes('অ্যাসেসমেন্ট')) {
+                          return lang === 'bn' ? `অ্যাসেসমেন্ট রুম ${toBnNum(roomNum)}` : `ASSESSMENT ROOM ${roomNum}`;
+                        }
+                        if (rawType === 'therapy' || rawType.includes('থেরাপি')) {
+                          return lang === 'bn' ? `থেরাপি রুম ${toBnNum(roomNum)}` : `THERAPY ROOM ${roomNum}`;
+                        }
+                        return lang === 'bn' ? `রুম ${toBnNum(roomNum)}` : `ROOM ${roomNum}`;
+                      })()
                     : (activeCallAlert.chamberRoomNumber
                         ? (lang === 'bn' ? `রুম নম্বর ${toBnNum(activeCallAlert.chamberRoomNumber)}` : `ROOM ${activeCallAlert.chamberRoomNumber}`)
                         : (lang === 'bn' ? 'চেম্বার রুম ১' : 'CHAMBER ROOM 1'))}

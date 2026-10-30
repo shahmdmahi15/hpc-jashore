@@ -1,6 +1,29 @@
 {
   "releases": [
     {
+      "version": "0.1.54",
+      "notes": "HPC Jashore v0.1.54 - Dynamic service type voice announcements (Checkup, Assessment, Therapy) with clean room phrasing.",
+      "pub_date": "2026-10-29T03:40:00.000Z",
+      "forceUpdate": true,
+      "minVersionCode": 55,
+      "platforms": {
+        "windows-x86_64": {
+          "signature": "",
+          "url": "https://github.com/shahmdmahi15/hpc-jashore/releases/download/v0.1.54/hpc-jashore_0.1.54_x64-setup.exe"
+        },
+        "android": {
+          "versionCode": 55,
+          "signature": "",
+          "url": "https://github.com/shahmdmahi15/hpc-jashore/releases/download/v0.1.54/hpc-jashore-mobile.apk"
+        },
+        "android-tv": {
+          "versionCode": 55,
+          "signature": "",
+          "url": "https://github.com/shahmdmahi15/hpc-jashore/releases/download/v0.1.54/hpc-jashore-tv.apk"
+        }
+      }
+    },
+    {
       "version": "0.1.53",
       "notes": "HPC Jashore v0.1.53 - Instant zero-latency bulletin realtime synchronization, active SSE broadcast, 5s polling safety-net, and admin device live presence.",
       "pub_date": "2026-10-26T17:10:00.000Z",

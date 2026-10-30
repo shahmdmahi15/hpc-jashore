@@ -1,6 +1,6 @@
 {
   "name": "hpc-jashore",
-  "version": "0.1.53",
+  "version": "0.1.54",
   "private": true,
   "description": "HPC Health & Pain Care Center, Jashore — realtime physiotherapy center management platform",
   "packageManager": "pnpm@12.14.0",
@@ -11,13 +11,8 @@
   "scripts": {
     "dev:api": "pnpm --filter @hpc/api dev",
     "dev:web": "pnpm --filter @hpc/web dev",
-    "dev:tauri": "pnpm --filter @hpc/tauri dev",
     "build": "pnpm --filter @hpc/api build && pnpm --filter @hpc/web build",
     "build:all": "pnpm -r build",
-    "build:tauri": "pnpm --filter @hpc/tauri build",
-    "android:init": "pnpm --filter @hpc/tauri android:init",
-    "android:dev": "pnpm --filter @hpc/tauri android:dev",
-    "android:build": "pnpm --filter @hpc/tauri android:build",
     "lint": "pnpm -r lint"
   }
 }

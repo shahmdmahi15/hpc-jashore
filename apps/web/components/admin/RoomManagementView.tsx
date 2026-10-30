@@ -586,13 +586,13 @@ export function RoomManagementView() {
                       {isBn ? 'সকল জেন্ডার' : 'All Genders'}
                     </SelectItem>
                     <SelectItem value="common">
-                      {isBn ? 'উভয় (Common)' : 'Common'}
+                      {isBn ? 'উভয়' : 'Common'}
                     </SelectItem>
                     <SelectItem value="male">
-                      {isBn ? 'পুরুষ (Male)' : 'Male Only'}
+                      {isBn ? 'পুরুষ' : 'Male Only'}
                     </SelectItem>
                     <SelectItem value="female">
-                      {isBn ? 'মহিলা (Female)' : 'Female Only'}
+                      {isBn ? 'মহিলা' : 'Female Only'}
                     </SelectItem>
                   </SelectContent>
                 </Select>

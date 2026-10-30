@@ -85,6 +85,7 @@ export const viewport: Viewport = {
 };
 
 import { LanguageProvider } from '../lib/i18n';
+import { PwaInstallPrompt } from '../components/PwaInstallPrompt';
 import { cn } from "@/lib/utils";
 
 const geist = Geist({subsets:['latin'],variable:'--font-sans'});
@@ -212,6 +213,7 @@ export default function RootLayout({
       <body className="min-h-screen min-h-dvh flex flex-col font-sans bg-background text-foreground selection:bg-emerald-500/20 antialiased overscroll-none touch-manipulation">
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem storageKey="hpc-theme">
           <LanguageProvider>
+            <PwaInstallPrompt />
             {children}
             <Toaster
               position="top-center"

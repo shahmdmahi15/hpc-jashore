@@ -17,10 +17,20 @@ export class StartSessionDto {
   @IsNotEmpty()
   patientId!: string;
 
-  @ApiProperty()
+  @ApiPropertyOptional({ description: 'Primary therapy modality code', example: 'IFT' })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  modalityCode!: string;
+  modalityCode?: string;
+
+  @ApiPropertyOptional({
+    description: 'Array of modality codes performed in this session',
+    example: ['IFT', 'UST'],
+    type: [String],
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  modalityCodes?: string[];
 
   @ApiPropertyOptional()
   @IsOptional()
@@ -345,6 +355,29 @@ export class CancelTherapyCallDto {
   bookingId?: string;
 }
 
+export class TherapyBillItemDto {
+  @ApiProperty({ description: 'Therapy modality code', example: 'IFT' })
+  @IsString()
+  @IsNotEmpty()
+  modalityCode!: string;
+
+  @ApiPropertyOptional({ description: 'Item description or name', example: 'Interferential Therapy (IFT)' })
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @ApiProperty({ description: 'Price in Taka for this modality', example: 300 })
+  @IsNumber()
+  @Min(0)
+  priceTaka!: number;
+
+  @ApiPropertyOptional({ description: 'Modality duration in minutes', example: 15 })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  durationMinutes?: number;
+}
+
 export class SendToCashierDto {
   @ApiProperty({ description: 'Active visit UUID' })
   @IsString()
@@ -356,10 +389,11 @@ export class SendToCashierDto {
   @IsNotEmpty()
   patientId!: string;
 
-  @ApiProperty({ description: 'Fixed therapy fee in Taka', example: 500 })
+  @ApiPropertyOptional({ description: 'Fixed therapy fee in Taka (overridden by items sum if omitted)', example: 500 })
+  @IsOptional()
   @IsNumber()
   @Min(0)
-  feeTaka!: number;
+  feeTaka?: number;
 
   @ApiPropertyOptional({ description: 'Therapy modality code (defaults to PHYSIO)', example: 'PHYSIO' })
   @IsOptional()
@@ -370,6 +404,19 @@ export class SendToCashierDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @ApiPropertyOptional({
+    description: 'Itemized modality billing lines',
+    type: [TherapyBillItemDto],
+  })
+  @IsOptional()
+  @IsArray()
+  items?: Array<{
+    modalityCode: string;
+    description?: string;
+    priceTaka: number;
+    durationMinutes?: number;
+  }>;
 }
 
 export class SwitchTherapyRoomDto {

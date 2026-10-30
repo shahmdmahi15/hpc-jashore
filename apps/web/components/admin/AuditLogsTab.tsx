@@ -706,7 +706,7 @@ export function AuditLogsTab() {
                     <div className="space-y-1.5">
                       <div className="flex items-center justify-between text-xs font-bold text-muted-foreground">
                         <span className="text-amber-600 dark:text-amber-400">
-                          {isBn ? 'পূর্ববর্তী অবস্থা (Before)' : 'Before State'}
+                          {isBn ? 'পূর্ববর্তী অবস্থা' : 'Before State'}
                         </span>
                         <Button
                           variant="ghost"
@@ -727,7 +727,7 @@ export function AuditLogsTab() {
                     <div className="space-y-1.5">
                       <div className="flex items-center justify-between text-xs font-bold text-muted-foreground">
                         <span className="text-emerald-600 dark:text-emerald-400">
-                          {isBn ? 'পরিবর্তিত অবস্থা (After)' : 'After State'}
+                          {isBn ? 'পরিবর্তিত অবস্থা' : 'After State'}
                         </span>
                         <Button
                           variant="ghost"
@@ -748,7 +748,7 @@ export function AuditLogsTab() {
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between text-xs font-bold text-muted-foreground">
                       <span className="text-foreground">
-                        {isBn ? 'ইভেন্ট পে-লোড (Event Payload / After State)' : 'Event Payload / Data'}
+                        {isBn ? 'ইভেন্ট পে-লোড' : 'Event Payload / Data'}
                       </span>
                       <Button
                         variant="ghost"
@@ -766,7 +766,7 @@ export function AuditLogsTab() {
                   </div>
                 ) : (
                   <div className="p-6 text-center text-xs text-muted-foreground bg-muted/20 rounded-xl border border-dashed border-border">
-                    {isBn ? 'এই ইভেন্টের সাথে কোনো অতিরিক্ত JSON ডাটা সংরক্ষিত নেই।' : 'No additional JSON changes recorded for this event.'}
+                    {isBn ? 'এই ইভেন্টের সাথে কোনো অতিরিক্ত ডাটা সংরক্ষিত নেই।' : 'No additional JSON changes recorded for this event.'}
                   </div>
                 )}
               </div>

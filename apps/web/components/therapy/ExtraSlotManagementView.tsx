@@ -634,7 +634,7 @@ export function ExtraSlotManagementView() {
           <Input
             placeholder={
               isBn
-                ? 'রোগীর নাম, MRN, ফোন বা বুকিং নম্বর দিয়ে খুঁজুন...'
+                ? (isBn ? 'রোগীর নাম, আইডি, ফোন বা বুকিং নম্বর দিয়ে খুঁজুন...' : 'Search by patient name, MRN, phone, or booking number...')
                 : 'Search by patient name, MRN, phone, booking #...'
             }
             value={searchQuery}
@@ -655,7 +655,7 @@ export function ExtraSlotManagementView() {
               </h3>
               <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
                 {isBn
-                  ? 'অ্যাডমিন প্যানেলের "Therapy Slot Config" ট্যাব থেকে এই দিনের স্লট কনফিগার করুন।'
+                  ? (isBn ? 'অ্যাডমিন প্যানেলের স্লট কনফিগারেশন ট্যাব থেকে এই দিনের স্লট কনফিগার করুন।' : 'Configure slots for this day from Admin Panel Slot Config.')
                   : 'Configure slot hours for this day in the Admin "Therapy Slot Config" tab.'}
               </p>
             </Card>

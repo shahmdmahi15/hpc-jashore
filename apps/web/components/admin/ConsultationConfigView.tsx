@@ -1072,7 +1072,7 @@ export function ConsultationConfigView() {
                 <Input
                   value={editForm.fullName}
                   onChange={(e) => setEditForm((p) => ({ ...p, fullName: e.target.value }))}
-                  placeholder={language === 'bn' ? 'যেমন: ডা. বিশেষজ্ঞ' : 'e.g. Dr. Name'}
+                  placeholder={language === 'bn' ? 'যেমন: ডাক্তার বিশেষজ্ঞ' : 'e.g. Doctor Name'}
                   className="h-9 text-xs sm:text-sm"
                 />
               </div>
@@ -1133,14 +1133,14 @@ export function ConsultationConfigView() {
             <div className="p-3 sm:p-4 rounded-xl bg-muted/40 border border-border/60 space-y-3">
               <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
                 <Banknote className="size-4 text-emerald-500" />
-                {language === 'bn' ? 'ভিজিট ফি সেটিংস (টাকা)' : 'Fee Structure Configuration (BDT ৳)'}
+                {language === 'bn' ? 'ভিজিট ফি সেটিংস (টাকা)' : 'Fee Structure Configuration (BDT)'}
               </span>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {/* 1. Main Consultation Fee */}
                 <div className="space-y-1.5">
                   <label className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-300">
-                    {language === 'bn' ? '১. মূল ভিজিট ফি (৳)' : '1. Main Visit Fee (৳)'} *
+                    {language === 'bn' ? '১. মূল ভিজিট ফি (টাকা)' : '1. Main Visit Fee (BDT)'} *
                   </label>
                   <Input
                     type="number"
@@ -1155,7 +1155,7 @@ export function ConsultationConfigView() {
                 {/* 2. Follow-Up Fee */}
                 <div className="space-y-1.5">
                   <label className="text-[11px] font-semibold text-sky-700 dark:text-sky-300">
-                    {language === 'bn' ? '২. ফলো-আপ ফি (৳)' : '2. Follow-up Fee (৳)'} *
+                    {language === 'bn' ? '২. ফলো-আপ ফি (টাকা)' : '2. Follow-up Fee (BDT)'} *
                   </label>
                   <Input
                     type="number"
@@ -1170,7 +1170,7 @@ export function ConsultationConfigView() {
                 {/* 3. Report Review Fee */}
                 <div className="space-y-1.5">
                   <label className="text-[11px] font-semibold text-violet-700 dark:text-violet-300">
-                    {language === 'bn' ? '৩. রিপোর্ট ফি (৳)' : '3. Report Fee (৳)'}
+                    {language === 'bn' ? '৩. রিপোর্ট ফি (টাকা)' : '3. Report Consultation Fee (BDT)'}
                   </label>
                   <Input
                     type="number"
@@ -1275,7 +1275,7 @@ export function ConsultationConfigView() {
               <label className="text-xs font-bold text-foreground flex items-center justify-between">
                 <span className="flex items-center gap-1.5">
                   <Calendar className="size-3.5 text-emerald-500" />
-                  {language === 'bn' ? 'সাপ্তাহিক চেম্বার কর্মদিবস (Working Days)' : 'Weekly Chamber Working Days'}
+                  {language === 'bn' ? 'সাপ্তাহিক চেম্বার কর্মদিবস' : 'Weekly Chamber Working Days'}
                 </span>
                 <span className="text-[10px] text-muted-foreground font-mono">
                   {slotConfigForm.availableDays.length}/7 {language === 'bn' ? 'দিন নির্ধারিত' : 'days active'}
@@ -1342,12 +1342,12 @@ export function ConsultationConfigView() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="10">10 মিনিট (10m)</SelectItem>
-                    <SelectItem value="15">15 মিনিট (15m)</SelectItem>
-                    <SelectItem value="20">20 মিনিট (20m)</SelectItem>
-                    <SelectItem value="30">30 মিনিট (30m)</SelectItem>
-                    <SelectItem value="45">45 মিনিট (45m)</SelectItem>
-                    <SelectItem value="60">60 মিনিট (60m)</SelectItem>
+                    <SelectItem value="10">{language === 'bn' ? '১০ মিনিট' : '10 min'}</SelectItem>
+                    <SelectItem value="15">{language === 'bn' ? '১৫ মিনিট' : '15 min'}</SelectItem>
+                    <SelectItem value="20">{language === 'bn' ? '২০ মিনিট' : '20 min'}</SelectItem>
+                    <SelectItem value="30">{language === 'bn' ? '৩০ মিনিট' : '30 min'}</SelectItem>
+                    <SelectItem value="45">{language === 'bn' ? '৪৫ মিনিট' : '45 min'}</SelectItem>
+                    <SelectItem value="60">{language === 'bn' ? '৬০ মিনিট' : '60 min'}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -1455,7 +1455,7 @@ export function ConsultationConfigView() {
                       handleAddCustomSlot();
                     }
                   }}
-                  placeholder={language === 'bn' ? 'কাস্টম সময় লিখুন (যেমন: 10:40 AM বা 06:15 PM)' : 'Enter custom time (e.g. 10:40 AM, 06:15 PM)'}
+                  placeholder={language === 'bn' ? 'কাস্টম সময় লিখুন (যেমন: ১০:৪০ বা ১৮:১৫)' : 'Enter custom time (e.g. 10:40 AM, 06:15 PM)'}
                   className="h-8 text-xs font-mono"
                 />
               </div>
@@ -1481,7 +1481,7 @@ export function ConsultationConfigView() {
                   </Badge>
                 </label>
                 <span className="text-[10px] text-muted-foreground">
-                  {language === 'bn' ? 'স্লট মুছতে লাল (X) বাটনে ক্লিক করুন' : 'Click (X) to delete slot'}
+                  {language === 'bn' ? 'স্লট মুছতে লাল বাটনে ক্লিক করুন' : 'Click delete button to remove slot'}
                 </span>
               </div>
 
@@ -1496,7 +1496,7 @@ export function ConsultationConfigView() {
                     onClick={() => applyShiftPreset('morning')}
                     className="text-xs"
                   >
-                    {language === 'bn' ? 'সকাল শিফট তৈরি করুন (09:00 AM - 01:00 PM)' : 'Apply Morning Shift (09:00 AM - 01:00 PM)'}
+                    {language === 'bn' ? 'সকাল শিফট তৈরি করুন (০৯:০০ - ১৩:০০)' : 'Apply Morning Shift (09:00 AM - 01:00 PM)'}
                   </Button>
                 </div>
               ) : (
@@ -1658,7 +1658,7 @@ export function ConsultationConfigView() {
                 <Input
                   value={newDoctorForm.fullName}
                   onChange={(e) => setNewDoctorForm((p) => ({ ...p, fullName: e.target.value }))}
-                  placeholder="e.g. Dr. Sabrina Sultana"
+                  placeholder={language === 'bn' ? 'যেমন: ডাক্তার সাবরিনা সুলতানা' : 'e.g. Doctor Sabrina Sultana'}
                   className="h-9 text-xs sm:text-sm"
                 />
               </div>
@@ -1740,13 +1740,13 @@ export function ConsultationConfigView() {
             <div className="p-3 sm:p-4 rounded-xl bg-muted/40 border border-border/60 space-y-3">
               <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
                 <Banknote className="size-4 text-emerald-500" />
-                {language === 'bn' ? 'ভিজিট ফি সেটিংস (টাকা)' : 'Fee Structure Configuration (BDT ৳)'}
+                {language === 'bn' ? 'ভিজিট ফি সেটিংস (টাকা)' : 'Fee Structure Configuration (BDT)'}
               </span>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="space-y-1.5">
                   <label className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-300">
-                    {language === 'bn' ? '১. মূল ভিজিট ফি (৳)' : '1. Main Visit Fee (৳)'} *
+                    {language === 'bn' ? '১. মূল ভিজিট ফি (টাকা)' : '1. Main Visit Fee (BDT)'} *
                   </label>
                   <Input
                     type="number"
@@ -1760,7 +1760,7 @@ export function ConsultationConfigView() {
 
                 <div className="space-y-1.5">
                   <label className="text-[11px] font-semibold text-sky-700 dark:text-sky-300">
-                    {language === 'bn' ? '২. ফলো-আপ ফি (৳)' : '2. Follow-up Fee (৳)'} *
+                    {language === 'bn' ? '২. ফলো-আপ ফি (টাকা)' : '2. Follow-up Fee (BDT)'} *
                   </label>
                   <Input
                     type="number"
@@ -1774,7 +1774,7 @@ export function ConsultationConfigView() {
 
                 <div className="space-y-1.5">
                   <label className="text-[11px] font-semibold text-violet-700 dark:text-violet-300">
-                    {language === 'bn' ? '৩. রিপোর্ট ফি (৳)' : '3. Report Fee (৳)'}
+                    {language === 'bn' ? '৩. রিপোর্ট ফি (টাকা)' : '3. Report Consultation Fee (BDT)'}
                   </label>
                   <Input
                     type="number"

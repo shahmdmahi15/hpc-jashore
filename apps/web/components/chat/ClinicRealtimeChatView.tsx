@@ -115,40 +115,40 @@ export interface UserSuggestion {
 const ROLE_GROUPS = [
   {
     id: '@all',
-    labelEn: '@all (All Staff)',
-    labelBn: '@all (সকলকে)',
+    labelEn: 'All Staff',
+    labelBn: 'সকল কর্মী',
     descEn: 'Clinic-wide broadcast notice to everyone',
     descBn: 'পুরো ক্লিনিকের সকলের জন্য সার্বিক নোটিশ',
     color: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30',
   },
   {
     id: '@doctors',
-    labelEn: '@doctors (All Doctors)',
-    labelBn: '@doctors (ডাক্তারগণ)',
+    labelEn: 'All Doctors',
+    labelBn: 'সকল ডাক্তার',
     descEn: 'All clinical medical consultants',
     descBn: 'সকল কনসালটেন্ট ও মেডিকেল অফিসার',
     color: 'bg-teal-500/15 text-teal-600 dark:text-teal-400 border-teal-500/30',
   },
   {
     id: '@handlers',
-    labelEn: '@handlers (Therapists)',
-    labelBn: '@handlers (থেরাপিস্টগণ)',
+    labelEn: 'Therapists',
+    labelBn: 'সকল ফিজিওথেরাপিস্ট',
     descEn: 'Physiotherapists & rehabilitation team',
     descBn: 'সকল ফিজিওথেরাপিস্ট ও সহকারী টিম',
     color: 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border-indigo-500/30',
   },
   {
     id: '@cashiers',
-    labelEn: '@cashiers (Accounts & Billing)',
-    labelBn: '@cashiers (ক্যাশিয়ার)',
+    labelEn: 'Accounts & Billing',
+    labelBn: 'সকল ক্যাশিয়ার',
     descEn: 'Cashier & billing payment desk',
     descBn: 'বিলিং কাউন্টার ও ক্যাশ কালেকশন ডেস্ক',
     color: 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30',
   },
   {
     id: '@reception',
-    labelEn: '@reception (Front Desk)',
-    labelBn: '@reception (রিসেপশন)',
+    labelEn: 'Front Desk',
+    labelBn: 'অভ্যর্থনা ডেস্ক',
     descEn: 'Front desk intake, registration & serials',
     descBn: 'রোগী নিবন্ধন, সিরিয়াল ও অভ্যর্থনা ডেস্ক',
     color: 'bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/30',
@@ -1176,7 +1176,7 @@ export function ClinicRealtimeChatView() {
               onKeyDown={handleKeyDown}
               placeholder={
                 isBn
-                  ? 'বার্তা লিখুন... (@ মেনশন, # রোগীর MRN বা নাম লিখুন, Enter চাপুন)'
+                  ? 'বার্তা লিখুন... (@ মেনশন, # রোগীর রেজি নম্বর বা নাম লিখুন, এন্টার চাপুন)'
                   : 'Type a message... (@ for staff/roles, # for patient MRN, Enter to send)'
               }
               className="w-full resize-none rounded-xl border border-input bg-background/80 px-3 py-2 text-xs sm:text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition-all font-sans leading-relaxed"
@@ -1345,7 +1345,7 @@ export function ClinicRealtimeChatView() {
                 className="h-10 rounded-xl font-bold text-xs"
               >
                 <Clock className="size-3.5 mr-1.5" />
-                <span>{isBn ? 'আজকে (Today)' : 'Today'}</span>
+                <span>{isBn ? 'আজকে' : 'Today'}</span>
               </Button>
               <Button
                 type="button"
@@ -1354,7 +1354,7 @@ export function ClinicRealtimeChatView() {
                 className="h-10 rounded-xl font-bold text-xs"
               >
                 <History className="size-3.5 mr-1.5" />
-                <span>{isBn ? 'গতকাল (Yesterday)' : 'Yesterday'}</span>
+                <span>{isBn ? 'গতকাল' : 'Yesterday'}</span>
               </Button>
             </div>
 

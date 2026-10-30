@@ -3,6 +3,7 @@
 
 import React, { useEffect, useState, useMemo } from 'react';
 import { api, UserSession, getSession } from '../lib/api';
+import { useLanguage } from '../lib/i18n';
 import { useRealtime } from '../lib/use-realtime';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -50,6 +51,8 @@ export interface TherapyHallProps {
 
 export default function TherapyHallView({ session: propSession }: TherapyHallProps = {}) {
   const session = propSession || getSession();
+  const { language } = useLanguage();
+  const isBn = language === 'bn';
   const [mobileTab, setMobileTab] = useState<'queue' | 'sessions' | 'packages'>('queue');
   const [activeSessions, setActiveSessions] = useState<any[]>([]);
   const [todaySessions, setTodaySessions] = useState<any[]>([]);
@@ -149,7 +152,7 @@ export default function TherapyHallView({ session: propSession }: TherapyHallPro
         durationMinutes,
         notes: startNotes.trim() || undefined,
       });
-      toast.success('থেরাপি সেশন শুরু হয়েছে! (Therapy Session Started)');
+      toast.success(isBn ? 'থেরাপি সেশন শুরু হয়েছে!' : 'Therapy session started!');
       setShowStartModal(false);
       setStartNotes('');
       loadData();
@@ -167,7 +170,7 @@ export default function TherapyHallView({ session: propSession }: TherapyHallPro
         painScoreAfter,
         outcomeNote,
       });
-      toast.success('থেরাপি সেশন সম্পন্ন ও সংরক্ষিত হয়েছে! (Therapy Session Completed)');
+      toast.success(isBn ? 'থেরাপি সেশন সম্পন্ন ও সংরক্ষিত হয়েছে!' : 'Therapy session completed and saved!');
       setCompletingSession(null);
       loadData();
     } catch (err: any) {
@@ -283,7 +286,7 @@ export default function TherapyHallView({ session: propSession }: TherapyHallPro
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
             <Card className="border-cyan-500/30 bg-gradient-to-br from-cyan-500/10 via-background to-background p-4 rounded-2xl shadow-xs">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-muted-foreground">চলমান সেশন (In Progress)</span>
+                <span className="text-xs font-bold text-muted-foreground">{isBn ? 'চলমান সেশন' : 'In Progress'}</span>
                 <span className="flex size-2 rounded-full bg-cyan-500 animate-ping" />
               </div>
               <div className="text-2xl font-black text-cyan-600 dark:text-cyan-400 mt-2 font-mono">
@@ -294,7 +297,7 @@ export default function TherapyHallView({ session: propSession }: TherapyHallPro
 
             <Card className="border-emerald-500/30 bg-gradient-to-br from-emerald-500/10 via-background to-background p-4 rounded-2xl shadow-xs">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-muted-foreground">আজকের সম্পন্ন সেশন (Completed)</span>
+                <span className="text-xs font-bold text-muted-foreground">{isBn ? 'আজকের সম্পন্ন সেশন' : 'Completed Today'}</span>
                 <CheckCircle2 className="size-4 text-emerald-500" />
               </div>
               <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-2 font-mono">
@@ -305,7 +308,7 @@ export default function TherapyHallView({ session: propSession }: TherapyHallPro
 
             <Card className="border-border bg-card p-4 rounded-2xl shadow-xs">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-muted-foreground">মোট রেকর্ডকৃত সেশন (Today)</span>
+                <span className="text-xs font-bold text-muted-foreground">{isBn ? 'মোট সেশন (আজ)' : 'Total Sessions (Today)'}</span>
                 <Clock className="size-4 text-muted-foreground" />
               </div>
               <div className="text-2xl font-black text-foreground mt-2 font-mono">
@@ -321,7 +324,7 @@ export default function TherapyHallView({ session: propSession }: TherapyHallPro
               <Search className="size-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <Input
                 type="text"
-                placeholder="রোগীর নাম, MRN বা মডালিটি খুঁজুন..."
+                placeholder={isBn ? 'রোগীর নাম, আইডি বা মডালিটি খুঁজুন...' : 'Search patient name, MRN, or modality...'}
                 value={sessionSearch}
                 onChange={(e) => setSessionSearch(e.target.value)}
                 className="pl-9 h-9 text-xs"
@@ -341,7 +344,7 @@ export default function TherapyHallView({ session: propSession }: TherapyHallPro
                       : 'border-border bg-muted/30 text-muted-foreground hover:text-foreground'
                   )}
                 >
-                  {st === 'all' ? 'সকল সেশন' : st === 'in_progress' ? 'চলমান (Active)' : 'সম্পন্ন (Done)'}
+                  {st === 'all' ? (isBn ? 'সকল সেশন' : 'All Sessions') : st === 'in_progress' ? (isBn ? 'চলমান' : 'Active') : (isBn ? 'সম্পন্ন' : 'Completed')}
                 </button>
               ))}
             </div>
@@ -450,7 +453,7 @@ export default function TherapyHallView({ session: propSession }: TherapyHallPro
           <Card className="border border-border bg-card shadow-sm rounded-2xl overflow-hidden">
             <CardHeader className="py-3.5 px-4 sm:px-6 border-b border-border bg-muted/30 flex flex-row items-center justify-between">
               <CardTitle className="text-base font-bold flex items-center gap-2">
-                <span>📋 আজকের সকল সেশন হিস্ট্রি (History &amp; Logs)</span>
+                <span>📋 {isBn ? 'আজকের সকল সেশন হিস্ট্রি' : "Today's Session History & Logs"}</span>
                 <Badge variant="outline" className="text-xs font-mono">
                   {filteredSessions.length} টি রেকর্ড
                 </Badge>
@@ -467,8 +470,8 @@ export default function TherapyHallView({ session: propSession }: TherapyHallPro
                   <table className="w-full text-left text-xs sm:text-sm">
                     <thead className="bg-muted/40 border-b border-border text-muted-foreground font-semibold">
                       <tr>
-                        <th className="p-3">রোগী (Patient)</th>
-                        <th className="p-3">MRN / ফোন</th>
+                        <th className="p-3">{isBn ? 'রোগী' : 'Patient'}</th>
+                        <th className="p-3">{isBn ? 'আইডি / ফোন' : 'MRN / Phone'}</th>
                         <th className="p-3">মডালিটি</th>
                         <th className="p-3">সময়কাল</th>
                         <th className="p-3">ব্যথা স্কোর</th>
@@ -511,7 +514,7 @@ export default function TherapyHallView({ session: propSession }: TherapyHallPro
                                   : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30'
                               )}
                             >
-                              {s.status === 'in_progress' ? 'চলমান (Active)' : 'সম্পন্ন (Completed)'}
+                              {s.status === 'in_progress' ? (isBn ? 'চলমান' : 'Active') : (isBn ? 'সম্পন্ন' : 'Completed')}
                             </Badge>
                           </td>
                           <td className="p-3 text-xs text-muted-foreground max-w-xs truncate">
@@ -537,7 +540,7 @@ export default function TherapyHallView({ session: propSession }: TherapyHallPro
               <div>
                 <CardTitle className="text-base sm:text-lg font-bold flex items-center gap-2">
                   <CreditCard className="size-5 text-emerald-500" />
-                  <span>রোগীর প্যাকেজ ব্যালেন্স ও সক্রিয় সাবস্ক্রিপশন (Package Credits)</span>
+                  <span>{isBn ? 'রোগীর প্যাকেজ ব্যালেন্স ও সক্রিয় সাবস্ক্রিপশন' : 'Patient Package Credits & Active Subscriptions'}</span>
                 </CardTitle>
                 <CardDescription className="text-xs text-muted-foreground mt-0.5">
                   রোগী নির্বাচন করে তার সক্রিয় থেরাপি প্যাকেজ ও অবশিষ্ট সেশন সংখ্যা যাচাই করুন
@@ -637,7 +640,7 @@ export default function TherapyHallView({ session: propSession }: TherapyHallPro
           <Card className="border border-border bg-card shadow-sm rounded-2xl overflow-hidden">
             <CardHeader className="py-3.5 px-4 sm:px-6 border-b border-border bg-muted/30">
               <CardTitle className="text-base sm:text-lg font-bold flex items-center gap-2">
-                <span>📦 অফিশিয়াল রিহ্যাবিলিটেশন প্যাকেজ ক্যাটালগ (Rehab Packages)</span>
+                <span>📦 {isBn ? 'অফিশিয়াল রিহ্যাবিলিটেশন প্যাকেজ ক্যাটালগ' : 'Official Rehabilitation Packages Catalog'}</span>
                 <Badge variant="outline" className="text-xs font-mono">
                   {packages.length} টি প্যাকেজ
                 </Badge>
@@ -671,7 +674,7 @@ export default function TherapyHallView({ session: propSession }: TherapyHallPro
                           <strong className="text-foreground font-mono">{pkg.totalTherapySessions} টি</strong>
                         </div>
                         <div className="flex items-center justify-between">
-                          <span>📅 মেয়াদ (Validity):</span>
+                          <span>📅 {isBn ? 'মেয়াদ:' : 'Validity:'}</span>
                           <strong className="text-foreground font-mono">{pkg.validityDays} দিন</strong>
                         </div>
                       </div>
@@ -685,7 +688,7 @@ export default function TherapyHallView({ session: propSession }: TherapyHallPro
                         size="sm"
                         onClick={async () => {
                           if (!packageSearchPatientId) {
-                            toast.error('অনুগ্রহ করে আগে একজন রোগী নির্বাচন করুন (Select a patient first)');
+                            toast.error(isBn ? 'অনুগ্রহ করে আগে একজন রোগী নির্বাচন করুন' : 'Please select a patient first');
                             return;
                           }
                           try {
@@ -704,7 +707,7 @@ export default function TherapyHallView({ session: propSession }: TherapyHallPro
                         }}
                         className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold cursor-pointer active:scale-95 shadow-2xs"
                       >
-                        বরাদ্দ করুন (Assign)
+                        {isBn ? 'বরাদ্দ করুন' : 'Assign'}
                       </Button>
                     </div>
                   </div>
@@ -728,10 +731,10 @@ export default function TherapyHallView({ session: propSession }: TherapyHallPro
               </div>
               <div>
                 <DialogTitle className="text-base sm:text-lg font-bold text-foreground">
-                  নতুন থেরাপি সেশন শুরু করুন (Start Therapy Session)
+                  {isBn ? 'নতুন থেরাপি সেশন শুরু করুন' : 'Start Therapy Session'}
                 </DialogTitle>
                 <DialogDescription className="text-xs text-muted-foreground mt-0.5">
-                  রোগী নির্বাচন ও মডালিটি টাইম সিলেক্ট করে টাইমার চালু করুন
+                  {isBn ? 'রোগী নির্বাচন ও মডালিটি টাইম সিলেক্ট করে টাইমার চালু করুন' : 'Select patient and therapy modality to start timer'}
                 </DialogDescription>
               </div>
             </div>
@@ -741,7 +744,7 @@ export default function TherapyHallView({ session: propSession }: TherapyHallPro
             <div className="p-4 sm:p-5 space-y-4 flex-1">
               <div className="space-y-1.5">
                 <Label className="text-xs font-bold text-foreground">
-                  রোগী নির্বাচন করুন (Select Patient) *
+                  {isBn ? 'রোগী নির্বাচন করুন *' : 'Select Patient *'}
                 </Label>
                 <Select
                   value={selectedPatientId}
@@ -769,14 +772,14 @@ export default function TherapyHallView({ session: propSession }: TherapyHallPro
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label className="text-xs font-bold text-foreground">
-                    মডালিটি নির্বাচন (Modality) *
+                    {isBn ? 'মডালিটি নির্বাচন *' : 'Select Modality *'}
                   </Label>
                   <Select
                     value={selectedModalityCode}
                     onValueChange={setSelectedModalityCode}
                   >
                     <SelectTrigger className="w-full h-10 text-xs sm:text-sm bg-card">
-                      <SelectValue placeholder="Select Modality" />
+                      <SelectValue placeholder={isBn ? 'মডালিটি নির্বাচন করুন' : 'Select Modality'} />
                     </SelectTrigger>
                     <SelectContent
                       position="popper"
@@ -799,7 +802,7 @@ export default function TherapyHallView({ session: propSession }: TherapyHallPro
 
                 <div className="space-y-1.5">
                   <Label className="text-xs font-bold text-foreground">
-                    সময়কাল (Duration in Minutes) *
+                    {isBn ? 'সময়কাল (মিনিট) *' : 'Duration (Minutes) *'}
                   </Label>
                   <Select
                     value={String(durationMinutes)}
@@ -865,10 +868,10 @@ export default function TherapyHallView({ session: propSession }: TherapyHallPro
                 </div>
                 <div>
                   <DialogTitle className="text-base sm:text-lg font-bold text-foreground">
-                    থেরাপি সেশন সমাপ্ত করুন (Complete Session)
+                    {isBn ? 'থেরাপি সেশন সমাপ্ত করুন' : 'Complete Therapy Session'}
                   </DialogTitle>
                   <DialogDescription className="text-xs text-muted-foreground mt-0.5">
-                    সেশনের ফলাফল ও ব্যথা মূল্যায়ন সংরক্ষণ করুন
+                    {isBn ? 'সেশনের ফলাফল ও ব্যথা মূল্যায়ন সংরক্ষণ করুন' : 'Record session outcome and pain assessment'}
                   </DialogDescription>
                 </div>
               </div>
@@ -878,13 +881,13 @@ export default function TherapyHallView({ session: propSession }: TherapyHallPro
               <div className="p-4 sm:p-5 space-y-4 flex-1">
                 <div className="rounded-xl bg-muted/40 p-3 text-xs flex flex-col gap-1.5 border border-border">
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">রোগীর নাম:</span>
+                    <span className="text-muted-foreground">{isBn ? 'রোগীর নাম:' : 'Patient Name:'}</span>
                     <strong className="text-foreground">
                       {completingSession.patientNameBn || completingSession.patientName || completingSession.patient?.nameEn || 'Patient'}
                     </strong>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">মডালিটি:</span>
+                    <span className="text-muted-foreground">{isBn ? 'মডালিটি:' : 'Modality:'}</span>
                     <Badge variant="outline" className="border-cyan-500/40 text-cyan-600 dark:text-cyan-400 font-mono text-[10.5px]">
                       {completingSession.modalityCode}
                     </Badge>
@@ -893,7 +896,7 @@ export default function TherapyHallView({ session: propSession }: TherapyHallPro
 
                 <div className="space-y-1.5">
                   <Label className="text-xs font-bold text-foreground flex items-center justify-between">
-                    <span>সেশন পরবর্তী ব্যথা স্কোর (Pain Score 0-10):</span>
+                    <span>{isBn ? 'সেশন পরবর্তী ব্যথার মাত্রা (০-১০):' : 'Post-Session Pain Score (0-10):'}</span>
                     <span className="text-emerald-600 dark:text-emerald-400 font-bold font-mono text-sm">
                       {painScoreAfter}/10
                     </span>
@@ -912,7 +915,7 @@ export default function TherapyHallView({ session: propSession }: TherapyHallPro
 
                 <div className="space-y-1.5">
                   <Label className="text-xs font-bold text-foreground">
-                    থেরাপিস্ট মন্তব্য / রোগীর প্রতিক্রিয়া (Notes)
+                    {isBn ? 'থেরাপিস্ট মন্তব্য ও রোগীর প্রতিক্রিয়া:' : 'Therapist Notes & Patient Feedback:'}
                   </Label>
                   <Textarea
                     rows={2}

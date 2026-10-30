@@ -160,13 +160,36 @@ export async function getPatientClinicalStatus(
 
   // 1. Verify Patient Exists
   const patientRows = await db
-    .select({ id: patients.id })
+    .select({ id: patients.id, notes: patients.notes })
     .from(patients)
     .where(and(eq(patients.id, patientId), isNull(patients.deletedAt)))
     .limit(1);
 
   if (!patientRows[0]) {
     throw new NotFoundException(`Patient #${patientId} not found`);
+  }
+
+  const patientNotes = patientRows[0].notes || '';
+  const isLegacyPaperPatient =
+    patientNotes.includes('পুরাতন ফাইল') ||
+    patientNotes.includes('[legacy_paper_file]') ||
+    patientNotes.includes('Old Patient (Paper File)');
+
+  // If marked as an existing/legacy paper file patient, bypass intake requirement immediately
+  if (isLegacyPaperPatient) {
+    return {
+      patientId,
+      patientType: 'old_active',
+      requiresIntake: false,
+      isNewPatient: false,
+      isLapsed: false,
+      lastActivityDate: dhakaDate,
+      daysSinceLastActivity: 0,
+      intakeCompletedToday: true,
+      todayIntakeId: null,
+      summaryEn: 'Existing paper-file patient — Direct consultation/therapy access',
+      summaryBn: 'পুরাতন কাগজী ফাইলভুক্ত রোগী — সরাসরি সেবা গ্রহণ করতে পারেন (ইনটেক আবশ্যক নয়)',
+    };
   }
 
   // 2. Check if an intake form has already been completed today (Dhaka or UTC or reference date)

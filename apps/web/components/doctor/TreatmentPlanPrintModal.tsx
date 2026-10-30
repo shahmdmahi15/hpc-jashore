@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogTitle } from '../ui/dialog';
 import { Button } from '../ui/button';
 import { Printer, Download, X, Loader2, HeartPulse } from 'lucide-react';
 import { printElementViaIframe, generateElementPdf } from '../../lib/print-pdf';
+import { useLanguage } from '../../lib/i18n';
 
 export interface TreatmentPlanItem {
   modalityCode: string;
@@ -56,6 +57,8 @@ export function TreatmentPlanPrintModal({
   plans = [],
   createdAt,
 }: TreatmentPlanPrintModalProps) {
+  const { language } = useLanguage();
+  const isBn = language === 'bn';
   const [isPrinting, setIsPrinting] = useState(false);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
 
@@ -195,7 +198,7 @@ export function TreatmentPlanPrintModal({
         className="w-screen max-w-full h-screen max-h-screen p-0 m-0 border-0 bg-background/95 backdrop-blur-md rounded-none flex flex-col overflow-hidden z-[200]"
         onClose={handleClose}
       >
-        <DialogTitle className="sr-only">থেরাপি ট্রিটমেন্ট প্ল্যান A4 কপি</DialogTitle>
+        <DialogTitle className="sr-only">{isBn ? 'থেরাপি ট্রিটমেন্ট প্ল্যান' : 'Therapy Treatment Plan'}</DialogTitle>
 
         {/* Top Sticky Toolbar */}
         <div className="shrink-0 bg-background/95 backdrop-blur-md border-b border-border/80 px-3 sm:px-6 py-2.5 z-20">
@@ -207,10 +210,12 @@ export function TreatmentPlanPrintModal({
                 </div>
                 <div>
                   <h3 className="font-bold text-sm sm:text-base text-foreground leading-tight">
-                    থেরাপি ট্রিটমেন্ট প্ল্যান (Therapy Treatment Plan)
+                    {isBn ? 'থেরাপি ট্রিটমেন্ট প্ল্যান' : 'Therapy Treatment Plan'}
                   </h3>
                   <p className="text-xs text-muted-foreground font-mono">
-                    MRN: <strong className="text-foreground">{mrn}</strong> · রোগী: <strong className="text-foreground">{patientName}</strong> · মোট {plans.length} টি ধাপ
+                    MRN: <strong className="text-foreground">{mrn}</strong> · {isBn ? 'রোগী:' : 'Patient:'}{' '}
+                    <strong className="text-foreground">{patientName}</strong> ·{' '}
+                    {isBn ? `মোট ${plans.length} টি ধাপ` : `Total ${plans.length} items`}
                   </p>
                 </div>
               </div>
@@ -224,7 +229,7 @@ export function TreatmentPlanPrintModal({
                 className="sm:hidden text-xs h-8 px-2 border border-border/60 text-foreground hover:bg-muted cursor-pointer shrink-0"
               >
                 <X className="size-3.5 mr-1" />
-                বন্ধ
+                {isBn ? 'বন্ধ' : 'Close'}
               </Button>
             </div>
 
@@ -257,7 +262,7 @@ export function TreatmentPlanPrintModal({
                 ) : (
                   <>
                     <Download className="size-3.5 text-emerald-600 dark:text-emerald-400" />
-                    <span>A4 সাইজ পিডিএফ</span>
+                    <span>{isBn ? 'পিডিএফ ডাউনলোড' : 'Download PDF'}</span>
                   </>
                 )}
               </Button>
@@ -277,7 +282,7 @@ export function TreatmentPlanPrintModal({
                 ) : (
                   <>
                     <Printer className="size-3.5" />
-                    <span>প্রিন্ট A4 প্ল্যান (A4 Print)</span>
+                    <span>{isBn ? 'প্রিন্ট প্ল্যান' : 'Print Plan'}</span>
                   </>
                 )}
               </Button>
@@ -345,21 +350,21 @@ export function TreatmentPlanPrintModal({
               {/* Patient Info Strip */}
               <div className="my-3 grid grid-cols-4 gap-2 text-xs bg-emerald-50/70 p-2.5 rounded-lg border border-emerald-200">
                 <div>
-                  <span className="text-zinc-500">রোগীর নাম:</span>{' '}
+                  <span className="text-zinc-500">{isBn ? 'রোগীর নাম:' : 'Patient Name:'}</span>{' '}
                   <strong className="text-zinc-900">{patientName}</strong>
                 </div>
                 <div>
-                  <span className="text-zinc-500">MRN:</span>{' '}
+                  <span className="text-zinc-500">{isBn ? 'এমআরএন:' : 'MRN:'}</span>{' '}
                   <strong className="text-emerald-800 font-mono">{mrn}</strong>
                 </div>
                 <div>
-                  <span className="text-zinc-500">বয়স / লিঙ্গ:</span>{' '}
+                  <span className="text-zinc-500">{isBn ? 'বয়স ও লিঙ্গ:' : 'Age & Gender:'}</span>{' '}
                   <strong className="text-zinc-900">
-                    {age} / {gender}
+                    {age} · {gender}
                   </strong>
                 </div>
                 <div className="text-right">
-                  <span className="text-zinc-500">মোবাইল:</span>{' '}
+                  <span className="text-zinc-500">{isBn ? 'মোবাইল নম্বর:' : 'Mobile:'}</span>{' '}
                   <strong className="font-mono text-zinc-900">{phone}</strong>
                 </div>
               </div>
@@ -380,7 +385,7 @@ export function TreatmentPlanPrintModal({
                   <thead>
                     <tr className="bg-emerald-50 text-zinc-900 font-bold">
                       <th className="border border-zinc-300 p-2 text-center w-16">ক্রম</th>
-                      <th className="border border-zinc-300 p-2 text-left">থেরাপি মডালিটি (Modality)</th>
+                      <th className="border border-zinc-300 p-2 text-left">{isBn ? 'থেরাপি মডালিটি' : 'Therapy Modality'}</th>
                       <th className="border border-zinc-300 p-2 text-center w-28">নির্ধারিত সময়</th>
                       <th className="border border-zinc-300 p-2 text-center w-28">মোট সেশন</th>
                       <th className="border border-zinc-300 p-2 text-center w-32">ফ্রিকোয়েন্সি</th>

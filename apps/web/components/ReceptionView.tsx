@@ -33,6 +33,7 @@ import { PatientTimelineModal } from './patient/PatientTimelineModal';
 import { cn } from '../lib/utils';
 import { TherapyQueueManagementTab } from './therapy/TherapyQueueManagementTab';
 import { toast } from 'sonner';
+import { useLanguage } from '../lib/i18n';
 import {
   FileText,
   Printer,
@@ -48,6 +49,8 @@ import {
 } from 'lucide-react';
 
 export default function ReceptionView() {
+  const { language } = useLanguage();
+  const isBn = language === 'bn';
   const [mobileTab, setMobileTab] = useState<'checkin' | 'queue' | 'therapy_queue'>('checkin');
   const [queueStatusFilter, setQueueStatusFilter] = useState<'active' | 'all' | 'checked_out'>('active');
   const [checkingOutVisitId, setCheckingOutVisitId] = useState<string | null>(null);
@@ -90,7 +93,7 @@ export default function ReceptionView() {
   const [sendToDoctorFeeType, setSendToDoctorFeeType] = useState<'free' | 'paid'>('free');
   const [sendToDoctorFeeAmount, setSendToDoctorFeeAmount] = useState<number>(500);
   const [sendToDoctorSelectedId, setSendToDoctorSelectedId] = useState<string>('');
-  const [sendToDoctorReason, setSendToDoctorReason] = useState<string>('রিপোর্ট দেখানো (Show Investigation Report)');
+  const [sendToDoctorReason, setSendToDoctorReason] = useState<string>('রিপোর্ট দেখানো');
   const [sendToDoctorNotes, setSendToDoctorNotes] = useState<string>('');
   const [sendingToDoctor, setSendingToDoctor] = useState<boolean>(false);
 
@@ -178,7 +181,11 @@ export default function ReceptionView() {
   const handleCheckIn = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedPatientId || !selectedDoctorId) {
-      toast.error('অনুগ্রহ করে একজন রোগী ও একজন ডাক্তার নির্বাচন করুন (Please select both a Patient and a Doctor)');
+      toast.error(
+        isBn
+          ? 'অনুগ্রহ করে একজন রোগী ও একজন ডাক্তার নির্বাচন করুন'
+          : 'Please select both a Patient and a Doctor'
+      );
       return;
     }
     try {
@@ -419,7 +426,7 @@ export default function ReceptionView() {
               <Card className="border border-border bg-card shadow-sm">
                 <CardHeader className="flex flex-row items-center justify-between pb-4">
                   <CardTitle className="text-base sm:text-lg font-bold flex items-center gap-2">
-                    <span>📋</span> Check-in (রোগী উপস্থিতি নিশ্চিতকরণ)
+                    <span>📋</span> {isBn ? 'চেক-ইন (উপস্থিতি নিশ্চিতকরণ)' : 'Patient Check-in'}
                   </CardTitle>
                   <Button
                     size="sm"
@@ -427,7 +434,7 @@ export default function ReceptionView() {
                     onClick={() => setShowRegModal(true)}
                     className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs"
                   >
-                    + New Patient (নতুন রোগী)
+                    {isBn ? '+ নতুন রোগী' : '+ New Patient'}
                   </Button>
                 </CardHeader>
                 <CardContent>
@@ -440,12 +447,12 @@ export default function ReceptionView() {
                   >
                     <div className="flex flex-col gap-2">
                       <Label className="text-xs font-semibold text-muted-foreground">
-                        Search / Select Patient (রোগী খুঁজুন বা নির্বাচন করুন):
+                        {isBn ? 'রোগী খুঁজুন বা নির্বাচন করুন:' : 'Search / Select Patient:'}
                       </Label>
                       <div className="flex gap-2">
                         <Input
                           type="text"
-                          placeholder="নাম, ফোন বা MRN দিয়ে খুঁজুন..."
+                          placeholder={isBn ? 'নাম, ফোন বা রেজি নম্বর দিয়ে খুঁজুন...' : 'Search by name, phone or MRN...'}
                           value={search}
                           onChange={(e) => setSearch(e.target.value)}
                           className="flex-1"
@@ -456,7 +463,7 @@ export default function ReceptionView() {
                           className="whitespace-nowrap flex items-center gap-1.5"
                           onClick={() => setShowScannerModal(true)}
                         >
-                          📷 Scan Card
+                          {isBn ? '📷 কার্ড স্ক্যান' : '📷 Scan Card'}
                         </Button>
                       </div>
 
@@ -466,12 +473,12 @@ export default function ReceptionView() {
                           onValueChange={setSelectedPatientId}
                         >
                           <SelectTrigger className="w-full">
-                            <SelectValue placeholder={`-- Choose Patient (${filteredPatients.length} found) --`} />
+                            <SelectValue placeholder={isBn ? `-- রোগী নির্বাচন করুন (${filteredPatients.length} জন) --` : `-- Choose Patient (${filteredPatients.length} found) --`} />
                           </SelectTrigger>
                           <SelectContent>
                             {filteredPatients.map((p) => (
                               <SelectItem key={p.id} value={p.id}>
-                                {p.mrn} · {p.nameEn} ({p.phone}) {p.bloodGroup ? `[${p.bloodGroup}]` : ''}
+                                {p.mrn} · {isBn ? (p.nameBn || p.nameEn) : (p.nameEn || p.nameBn)} ({p.phone}) {p.bloodGroup ? `[${p.bloodGroup}]` : ''}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -484,11 +491,17 @@ export default function ReceptionView() {
                           <div className="flex items-center gap-2">
                             <AlertTriangle className="size-4 text-amber-600 shrink-0" />
                             <div>
-                              <span className="font-bold">⚠️ পূর্ববর্তী বকেয়া (Previous Due): ৳{getPatientDueAmount(selectedPatientId)}</span>
-                              <p className="text-[10px] text-muted-foreground mt-0.5">রোগীর আগের অপরিশোধিত ফি রয়েছে। চেক-ইন এর পর ক্যাশিয়ারে বিল সমন্বয় করতে হবে।</p>
+                              <span className="font-bold">{isBn ? `⚠️ পূর্ববর্তী বকেয়া: ৳${getPatientDueAmount(selectedPatientId)}` : `⚠️ Previous Due: BDT ${getPatientDueAmount(selectedPatientId)}`}</span>
+                              <p className="text-[10px] text-muted-foreground mt-0.5">
+                                {isBn
+                                  ? 'রোগীর আগের অপরিশোধিত ফি রয়েছে। চেক-ইন এর পর ক্যাশিয়ারে বিল সমন্বয় করতে হবে।'
+                                  : 'Patient has outstanding dues. Please settle at the cashier desk after check-in.'}
+                              </p>
                             </div>
                           </div>
-                          <Badge variant="destructive" className="bg-rose-600 text-white font-bold text-[10px] shrink-0">বকেয়া রয়েছে</Badge>
+                          <Badge variant="destructive" className="bg-rose-600 text-white font-bold text-[10px] shrink-0">
+                            {isBn ? 'বকেয়া রয়েছে' : 'Due Pending'}
+                          </Badge>
                         </div>
                       )}
                     </div>
@@ -496,14 +509,14 @@ export default function ReceptionView() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="space-y-1.5">
                         <Label className="text-xs font-semibold text-muted-foreground">
-                          Assigning Doctor / Chamber:
+                          {isBn ? 'ডাক্তার / চেম্বার নির্ধারণ:' : 'Assigning Doctor / Chamber:'}
                         </Label>
                         <Select
                           value={selectedDoctorId}
                           onValueChange={setSelectedDoctorId}
                         >
                           <SelectTrigger className="w-full">
-                            <SelectValue placeholder="-- Select Doctor --" />
+                            <SelectValue placeholder={isBn ? '-- ডাক্তার নির্বাচন করুন --' : '-- Select Doctor --'} />
                           </SelectTrigger>
                           <SelectContent>
                             {doctors.map((d) => (
@@ -517,7 +530,7 @@ export default function ReceptionView() {
 
                       <div className="space-y-1.5">
                         <Label className="text-xs font-semibold text-muted-foreground">
-                          Queue Priority:
+                          {isBn ? 'কিউ অগ্রাধিকার:' : 'Queue Priority:'}
                         </Label>
                         <Select
                           value={priority}
@@ -526,14 +539,14 @@ export default function ReceptionView() {
                           }
                         >
                           <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Select priority" />
+                            <SelectValue placeholder={isBn ? 'অগ্রাধিকার নির্বাচন করুন' : 'Select priority'} />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="normal">Normal (সাধারণ)</SelectItem>
-                            <SelectItem value="emergency">Emergency (জরুরি)</SelectItem>
-                            <SelectItem value="package">Package Follow-up (প্যাকেজ)</SelectItem>
-                            <SelectItem value="elderly">Elderly / Disabled (বয়োজ্যেষ্ঠ)</SelectItem>
-                            <SelectItem value="follow_up">Follow Up (ফলোআপ)</SelectItem>
+                            <SelectItem value="normal">{isBn ? 'সাধারণ' : 'Normal'}</SelectItem>
+                            <SelectItem value="emergency">{isBn ? 'জরুরি' : 'Emergency'}</SelectItem>
+                            <SelectItem value="package">{isBn ? 'প্যাকেজ ফলো-আপ' : 'Package Follow-up'}</SelectItem>
+                            <SelectItem value="elderly">{isBn ? 'বয়োজ্যেষ্ঠ / বিশেষ' : 'Elderly / Disabled'}</SelectItem>
+                            <SelectItem value="follow_up">{isBn ? 'ফলো-আপ' : 'Follow Up'}</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -545,7 +558,7 @@ export default function ReceptionView() {
                       className="w-full mt-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 text-sm sm:text-base shadow-sm gap-2"
                     >
                       <UserCheck className="size-4" />
-                      <span>✓ চেক-ইন সম্পন্ন করুন (Mark as Checked In)</span>
+                      <span>{isBn ? '✓ চেক-ইন সম্পন্ন করুন' : '✓ Mark as Checked In'}</span>
                     </Button>
                   </form>
                 </CardContent>
@@ -680,11 +693,11 @@ export default function ReceptionView() {
                       <table className="w-full text-left text-xs sm:text-sm">
                         <thead className="bg-muted/50 border-b border-border text-muted-foreground font-semibold">
                           <tr>
-                            <th className="p-3">আগমনের সময় / Time</th>
-                            <th className="p-3">Patient</th>
-                            <th className="p-3 hidden sm:table-cell">Doctor</th>
-                            <th className="p-3">Status</th>
-                            <th className="p-3 text-right">Workflow Actions</th>
+                            <th className="p-3">{isBn ? 'আগমনের সময়' : 'Arrival Time'}</th>
+                            <th className="p-3">{isBn ? 'রোগী' : 'Patient'}</th>
+                            <th className="p-3 hidden sm:table-cell">{isBn ? 'ডাক্তার' : 'Doctor'}</th>
+                            <th className="p-3">{isBn ? 'অবস্থা' : 'Status'}</th>
+                            <th className="p-3 text-right">{isBn ? 'কার্যক্রম' : 'Workflow Actions'}</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-border">
@@ -762,11 +775,11 @@ export default function ReceptionView() {
                                     size="sm"
                                     variant="outline"
                                     onClick={() => handleOpenPrintPreview(v.patient, v)}
-                                    title="A4 সাইজ পেপারে ইন্ট্যাক ফরম প্রিন্ট করুন"
+                                    title={isBn ? 'ইন্ট্যাক ফরম প্রিন্ট করুন' : 'Print Intake Form'}
                                     className="h-7 text-xs border-zinc-300 hover:bg-muted gap-1"
                                   >
                                     <Printer className="size-3" />
-                                    <span>A4 প্রিন্ট</span>
+                                    <span>{isBn ? 'প্রিন্ট' : 'Print'}</span>
                                   </Button>
 
                                   {/* Send to Doctor Chamber Queue (Free) */}
@@ -776,14 +789,14 @@ export default function ReceptionView() {
                                     onClick={() => {
                                       setSendToDoctorVisit(v);
                                       setSendToDoctorSelectedId(v.doctorId || (doctors[0]?.id ?? ''));
-                                      setSendToDoctorReason('রিপোর্ট দেখানো (Show Investigation Report)');
+                                      setSendToDoctorReason(isBn ? 'রিপোর্ট দেখানো' : 'Show Investigation Report');
                                       setSendToDoctorNotes('');
                                     }}
-                                    title="ডাক্তারের চেম্বার কিউতে সরাসরি পাঠান (ফ্রি)"
+                                    title={isBn ? 'ডাক্তারের চেম্বার কিউতে সরাসরি পাঠান (ফ্রি)' : 'Send to Doctor Queue (Free)'}
                                     className="h-7 text-xs border-cyan-500/40 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-50 dark:hover:bg-cyan-950/20 gap-1 font-medium"
                                   >
                                     <Stethoscope className="size-3 text-cyan-600 dark:text-cyan-400" />
-                                    <span>ডাক্তার কিউ</span>
+                                    <span>{isBn ? 'ডাক্তার কিউ' : 'Doctor Queue'}</span>
                                   </Button>
 
                                   {/* Forward to Cashier Button */}
@@ -1114,32 +1127,34 @@ export default function ReceptionView() {
 
               {/* Reason for Visit */}
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold">পরামর্শের সুনির্দিষ্ট কারণ (Reason of Visiting) *</Label>
+                <Label className="text-xs font-semibold">
+                  {isBn ? 'পরামর্শের সুনির্দিষ্ট কারণ *' : 'Reason for Consultation *'}
+                </Label>
                 <Select value={sendToDoctorReason} onValueChange={setSendToDoctorReason}>
                   <SelectTrigger className="h-9 text-xs">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="রিপোর্ট দেখানো (Show Investigation Report)">
-                      📑 রিপোর্ট দেখানো (Show Investigation Report)
+                    <SelectItem value="রিপোর্ট দেখানো">
+                      {isBn ? '📑 রিপোর্ট দেখানো' : '📑 Show Investigation Report'}
                     </SelectItem>
-                    <SelectItem value="পরামর্শ / কথা বলতে চান (Want to Talk / General Consultation)">
-                      💬 পরামর্শ / কথা বলতে চান (Want to Talk / Consultation)
+                    <SelectItem value="পরামর্শ / কথা বলতে চান">
+                      {isBn ? '💬 সাধারণ পরামর্শ / কথা বলতে চান' : '💬 General Consultation'}
                     </SelectItem>
-                    <SelectItem value="নতুন কনসালটেশন (New Consultation)">
-                      🩺 নতুন কনসালটেশন (New Consultation)
+                    <SelectItem value="নতুন কনসালটেশন">
+                      {isBn ? '🩺 নতুন কনসালটেশন' : '🩺 New Consultation'}
                     </SelectItem>
-                    <SelectItem value="ফলো-আপ চেকআপ (Follow-up Evaluation)">
-                      🔄 ফলো-আপ চেকআপ (Follow-up Evaluation)
+                    <SelectItem value="ফলো-আপ চেকআপ">
+                      {isBn ? '🔄 ফলো-আপ চেকআপ' : '🔄 Follow-up Evaluation'}
                     </SelectItem>
-                    <SelectItem value="ওষুধের ডোজ সমন্বয় (Prescription / Dosage Adjustment)">
-                      💊 ওষুধের ডোজ সমন্বয় (Dosage Adjustment)
+                    <SelectItem value="ওষুধের ডোজ সমন্বয়">
+                      {isBn ? '💊 ওষুধের ডোজ সমন্বয়' : '💊 Dosage Adjustment'}
                     </SelectItem>
-                    <SelectItem value="জরুরি পর্যবেক্ষণ (Urgent Evaluation)">
-                      🚨 জরুরি পর্যবেক্ষণ (Urgent Evaluation)
+                    <SelectItem value="জরুরি পর্যবেক্ষণ">
+                      {isBn ? '🚨 জরুরি পর্যবেক্ষণ' : '🚨 Urgent Evaluation'}
                     </SelectItem>
-                    <SelectItem value="অন্যান্য / বিশেষ কারণ (Other / Custom Note)">
-                      ✏️ অন্যান্য / বিশেষ কারণ (Other)
+                    <SelectItem value="অন্যান্য">
+                      {isBn ? '✏️ অন্যান্য / বিশেষ কারণ' : '✏️ Other / Custom Reason'}
                     </SelectItem>
                   </SelectContent>
                 </Select>
@@ -1158,7 +1173,7 @@ export default function ReceptionView() {
 
               {sendToDoctorFeeType === 'free' ? (
                 <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-[11px] flex items-center justify-between">
-                  <span className="font-semibold">ফি গ্রহণ: বিনামূল্যে (Free - ৳0)</span>
+                  <span className="font-semibold">{isBn ? 'ফি গ্রহণ: সম্পূর্ণ বিনামূল্যে (৳০)' : 'Fee: Free of Charge (BDT 0)'}</span>
                   <Badge className="bg-emerald-500 text-black font-bold text-[10px]">সরাসরি কিউ</Badge>
                 </div>
               ) : (

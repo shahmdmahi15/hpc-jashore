@@ -131,7 +131,17 @@ export function computePunctuality(
   const toldMinutes = parseToldTimeToMinutes(toldTimeStr);
   if (toldMinutes === null) return null;
 
-  const currentMinutes = checkInDate.getHours() * 60 + checkInDate.getMinutes();
+  // Accurately extract hour and minute in Asia/Dhaka timezone regardless of server host runtime timezone
+  const dhakaFormatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Dhaka',
+    hour: 'numeric',
+    minute: 'numeric',
+    hour12: false,
+  });
+  const parts = dhakaFormatter.formatToParts(checkInDate);
+  const hour = parseInt(parts.find((p) => p.type === 'hour')?.value || '0', 10);
+  const minute = parseInt(parts.find((p) => p.type === 'minute')?.value || '0', 10);
+  const currentMinutes = hour * 60 + minute;
   const delayMinutes = currentMinutes - toldMinutes;
 
   if (delayMinutes <= 5) {
@@ -161,21 +171,26 @@ export class VisitsService {
     private readonly realtime: RealtimeService,
   ) {}
 
-  private async nextTokenNumber(year: number): Promise<number> {
+  private async nextTokenNumber(dateStr?: string, year?: number): Promise<number> {
+    const today = dateStr || todayDateString();
+    const yr = year || parseInt(today.split('-')[0], 10) || new Date().getFullYear();
+    // Daily sequence: resets to 1 every morning for clear queue tokens on thermal slips and TV screens
+    const scope = `token_${today.replace(/-/g, '')}`;
+
     return this.db.transaction((tx) => {
       const existing = tx
         .select()
         .from(sequences)
-        .where(and(eq(sequences.scope, 'token'), eq(sequences.year, year)))
+        .where(and(eq(sequences.scope, scope), eq(sequences.year, yr)))
         .all();
       if (existing.length === 0) {
-        tx.insert(sequences).values({ scope: 'token', year, lastValue: 1 }).run();
+        tx.insert(sequences).values({ scope, year: yr, lastValue: 1 }).run();
         return 1;
       }
       const nextVal = existing[0].lastValue + 1;
       tx.update(sequences)
         .set({ lastValue: nextVal })
-        .where(and(eq(sequences.scope, 'token'), eq(sequences.year, year)))
+        .where(and(eq(sequences.scope, scope), eq(sequences.year, yr)))
         .run();
       return nextVal;
     });
@@ -216,7 +231,7 @@ export class VisitsService {
       );
     }
 
-    const tokenNumber = await this.nextTokenNumber(year);
+    const tokenNumber = await this.nextTokenNumber(today, year);
 
     // Find if there is an active therapy slot booking for this patient today
     let activeBooking = null;
@@ -563,6 +578,7 @@ export class VisitsService {
             isNull(visits.checkedOutAt),
             ne(visits.status, 'checked_out'),
             ne(visits.status, 'cancelled'),
+            ne(visits.status, 'billed'),
           ),
         )
         .orderBy(serials.serialNumber);
@@ -594,6 +610,7 @@ export class VisitsService {
                 isNull(visits.checkedOutAt),
                 ne(visits.status, 'checked_out'),
                 ne(visits.status, 'cancelled'),
+                ne(visits.status, 'billed'),
               ),
             )
             .orderBy(serials.serialNumber);
@@ -620,6 +637,7 @@ export class VisitsService {
             isNull(visits.checkedOutAt),
             ne(visits.status, 'checked_out'),
             ne(visits.status, 'cancelled'),
+            ne(visits.status, 'billed'),
           ),
         )
         .orderBy(serials.serialNumber);
@@ -874,8 +892,8 @@ export class VisitsService {
         step: isRecall ? 'recalled' : 'called_chamber',
         titleEn: isRecall ? 'Recalled to Chamber' : 'Called to Chamber',
         titleBn: isRecall ? 'পুনরায় চেম্বারে ডাকা হয়েছে (Recall)' : 'চেম্বারে ডাকা হয়েছে',
-        descriptionEn: `Dr. ${doctorName} called patient to Room ${chamberNumber}`,
-        descriptionBn: `ডাঃ ${doctorName} রোগী ${payload.patientNameBn}-কে রুম নম্বর ${chamberNumber}-এ ডাকছেন।`,
+        descriptionEn: `Doctor ${doctorName} called patient to Room ${chamberNumber}`,
+        descriptionBn: `ডাক্তার ${doctorName} রোগী ${payload.patientNameBn}-কে রুম নম্বর ${chamberNumber}-এ ডাকছেন।`,
         metadataJson: JSON.stringify(payload),
         occurredAt: now,
         date: today,
@@ -940,8 +958,8 @@ export class VisitsService {
         step: 'in_consultation',
         titleEn: 'In Consultation',
         titleBn: 'পরামর্শ শুরু (In Consultation)',
-        descriptionEn: `Patient arrived in chamber; consultation in progress with Dr. ${doctorName}`,
-        descriptionBn: `রোগী চেম্বারে উপস্থিত হয়েছেন এবং ডাঃ ${doctorName}-এর সাথে পরামর্শ শুরু হয়েছে।`,
+        descriptionEn: `Patient arrived in chamber; consultation in progress with Doctor ${doctorName}`,
+        descriptionBn: `রোগী চেম্বারে উপস্থিত হয়েছেন এবং ডাক্তার ${doctorName}-এর সাথে পরামর্শ শুরু হয়েছে।`,
         occurredAt: now,
         date: today,
       });
@@ -1117,7 +1135,7 @@ export class VisitsService {
       .where(eq(visits.id, visitId));
 
     // When routed away from doctor chamber (e.g. to therapy, reception, cashier, or exit),
-    // complete any open or waiting consultation serials for this visit
+    // complete any open or waiting consultation serials and bookings for this visit
     if (targetLocation !== 'chamber') {
       await this.db
         .update(serials)
@@ -1128,10 +1146,68 @@ export class VisitsService {
             inArray(serials.status, ['waiting', 'called', 'in_chamber']),
           ),
         );
+
+      if (visit.consultationBookingId) {
+        await this.db
+          .update(consultationBookings)
+          .set({ status: 'completed', updatedAt: now })
+          .where(eq(consultationBookings.id, visit.consultationBookingId))
+          .catch(() => {});
+      } else {
+        const today = now.slice(0, 10);
+        await this.db
+          .update(consultationBookings)
+          .set({ status: 'completed', updatedAt: now })
+          .where(
+            and(
+              eq(consultationBookings.patientId, visit.patientId),
+              eq(consultationBookings.bookingDate, today),
+              sql`${consultationBookings.status} NOT IN ('cancelled', 'completed')`,
+            ),
+          )
+          .catch(() => {});
+      }
+
       this.gateway.emit('clinic:global', 'queue.updated', { visitId, type: 'consultation', status: 'completed' });
       this.gateway.emit('clinic:global', 'tv:updated', { source: 'patient.routed', visitId });
       this.realtime.publish('queue.updated', { visitId, type: 'consultation', status: 'completed' });
       this.realtime.publish('tv:updated', { source: 'patient.routed', visitId });
+    }
+
+    // When routed away from therapy_hall (e.g. to cashier, reception, or exit)
+    if (targetLocation !== 'therapy_hall') {
+      const today = now.slice(0, 10);
+      if (visit.therapyBookingId) {
+        await this.db
+          .update(therapySlotBookings)
+          .set({ status: 'completed', updatedAt: now })
+          .where(eq(therapySlotBookings.id, visit.therapyBookingId))
+          .catch(() => {});
+      } else {
+        await this.db
+          .update(therapySlotBookings)
+          .set({ status: 'completed', updatedAt: now })
+          .where(
+            and(
+              eq(therapySlotBookings.patientId, visit.patientId),
+              eq(therapySlotBookings.bookingDate, today),
+              sql`${therapySlotBookings.status} NOT IN ('cancelled', 'completed')`,
+            ),
+          )
+          .catch(() => {});
+      }
+
+      // Complete any running therapy sessions
+      await this.db
+        .update(therapySessions)
+        .set({ status: 'completed', endedAt: now, updatedAt: now })
+        .where(
+          and(
+            eq(therapySessions.patientId, visit.patientId),
+            sql`${therapySessions.status} IN ('in_progress', 'scheduled', 'paused')`,
+          ),
+        )
+        .catch(() => {});
     }
 
     const payload = {
@@ -1636,58 +1712,71 @@ export class VisitsService {
       })
       .where(eq(visits.id, visitId));
 
-    // Check if already in queue
-    const existingSerial = await this.db
-      .select()
-      .from(serials)
-      .where(and(eq(serials.visitId, visitId), eq(serials.status, 'waiting')));
+    // Atomic transaction for doctor chamber serial assignment: prevents race conditions under concurrent check-ins
+    const { serialRow, isNew } = this.db.transaction((tx) => {
+      // Check if already in queue
+      const existingSerial = tx
+        .select()
+        .from(serials)
+        .where(and(eq(serials.visitId, visitId), eq(serials.status, 'waiting')))
+        .all();
 
-    if (existingSerial[0]) {
-      return { ok: true, serial: existingSerial[0] };
-    }
+      if (existingSerial[0]) {
+        return { serialRow: existingSerial[0], isNew: false };
+      }
 
-    const priorSerials = await this.db
-      .select()
-      .from(serials)
-      .where(and(eq(serials.doctorId, doctorId), eq(serials.date, today)));
+      // Find current maximum serial for this doctor on this day
+      const maxRow = tx
+        .select({ maxSerial: sql<number>`COALESCE(MAX(${serials.serialNumber}), 0)` })
+        .from(serials)
+        .where(and(eq(serials.doctorId, doctorId), eq(serials.date, today)))
+        .all();
 
-    const nextSerialNum = priorSerials.length + 1;
-    const serialId = randomUUID();
+      const nextSerialNum = (maxRow[0]?.maxSerial ?? 0) + 1;
+      const serialId = randomUUID();
 
-    const serialRow = {
-      id: serialId,
-      doctorId,
-      date: today,
-      serialNumber: nextSerialNum,
-      visitId,
-      patientId: item.patient.id,
-      status: 'waiting' as const,
-      calledAt: null,
-      completedAt: null,
-      createdAt: now,
-      updatedAt: now,
-    };
-    await this.db.insert(serials).values(serialRow);
+      const row = {
+        id: serialId,
+        doctorId,
+        date: today,
+        serialNumber: nextSerialNum,
+        visitId,
+        patientId: item.patient.id,
+        status: 'waiting' as const,
+        calledAt: null,
+        completedAt: null,
+        createdAt: now,
+        updatedAt: now,
+      };
 
-    // If linked to consultationBookings, update it
-    if (item.visit.consultationBookingId) {
-      await this.db
-        .update(consultationBookings)
-        .set({
-          status: 'in_queue',
-          serialNumber: nextSerialNum,
-          serialId,
-          inQueueAt: now,
-          queuedBy: actor.sub,
-          updatedAt: now,
-        })
-        .where(eq(consultationBookings.id, item.visit.consultationBookingId));
+      tx.insert(serials).values(row).run();
+
+      // If linked to consultationBookings, update it
+      if (item.visit.consultationBookingId) {
+        tx.update(consultationBookings)
+          .set({
+            status: 'in_queue',
+            serialNumber: nextSerialNum,
+            serialId,
+            inQueueAt: now,
+            queuedBy: actor.sub,
+            updatedAt: now,
+          })
+          .where(eq(consultationBookings.id, item.visit.consultationBookingId))
+          .run();
+      }
+
+      return { serialRow: row, isNew: true };
+    });
+
+    if (!isNew) {
+      return { ok: true, serial: serialRow };
     }
 
     const eventPayload = {
       visitId,
-      serialId,
-      serialNumber: nextSerialNum,
+      serialId: serialRow.id,
+      serialNumber: serialRow.serialNumber,
       doctorId,
       doctorName: item.doctor?.displayName,
       chamber: item.chamber?.name,
@@ -1709,14 +1798,14 @@ export class VisitsService {
         actorRole: actor.role,
         action: 'consultation.queue_patient',
         entity: 'serials',
-        entityId: serialId,
+        entityId: serialRow.id,
         after: eventPayload,
         ip: meta.ip,
         requestId: meta.requestId,
       });
     }
 
-    return { ok: true, serialNumber: nextSerialNum, serialId };
+    return { ok: true, serialNumber: serialRow.serialNumber, serialId: serialRow.id };
   }
 
   async sendToTherapyQueue(
@@ -2095,6 +2184,7 @@ export class VisitsService {
             isNull(visits.checkedOutAt),
             ne(visits.status, 'checked_out'),
             ne(visits.status, 'cancelled'),
+            ne(visits.status, 'billed'),
           ),
         )
         .orderBy(serials.serialNumber)
@@ -2147,6 +2237,7 @@ export class VisitsService {
           isNull(visits.checkedOutAt),
           ne(visits.status, 'checked_out'),
           ne(visits.status, 'cancelled'),
+          ne(visits.status, 'billed'),
         ),
       )
       .orderBy(desc(serials.calledAt));
@@ -2174,6 +2265,7 @@ export class VisitsService {
           isNull(visits.checkedOutAt),
           ne(visits.status, 'checked_out'),
           ne(visits.status, 'cancelled'),
+          ne(visits.status, 'billed'),
         ),
       )
       .orderBy(serials.serialNumber)
@@ -2279,15 +2371,15 @@ export class VisitsService {
         and(
           eq(visits.visitDate, today),
           sql`${visits.status} IN ('checked_in', 'waiting')`,
-          sql`${visits.status} NOT IN ('calling', 'in_therapy', 'completed', 'checked_out', 'cancelled')`,
+          sql`${visits.status} NOT IN ('calling', 'in_therapy', 'completed', 'checked_out', 'cancelled', 'billed')`,
           sql`${visits.patientId} NOT IN (SELECT patient_id FROM therapy_sessions WHERE status = 'in_progress')`,
           or(
             and(
               sql`${visits.therapyBookingId} IS NOT NULL`,
-              sql`${visits.therapyBookingId} NOT IN (SELECT id FROM therapy_slot_bookings WHERE status = 'cancelled' OR deleted_at IS NOT NULL)`,
+              sql`${visits.therapyBookingId} NOT IN (SELECT id FROM therapy_slot_bookings WHERE status IN ('cancelled', 'completed') OR deleted_at IS NOT NULL)`,
             ),
             sql`${visits.currentLocation} IN ('therapy_hall', 'Therapy Hall')`,
-            sql`${visits.patientId} IN (SELECT patient_id FROM therapy_slot_bookings WHERE booking_date = ${today} AND status NOT IN ('cancelled') AND deleted_at IS NULL)`,
+            sql`${visits.patientId} IN (SELECT patient_id FROM therapy_slot_bookings WHERE booking_date = ${today} AND status NOT IN ('cancelled', 'completed') AND deleted_at IS NULL)`,
           ),
         ),
       )
@@ -2414,10 +2506,10 @@ export class VisitsService {
               or(
                 and(
                   sql`${visits.therapyBookingId} IS NOT NULL`,
-                  sql`${visits.therapyBookingId} NOT IN (SELECT id FROM therapy_slot_bookings WHERE status = 'cancelled' OR deleted_at IS NOT NULL)`,
+                  sql`${visits.therapyBookingId} NOT IN (SELECT id FROM therapy_slot_bookings WHERE status IN ('cancelled', 'completed') OR deleted_at IS NOT NULL)`,
                 ),
                 sql`${visits.currentLocation} IN ('therapy_hall', 'Therapy Hall')`,
-                sql`${visits.patientId} IN (SELECT patient_id FROM therapy_slot_bookings WHERE booking_date = ${today} AND status NOT IN ('cancelled') AND deleted_at IS NULL)`,
+                sql`${visits.patientId} IN (SELECT patient_id FROM therapy_slot_bookings WHERE booking_date = ${today} AND status NOT IN ('cancelled', 'completed') AND deleted_at IS NULL)`,
               ),
             ),
           ),

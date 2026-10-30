@@ -547,7 +547,7 @@ export function TherapySlotBookingView() {
           <Input
             placeholder={
               isBn
-                ? 'রোগীর নাম, MRN, ফোন অথবা বুকিং নম্বর দিয়ে সার্চ করুন...'
+                ? (isBn ? 'রোগীর নাম, আইডি, ফোন অথবা বুকিং নম্বর দিয়ে খুঁজুন...' : 'Search by patient name, MRN, phone, or booking number...')
                 : 'Search by patient name, MRN, phone, or booking number...'
             }
             value={searchQuery}
@@ -586,7 +586,7 @@ export function TherapySlotBookingView() {
               </h3>
               <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
                 {isBn
-                  ? 'অ্যাডমিন প্যানেলের "Therapy Slot Config" ট্যাব থেকে এই দিনের স্লট চালু করুন।'
+                  ? (isBn ? 'অ্যাডমিন প্যানেলের স্লট কনফিগারেশন ট্যাব থেকে এই দিনের স্লট চালু করুন।' : 'Enable slots for this day from Admin Panel Slot Config.')
                   : 'Activate slot hours for this day in the Admin "Therapy Slot Config" tab.'}
               </p>
             </Card>
@@ -856,7 +856,7 @@ export function TherapySlotBookingView() {
                     {isBn ? 'বুকিং নম্বর' : 'Booking #'}
                   </TableHead>
                   <TableHead className="font-bold text-xs uppercase tracking-wider">
-                    {isBn ? 'রোগীর নাম ও MRN' : 'Patient & MRN'}
+                    {isBn ? 'রোগীর নাম ও আইডি' : 'Patient & MRN'}
                   </TableHead>
                   <TableHead className="font-bold text-xs uppercase tracking-wider">
                     {isBn ? 'জেন্ডার' : 'Gender'}
@@ -1142,12 +1142,12 @@ export function AddToTherapyQueueModal({
                   {
                     id: 'room-th-01',
                     roomNumber: 'TH-01',
-                    name: 'Male Physiotherapy & Rehab Hall (পুরুষ ফিজিওথেরাপি হল)',
+                    name: isBn ? 'পুরুষ ফিজিওথেরাপি ও রিহ্যাব হল' : 'Male Physiotherapy & Rehab Hall',
                   },
                   {
                     id: 'room-th-02',
                     roomNumber: 'TH-02',
-                    name: 'Female Physiotherapy & Rehab Hall (মহিলা ফিজিওথেরাপি হল)',
+                    name: isBn ? 'মহিলা ফিজিওথেরাপি ও রিহ্যাব হল' : 'Female Physiotherapy & Rehab Hall',
                   },
                 ],
           );
@@ -1249,9 +1249,7 @@ export function AddToTherapyQueueModal({
             <div className="flex items-center gap-2 font-bold text-xs sm:text-sm">
               <span>🆓</span>
               <span>
-                {isBn
-                  ? 'সম্পূর্ণ ফ্রি (ফি মুক্ত - ৳০) · Instant Queue'
-                  : '100% Free of Charge (৳0) · Instant Queue'}
+                {isBn ? 'সম্পূর্ণ বিনামূল্যে (৳০) · সরাসরি কিউ' : '100% Free of Charge (BDT 0) · Instant Queue'}
               </span>
             </div>
             <p className="text-[11px] sm:text-xs text-muted-foreground mt-1 leading-relaxed">
@@ -1307,7 +1305,7 @@ export function AddToTherapyQueueModal({
                   <Input
                     placeholder={
                       isBn
-                        ? 'চেক-ইন করা রোগীর নাম, ফোন বা MRN দিয়ে খুঁজুন...'
+                        ? (isBn ? 'চেক-ইন করা রোগীর নাম, ফোন বা আইডি দিয়ে খুঁজুন...' : 'Search checked-in patient by name, phone, or MRN...')
                         : 'Search checked-in patients by name, phone, or MRN...'
                     }
                     value={patientSearch}
@@ -1380,7 +1378,7 @@ export function AddToTherapyQueueModal({
           {/* Service Type Selection */}
           <div className="space-y-1.5">
             <Label className="text-xs font-semibold text-foreground">
-              {isBn ? 'সেবা ও এসাইনমেন্টের ধরন (Service Type) *' : 'Service Type / Assignment *'}
+              {isBn ? 'সেবা ও এসাইনমেন্টের ধরন *' : 'Service Type / Assignment *'}
             </Label>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {SERVICE_OPTIONS.map((opt) => {

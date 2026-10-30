@@ -402,7 +402,7 @@ export function EditPatientDialog({
               <div className="space-y-1.5 sm:col-span-3">
                 <Label htmlFor="edit-notes" className="text-xs font-semibold flex items-center gap-1">
                   <FileText className="w-3.5 h-3.5 text-muted-foreground" />
-                  <span>{isBn ? 'সাধারণ মন্তব্য / নির্দেশনা (Notes)' : 'Patient Notes & Remarks'}</span>
+                  <span>{isBn ? 'সাধারণ মন্তব্য ও নির্দেশনা' : 'Patient Notes & Remarks'}</span>
                 </Label>
                 <Textarea
                   id="edit-notes"

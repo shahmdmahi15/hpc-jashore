@@ -14,6 +14,8 @@ import { ConsultationBookingView } from '../../components/consultation/Consultat
 import { ClinicRealtimeChatView } from '../../components/chat/ClinicRealtimeChatView';
 import { useLanguage } from '../../lib/i18n';
 import { useChatNotifier } from '../../lib/use-chat-notifier';
+import { useDashboardBadges } from '../../lib/use-dashboard-badges';
+import { WorkstationTabBadge } from '../../components/WorkstationTabBadge';
 import {
   Activity,
   Hash,
@@ -88,6 +90,7 @@ export default function HandlerPage() {
   const { language } = useLanguage();
   const [activeTab, setActiveTab] = useState('therapy_queue');
   const { unreadCount } = useChatNotifier(activeTab === 'chat');
+  const badges = useDashboardBadges();
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -134,6 +137,9 @@ export default function HandlerPage() {
                     >
                       <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
                       <span>{language === 'bn' ? tab.titleBn : tab.titleEn}</span>
+                      {tab.id === 'therapy_queue' && (
+                        <WorkstationTabBadge count={badges.therapyWaiting} color="blue" pulse={activeTab !== 'therapy_queue'} />
+                      )}
                       {isChat && unreadCount > 0 && (
                         <span className="flex items-center gap-1 ml-1">
                           <span className="size-2 rounded-full bg-rose-500 animate-ping" />

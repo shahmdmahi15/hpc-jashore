@@ -421,11 +421,19 @@ export const api = {
     purchasePackage: (data: any) =>
       apiFetch<any>('/therapy/packages/purchase', { method: 'POST', body: JSON.stringify(data) }),
     getCredits: (patientId: string) => apiFetch<any[]>(`/therapy/packages/patient/${patientId}`),
+    getSessionsByPatientId: (patientId: string) =>
+      apiFetch<any[]>(`/therapy/sessions/patient/${patientId}`),
     sendToCashier: (data: {
       visitId: string;
       patientId: string;
       feeTaka: number;
       modalityCode?: string;
+      items?: Array<{
+        modalityCode: string;
+        description?: string;
+        priceTaka: number;
+        durationMinutes?: number;
+      }>;
       notes?: string;
     }) =>
       apiFetch<any>('/therapy/send-to-cashier', {
@@ -506,12 +514,14 @@ export const api = {
       apiFetch<any[]>(`/chat/search-mentions?type=${type}&q=${encodeURIComponent(q)}`),
   },
   reports: {
-    getTodaySummary: async () => {
+    getTodaySummary: async (date?: string) => {
       try {
-        return await apiFetch<any>('/reports/today');
+        const query = date ? `?date=${encodeURIComponent(date)}` : '';
+        return await apiFetch<any>(`/reports/today${query}`);
       } catch {
         try {
-          return await apiFetch<any>('/reports/daily-summary');
+          const query = date ? `?date=${encodeURIComponent(date)}` : '';
+          return await apiFetch<any>(`/reports/daily-summary${query}`);
         } catch {
           return {
             footfall: 0,
@@ -522,22 +532,45 @@ export const api = {
         }
       }
     },
-    getModalityStats: async () => {
+    getModalityStats: async (date?: string) => {
       try {
-        return await apiFetch<any[]>('/reports/modalities');
+        const query = date ? `?date=${encodeURIComponent(date)}` : '';
+        return await apiFetch<any[]>(`/reports/modalities${query}`);
       } catch {
         return [];
       }
     },
-    getDoctorStats: async () => {
+    getDoctorStats: async (date?: string) => {
       try {
-        return await apiFetch<any[]>('/reports/doctors');
+        const query = date ? `?date=${encodeURIComponent(date)}` : '';
+        return await apiFetch<any[]>(`/reports/doctors${query}`);
       } catch {
         try {
           return await apiFetch<any[]>('/reports/doctor-income');
         } catch {
           return [];
         }
+      }
+    },
+    getTherapistPerformance: async () => {
+      try {
+        return await apiFetch<any[]>('/reports/therapist-performance');
+      } catch {
+        return [];
+      }
+    },
+    getPnlSummary: async () => {
+      try {
+        return await apiFetch<any>('/reports/pnl');
+      } catch {
+        return null;
+      }
+    },
+    getFeedback: async () => {
+      try {
+        return await apiFetch<any>('/reports/feedback');
+      } catch {
+        return null;
       }
     },
   },
@@ -567,12 +600,6 @@ export const api = {
         notes: string;
         forceUpdate: boolean;
       }>(`/updates/check?${q.toString()}`);
-    },
-    triggerTauriCheck: async () => {
-      if (typeof window !== 'undefined' && (window as any).__TAURI__?.core?.invoke) {
-        return (window as any).__TAURI__.core.invoke('trigger_update_check');
-      }
-      return { updateAvailable: false, status: 'web_mode' };
     },
   },
   bulletins: {

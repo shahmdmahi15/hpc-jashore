@@ -91,6 +91,29 @@ data class TvBulletin(
     val isUrgent: Boolean = false
 )
 
+fun formatDoctorName(raw: String, lang: String): String {
+    val trimmed = raw.trim()
+    if (trimmed.isBlank() || trimmed.equals("Doctor", ignoreCase = true) || trimmed == "ডাক্তার" || trimmed == "ডাঃ" || trimmed == "ডা." || trimmed.equals("Dr", ignoreCase = true) || trimmed.equals("Dr.", ignoreCase = true)) {
+        return if (lang == "bn") "ডাক্তার" else "Doctor"
+    }
+    var clean = trimmed
+        .replace(Regex("^(?:ডাঃ|ডা\\.|ডাক্তার|Dr\\.|Dr\\b|Doctor\\b)\\s*", RegexOption.IGNORE_CASE), "")
+        .trim()
+    clean = clean
+        .replace(Regex("\\bDr\\.\\s*", RegexOption.IGNORE_CASE), if (lang == "bn") "ডাক্তার " else "Doctor ")
+        .replace(Regex("\\bDr\\b\\s*", RegexOption.IGNORE_CASE), if (lang == "bn") "ডাক্তার " else "Doctor ")
+        .replace(Regex("ডাঃ\\s*"), if (lang == "bn") "ডাক্তার " else "Doctor ")
+        .replace(Regex("ডা\\.\\s*"), if (lang == "bn") "ডাক্তার " else "Doctor ")
+        .trim()
+
+    val prefix = if (lang == "bn") "ডাক্তার" else "Doctor"
+    return if (clean.isNotBlank()) {
+        if (clean.startsWith(prefix, ignoreCase = true)) clean else "$prefix $clean"
+    } else {
+        prefix
+    }
+}
+
 class MainActivity : ComponentActivity() {
 
     private lateinit var prefs: SharedPreferences
@@ -98,6 +121,7 @@ class MainActivity : ComponentActivity() {
     private var toneGenerator: ToneGenerator? = null
     private var mediaPlayer: MediaPlayer? = null
     private var isTtsInitialized = false
+    private var isDownloadingApk = false
 
     @OptIn(ExperimentalTvMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -190,16 +214,26 @@ class MainActivity : ComponentActivity() {
                 while (isActive) {
                     try {
                         withContext(Dispatchers.IO) {
-                            checkSelfUpdate { hasUpdate, latestVer, apkUrl, forceUpdate ->
-                                if ((hasUpdate || forceUpdate) && apkUrl != null) {
-                                    updateNotice = "Updating to v$latestVer..."
-                                    downloadAndInstallApk(apkUrl) {
-                                        updateNotice = null
+                            if (!isDownloadingApk) {
+                                checkSelfUpdate { hasUpdate, latestVer, apkUrl, forceUpdate ->
+                                    if ((hasUpdate || forceUpdate) && !apkUrl.isNullOrBlank() && !isDownloadingApk) {
+                                        isDownloadingApk = true
+                                        launch(Dispatchers.Main) {
+                                            updateNotice = if (forceUpdate) "Force Updating to v$latestVer..." else "Updating to v$latestVer..."
+                                        }
+                                        downloadAndInstallApk(apkUrl) {
+                                            isDownloadingApk = false
+                                            launch(Dispatchers.Main) {
+                                                updateNotice = null
+                                            }
+                                        }
                                     }
                                 }
                             }
                         }
-                    } catch (_: Exception) {}
+                    } catch (_: Exception) {
+                        isDownloadingApk = false
+                    }
                     delay(60000) // check every minute
                 }
             }
@@ -221,7 +255,7 @@ class MainActivity : ComponentActivity() {
             // Registration on boot
             LaunchedEffect(pairingCode) {
                 withContext(Dispatchers.IO) {
-                    registerTvWithServer(pairingCode, BuildConfig.VERSION_NAME)
+                    registerTvWithServer(pairingCode, getRuntimeVersionName())
                 }
             }
 
@@ -276,6 +310,26 @@ class MainActivity : ComponentActivity() {
                                 if (payload.optString("action") == "restart") {
                                     restartApp()
                                     return@streamTvRealtimeEvents
+                                }
+                                if (payload.optBoolean("forceUpdate", false) || payload.optString("action") == "update") {
+                                    if (!isDownloadingApk) {
+                                        lifecycleScope.launch(Dispatchers.IO) {
+                                            checkSelfUpdate { hasUpdate, latestVer, apkUrl, forceUpdate ->
+                                                if ((hasUpdate || forceUpdate) && !apkUrl.isNullOrBlank() && !isDownloadingApk) {
+                                                    isDownloadingApk = true
+                                                    lifecycleScope.launch(Dispatchers.Main) {
+                                                        updateNotice = if (forceUpdate) "Force Updating to v$latestVer..." else "Updating to v$latestVer..."
+                                                    }
+                                                    downloadAndInstallApk(apkUrl) {
+                                                        isDownloadingApk = false
+                                                        lifecycleScope.launch(Dispatchers.Main) {
+                                                            updateNotice = null
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
                                 val newName = payload.optString("deviceName", "")
                                 val newDept = payload.optString("department", "")
@@ -484,21 +538,25 @@ class MainActivity : ComponentActivity() {
                 if (isPaired) {
                     while (isPaired && isActive) {
                         withContext(Dispatchers.IO) {
-                            sendTvHeartbeat(pairingCode, BuildConfig.VERSION_NAME) { isOk, status, dept, name, theme, lang, forceUpdate ->
+                            sendTvHeartbeat(pairingCode, getRuntimeVersionName()) { isOk, status, dept, name, theme, lang, forceUpdate ->
                                 if (!isOk || status == "revoked" || status == "unregistered") {
                                     launch(Dispatchers.Main) {
                                         prefs.edit().putBoolean("is_paired", false).apply()
                                         isPaired = false
                                     }
                                 } else {
-                                    if (forceUpdate) {
+                                    if (forceUpdate && !isDownloadingApk) {
                                         checkSelfUpdate { hasUpdate, latestVer, apkUrl, _ ->
-                                            if (apkUrl != null) {
+                                            if (!apkUrl.isNullOrBlank() && !isDownloadingApk) {
+                                                isDownloadingApk = true
                                                 launch(Dispatchers.Main) {
                                                     updateNotice = "Force Updating to v$latestVer..."
                                                 }
                                                 downloadAndInstallApk(apkUrl) {
-                                                    updateNotice = null
+                                                    isDownloadingApk = false
+                                                    launch(Dispatchers.Main) {
+                                                        updateNotice = null
+                                                    }
                                                 }
                                             }
                                         }
@@ -1052,6 +1110,11 @@ class MainActivity : ComponentActivity() {
 
     private fun registerTvWithServer(pairingCode: String, appVersion: String) {
         try {
+            val liveVersion = try {
+                packageManager.getPackageInfo(packageName, 0).versionName ?: BuildConfig.VERSION_NAME
+            } catch (_: Exception) {
+                appVersion.ifBlank { BuildConfig.VERSION_NAME }
+            }
             val url = URL("https://hpc.toufiquzzaman.com/api/tv/register")
             val conn = url.openConnection() as HttpURLConnection
             conn.connectTimeout = 4000
@@ -1061,7 +1124,7 @@ class MainActivity : ComponentActivity() {
             conn.doOutput = true
             val body = JSONObject().apply {
                 put("pairingCode", pairingCode)
-                put("appVersion", appVersion)
+                put("appVersion", liveVersion)
                 put("deviceName", "Android TV ($pairingCode)")
             }
             conn.outputStream.use { os ->
@@ -1175,6 +1238,11 @@ class MainActivity : ComponentActivity() {
         onStatus: (Boolean, String, String?, String?, String?, String?, Boolean) -> Unit
     ) {
         try {
+            val liveVersion = try {
+                packageManager.getPackageInfo(packageName, 0).versionName ?: BuildConfig.VERSION_NAME
+            } catch (_: Exception) {
+                appVersion.ifBlank { BuildConfig.VERSION_NAME }
+            }
             val url = URL("https://hpc.toufiquzzaman.com/api/tv/heartbeat")
             val conn = url.openConnection() as HttpURLConnection
             conn.connectTimeout = 3000
@@ -1184,7 +1252,7 @@ class MainActivity : ComponentActivity() {
             conn.doOutput = true
             val body = JSONObject().apply {
                 put("pairingCode", pairingCode)
-                put("appVersion", appVersion)
+                put("appVersion", liveVersion)
             }
             conn.outputStream.use { os ->
                 os.write(body.toString().toByteArray())
@@ -1549,8 +1617,8 @@ class MainActivity : ComponentActivity() {
         if (patient.isTherapy) {
             val roomDigits = chamber.replace(Regex("[^0-9]"), "").ifBlank { "1" }
             val roomDigitsBn = toBnDigits(roomDigits)
-            val roomNameBn = "থেরাপি রুম $roomDigitsBn"
-            val roomNameEn = "Therapy Room $roomDigits"
+            val roomNameBn = "রুম $roomDigitsBn"
+            val roomNameEn = "room $roomDigits"
 
             val cleanType = patient.serviceType.lowercase().trim()
             val (enPurpose, bnPurpose) = when {
@@ -1575,8 +1643,10 @@ class MainActivity : ComponentActivity() {
         } else {
             val chamberDigits = chamber.replace(Regex("[^0-9]"), "").ifBlank { "1" }
             val chamberDigitsBn = toBnDigits(chamberDigits)
-            banglaText = "ডাঃ $doctorName, রোগী $patientNameBn কে $chamberDigitsBn নম্বর রুমে ডাকছেন"
-            englishText = "Doctor $doctorName is calling patient $patientNameEn to room number $chamberDigits"
+            val docBn = formatDoctorName(patient.doctorName, "bn")
+            val docEn = formatDoctorName(patient.doctorName, "en")
+            banglaText = "$docBn, রোগী $patientNameBn কে $chamberDigitsBn নম্বর রুমে ডাকছেন"
+            englishText = "$docEn is calling patient $patientNameEn to room number $chamberDigits"
         }
 
         // Play voice announcement after bell chime:
@@ -1607,16 +1677,32 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun checkSelfUpdate(onResult: (Boolean, String, String?, Boolean) -> Unit) {
-        try {
+    private fun getRuntimeVersionName(): String {
+        return try {
+            packageManager.getPackageInfo(packageName, 0).versionName ?: BuildConfig.VERSION_NAME
+        } catch (_: Exception) {
+            BuildConfig.VERSION_NAME
+        }
+    }
+
+    private fun getRuntimeVersionCode(): Long {
+        return try {
             val pInfo = packageManager.getPackageInfo(packageName, 0)
-            val currentVersionCode = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
                 pInfo.longVersionCode
             } else {
                 @Suppress("DEPRECATION")
                 pInfo.versionCode.toLong()
             }
-            val currentVersionName = pInfo.versionName ?: "1.0.0"
+        } catch (_: Exception) {
+            try { BuildConfig.VERSION_CODE.toLong() } catch (_: Exception) { 1L }
+        }
+    }
+
+    private fun checkSelfUpdate(onResult: (Boolean, String, String?, Boolean) -> Unit) {
+        try {
+            val currentVersionCode = getRuntimeVersionCode()
+            val currentVersionName = getRuntimeVersionName()
             val url = URL("https://hpc.toufiquzzaman.com/api/updates/check?platform=android-tv&versionCode=$currentVersionCode&versionName=$currentVersionName")
             val conn = url.openConnection() as HttpURLConnection
             conn.connectTimeout = 5000
@@ -1629,7 +1715,7 @@ class MainActivity : ComponentActivity() {
                 val updateAvailable = json.optBoolean("updateAvailable", false)
                 val forceUpdate = json.optBoolean("forceUpdate", false)
                 val latestVersion = json.optString("latestVersion", "1.0.0")
-                val apkUrl = json.optString("apkUrl", null)
+                val apkUrl = if (json.has("apkUrl") && !json.isNull("apkUrl")) json.getString("apkUrl") else null
                 onResult(updateAvailable, latestVersion, apkUrl, forceUpdate)
             }
             conn.disconnect()
@@ -1637,6 +1723,12 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun downloadAndInstallApk(apkUrl: String, onFinished: (() -> Unit)? = null) {
+        if (apkUrl.isBlank()) {
+            isDownloadingApk = false
+            onFinished?.invoke()
+            return
+        }
+        isDownloadingApk = true
         lifecycleScope.launch(Dispatchers.IO) {
             try {
                 var currentUrl = apkUrl
@@ -1667,6 +1759,9 @@ class MainActivity : ComponentActivity() {
 
                 if (connection != null && connection.responseCode == 200) {
                     val apkFile = File(cacheDir, "hpc-jashore-tv-update.apk")
+                    if (apkFile.exists()) {
+                        apkFile.delete()
+                    }
                     connection.inputStream.use { input ->
                         FileOutputStream(apkFile).use { output ->
                             input.copyTo(output)
@@ -1674,25 +1769,31 @@ class MainActivity : ComponentActivity() {
                     }
 
                     withContext(Dispatchers.Main) {
-                        onFinished?.invoke()
-                        val uri: Uri = FileProvider.getUriForFile(
-                            this@MainActivity,
-                            "${applicationContext.packageName}.provider",
-                            apkFile
-                        )
-                        val installIntent = Intent(Intent.ACTION_VIEW).apply {
-                            setDataAndType(uri, "application/vnd.android.package-archive")
-                            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION
-                        }
-                        startActivity(installIntent)
-                    }
-                } else {
-                    withContext(Dispatchers.Main) {
-                        onFinished?.invoke()
+                        try {
+                            val uri: Uri = FileProvider.getUriForFile(
+                                this@MainActivity,
+                                "${applicationContext.packageName}.provider",
+                                apkFile
+                            )
+                            val installIntent = Intent(Intent.ACTION_VIEW).apply {
+                                setDataAndType(uri, "application/vnd.android.package-archive")
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                putExtra(Intent.EXTRA_NOT_UNKNOWN_SOURCE, true)
+                            }
+                            val resInfoList = packageManager.queryIntentActivities(installIntent, 0)
+                            for (resolveInfo in resInfoList) {
+                                val pkg = resolveInfo.activityInfo.packageName
+                                grantUriPermission(pkg, uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            }
+                            startActivity(installIntent)
+                        } catch (_: Exception) {}
                     }
                 }
             } catch (_: Exception) {
+            } finally {
                 withContext(Dispatchers.Main) {
+                    isDownloadingApk = false
                     onFinished?.invoke()
                 }
             }
@@ -2014,8 +2115,17 @@ fun CallingAlertOverlay(
                 }
                 sb.toString()
             }
+            val cleanType = patient.serviceType.lowercase().trim()
             val chamberDisplayText = if (patient.isTherapy) {
-                if (isBn) "থেরাপি রুম $roomDigitsBn" else "THERAPY ROOM $roomDigits"
+                if (cleanType == "checkup" || cleanType == "check up" || cleanType == "check_up" || cleanType.contains("চেকআপ")) {
+                    if (isBn) "রুম $roomDigitsBn" else "ROOM $roomDigits"
+                } else if (cleanType == "assessment" || cleanType.contains("অ্যাসেসমেন্ট")) {
+                    if (isBn) "অ্যাসেসমেন্ট রুম $roomDigitsBn" else "ASSESSMENT ROOM $roomDigits"
+                } else if (cleanType == "therapy" || cleanType.contains("থেরাপি")) {
+                    if (isBn) "থেরাপি রুম $roomDigitsBn" else "THERAPY ROOM $roomDigits"
+                } else {
+                    if (isBn) "রুম $roomDigitsBn" else "ROOM $roomDigits"
+                }
             } else {
                 if (isBn) "রুম নম্বর $roomDigitsBn" else "ROOM $roomDigits"
             }
@@ -2046,7 +2156,18 @@ fun CallingAlertOverlay(
                                     if (isBn) (patient.serviceNameBn ?: patient.serviceType) else patient.serviceType.uppercase()
                             }
                         } else {
-                            if (patient.doctorName.isNotBlank()) "ডাঃ ${patient.doctorName}" else (if (isBn) "ডাক্তার কনসাল্টেশন চেম্বার" else "DOCTOR CONSULTATION CHAMBER")
+                            val cleanDoc = patient.doctorName
+                                .replace(Regex("^(?:ডাঃ|ডা\\.|ডাক্তার|Dr\\.|Dr\\b|Doctor\\b)\\s*", RegexOption.IGNORE_CASE), "")
+                                .replace(Regex("\\bDr\\.\\s*", RegexOption.IGNORE_CASE), if (isBn) "ডাক্তার " else "Doctor ")
+                                .replace(Regex("\\bDr\\b\\s*", RegexOption.IGNORE_CASE), if (isBn) "ডাক্তার " else "Doctor ")
+                                .replace(Regex("ডাঃ\\s*"), if (isBn) "ডাক্তার " else "Doctor ")
+                                .replace(Regex("ডা\\.\\s*"), if (isBn) "ডাক্তার " else "Doctor ")
+                                .trim()
+                            if (cleanDoc.isNotBlank()) {
+                                formatDoctorName(cleanDoc, if (isBn) "bn" else "en")
+                            } else {
+                                if (isBn) "ডাক্তার কনসাল্টেশন চেম্বার" else "DOCTOR CONSULTATION CHAMBER"
+                            }
                         },
                         color = Color(0xFFD1FAE5),
                         fontSize = 15.sp,

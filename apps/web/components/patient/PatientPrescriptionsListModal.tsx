@@ -28,6 +28,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import PrescriptionPrintModal, { PrescriptionData } from '../PrescriptionPrintModal';
+import { useLanguage } from '@/lib/i18n';
 
 export interface PatientPrescriptionsListModalProps {
   open: boolean;
@@ -44,6 +45,8 @@ export function PatientPrescriptionsListModal({
   patient,
   onSelectToClone,
 }: PatientPrescriptionsListModalProps) {
+  const { language } = useLanguage();
+  const isBn = language === 'bn';
   const [prescriptions, setPrescriptions] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
@@ -102,12 +105,12 @@ export function PatientPrescriptionsListModal({
       },
       doctor: {
         id: rx.doctor?.id,
-        name: rx.doctor?.fullName || rx.doctorName || 'Dr. Md. Toufiq Uz Zaman',
+        name: rx.doctor?.fullName || rx.doctorName || 'Doctor Md. Toufiq Uz Zaman',
         specialization: rx.doctor?.specialization || 'Consultant Physiotherapist',
         degrees: 'BPT (DU), PGD (Acu, China), MDMR (Pain, DU), MPH',
       },
       clinicalNotes: {
-        diagnosis: rx.diagnosis || 'Musculoskeletal Pain Disorder',
+        diagnosis: rx.diagnosis?.trim() || '—',
         chiefComplaints: rx.chiefComplaints,
       },
       medicines: (rx.items || []).map((i: any) => ({
@@ -132,16 +135,16 @@ export function PatientPrescriptionsListModal({
               <div>
                 <DialogTitle className="text-base sm:text-lg font-bold flex items-center gap-2">
                   <FileText className="size-5 text-emerald-600 dark:text-emerald-400" />
-                  <span>পূর্বের প্রেসক্রিপশন তালিকা (Prescription History)</span>
+                  <span>{isBn ? 'পূর্বের প্রেসক্রিপশন তালিকা' : 'Prescription History'}</span>
                 </DialogTitle>
                 <DialogDescription className="text-xs text-muted-foreground">
                   {patient ? (
                     <>
-                      রোগী: <strong className="text-foreground">{patient.nameEn}</strong> · MRN:{' '}
+                      {isBn ? 'রোগী:' : 'Patient:'} <strong className="text-foreground">{patient.nameEn}</strong> · {isBn ? 'রেজি নম্বর:' : 'MRN:'}{' '}
                       <strong className="text-foreground font-mono">{patient.mrn}</strong>
                     </>
                   ) : (
-                    'ক্লিনিকের সকল ডিজিটাল প্রেসক্রিপশন আর্কাইভ'
+                    isBn ? 'ক্লিনিকের সকল ডিজিটাল প্রেসক্রিপশন আর্কাইভ' : 'All digital prescription records'
                   )}
                 </DialogDescription>
               </div>

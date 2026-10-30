@@ -6,6 +6,7 @@ import { WorkstationShell } from '../../components/WorkstationShell';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../../components/ui/tabs';
 import { WorkstationTabPlaceholder } from '../../components/WorkstationTabPlaceholder';
 import DoctorChamberView from '../../components/DoctorChamberView';
+import TherapyHallView from '../../components/TherapyHallView';
 import { PatientManagementView } from '../../components/patient/PatientManagementView';
 import { TherapySlotBookingView } from '../../components/therapy/TherapySlotBookingView';
 import { ExtraSlotManagementView } from '../../components/therapy/ExtraSlotManagementView';
@@ -15,6 +16,8 @@ import { ConsultationBookingView } from '../../components/consultation/Consultat
 import { ClinicRealtimeChatView } from '../../components/chat/ClinicRealtimeChatView';
 import { useLanguage } from '../../lib/i18n';
 import { useChatNotifier } from '../../lib/use-chat-notifier';
+import { useDashboardBadges } from '../../lib/use-dashboard-badges';
+import { WorkstationTabBadge } from '../../components/WorkstationTabBadge';
 import {
   Stethoscope,
   Activity,
@@ -106,6 +109,7 @@ export default function DoctorPage() {
   const { language } = useLanguage();
   const [activeTab, setActiveTab] = useState('consultation_queue');
   const { unreadCount } = useChatNotifier(activeTab === 'chat');
+  const badges = useDashboardBadges();
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -152,6 +156,12 @@ export default function DoctorPage() {
                     >
                       <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
                       <span>{language === 'bn' ? tab.titleBn : tab.titleEn}</span>
+                      {tab.id === 'consultation_queue' && (
+                        <WorkstationTabBadge count={badges.consultationWaiting} color="emerald" pulse={activeTab !== 'consultation_queue'} />
+                      )}
+                      {tab.id === 'running_therapy' && (
+                        <WorkstationTabBadge count={badges.therapyWaiting} color="blue" pulse={activeTab !== 'running_therapy'} />
+                      )}
                       {isChat && unreadCount > 0 && (
                         <span className="flex items-center gap-1 ml-1">
                           <span className="size-2 rounded-full bg-rose-500 animate-ping" />
@@ -194,11 +204,15 @@ export default function DoctorPage() {
               <ExtraSlotManagementView />
             </TabsContent>
 
+            <TabsContent value="running_therapy" className="mt-4 focus-visible:outline-none">
+              <TherapyHallView />
+            </TabsContent>
+
             <TabsContent value="chat" className="mt-4 focus-visible:outline-none">
               <ClinicRealtimeChatView />
             </TabsContent>
 
-            {DOCTOR_TABS.filter((t) => t.id !== 'consultation_queue' && t.id !== 'checkin' && t.id !== 'checkout' && t.id !== 'consultation_serial' && t.id !== 'patients' && t.id !== 'therapy_slot' && t.id !== 'extra_slot' && t.id !== 'chat').map((tab) => (
+            {DOCTOR_TABS.filter((t) => t.id !== 'consultation_queue' && t.id !== 'checkin' && t.id !== 'checkout' && t.id !== 'consultation_serial' && t.id !== 'patients' && t.id !== 'therapy_slot' && t.id !== 'extra_slot' && t.id !== 'running_therapy' && t.id !== 'chat').map((tab) => (
               <TabsContent key={tab.id} value={tab.id} className="mt-4 focus-visible:outline-none">
                 <WorkstationTabPlaceholder
                   titleEn={tab.titleEn}

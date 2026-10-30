@@ -48,6 +48,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '../../lib/api';
+import { useLanguage } from '../../lib/i18n';
 import {
   COMMON_PAIN_MEDICINES,
   PrescribedMedicineItem,
@@ -97,6 +98,8 @@ export function PrescriptionBuilderModal({
   onSaveAndPrint,
   onOpenAllPrescriptions,
 }: PrescriptionBuilderModalProps) {
+  const { language } = useLanguage();
+  const isBn = language === 'bn';
   const [saving, setSaving] = useState(false);
 
   const patientId = patient?.id || patient?.patientId;
@@ -110,8 +113,8 @@ export function PrescriptionBuilderModal({
         form: 'Tab',
         strength: '',
         dosage: '1+0+1',
-        duration: '৫ দিন',
-        instructions: 'খাবারের পর (After meals)',
+        duration: isBn ? '৫ দিন' : '5 days',
+        instructions: isBn ? 'খাবারের পর' : 'After meals',
       },
     ]);
   };
@@ -167,7 +170,7 @@ export function PrescriptionBuilderModal({
 
     const validMeds = medicines.filter((m) => m.brandName.trim().length > 0);
     if (validMeds.length === 0 && !advice.trim()) {
-      toast.error('দয়া করে অন্তত একটি ঔষধ অথবা পরামর্শ (Advice) প্রদান করুন');
+      toast.error(isBn ? 'দয়া করে অন্তত একটি ঔষধ অথবা পরামর্শ প্রদান করুন' : 'Please provide at least one medicine or advice');
       return;
     }
 
@@ -226,13 +229,15 @@ export function PrescriptionBuilderModal({
                 <span className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-serif font-black text-base">
                   ℞
                 </span>
-                <span>মেডিসিন প্রেসক্রিপশন বিল্ডার (Medicine Prescription Builder)</span>
+                <span>{isBn ? 'মেডিসিন প্রেসক্রিপশন বিল্ডার' : 'Medicine Prescription Builder'}</span>
                 <Badge variant="outline" className="text-[10px] font-mono text-emerald-600 bg-emerald-500/10 border-emerald-500/20">
                   5.50" × 8.27" Paper
                 </Badge>
               </DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground mt-0.5">
-                ঔষধ, মাত্রা (ডোজ), সেবনবিধি এবং ক্লিনিক্যাল নির্দেশিকা নির্ধারণ ও প্রিন্ট করুন
+                {isBn
+                  ? 'ঔষধ, মাত্রা (ডোজ), সেবনবিধি এবং ক্লিনিক্যাল নির্দেশিকা নির্ধারণ ও প্রিন্ট করুন'
+                  : 'Configure medicine brand, dosage, duration, instructions, and print prescription'}
               </DialogDescription>
             </div>
 
@@ -254,7 +259,7 @@ export function PrescriptionBuilderModal({
           <div className="space-y-2">
             <Label className="text-xs font-bold flex items-center gap-1.5 text-muted-foreground">
               <Sparkles className="size-3.5 text-amber-500" />
-              <span>বহুল ব্যবহৃত রিহ্যাব ও পেইন কেয়ার ঔষধ (১-ক্লিক দ্রুত সংযোজন):</span>
+              <span>{isBn ? 'বহুল ব্যবহৃত রিহ্যাব ও পেইন কেয়ার ঔষধ (১-ক্লিক দ্রুত সংযোজন):' : 'Frequently Used Rehab Medicines (1-Click Add):'}</span>
             </Label>
             <div className="flex flex-wrap gap-1.5">
               {COMMON_PAIN_MEDICINES.map((med) => (
@@ -276,7 +281,7 @@ export function PrescriptionBuilderModal({
             <div className="flex items-center justify-between">
               <Label className="text-xs sm:text-sm font-bold flex items-center gap-1.5 text-foreground">
                 <Pill className="size-4 text-emerald-500" />
-                <span>প্রেসক্রিপশনের ঔষধসমূহ (Prescribed Medicines)</span>
+                <span>{isBn ? 'প্রেসক্রিপশনের ঔষধসমূহ' : 'Prescribed Medicines'}</span>
               </Label>
               <Button
                 type="button"
@@ -286,7 +291,7 @@ export function PrescriptionBuilderModal({
                 className="h-8 text-xs font-semibold gap-1 text-primary border-primary/40 hover:bg-primary/10"
               >
                 <Plus className="size-3.5" />
-                <span>+ ঔষধ যোগ করুন</span>
+                <span>{isBn ? '+ ঔষধ যোগ করুন' : '+ Add Medicine'}</span>
               </Button>
             </div>
 
@@ -294,11 +299,11 @@ export function PrescriptionBuilderModal({
               <Table>
                 <TableHeader className="bg-muted/40">
                   <TableRow>
-                    <TableHead className="w-20 font-bold">প্রকার</TableHead>
-                    <TableHead className="font-bold">ঔষধের নাম (Brand Name)</TableHead>
-                    <TableHead className="w-28 font-bold">ডোজ / মাত্রা</TableHead>
-                    <TableHead className="w-24 font-bold">দিন / মেয়াদ</TableHead>
-                    <TableHead className="font-bold">সেবনবিধি (Instructions)</TableHead>
+                    <TableHead className="w-20 font-bold">{isBn ? 'প্রকার' : 'Type'}</TableHead>
+                    <TableHead className="font-bold">{isBn ? 'ঔষধের নাম' : 'Brand Name'}</TableHead>
+                    <TableHead className="w-28 font-bold">{isBn ? 'ডোজ / মাত্রা' : 'Dosage'}</TableHead>
+                    <TableHead className="w-24 font-bold">{isBn ? 'দিন / মেয়াদ' : 'Duration'}</TableHead>
+                    <TableHead className="font-bold">{isBn ? 'সেবনবিধি' : 'Instructions'}</TableHead>
                     <TableHead className="w-12 text-right"></TableHead>
                   </TableRow>
                 </TableHeader>
@@ -326,7 +331,7 @@ export function PrescriptionBuilderModal({
 
                       <TableCell>
                         <Input
-                          placeholder="ঔষধের নাম (যেমন: Ace Plus 500mg)..."
+                          placeholder={isBn ? 'ঔষধের নাম (যেমন: এইস প্লাস ৫০০ মিগ্রা)...' : 'Medicine name (e.g. Ace Plus 500mg)...'}
                           value={med.brandName}
                           onChange={(e) => handleUpdateMedicine(idx, { brandName: e.target.value })}
                           className="h-8 text-xs font-bold"
@@ -339,15 +344,15 @@ export function PrescriptionBuilderModal({
                           onValueChange={(val) => handleUpdateMedicine(idx, { dosage: val })}
                         >
                           <SelectTrigger className="h-8 text-xs w-28 font-mono">
-                            <SelectValue placeholder="ডোজ" />
+                            <SelectValue placeholder={isBn ? 'ডোজ' : 'Dosage'} />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="1+0+1">1+0+1 (সকাল-রাত)</SelectItem>
-                            <SelectItem value="1+1+1">1+1+1 (সকাল-দুপুর-রাত)</SelectItem>
-                            <SelectItem value="1+0+0">1+0+0 (শুধু সকাল)</SelectItem>
-                            <SelectItem value="0+0+1">0+0+1 (শুধু রাত)</SelectItem>
-                            <SelectItem value="0+1+0">0+1+0 (শুধু দুপুর)</SelectItem>
-                            <SelectItem value="প্রয়োজনে">প্রয়োজনে (SOS)</SelectItem>
+                            <SelectItem value="1+0+1">{isBn ? '১+০+১ (সকাল-রাত)' : '1+0+1 (Morning-Night)'}</SelectItem>
+                            <SelectItem value="1+1+1">{isBn ? '১+১+১ (সকাল-দুপুর-রাত)' : '1+1+1 (Morning-Noon-Night)'}</SelectItem>
+                            <SelectItem value="1+0+0">{isBn ? '১+০+০ (শুধু সকাল)' : '1+0+0 (Morning Only)'}</SelectItem>
+                            <SelectItem value="0+0+1">{isBn ? '০+০+১ (শুধু রাত)' : '0+0+1 (Night Only)'}</SelectItem>
+                            <SelectItem value="0+1+0">{isBn ? '০+১+০ (শুধু দুপুর)' : '0+1+0 (Noon Only)'}</SelectItem>
+                            <SelectItem value="প্রয়োজনে">{isBn ? 'প্রয়োজনে' : 'As needed (SOS)'}</SelectItem>
                           </SelectContent>
                         </Select>
                       </TableCell>
@@ -393,10 +398,10 @@ export function PrescriptionBuilderModal({
             <div className="space-y-2">
               <Label className="text-xs font-bold flex items-center gap-1.5 text-foreground">
                 <FileText className="size-3.5 text-primary" />
-                <span>বিশেষ উপদেশ ও নিয়মাবলী (Advice &amp; Instructions)</span>
+                <span>{isBn ? 'বিশেষ উপদেশ ও নিয়মাবলী' : 'Advice & Instructions'}</span>
               </Label>
               <Textarea
-                placeholder="রোগীর করণীয় / বর্জনীয় পরামর্শ (যেমন: নরম বিছানায় শোবেন না, ভারী ওজন তুলবেন না, নিয়মিত গরম সেক দিন)..."
+                placeholder={isBn ? 'রোগীর করণীয় / বর্জনীয় পরামর্শ (যেমন: নরম বিছানায় শোবেন না, ভারী ওজন তুলবেন না, নিয়মিত গরম সেক দিন)...' : 'Patient advice/restrictions (e.g., avoid soft mattress, do not lift heavy objects, apply regular hot fomentation)...'}
                 rows={3}
                 value={advice}
                 onChange={(e) => onChangeAdvice(e.target.value)}
@@ -404,10 +409,10 @@ export function PrescriptionBuilderModal({
               />
               <div className="flex flex-wrap gap-1">
                 {[
-                  'ভারী ওজন বহন নিষেধ',
-                  'নরম বিছানায় শোবেন না',
-                  'প্রতিদিন ১৫ মিনিট গরম সেক দিন',
-                  'ব্যথা বাড়লে ব্যায়াম সাময়িক বন্ধ রাখুন',
+                  isBn ? 'ভারী ওজন বহন নিষেধ' : 'Avoid lifting heavy weights',
+                  isBn ? 'নরম বিছানায় শোবেন না' : 'Do not sleep on soft mattress',
+                  isBn ? 'প্রতিদিন ১৫ মিনিট গরম সেক দিন' : 'Apply hot compress for 15 mins daily',
+                  isBn ? 'ব্যথা বাড়লে ব্যায়াম সাময়িক বন্ধ রাখুন' : 'Pause exercise temporarily if pain increases',
                 ].map((sug) => (
                   <button
                     key={sug}
@@ -424,7 +429,7 @@ export function PrescriptionBuilderModal({
             <div className="space-y-2">
               <Label className="text-xs font-bold flex items-center gap-1.5 text-foreground">
                 <Calendar className="size-3.5 text-emerald-500" />
-                <span>পরবর্তী সাক্ষাতের সম্ভাব্য তারিখ (Follow-up Date)</span>
+                <span>{isBn ? 'পরবর্তী সাক্ষাতের সম্ভাব্য তারিখ' : 'Follow-up Date'}</span>
               </Label>
               <Input
                 type="date"
@@ -433,27 +438,27 @@ export function PrescriptionBuilderModal({
                 className="h-9 text-xs"
               />
               <div className="flex items-center gap-1.5 pt-1">
-                <span className="text-[10px] text-muted-foreground">দ্রুত নির্বাচন:</span>
+                <span className="text-[10px] text-muted-foreground">{isBn ? 'দ্রুত নির্বাচন:' : 'Quick Select:'}</span>
                 <button
                   type="button"
                   onClick={() => setFollowUpDays(7)}
                   className="text-[11px] px-2 py-0.5 rounded bg-muted/60 hover:bg-muted text-foreground border border-border/50 cursor-pointer"
                 >
-                  +৭ দিন
+                  {isBn ? '+৭ দিন' : '+7 Days'}
                 </button>
                 <button
                   type="button"
                   onClick={() => setFollowUpDays(15)}
                   className="text-[11px] px-2 py-0.5 rounded bg-muted/60 hover:bg-muted text-foreground border border-border/50 cursor-pointer"
                 >
-                  +১৫ দিন
+                  {isBn ? '+১৫ দিন' : '+15 Days'}
                 </button>
                 <button
                   type="button"
                   onClick={() => setFollowUpDays(30)}
                   className="text-[11px] px-2 py-0.5 rounded bg-muted/60 hover:bg-muted text-foreground border border-border/50 cursor-pointer"
                 >
-                  +১ মাস
+                  {isBn ? '+১ মাস' : '+1 Month'}
                 </button>
               </div>
             </div>
@@ -470,7 +475,7 @@ export function PrescriptionBuilderModal({
               className="h-9 text-xs font-semibold gap-1 text-muted-foreground hover:text-foreground"
             >
               <RotateCcw className="size-3.5" />
-              <span>রিসেট (Reset)</span>
+              <span>{isBn ? 'রিসেট' : 'Reset'}</span>
             </Button>
             {onOpenAllPrescriptions && (
               <Button
@@ -480,7 +485,7 @@ export function PrescriptionBuilderModal({
                 onClick={onOpenAllPrescriptions}
                 className="h-9 text-xs font-semibold gap-1 text-primary"
               >
-                পূর্ববর্তী প্রেসক্রিপশন হিস্ট্রি
+                {isBn ? 'পূর্ববর্তী প্রেসক্রিপশন হিস্ট্রি' : 'Previous Prescription History'}
               </Button>
             )}
           </div>
@@ -493,7 +498,7 @@ export function PrescriptionBuilderModal({
               onClick={() => onOpenChange(false)}
               className="h-9 text-xs"
             >
-              বাতিল
+              {isBn ? 'বাতিল' : 'Cancel'}
             </Button>
 
             <Button
@@ -505,7 +510,7 @@ export function PrescriptionBuilderModal({
               className="h-9 text-xs font-semibold gap-1.5"
             >
               {saving ? <RefreshCw className="size-3.5 animate-spin" /> : <Save className="size-3.5" />}
-              <span>সংরক্ষণ করুন (Save)</span>
+              <span>{isBn ? 'সংরক্ষণ করুন' : 'Save'}</span>
             </Button>
 
             <Button
@@ -520,7 +525,7 @@ export function PrescriptionBuilderModal({
               ) : (
                 <Printer className="size-3.5" />
               )}
-              <span>Save &amp; Print (প্রিন্ট করুন)</span>
+              <span>{isBn ? 'সংরক্ষণ ও প্রিন্ট করুন' : 'Save & Print'}</span>
             </Button>
           </div>
         </DialogFooter>

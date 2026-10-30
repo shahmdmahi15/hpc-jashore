@@ -19,6 +19,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { api, UserSession } from '@/lib/api';
 import { toast } from 'sonner';
+import { useLanguage } from '@/lib/i18n';
 import {
   FileText,
   Activity,
@@ -35,6 +36,7 @@ import {
   Info,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { PainAssessmentPrintModal } from './PainAssessmentPrintModal';
 
 export interface PainAssessmentFormModalProps {
   open: boolean;
@@ -74,7 +76,10 @@ export function PainAssessmentFormModal({
   existingFile,
   onSuccess,
 }: PainAssessmentFormModalProps) {
+  const { language } = useLanguage();
+  const isBn = language === 'bn';
   const [submitting, setSubmitting] = useState(false);
+  const [showPrintModal, setShowPrintModal] = useState(false);
 
   // Section 1: Demographics Snapshot
   const [assessmentDate, setAssessmentDate] = useState<string>(
@@ -139,8 +144,30 @@ export function PainAssessmentFormModal({
   const [improvement, setImprovement] = useState('');
   const [therapistSignature, setTherapistSignature] = useState('');
 
+  // Track initialization to prevent periodic 3s polling from wiping doctor/therapist input
+  const initializedTargetRef = React.useRef<string | null>(null);
+
   // Prefill or Load Existing
   useEffect(() => {
+    if (!open) {
+      initializedTargetRef.current = null;
+      return;
+    }
+
+    if (!existingFile && !patient) {
+      return;
+    }
+
+    const currentTargetId = existingFile
+      ? `file-${existingFile.id || existingFile.assessmentFileNumber || 'existing'}`
+      : `patient-${patient?.id || patient?.patientId || patient?.mrn || 'new'}`;
+
+    if (initializedTargetRef.current === currentTargetId) {
+      // Form is already initialized for this patient/file while open; do not wipe active user inputs
+      return;
+    }
+
+    initializedTargetRef.current = currentTargetId;
     if (existingFile) {
       setAssessmentDate(existingFile.assessmentDate || new Date().toISOString().split('T')[0]);
       setName(existingFile.name || '');
@@ -246,7 +273,7 @@ export function PainAssessmentFormModal({
       setImprovement('');
       setTherapistSignature(doctorName || currentUser?.displayName || 'Physiotherapist');
     }
-  }, [existingFile, patient, doctorName, currentUser]);
+  }, [open, existingFile, patient, doctorName, currentUser]);
 
   const toggleArrayItem = (list: string[], item: string, setter: React.Dispatch<React.SetStateAction<string[]>>) => {
     if (list.includes(item)) {
@@ -265,18 +292,18 @@ export function PainAssessmentFormModal({
   };
 
   const getVasLabel = (score: number) => {
-    if (score === 0) return 'No Pain (ব্যথাহীন)';
-    if (score <= 3) return 'Mild Pain (হালকা ব্যথা)';
-    if (score <= 6) return 'Moderate Pain (মাঝারি ব্যথা)';
-    if (score <= 8) return 'Severe Pain (তীব্র ব্যথা)';
-    return 'Worst Possible Pain (অসহ্য তীব্র ব্যথা)';
+    if (score === 0) return isBn ? 'ব্যথাহীন' : 'No Pain';
+    if (score <= 3) return isBn ? 'হালকা ব্যথা' : 'Mild Pain';
+    if (score <= 6) return isBn ? 'মাঝারি ব্যথা' : 'Moderate Pain';
+    if (score <= 8) return isBn ? 'তীব্র ব্যথা' : 'Severe Pain';
+    return isBn ? 'অসহ্য তীব্র ব্যথা' : 'Worst Possible Pain';
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const effectivePatientId = patient?.id || existingFile?.patientId;
     if (!effectivePatientId) {
-      toast.error('রোগীর আইডি পাওয়া যায়নি (Patient ID is required)');
+      toast.error(isBn ? 'রোগীর আইডি পাওয়া যায়নি' : 'Patient ID is required');
       return;
     }
 
@@ -357,11 +384,63 @@ export function PainAssessmentFormModal({
     }
   };
 
+  const getCurrentFormData = () => ({
+    fileNumber: existingFile?.fileNumber || 'PAF-NEW',
+    assessmentFileNumber: existingFile?.fileNumber || 'PAF-NEW',
+    mrn: idNo || patient?.mrn || 'HPC-2026-XXXX',
+    patientId: patient?.id || patient?.patientId,
+    assessmentDate,
+    name,
+    nameEn: patient?.nameEn,
+    nameBn: patient?.nameBn,
+    age,
+    gender,
+    idNo,
+    occupation,
+    address,
+    mobile,
+    painAreas,
+    painAreaOthers,
+    side,
+    duration,
+    painTypes,
+    vasScore,
+    painIncreasesWith,
+    painReducesWith,
+    injuryAccident,
+    injuryDetails,
+    postureAdvice,
+    postureHabits,
+    surgeryHistory,
+    surgeryDetails,
+    previousTreatment,
+    previousTreatmentDetails,
+    functionalLimitations,
+    functionalNotes,
+    rom,
+    muscleSpasm,
+    tenderness,
+    swelling,
+    physicalExamNotes,
+    diagnosis,
+    treatmentPlans,
+    treatmentPlanNotes,
+    prescribedSessions,
+    exerciseExplained,
+    homePostureAdvice,
+    homeAdviceNotes,
+    painScaleAfterTreatment,
+    improvement,
+    therapistSignature: therapistSignature || doctorName || currentUser?.displayName,
+    doctorName: doctorName || currentUser?.displayName,
+  });
+
   const handlePrint = () => {
-    window.print();
+    setShowPrintModal(true);
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className="w-[96vw] max-w-5xl max-h-[92vh] flex flex-col p-0 border-border bg-card shadow-2xl rounded-2xl overflow-hidden"
@@ -400,7 +479,7 @@ export function PainAssessmentFormModal({
               className="h-8 sm:h-9 text-xs gap-1.5 border-border/80 text-foreground hover:bg-muted"
             >
               <Printer className="size-3.5" />
-              <span className="hidden sm:inline">প্রিন্ট কপি (Print)</span>
+              <span className="hidden sm:inline">{isBn ? 'প্রিন্ট কপি' : 'Print Copy'}</span>
             </Button>
           </div>
         </div>
@@ -413,10 +492,12 @@ export function PainAssessmentFormModal({
               HEALTH AND PAIN CARE CENTER
             </h1>
             <h2 className="text-xs sm:text-sm font-extrabold tracking-wide text-foreground uppercase">
-              PAIN PHYSIOTHERAPY ASSESSMENT
+              {isBn ? 'পেইন ফিজিওথেরাপি অ্যাসেসমেন্ট' : 'PAIN PHYSIOTHERAPY ASSESSMENT'}
             </h2>
             <p className="text-[11px] sm:text-xs text-muted-foreground">
-              Official Physical Therapy Evaluation &amp; Treatment Progression Document
+              {isBn
+                ? 'অফিসিয়াল ফিজিক্যাল থেরাপি মূল্যায়ন ও চিকিৎসা অগ্রগতি পর্যবেক্ষণ ডকুমেন্ট'
+                : 'Official Physical Therapy Evaluation & Treatment Progression Document'}
             </p>
           </div>
 
@@ -425,10 +506,10 @@ export function PainAssessmentFormModal({
             <div className="flex items-center justify-between border-b border-border/50 pb-2">
               <span className="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
                 <User className="size-3.5" />
-                <span>1. Patient Demographics (প্রাথমিক তথ্য)</span>
+                <span>{isBn ? '১. রোগীর প্রাথমিক তথ্য' : '1. Patient Demographics'}</span>
               </span>
               <div className="flex items-center gap-2">
-                <Label className="text-xs text-muted-foreground">তারিখ / Date:</Label>
+                <Label className="text-xs text-muted-foreground">{isBn ? 'তারিখ:' : 'Date:'}</Label>
                 <Input
                   type="date"
                   value={assessmentDate}
@@ -440,7 +521,7 @@ export function PainAssessmentFormModal({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
               <div>
-                <Label className="text-[11px] text-muted-foreground">রোগীর নাম / Name:</Label>
+                <Label className="text-[11px] text-muted-foreground">{isBn ? 'রোগীর নাম:' : 'Patient Name:'}</Label>
                 <Input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
@@ -451,7 +532,7 @@ export function PainAssessmentFormModal({
               </div>
 
               <div>
-                <Label className="text-[11px] text-muted-foreground">বয়স / Age:</Label>
+                <Label className="text-[11px] text-muted-foreground">{isBn ? 'বয়স:' : 'Age:'}</Label>
                 <Input
                   value={age}
                   onChange={(e) => setAge(e.target.value)}
@@ -461,7 +542,7 @@ export function PainAssessmentFormModal({
               </div>
 
               <div>
-                <Label className="text-[11px] text-muted-foreground">আইডি নং / ID No. (MRN):</Label>
+                <Label className="text-[11px] text-muted-foreground">{isBn ? 'রোগীর আইডি (এমআরএন):' : 'ID No. (MRN):'}</Label>
                 <Input
                   value={idNo}
                   onChange={(e) => setIdNo(e.target.value)}
@@ -472,7 +553,7 @@ export function PainAssessmentFormModal({
               </div>
 
               <div>
-                <Label className="text-[11px] text-muted-foreground">লিঙ্গ / Gender:</Label>
+                <Label className="text-[11px] text-muted-foreground">{isBn ? 'লিঙ্গ:' : 'Gender:'}</Label>
                 <div className="flex items-center gap-4 mt-2">
                   <label className="inline-flex items-center gap-1.5 cursor-pointer">
                     <input
@@ -482,7 +563,7 @@ export function PainAssessmentFormModal({
                       onChange={() => setGender('male')}
                       className="accent-emerald-600"
                     />
-                    <span>Male (পুরুষ)</span>
+                    <span>{isBn ? 'পুরুষ' : 'Male'}</span>
                   </label>
                   <label className="inline-flex items-center gap-1.5 cursor-pointer">
                     <input
@@ -492,13 +573,13 @@ export function PainAssessmentFormModal({
                       onChange={() => setGender('female')}
                       className="accent-emerald-600"
                     />
-                    <span>Female (মহিলা)</span>
+                    <span>{isBn ? 'মহিলা' : 'Female'}</span>
                   </label>
                 </div>
               </div>
 
               <div>
-                <Label className="text-[11px] text-muted-foreground">পেশা / Occupation:</Label>
+                <Label className="text-[11px] text-muted-foreground">{isBn ? 'পেশা:' : 'Occupation:'}</Label>
                 <Input
                   value={occupation}
                   onChange={(e) => setOccupation(e.target.value)}
@@ -508,7 +589,7 @@ export function PainAssessmentFormModal({
               </div>
 
               <div>
-                <Label className="text-[11px] text-muted-foreground">মোবাইল / Mobile:</Label>
+                <Label className="text-[11px] text-muted-foreground">{isBn ? 'মোবাইল:' : 'Mobile:'}</Label>
                 <Input
                   value={mobile}
                   onChange={(e) => setMobile(e.target.value)}
@@ -518,7 +599,7 @@ export function PainAssessmentFormModal({
               </div>
 
               <div className="sm:col-span-2">
-                <Label className="text-[11px] text-muted-foreground">ঠিকানা / Address:</Label>
+                <Label className="text-[11px] text-muted-foreground">{isBn ? 'ঠিকানা:' : 'Address:'}</Label>
                 <Input
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
@@ -533,13 +614,13 @@ export function PainAssessmentFormModal({
           <div className="p-4 rounded-xl border border-border/80 bg-card/60 space-y-3">
             <span className="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 border-b border-border/50 pb-2">
               <Activity className="size-3.5" />
-              <span>2. Pain Details (ব্যথার বিবরণী)</span>
+              <span>{isBn ? '২. ব্যথার বিবরণ' : '2. Pain Details'}</span>
             </span>
 
             {/* Pain Area */}
             <div className="space-y-2">
               <Label className="text-xs font-semibold text-foreground">
-                Pain Area (ব্যথার স্থান):
+                {isBn ? 'ব্যথার স্থান:' : 'Pain Area:'}
               </Label>
               <div className="flex flex-wrap items-center gap-4">
                 {PAIN_AREAS.map((area) => (
@@ -553,7 +634,11 @@ export function PainAssessmentFormModal({
                       onChange={() => toggleArrayItem(painAreas, area, setPainAreas)}
                       className="accent-emerald-600 size-4 rounded"
                     />
-                    <span className="font-medium text-foreground">{area}</span>
+                    <span className="font-medium text-foreground">
+                      {isBn
+                        ? area === 'Neck' ? 'ঘাড়' : area === 'Shoulder' ? 'কাঁধ' : area === 'Back' ? 'কোমর বা পিঠ' : area === 'Knee' ? 'হাঁটু' : area === 'Heel' ? 'গোড়ালি' : 'অন্যান্য'
+                        : area}
+                    </span>
                   </label>
                 ))}
               </div>
@@ -563,7 +648,7 @@ export function PainAssessmentFormModal({
                   <Input
                     value={painAreaOthers}
                     onChange={(e) => setPainAreaOthers(e.target.value)}
-                    placeholder="Specify other pain area (অন্যান্য স্থানের নাম)..."
+                    placeholder={isBn ? 'অন্যান্য স্থানের নাম লিখুন...' : 'Specify other pain area...'}
                     className="h-8 text-xs bg-background"
                   />
                 </div>
@@ -574,7 +659,7 @@ export function PainAssessmentFormModal({
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2 border-t border-border/40">
               {/* Side */}
               <div>
-                <Label className="text-xs font-semibold text-foreground">Side (পাশ):</Label>
+                <Label className="text-xs font-semibold text-foreground">{isBn ? 'পাশ:' : 'Side:'}</Label>
                 <div className="flex items-center gap-4 mt-2">
                   {['Right', 'Left', 'Both'].map((s) => (
                     <label key={s} className="inline-flex items-center gap-1.5 text-xs cursor-pointer">
@@ -585,7 +670,7 @@ export function PainAssessmentFormModal({
                         onChange={() => setSide(s as any)}
                         className="accent-emerald-600"
                       />
-                      <span>{s}</span>
+                      <span>{s === 'Right' ? (isBn ? 'ডান' : 'Right') : s === 'Left' ? (isBn ? 'বাম' : 'Left') : (isBn ? 'উভয়' : 'Both')}</span>
                     </label>
                   ))}
                 </div>
@@ -593,18 +678,18 @@ export function PainAssessmentFormModal({
 
               {/* Duration */}
               <div>
-                <Label className="text-xs font-semibold text-foreground">Duration (স্থায়িত্বকাল):</Label>
+                <Label className="text-xs font-semibold text-foreground">{isBn ? 'স্থায়িত্বকাল:' : 'Duration:'}</Label>
                 <Input
                   value={duration}
                   onChange={(e) => setDuration(e.target.value)}
-                  placeholder="e.g. 2 weeks / 6 months"
+                  placeholder={isBn ? 'যেমন: ২ সপ্তাহ / ৬ মাস' : 'e.g. 2 weeks / 6 months'}
                   className="h-8 text-xs mt-1 bg-background"
                 />
               </div>
 
               {/* Pain Type */}
               <div>
-                <Label className="text-xs font-semibold text-foreground">Pain Type (ব্যথার ধরন):</Label>
+                <Label className="text-xs font-semibold text-foreground">{isBn ? 'ব্যথার ধরন:' : 'Pain Type:'}</Label>
                 <div className="flex flex-wrap items-center gap-2.5 mt-1.5">
                   {PAIN_TYPES.map((type) => (
                     <label
@@ -617,7 +702,11 @@ export function PainAssessmentFormModal({
                         onChange={() => toggleArrayItem(painTypes, type, setPainTypes)}
                         className="accent-emerald-600 size-3.5 rounded"
                       />
-                      <span>{type}</span>
+                      <span>
+                        {isBn
+                          ? type === 'Sharp' ? 'তীব্র/ধারালো' : type === 'Dull' ? 'ভোঁতা/ধীর' : type === 'Burning' ? 'জ্বালাপোড়া' : 'ছড়িয়ে পড়া'
+                          : type}
+                      </span>
                     </label>
                   ))}
                 </div>
@@ -629,7 +718,7 @@ export function PainAssessmentFormModal({
           <div className="p-4 rounded-xl border border-border/80 bg-card/60 space-y-4">
             <span className="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 border-b border-border/50 pb-2">
               <HeartPulse className="size-3.5" />
-              <span>3. Pain Scale (ব্যথা পরিমাপ স্কেল)</span>
+              <span>{isBn ? '৩. ব্যথা পরিমাপ স্কেল' : '3. Pain Scale'}</span>
             </span>
 
             {/* Interactive Visual Analog Scale Slider */}
@@ -653,12 +742,12 @@ export function PainAssessmentFormModal({
               />
 
               <div className="flex justify-between text-[10px] text-muted-foreground font-mono px-1">
-                <span>0 (ব্যথাহীন)</span>
+                <span>{isBn ? '০ (ব্যথাহীন)' : '0 (No Pain)'}</span>
                 <span>2</span>
                 <span>4</span>
                 <span>6</span>
                 <span>8</span>
-                <span className="text-rose-500 font-bold">10 (সর্বোচ্চ অসহ্য)</span>
+                <span className="text-rose-500 font-bold">{isBn ? '১০ (সর্বোচ্চ অসহ্য)' : '10 (Worst Pain)'}</span>
               </div>
             </div>
 
@@ -667,7 +756,7 @@ export function PainAssessmentFormModal({
               {/* Pain Increases With */}
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold text-foreground">
-                  Pain increases with (ব্যথা বৃদ্ধি পায়):
+                  {isBn ? 'ব্যথা বৃদ্ধি পায়:' : 'Pain increases with:'}
                 </Label>
                 <div className="flex flex-wrap items-center gap-2">
                   {PAIN_INCREASES_WITH.map((factor) => (
@@ -681,7 +770,11 @@ export function PainAssessmentFormModal({
                         onChange={() => toggleArrayItem(painIncreasesWith, factor, setPainIncreasesWith)}
                         className="accent-rose-600 size-3.5 rounded"
                       />
-                      <span>{factor}</span>
+                      <span>
+                        {isBn
+                          ? factor === 'Movement' ? 'নড়াচড়ায়' : factor === 'Sitting' ? 'বসলে' : factor === 'Standing' ? 'দাঁড়ালে' : 'হাঁটলে'
+                          : factor}
+                      </span>
                     </label>
                   ))}
                 </div>
@@ -690,7 +783,7 @@ export function PainAssessmentFormModal({
               {/* Pain Reduces With */}
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold text-foreground">
-                  Pain reduces with (ব্যথা হ্রাস পায়):
+                  {isBn ? 'ব্যথা হ্রাস পায়:' : 'Pain reduces with:'}
                 </Label>
                 <div className="flex flex-wrap items-center gap-2">
                   {PAIN_REDUCES_WITH.map((factor) => (
@@ -704,7 +797,11 @@ export function PainAssessmentFormModal({
                         onChange={() => toggleArrayItem(painReducesWith, factor, setPainReducesWith)}
                         className="accent-emerald-600 size-3.5 rounded"
                       />
-                      <span>{factor}</span>
+                      <span>
+                        {isBn
+                          ? factor === 'Rest' ? 'বিশ্রামে' : factor === 'Medicine' ? 'ওষুধে' : 'গরম সেঁকে'
+                          : factor}
+                      </span>
                     </label>
                   ))}
                 </div>
@@ -716,14 +813,14 @@ export function PainAssessmentFormModal({
           <div className="p-4 rounded-xl border border-border/80 bg-card/60 space-y-3">
             <span className="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 border-b border-border/50 pb-2">
               <Info className="size-3.5" />
-              <span>4. History (পূর্ববর্তী রোগের ইতিহাস)</span>
+              <span>{isBn ? '৪. পূর্ববর্তী রোগের ইতিহাস' : '4. Medical History'}</span>
             </span>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
               {/* Injury / Accident */}
               <div className="space-y-1.5 p-2.5 rounded-lg border border-border/50 bg-muted/10">
                 <div className="flex items-center justify-between">
-                  <Label className="text-xs font-semibold text-foreground">Injury / Accident (আঘাতের ইতিহাস):</Label>
+                  <Label className="text-xs font-semibold text-foreground">{isBn ? 'আঘাতের ইতিহাস:' : 'Injury / Accident:'}</Label>
                   <div className="flex items-center gap-3">
                     <label className="inline-flex items-center gap-1 cursor-pointer">
                       <input
@@ -733,7 +830,7 @@ export function PainAssessmentFormModal({
                         onChange={() => setInjuryAccident('yes')}
                         className="accent-emerald-600"
                       />
-                      <span>Yes</span>
+                      <span>{isBn ? 'হ্যাঁ' : 'Yes'}</span>
                     </label>
                     <label className="inline-flex items-center gap-1 cursor-pointer">
                       <input
@@ -743,7 +840,7 @@ export function PainAssessmentFormModal({
                         onChange={() => setInjuryAccident('no')}
                         className="accent-emerald-600"
                       />
-                      <span>No</span>
+                      <span>{isBn ? 'না' : 'No'}</span>
                     </label>
                   </div>
                 </div>
@@ -751,7 +848,7 @@ export function PainAssessmentFormModal({
                   <Input
                     value={injuryDetails}
                     onChange={(e) => setInjuryDetails(e.target.value)}
-                    placeholder="আঘাতের বিবরণ লিখুন..."
+                    placeholder={isBn ? 'আঘাতের বিবরণ লিখুন...' : 'Enter injury details...'}
                     className="h-7 text-xs mt-1 bg-background"
                   />
                 )}
@@ -760,7 +857,7 @@ export function PainAssessmentFormModal({
               {/* Posture Advice / Habits */}
               <div className="space-y-1.5 p-2.5 rounded-lg border border-border/50 bg-muted/10">
                 <div className="flex items-center justify-between">
-                  <Label className="text-xs font-semibold text-foreground">Posture advice / habit (বসার ভঙ্গি):</Label>
+                  <Label className="text-xs font-semibold text-foreground">{isBn ? 'বসার ভঙ্গি বা বদভ্যাস:' : 'Posture advice / habits:'}</Label>
                   <div className="flex items-center gap-3">
                     <label className="inline-flex items-center gap-1 cursor-pointer">
                       <input
@@ -770,7 +867,7 @@ export function PainAssessmentFormModal({
                         onChange={() => setPostureAdvice('yes')}
                         className="accent-emerald-600"
                       />
-                      <span>Yes</span>
+                      <span>{isBn ? 'হ্যাঁ' : 'Yes'}</span>
                     </label>
                     <label className="inline-flex items-center gap-1 cursor-pointer">
                       <input
@@ -780,7 +877,7 @@ export function PainAssessmentFormModal({
                         onChange={() => setPostureAdvice('no')}
                         className="accent-emerald-600"
                       />
-                      <span>No</span>
+                      <span>{isBn ? 'না' : 'No'}</span>
                     </label>
                   </div>
                 </div>
@@ -788,7 +885,7 @@ export function PainAssessmentFormModal({
                   <Input
                     value={postureHabits}
                     onChange={(e) => setPostureHabits(e.target.value)}
-                    placeholder="ভুল অঙ্গভঙ্গির বিবরণ..."
+                    placeholder={isBn ? 'ভুল অঙ্গভঙ্গির বিবরণ...' : 'Enter posture habits...'}
                     className="h-7 text-xs mt-1 bg-background"
                   />
                 )}
@@ -797,7 +894,7 @@ export function PainAssessmentFormModal({
               {/* Surgery History */}
               <div className="space-y-1.5 p-2.5 rounded-lg border border-border/50 bg-muted/10">
                 <div className="flex items-center justify-between">
-                  <Label className="text-xs font-semibold text-foreground">Surgery history (অস্ত্রোপচারের ইতিহাস):</Label>
+                  <Label className="text-xs font-semibold text-foreground">{isBn ? 'অস্ত্রোপচারের ইতিহাস:' : 'Surgery history:'}</Label>
                   <div className="flex items-center gap-3">
                     <label className="inline-flex items-center gap-1 cursor-pointer">
                       <input
@@ -807,7 +904,7 @@ export function PainAssessmentFormModal({
                         onChange={() => setSurgeryHistory('yes')}
                         className="accent-emerald-600"
                       />
-                      <span>Yes</span>
+                      <span>{isBn ? 'হ্যাঁ' : 'Yes'}</span>
                     </label>
                     <label className="inline-flex items-center gap-1 cursor-pointer">
                       <input
@@ -817,7 +914,7 @@ export function PainAssessmentFormModal({
                         onChange={() => setSurgeryHistory('no')}
                         className="accent-emerald-600"
                       />
-                      <span>No</span>
+                      <span>{isBn ? 'না' : 'No'}</span>
                     </label>
                   </div>
                 </div>
@@ -825,7 +922,7 @@ export function PainAssessmentFormModal({
                   <Input
                     value={surgeryDetails}
                     onChange={(e) => setSurgeryDetails(e.target.value)}
-                    placeholder="অস্ত্রোপচারের নাম ও তারিখ..."
+                    placeholder={isBn ? 'অস্ত্রোপচারের নাম ও তারিখ...' : 'Surgery details and date...'}
                     className="h-7 text-xs mt-1 bg-background"
                   />
                 )}
@@ -834,7 +931,7 @@ export function PainAssessmentFormModal({
               {/* Previous Treatment */}
               <div className="space-y-1.5 p-2.5 rounded-lg border border-border/50 bg-muted/10">
                 <Label className="text-xs font-semibold text-foreground">
-                  Previous treatment (পূর্বের চিকিৎসা):
+                  {isBn ? 'পূর্বের চিকিৎসা:' : 'Previous treatment:'}
                 </Label>
                 <div className="flex flex-wrap items-center gap-2 mt-1">
                   {PREVIOUS_TREATMENTS.map((treat) => (
@@ -848,14 +945,14 @@ export function PainAssessmentFormModal({
                         onChange={() => toggleArrayItem(previousTreatment, treat, setPreviousTreatment)}
                         className="accent-emerald-600 size-3.5 rounded"
                       />
-                      <span>{treat}</span>
+                      <span>{isBn ? (treat === 'Medicine' ? 'ওষুধ' : 'ফিজিওথেরাপি') : treat}</span>
                     </label>
                   ))}
                 </div>
                 <Input
                   value={previousTreatmentDetails}
                   onChange={(e) => setPreviousTreatmentDetails(e.target.value)}
-                  placeholder="পূর্ববর্তী চিকিৎসার বিবরণ (ওষুধ বা ফিজিওথেরাপি)..."
+                  placeholder={isBn ? 'পূর্ববর্তী চিকিৎসার বিবরণ (ওষুধ বা ফিজিওথেরাপি)...' : 'Details of previous medical/physio treatment...'}
                   className="h-7 text-xs mt-1 bg-background"
                 />
               </div>
@@ -866,12 +963,12 @@ export function PainAssessmentFormModal({
           <div className="p-4 rounded-xl border border-border/80 bg-card/60 space-y-3">
             <span className="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 border-b border-border/50 pb-2">
               <Activity className="size-3.5" />
-              <span>5. Functional Limitation (দৈনন্দিন কাজে সীমাবদ্ধতা)</span>
+              <span>{isBn ? '৫. দৈনন্দিন কাজে সীমাবদ্ধতা' : '5. Functional Limitation'}</span>
             </span>
 
             <div className="space-y-2">
               <Label className="text-xs font-semibold text-foreground">
-                Difficulty in (যেসব কাজে সমস্যা হয়):
+                {isBn ? 'যেসব কাজে সমস্যা হয়:' : 'Difficulty in:'}
               </Label>
               <div className="flex flex-wrap items-center gap-2.5">
                 {FUNCTIONAL_LIMITATIONS.map((limit) => (
@@ -885,7 +982,11 @@ export function PainAssessmentFormModal({
                       onChange={() => toggleArrayItem(functionalLimitations, limit, setFunctionalLimitations)}
                       className="accent-emerald-600 size-4 rounded"
                     />
-                    <span className="font-medium text-foreground">{limit}</span>
+                    <span className="font-medium text-foreground">
+                      {isBn
+                        ? limit === 'Bending' ? 'ঝুঁকতে' : limit === 'Sitting' ? 'বসতে' : limit === 'Standing' ? 'দাঁড়াতে' : limit === 'Walking' ? 'হাঁটতে' : 'ভারী তুলতে'
+                        : limit}
+                    </span>
                   </label>
                 ))}
               </div>
@@ -893,7 +994,7 @@ export function PainAssessmentFormModal({
               <Textarea
                 value={functionalNotes}
                 onChange={(e) => setFunctionalNotes(e.target.value)}
-                placeholder="অতিরিক্ত কাজের সমস্যা বা নোট লিখুন..."
+                placeholder={isBn ? 'অতিরিক্ত কাজের সমস্যা বা নোট লিখুন...' : 'Additional functional limitation notes...'}
                 rows={2}
                 className="text-xs bg-background mt-2"
               />
@@ -904,13 +1005,13 @@ export function PainAssessmentFormModal({
           <div className="p-4 rounded-xl border border-border/80 bg-card/60 space-y-3">
             <span className="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 border-b border-border/50 pb-2">
               <Stethoscope className="size-3.5" />
-              <span>6. Physical Examination (শারীরিক পরীক্ষা)</span>
+              <span>{isBn ? '৬. শারীরিক পরীক্ষা' : '6. Physical Examination'}</span>
             </span>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
               {/* ROM */}
               <div className="p-2.5 rounded-lg border border-border/50 bg-muted/10 space-y-1">
-                <Label className="text-[11px] font-semibold text-foreground">ROM (রেঞ্জ অব মোশন):</Label>
+                <Label className="text-[11px] font-semibold text-foreground">{isBn ? 'রেঞ্জ অব মোশন:' : 'Range of Motion (ROM):'}</Label>
                 <div className="flex flex-col gap-1 mt-1">
                   <label className="inline-flex items-center gap-1.5 cursor-pointer">
                     <input
@@ -920,7 +1021,7 @@ export function PainAssessmentFormModal({
                       onChange={() => setRom('Normal')}
                       className="accent-emerald-600"
                     />
-                    <span>Normal</span>
+                    <span>{isBn ? 'স্বাভাবিক' : 'Normal'}</span>
                   </label>
                   <label className="inline-flex items-center gap-1.5 cursor-pointer">
                     <input
@@ -930,14 +1031,14 @@ export function PainAssessmentFormModal({
                       onChange={() => setRom('Restricted')}
                       className="accent-rose-600"
                     />
-                    <span className="text-rose-600 dark:text-rose-400 font-medium">Restricted</span>
+                    <span className="text-rose-600 dark:text-rose-400 font-medium">{isBn ? 'সীমাবদ্ধ' : 'Restricted'}</span>
                   </label>
                 </div>
               </div>
 
               {/* Muscle Spasm */}
               <div className="p-2.5 rounded-lg border border-border/50 bg-muted/10 space-y-1">
-                <Label className="text-[11px] font-semibold text-foreground">Muscle spasm (মাংসপেশির টান):</Label>
+                <Label className="text-[11px] font-semibold text-foreground">{isBn ? 'মাংসপেশির টান:' : 'Muscle spasm:'}</Label>
                 <div className="flex items-center gap-3 mt-1.5">
                   <label className="inline-flex items-center gap-1.5 cursor-pointer">
                     <input
@@ -947,7 +1048,7 @@ export function PainAssessmentFormModal({
                       onChange={() => setMuscleSpasm('yes')}
                       className="accent-emerald-600"
                     />
-                    <span>Yes</span>
+                    <span>{isBn ? 'হ্যাঁ' : 'Yes'}</span>
                   </label>
                   <label className="inline-flex items-center gap-1.5 cursor-pointer">
                     <input
@@ -957,14 +1058,14 @@ export function PainAssessmentFormModal({
                       onChange={() => setMuscleSpasm('no')}
                       className="accent-emerald-600"
                     />
-                    <span>No</span>
+                    <span>{isBn ? 'না' : 'No'}</span>
                   </label>
                 </div>
               </div>
 
               {/* Tenderness */}
               <div className="p-2.5 rounded-lg border border-border/50 bg-muted/10 space-y-1">
-                <Label className="text-[11px] font-semibold text-foreground">Tenderness (স্পর্শে ব্যথা):</Label>
+                <Label className="text-[11px] font-semibold text-foreground">{isBn ? 'স্পর্শে ব্যথা:' : 'Tenderness:'}</Label>
                 <div className="flex items-center gap-3 mt-1.5">
                   <label className="inline-flex items-center gap-1.5 cursor-pointer">
                     <input
@@ -974,7 +1075,7 @@ export function PainAssessmentFormModal({
                       onChange={() => setTenderness('yes')}
                       className="accent-emerald-600"
                     />
-                    <span>Yes</span>
+                    <span>{isBn ? 'হ্যাঁ' : 'Yes'}</span>
                   </label>
                   <label className="inline-flex items-center gap-1.5 cursor-pointer">
                     <input
@@ -984,14 +1085,14 @@ export function PainAssessmentFormModal({
                       onChange={() => setTenderness('no')}
                       className="accent-emerald-600"
                     />
-                    <span>No</span>
+                    <span>{isBn ? 'না' : 'No'}</span>
                   </label>
                 </div>
               </div>
 
               {/* Swelling */}
               <div className="p-2.5 rounded-lg border border-border/50 bg-muted/10 space-y-1">
-                <Label className="text-[11px] font-semibold text-foreground">Swelling (ফোলাভাব):</Label>
+                <Label className="text-[11px] font-semibold text-foreground">{isBn ? 'ফোলাভাব:' : 'Swelling:'}</Label>
                 <div className="flex items-center gap-3 mt-1.5">
                   <label className="inline-flex items-center gap-1.5 cursor-pointer">
                     <input
@@ -1001,7 +1102,7 @@ export function PainAssessmentFormModal({
                       onChange={() => setSwelling('yes')}
                       className="accent-emerald-600"
                     />
-                    <span>Yes</span>
+                    <span>{isBn ? 'হ্যাঁ' : 'Yes'}</span>
                   </label>
                   <label className="inline-flex items-center gap-1.5 cursor-pointer">
                     <input
@@ -1011,7 +1112,7 @@ export function PainAssessmentFormModal({
                       onChange={() => setSwelling('no')}
                       className="accent-emerald-600"
                     />
-                    <span>No</span>
+                    <span>{isBn ? 'না' : 'No'}</span>
                   </label>
                 </div>
               </div>
@@ -1020,7 +1121,7 @@ export function PainAssessmentFormModal({
             <Textarea
               value={physicalExamNotes}
               onChange={(e) => setPhysicalExamNotes(e.target.value)}
-              placeholder="শারীরিক পরীক্ষার অন্যান্য পর্যবেক্ষণ (Palpation, Special Tests, Gait, etc.)..."
+              placeholder={isBn ? 'শারীরিক পরীক্ষার অন্যান্য পর্যবেক্ষণ (স্পর্শ পরীক্ষা, বিশেষ টেস্ট, হাঁটার ধরন ইত্যাদি)...' : 'Other examination findings (Palpation, Special Tests, Gait, etc.)...'}
               rows={2}
               className="text-xs bg-background mt-2"
             />
@@ -1030,7 +1131,7 @@ export function PainAssessmentFormModal({
           <div className="p-4 rounded-xl border-2 border-emerald-500/40 bg-emerald-500/5 space-y-2">
             <span className="text-xs font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-300 flex items-center gap-1.5">
               <Sparkles className="size-3.5 text-emerald-600" />
-              <span>7. Physiotherapy Diagnosis (ফিজিওথেরাপি রোগ নির্ণয়)</span>
+              <span>{isBn ? '৭. ফিজিওথেরাপি রোগ নির্ণয়' : '7. Physiotherapy Diagnosis'}</span>
             </span>
 
             <Input
@@ -1045,7 +1146,7 @@ export function PainAssessmentFormModal({
           <div className="p-4 rounded-xl border border-border/80 bg-card/60 space-y-3">
             <span className="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 border-b border-border/50 pb-2">
               <Activity className="size-3.5" />
-              <span>8. Treatment Plan (চিকিৎসা পরিকল্পনা ও মডালিটি)</span>
+              <span>{isBn ? '৮. চিকিৎসা পরিকল্পনা ও মডালিটি' : '8. Treatment Plan & Modalities'}</span>
             </span>
 
             <div className="space-y-2">
@@ -1068,7 +1169,7 @@ export function PainAssessmentFormModal({
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
                 <div className="sm:col-span-2">
-                  <Label className="text-[11px] text-muted-foreground">Treatment notes / parameters:</Label>
+                  <Label className="text-[11px] text-muted-foreground">{isBn ? 'চিকিৎসা নির্দেশিকা / নোট:' : 'Treatment notes / parameters:'}</Label>
                   <Input
                     value={treatmentPlanNotes}
                     onChange={(e) => setTreatmentPlanNotes(e.target.value)}
@@ -1078,7 +1179,7 @@ export function PainAssessmentFormModal({
                 </div>
 
                 <div>
-                  <Label className="text-[11px] text-muted-foreground">Prescribed Sessions (সেশন সংখ্যা):</Label>
+                  <Label className="text-[11px] text-muted-foreground">{isBn ? 'সেশন সংখ্যা:' : 'Prescribed Sessions:'}</Label>
                   <Input
                     type="number"
                     value={prescribedSessions}
@@ -1095,12 +1196,12 @@ export function PainAssessmentFormModal({
           <div className="p-4 rounded-xl border-2 border-sky-500/60 bg-sky-500/10 dark:bg-sky-950/20 space-y-3 shadow-xs">
             <span className="text-xs font-bold uppercase tracking-wider text-sky-700 dark:text-sky-300 flex items-center gap-1.5 border-b border-sky-500/30 pb-2">
               <Info className="size-3.5 text-sky-600" />
-              <span>9. Home Advice (বাসায় করণীয় পরামর্শ)</span>
+              <span>{isBn ? '৯. বাসায় করণীয় পরামর্শ' : '9. Home Advice & Ergonomics'}</span>
             </span>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
               <div className="flex items-center justify-between p-2.5 rounded-lg bg-card/60 border border-sky-500/20">
-                <Label className="text-xs font-semibold text-foreground">Exercise explained (ব্যায়াম বুঝিয়ে দেওয়া হয়েছে):</Label>
+                <Label className="text-xs font-semibold text-foreground">{isBn ? 'ব্যায়াম বুঝিয়ে দেওয়া হয়েছে:' : 'Exercise explained:'}</Label>
                 <div className="flex items-center gap-3">
                   <label className="inline-flex items-center gap-1 cursor-pointer">
                     <input
@@ -1110,7 +1211,7 @@ export function PainAssessmentFormModal({
                       onChange={() => setExerciseExplained('yes')}
                       className="accent-sky-600"
                     />
-                    <span>Yes</span>
+                    <span>{isBn ? 'হ্যাঁ' : 'Yes'}</span>
                   </label>
                   <label className="inline-flex items-center gap-1 cursor-pointer">
                     <input
@@ -1120,13 +1221,13 @@ export function PainAssessmentFormModal({
                       onChange={() => setExerciseExplained('no')}
                       className="accent-sky-600"
                     />
-                    <span>No</span>
+                    <span>{isBn ? 'না' : 'No'}</span>
                   </label>
                 </div>
               </div>
 
               <div className="flex items-center justify-between p-2.5 rounded-lg bg-card/60 border border-sky-500/20">
-                <Label className="text-xs font-semibold text-foreground">Posture advice (সঠিক ভঙ্গি মেনে চলার পরামর্শ):</Label>
+                <Label className="text-xs font-semibold text-foreground">{isBn ? 'সঠিক ভঙ্গি মেনে চলার পরামর্শ:' : 'Posture advice:'}</Label>
                 <div className="flex items-center gap-3">
                   <label className="inline-flex items-center gap-1 cursor-pointer">
                     <input
@@ -1136,7 +1237,7 @@ export function PainAssessmentFormModal({
                       onChange={() => setHomePostureAdvice('yes')}
                       className="accent-sky-600"
                     />
-                    <span>Yes</span>
+                    <span>{isBn ? 'হ্যাঁ' : 'Yes'}</span>
                   </label>
                   <label className="inline-flex items-center gap-1 cursor-pointer">
                     <input
@@ -1146,7 +1247,7 @@ export function PainAssessmentFormModal({
                       onChange={() => setHomePostureAdvice('no')}
                       className="accent-sky-600"
                     />
-                    <span>No</span>
+                    <span>{isBn ? 'না' : 'No'}</span>
                   </label>
                 </div>
               </div>
@@ -1155,7 +1256,7 @@ export function PainAssessmentFormModal({
             <Textarea
               value={homeAdviceNotes}
               onChange={(e) => setHomeAdviceNotes(e.target.value)}
-              placeholder="বাসায় নির্দিষ্ট ব্যায়াম বা বিশ্রামের নিয়মাবলী (e.g. নরম বালিশ ব্যবহার, সামনে ঝুঁকে ভারী কিছু না তোলা, দিনে ২ বার গরম সেঁক)..."
+              placeholder={isBn ? 'বাসায় নির্দিষ্ট ব্যায়াম বা বিশ্রামের নিয়মাবলী (যেমন: নরম বালিশ ব্যবহার, সামনে ঝুঁকে ভারী কিছু না তোলা, দিনে ২ বার গরম সেঁক)...' : 'Specific home exercise or rest guidelines...'}
               rows={2}
               className="text-xs bg-background"
             />
@@ -1165,12 +1266,12 @@ export function PainAssessmentFormModal({
           <div className="p-4 rounded-xl border border-border/80 bg-card/60 space-y-3">
             <span className="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5 border-b border-border/50 pb-2">
               <Calendar className="size-3.5" />
-              <span>10. Follow-up &amp; Progress (অগ্রগতি ও পরবর্তী পর্যবেক্ষণ)</span>
+              <span>{isBn ? '১০. অগ্রগতি ও পরবর্তী পর্যবেক্ষণ' : '10. Follow-up & Progress'}</span>
             </span>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
               <div>
-                <Label className="text-[11px] text-muted-foreground">Pain Scale after treatment (VAS 0-10):</Label>
+                <Label className="text-[11px] text-muted-foreground">{isBn ? 'চিকিৎসা পরবর্তী ব্যথার স্কেল (ভিএএস ০-১০):' : 'Pain Scale after treatment (VAS 0-10):'}</Label>
                 <Input
                   type="number"
                   min={0}
@@ -1183,7 +1284,7 @@ export function PainAssessmentFormModal({
               </div>
 
               <div>
-                <Label className="text-[11px] text-muted-foreground">Improvement (উন্নতি বা ফলাফল):</Label>
+                <Label className="text-[11px] text-muted-foreground">{isBn ? 'উন্নতি বা ফলাফল:' : 'Improvement:'}</Label>
                 <Input
                   value={improvement}
                   onChange={(e) => setImprovement(e.target.value)}
@@ -1193,7 +1294,7 @@ export function PainAssessmentFormModal({
               </div>
 
               <div>
-                <Label className="text-[11px] text-muted-foreground">Therapist signature / Doctor:</Label>
+                <Label className="text-[11px] text-muted-foreground">{isBn ? 'ফিজিওথেরাপিস্ট / ডাক্তারের স্বাক্ষর:' : 'Therapist signature / Doctor:'}</Label>
                 <Input
                   value={therapistSignature}
                   onChange={(e) => setTherapistSignature(e.target.value)}
@@ -1211,22 +1312,41 @@ export function PainAssessmentFormModal({
               onClick={() => onOpenChange(false)}
               className="h-9 px-4 text-xs"
             >
-              বাতিল (Close)
+              {isBn ? 'বাতিল' : 'Close'}
             </Button>
 
             <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handlePrint}
+                className="h-9 px-3.5 text-xs font-semibold gap-1.5 border-border/80 text-foreground hover:bg-muted"
+              >
+                <Printer className="size-3.5" />
+                <span>{isBn ? 'প্রিন্ট শিট' : 'Print Sheet'}</span>
+              </Button>
               <Button
                 type="submit"
                 disabled={submitting}
                 className="h-9 px-5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold gap-2 shadow-md shadow-emerald-500/20 active:scale-95 transition-all"
               >
                 {submitting ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
-                <span>{existingFile ? 'ফাইল আপডেট করুন (Update File)' : 'অ্যাসেসমেন্ট ফাইল সংরক্ষণ (Save File)'}</span>
+                <span>{existingFile ? (isBn ? 'ফাইল আপডেট করুন' : 'Update File') : (isBn ? 'অ্যাসেসমেন্ট ফাইল সংরক্ষণ' : 'Save File')}</span>
               </Button>
             </div>
           </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>
+
+    {/* Dedicated A4 Clinical Sheet Print & Vector PDF Export Modal */}
+    <PainAssessmentPrintModal
+      open={showPrintModal}
+      onOpenChange={setShowPrintModal}
+      data={getCurrentFormData()}
+      patient={patient}
+    />
+  </>
   );
 }

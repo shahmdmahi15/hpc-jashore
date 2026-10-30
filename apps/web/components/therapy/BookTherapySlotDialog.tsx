@@ -411,7 +411,7 @@ export function BookTherapySlotDialog({
                     <Input
                       placeholder={
                         isBn
-                          ? 'রোগীর নাম, মোবাইল নম্বর অথবা MRN দিয়ে সার্চ করুন...'
+                          ? (isBn ? 'রোগীর নাম, মোবাইল নম্বর অথবা আইডি দিয়ে খুঁজুন...' : 'Search by patient name, mobile, or MRN...')
                           : 'Search by patient name, phone number, or MRN...'
                       }
                       value={patientQuery}
@@ -624,7 +624,7 @@ export function BookTherapySlotDialog({
               <div className="flex items-center justify-between">
                 <Label htmlFor="toldTime" className="text-xs sm:text-sm font-semibold flex items-center gap-1.5">
                   <Clock className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                  <span>{isBn ? 'রোগীকে বলা সময় (Told Time)' : 'Told Arrival Time'}</span>
+                  <span>{isBn ? 'রোগীকে বলা সময়' : 'Told Arrival Time'}</span>
                 </Label>
                 <span className="text-[11px] text-muted-foreground">
                   {isBn ? 'রোগীকে ক্লিনিকে আসার যে সময় বলা হয়েছে' : 'Instructed arrival timestamp'}

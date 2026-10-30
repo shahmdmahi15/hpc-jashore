@@ -26,6 +26,7 @@ import {
   Copy,
 } from 'lucide-react';
 import { TreatmentPlanPrintModal, parsePlanNotes } from './TreatmentPlanPrintModal';
+import { useLanguage } from '../../lib/i18n';
 
 export interface PatientPlansListModalProps {
   open: boolean;
@@ -40,6 +41,8 @@ export function PatientPlansListModal({
   patient,
   onOpenPlanBuilder,
 }: PatientPlansListModalProps) {
+  const { language } = useLanguage();
+  const isBn = language === 'bn';
   const [loading, setLoading] = useState(false);
   const [plans, setPlans] = useState<any[]>([]);
   const [selectedPlanForPrint, setSelectedPlanForPrint] = useState<{
@@ -126,7 +129,7 @@ export function PatientPlansListModal({
                 </div>
                 <div>
                   <DialogTitle className="text-base sm:text-lg font-bold text-foreground flex items-center gap-2">
-                    <span>রোগীর থেরাপি প্ল্যান হিস্ট্রি (Previous &amp; Current Plans)</span>
+                    <span>{isBn ? 'রোগীর থেরাপি প্ল্যান হিস্ট্রি' : 'Patient Therapy Plan History'}</span>
                     <Badge variant="outline" className="border-cyan-500/40 text-cyan-600 dark:text-cyan-400 text-xs">
                       {planBatches.length} টি প্ল্যান
                     </Badge>
@@ -222,14 +225,14 @@ export function PatientPlansListModal({
                         </span>
                         <div>
                           <h4 className="font-bold text-sm text-foreground flex items-center gap-2">
-                            <span>থেরাপি ট্রিটমেন্ট প্ল্যান #{planBatches.length - bIdx}</span>
+                            <span>{isBn ? `থেরাপি ট্রিটমেন্ট প্ল্যান #${planBatches.length - bIdx}` : `Therapy Treatment Plan #${planBatches.length - bIdx}`}</span>
                             {batch.isActive ? (
                               <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 text-[10px]">
-                                সক্রিয় (Active)
+                                {isBn ? 'সক্রিয়' : 'Active'}
                               </Badge>
                             ) : (
                               <Badge variant="outline" className="border-border text-muted-foreground text-[10px]">
-                                সম্পন্ন / আর্কাইভড
+                                {isBn ? 'সম্পন্ন' : 'Completed'}
                               </Badge>
                             )}
                           </h4>
@@ -273,7 +276,7 @@ export function PatientPlansListModal({
                           className="h-8 text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white gap-1.5 shadow-xs cursor-pointer"
                         >
                           <Printer className="size-3.5" />
-                          <span>A4 প্রিন্ট কপি</span>
+                          <span>{isBn ? 'প্রিন্ট প্ল্যান' : 'Print Plan'}</span>
                         </Button>
                       </div>
                     </div>
@@ -344,7 +347,7 @@ export function PatientPlansListModal({
               onClick={() => onOpenChange(false)}
               className="text-xs h-8 cursor-pointer"
             >
-              বন্ধ করুন (Close)
+              {isBn ? 'বন্ধ করুন' : 'Close'}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -326,7 +326,7 @@ export function CheckoutWorkstationView() {
                 <Input
                   placeholder={
                     language === 'bn'
-                      ? 'রোগীর নাম, ফোন, MRN বা ডাক্তার খুঁজুন...'
+                      ? 'রোগীর নাম, ফোন, রেজি নম্বর বা ডাক্তার খুঁজুন...'
                       : 'Search patient, MRN, phone, doctor...'
                   }
                   value={searchQuery}
@@ -708,7 +708,7 @@ export function CheckoutWorkstationView() {
                   </span>
                   <span className={selectedVisit.financial.dueTaka > 0 ? 'text-amber-700 dark:text-amber-300' : 'text-emerald-700 dark:text-emerald-300'}>
                     {selectedVisit.financial.dueTaka > 0
-                      ? (language === 'bn' ? `বকেয়া বাকি: ৳${selectedVisit.financial.dueTaka}` : `Unsettled Due: ৳${selectedVisit.financial.dueTaka}`)
+                      ? (language === 'bn' ? `বকেয়া বাকি: ৳${selectedVisit.financial.dueTaka}` : `Unsettled Due: BDT ${selectedVisit.financial.dueTaka}`)
                       : (language === 'bn' ? '✓ সম্পূর্ণ পরিশোধিত' : '✓ Fully Settled')}
                   </span>
                 </div>

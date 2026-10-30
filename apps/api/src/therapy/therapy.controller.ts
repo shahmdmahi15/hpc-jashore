@@ -107,6 +107,12 @@ export class TherapyController {
     return this.therapy.getTodaySessions(therapistStaffId);
   }
 
+  @Get('sessions/patient/:patientId')
+  @Roles('admin', 'doctor', 'cashier', 'receptionist', 'handler')
+  getPatientSessions(@Param('patientId') patientId: string) {
+    return this.therapy.getPatientSessions(patientId);
+  }
+
   @Get('queue')
   @Roles('admin', 'doctor', 'cashier', 'receptionist', 'handler')
   getQueue() {

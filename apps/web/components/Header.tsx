@@ -25,6 +25,8 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { cn } from '../lib/utils';
 import { Button } from './ui/button';
+import { useDashboardBadges } from '../lib/use-dashboard-badges';
+import { WorkstationTabBadge } from './WorkstationTabBadge';
 
 interface HeaderProps {
   session: UserSession | null;
@@ -86,6 +88,7 @@ export default function Header({
   const { language } = useLanguage();
   const [currentTime, setCurrentTime] = React.useState<Date | null>(null);
   const { unreadCount } = useChatNotifier(activeTab === 'chat');
+  const badges = useDashboardBadges();
 
   const visibleTabs = React.useMemo(() => {
     if (!session?.role) return ALL_TABS;
@@ -171,6 +174,15 @@ export default function Header({
                 )}
               />
               <span>{language === 'bn' ? tab.labelBn : tab.labelEn}</span>
+              {tab.id === 'doctor' && (
+                <WorkstationTabBadge count={badges.consultationWaiting} color="emerald" pulse={!isActive} />
+              )}
+              {tab.id === 'handler' && (
+                <WorkstationTabBadge count={badges.therapyWaiting} color="blue" pulse={!isActive} />
+              )}
+              {tab.id === 'cashier' && (
+                <WorkstationTabBadge count={badges.cashierUnpaid} color="amber" pulse={!isActive} />
+              )}
             </button>
           );
         })}

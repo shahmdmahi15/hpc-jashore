@@ -2,7 +2,6 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import Image from 'next/image';
 import {
   Dialog,
   DialogContent,
@@ -16,8 +15,10 @@ import {
   X,
   Loader2,
   Download,
+  Languages,
 } from 'lucide-react';
 import { printElementViaIframe, generateElementPdf } from '@/lib/print-pdf';
+import { useLanguage } from '@/lib/i18n';
 
 export interface IntakeAssessmentData {
   mrn?: string;
@@ -125,9 +126,19 @@ export function IntakeAssessmentPrintModal({
   patient: propPatient,
   initialPatient,
 }: IntakeAssessmentPrintModalProps) {
+  const { language } = useLanguage();
+  const [printLang, setPrintLang] = useState<'en' | 'bn'>(language === 'bn' ? 'bn' : 'en');
   const [fetchedForm, setFetchedForm] = useState<any | null>(null);
   const [fetchedPatient, setFetchedPatient] = useState<any | null>(null);
   const [loading, setLoading] = useState(false);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
+  const [isPrinting, setIsPrinting] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setPrintLang(language === 'bn' ? 'bn' : 'en');
+    }
+  }, [open, language]);
 
   const handleClose = () => {
     if (onClose) onClose();
@@ -184,7 +195,7 @@ export function IntakeAssessmentPrintModal({
               }
             })
             .catch(() => setFetchedForm(null))
-            .finally(() => setLoading(false));
+              .finally(() => setLoading(false));
         });
     }
 
@@ -219,13 +230,11 @@ export function IntakeAssessmentPrintModal({
     };
   }, [open]);
 
-  const [isExportingPdf, setIsExportingPdf] = useState(false);
-  const [isPrinting, setIsPrinting] = useState(false);
-
   if (!open) return null;
 
   const raw = data || intake || intakeForm || initialForm || fetchedForm || {};
   const pat = propPatient || initialPatient || fetchedPatient || raw.patient || {};
+  const isBn = printLang === 'bn';
 
   const mrn = raw.mrn || pat.mrn || 'HPC-2026-XXXX';
 
@@ -238,12 +247,9 @@ export function IntakeAssessmentPrintModal({
           (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
 
       if (isMobile) {
-        // On iOS / Android devices, top-level window print with CSS isolation
-        // triggers native AirPrint / Android print dialog cleanly without iframe clipping
         document.body.classList.add('printing-intake-a4');
         window.print();
       } else {
-        // On desktop, isolated iframe print prevents any background dashboard bleed
         await printElementViaIframe('hpc-intake-a4-sheet', {
           pageTitle: `HPC_Intake_${mrn}`,
           pageSize: 'A4 portrait',
@@ -272,7 +278,6 @@ export function IntakeAssessmentPrintModal({
         (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent) ||
           (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
 
-      // On mobile Safari/Chrome, opening the PDF blob allows the user to immediately view and print via native iOS Share/Print sheet!
       if (isMobile && url) {
         window.open(url, '_blank');
       }
@@ -285,12 +290,10 @@ export function IntakeAssessmentPrintModal({
 
   const patientName =
     raw.name ||
-    raw.nameBn ||
-    raw.nameEn ||
-    pat.nameBn ||
-    pat.nameEn ||
+    (isBn ? raw.nameBn || raw.nameEn : raw.nameEn || raw.nameBn) ||
+    (isBn ? pat.nameBn || pat.nameEn : pat.nameEn || pat.nameBn) ||
     '—';
-  const age = raw.ageYears || pat.ageYears ? `${raw.ageYears || pat.ageYears} বছর` : '—';
+  const age = raw.ageYears || pat.ageYears ? `${raw.ageYears || pat.ageYears} ${isBn ? 'বছর' : 'yrs'}` : '—';
   const phone = raw.phone || pat.phone || '—';
   const isMale = (raw.gender || pat.gender) === 'male';
   const isFemale = (raw.gender || pat.gender) === 'female';
@@ -303,7 +306,7 @@ export function IntakeAssessmentPrintModal({
       : '—';
   const bloodSugar = raw.bloodSugar ? `${raw.bloodSugar} mmol/L` : '—';
   const hasDiabetes = Boolean(raw.hasDiabetes === 1 || raw.hasDiabetes === true);
-  const weight = raw.weightKg ? `${raw.weightKg} কেজি` : '—';
+  const weight = raw.weightKg ? `${raw.weightKg} ${isBn ? 'কেজি' : 'kg'}` : '—';
   const chiefComplaint = raw.chiefComplaint || '—';
   const duration = raw.problemDuration || '—';
 
@@ -339,15 +342,19 @@ export function IntakeAssessmentPrintModal({
                 </div>
                 <div className="min-w-0">
                   <DialogTitle className="text-xs sm:text-sm font-bold text-foreground truncate">
-                    রোগীর প্রাথমিক তথ্য ও রিসেপশন ফরম — A4 প্রিন্ট
+                    {isBn
+                      ? 'রোগীর প্রাথমিক তথ্য ও রিসেপশন ফরম — A4 প্রিন্ট'
+                      : 'Patient Intake & Reception Form — A4 Print'}
                   </DialogTitle>
                   <p className="text-[10px] sm:text-[11px] text-muted-foreground truncate hidden xs:block">
-                    একক A4 সাইজ পেপারে নিখুঁত প্রিন্ট ফরম্যাট (Guaranteed Single A4 Sheet)
+                    {isBn
+                      ? 'একক A4 সাইজ পেপারে নিখুঁত প্রিন্ট ফরম্যাট'
+                      : 'Guaranteed Single A4 Sheet Official Clinical Record'}
                   </p>
                 </div>
               </div>
 
-              {/* Close button visible on the right of title on mobile */}
+              {/* Close button visible on mobile */}
               <Button
                 type="button"
                 variant="ghost"
@@ -356,12 +363,25 @@ export function IntakeAssessmentPrintModal({
                 className="sm:hidden text-xs h-7 px-2 border border-border/60 text-foreground hover:bg-muted cursor-pointer shrink-0"
               >
                 <X className="size-3.5 mr-1" />
-                বন্ধ
+                {isBn ? 'বন্ধ' : 'Close'}
               </Button>
             </div>
 
-            {/* Action Buttons: Full-width responsive grid on mobile, inline on desktop */}
+            {/* Action Buttons */}
             <div className="flex items-center gap-2 w-full sm:w-auto">
+              {/* Language Switcher */}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setPrintLang(printLang === 'bn' ? 'en' : 'bn')}
+                className="text-[11px] sm:text-xs h-8 border-border text-foreground hover:bg-muted cursor-pointer gap-1 px-2.5 font-medium"
+                title={isBn ? 'Switch to English Clinical Sheet' : 'বাংলায় পরিবর্তন করুন'}
+              >
+                <Languages className="size-3.5 text-emerald-600" />
+                <span>{printLang === 'bn' ? 'English Sheet' : 'বাংলা শিট'}</span>
+              </Button>
+
               <Button
                 type="button"
                 variant="outline"
@@ -370,8 +390,9 @@ export function IntakeAssessmentPrintModal({
                 className="hidden sm:inline-flex text-xs h-8 border-border text-foreground hover:bg-muted cursor-pointer"
               >
                 <X className="size-3.5 mr-1" />
-                বন্ধ করুন
+                {isBn ? 'বন্ধ করুন' : 'Close'}
               </Button>
+
               <Button
                 type="button"
                 variant="outline"
@@ -383,15 +404,16 @@ export function IntakeAssessmentPrintModal({
                 {isExportingPdf ? (
                   <>
                     <Loader2 className="size-3.5 animate-spin text-emerald-600" />
-                    <span>পিডিএফ হচ্ছে...</span>
+                    <span>{isBn ? 'পিডিএফ হচ্ছে...' : 'Exporting...'}</span>
                   </>
                 ) : (
                   <>
                     <Download className="size-3.5 text-emerald-600 dark:text-emerald-400" />
-                    <span>A4 পিডিএফ</span>
+                    <span>{isBn ? 'পিডিএফ ডাউনলোড' : 'Download PDF'}</span>
                   </>
                 )}
               </Button>
+
               <Button
                 type="button"
                 size="sm"
@@ -402,12 +424,12 @@ export function IntakeAssessmentPrintModal({
                 {isPrinting ? (
                   <>
                     <Loader2 className="size-3.5 animate-spin" />
-                    <span>প্রিন্টার লোড...</span>
+                    <span>{isBn ? 'প্রিন্টার লোড...' : 'Printing...'}</span>
                   </>
                 ) : (
                   <>
                     <Printer className="size-3.5" />
-                    <span>প্রিন্ট (A4)</span>
+                    <span>{isBn ? 'প্রিন্ট করুন' : 'Print Sheet'}</span>
                   </>
                 )}
               </Button>
@@ -415,24 +437,25 @@ export function IntakeAssessmentPrintModal({
           </div>
         </div>
 
-        {/* Paper Container Preview for screen: Allows smooth horizontal panning on mobile */}
+        {/* Paper Container Preview */}
         <div className="sheet-report-wrapper p-2 sm:p-6 bg-muted/40 flex justify-start sm:justify-center overflow-x-auto print:!p-0 print:!m-0 print:!block print:!bg-transparent print:!w-full print:!h-auto">
           {loading ? (
             <div className="py-20 flex flex-col items-center justify-center gap-2 text-muted-foreground print:hidden">
               <Loader2 className="size-7 animate-spin text-emerald-500" />
-              <span className="text-xs">ইনটেক ফরম লোড হচ্ছে...</span>
+              <span className="text-xs">{isBn ? 'ইনটেক ফরম লোড হচ্ছে...' : 'Loading intake form...'}</span>
             </div>
           ) : (
-            /* Printable A4 Sheet: Guaranteed to fit exactly 1 Single A4 page centered */
             <div
               id="hpc-intake-a4-sheet"
               className="sheet-report-a4 bg-white text-black shadow-2xl rounded-sm p-[6mm_8mm] w-[210mm] max-w-[210mm] min-h-[297mm] text-[10px] leading-snug font-sans mx-auto flex flex-col justify-between border-[1.5px] border-emerald-800 print:!shadow-none print:!border-[1.5px] print:!border-emerald-800 print:!p-[5mm_6mm] print:!mx-auto print:!my-0 print:!w-[190mm] print:!max-w-[190mm] print:!h-[275mm] print:!max-h-[275mm] print:!overflow-hidden"
               style={{
-                fontFamily: "'Hind Siliguri', 'Noto Sans Bengali', var(--font-poppins), system-ui, sans-serif",
+                fontFamily: isBn
+                  ? "'Hind Siliguri', 'Noto Sans Bengali', var(--font-poppins), system-ui, sans-serif"
+                  : "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
                 boxSizing: 'border-box',
               }}
             >
-              {/* TOP HEADER matching official HPC Bengali Medical Form */}
+              {/* TOP HEADER */}
               <div className="border-b-2 border-emerald-800 pb-2 mb-2 break-inside-avoid">
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
@@ -455,24 +478,28 @@ export function IntakeAssessmentPrintModal({
                         HEALTH &amp; PAIN CARE (HPC)
                       </h1>
                       <h2 className="text-[12px] font-bold text-zinc-950 mt-1 leading-tight">
-                        রোগীর প্রাথমিক তথ্য ও রিসেপশন ফরম
+                        {isBn ? 'রোগীর প্রাথমিক তথ্য ও রিসেপশন ফরম' : 'Patient Initial Intake & Reception Form'}
                       </h2>
                       <p className="text-[9px] text-zinc-600 mt-0.5 leading-tight">
-                        চাঁচরা পুলিশ ফাঁড়ির বিপরীতে, চাঁচরা ডালমিল মোড়, যশোর সদর, যশোর-৭৪০০
+                        {isBn
+                          ? 'চাঁচরা পুলিশ ফাঁড়ির বিপরীতে, চাঁচরা ডালমিল মোড়, যশোর সদর, যশোর-৭৪০০'
+                          : 'Opposite to Chanchra Police Outpost, Chanchra Dalmill Mor, Jashore-7400'}
                       </p>
                       <p className="text-[8.5px] text-zinc-500 leading-tight">
-                        হটলাইন: ০১৫১৫-৬১৫১৮৮ · E-mail: hpc@toufiquzzaman.com
+                        {isBn
+                          ? 'হটলাইন: ০১৫১৫-৬১৫১৮৮ · ইমেইল: hpc@toufiquzzaman.com'
+                          : 'Hotline: +880 1515-615188 · Email: hpc@toufiquzzaman.com'}
                       </p>
                     </div>
                   </div>
                   <div className="text-right text-[9.5px] space-y-1 shrink-0">
                     <div className="px-3 py-1 bg-emerald-50 rounded border border-emerald-600 font-mono font-bold text-[11px] text-zinc-900 leading-tight">
-                      রোগীর আইডি: <span className="text-emerald-800">{mrn}</span>
+                      {isBn ? 'রোগীর আইডি:' : 'Patient ID:'} <span className="text-emerald-800">{mrn}</span>
                     </div>
                     <div className="text-zinc-700 font-mono text-[9.5px] flex items-center justify-end gap-2">
-                      <span>তারিখ: <strong className="text-black">{formatDateDDMMYYYY(formDate)}</strong></span>
+                      <span>{isBn ? 'তারিখ:' : 'Date:'} <strong className="text-black">{formatDateDDMMYYYY(formDate)}</strong></span>
                       {tokenNumber && (
-                        <span className="text-emerald-800 font-bold">| টোকেন: #{tokenNumber}</span>
+                        <span className="text-emerald-800 font-bold">{isBn ? `| টোকেন: #${tokenNumber}` : `| Token: #${tokenNumber}`}</span>
                       )}
                     </div>
                   </div>
@@ -482,35 +509,35 @@ export function IntakeAssessmentPrintModal({
               {/* SECTION 1: Personal Information */}
               <div className="mb-2 border border-zinc-300 rounded-[3px] overflow-hidden break-inside-avoid">
                 <div className="font-bold text-[10.5px] text-emerald-900 bg-emerald-50/80 border-b border-emerald-200 px-2 py-0.5 uppercase tracking-wide flex items-center justify-between">
-                  <span>১. রোগীর ব্যক্তিগত তথ্য (Personal Information)</span>
+                  <span>{isBn ? '১. রোগীর ব্যক্তিগত তথ্য' : '1. Patient Demographics'}</span>
                 </div>
                 <div className="p-2 bg-white">
                   <div className="grid grid-cols-12 gap-y-1 gap-x-3 text-[10px]">
                     <div className="col-span-8">
-                      <span className="text-zinc-600">রোগীর নাম:</span>{' '}
+                      <span className="text-zinc-600">{isBn ? 'রোগীর নাম:' : 'Patient Name:'}</span>{' '}
                       <strong className="text-black text-[11px] font-bold">{patientName}</strong>
                     </div>
                     <div className="col-span-4">
-                      <span className="text-zinc-600">বয়স:</span>{' '}
+                      <span className="text-zinc-600">{isBn ? 'বয়স:' : 'Age:'}</span>{' '}
                       <strong className="text-black font-bold">{age}</strong>
                     </div>
 
                     <div className="col-span-6">
-                      <span className="text-zinc-600">মোবাইল নম্বর:</span>{' '}
+                      <span className="text-zinc-600">{isBn ? 'মোবাইল নম্বর:' : 'Phone Number:'}</span>{' '}
                       <strong className="text-black font-mono font-bold">{phone}</strong>
                     </div>
                     <div className="col-span-6 flex items-center">
-                      <span className="text-zinc-600 mr-2.5">লিঙ্গ:</span>
-                      <PrintCheckbox checked={isMale} label="পুরুষ" />
-                      <PrintCheckbox checked={isFemale} label="মহিলা" />
+                      <span className="text-zinc-600 mr-2.5">{isBn ? 'লিঙ্গ:' : 'Gender:'}</span>
+                      <PrintCheckbox checked={isMale} label={isBn ? 'পুরুষ' : 'Male'} />
+                      <PrintCheckbox checked={isFemale} label={isBn ? 'মহিলা' : 'Female'} />
                     </div>
 
                     <div className="col-span-8">
-                      <span className="text-zinc-600">ঠিকানা:</span>{' '}
+                      <span className="text-zinc-600">{isBn ? 'ঠিকানা:' : 'Address:'}</span>{' '}
                       <span className="text-black font-medium">{address}</span>
                     </div>
                     <div className="col-span-4">
-                      <span className="text-zinc-600">পেশা:</span>{' '}
+                      <span className="text-zinc-600">{isBn ? 'পেশা:' : 'Occupation:'}</span>{' '}
                       <span className="text-black font-medium">{occupation}</span>
                     </div>
                   </div>
@@ -520,36 +547,36 @@ export function IntakeAssessmentPrintModal({
               {/* SECTION 2: Initial Health Information */}
               <div className="mb-2 border border-zinc-300 rounded-[3px] overflow-hidden break-inside-avoid">
                 <div className="font-bold text-[10.5px] text-emerald-900 bg-emerald-50/80 border-b border-emerald-200 px-2 py-0.5 uppercase tracking-wide">
-                  ২. প্রাথমিক স্বাস্থ্য তথ্য (Initial Health Information)
+                  {isBn ? '২. প্রাথমিক স্বাস্থ্য তথ্য' : '2. Initial Health Information'}
                 </div>
                 <div className="p-2 bg-white">
                   <div className="grid grid-cols-12 gap-y-1.5 gap-x-3 text-[10px]">
                     <div className="col-span-4">
-                      <span className="text-zinc-600">রক্তচাপ (BP):</span>{' '}
+                      <span className="text-zinc-600">{isBn ? 'রক্তচাপ:' : 'Blood Pressure:'}</span>{' '}
                       <strong className="text-black font-mono font-bold">{bp}</strong>
                     </div>
                     <div className="col-span-4">
-                      <span className="text-zinc-600">Blood Sugar:</span>{' '}
+                      <span className="text-zinc-600">{isBn ? 'ব্লাড সুগার:' : 'Blood Sugar:'}</span>{' '}
                       <strong className="text-black font-mono font-bold">{bloodSugar}</strong>
                     </div>
                     <div className="col-span-4 flex items-center">
-                      <span className="text-zinc-600 mr-2">ডায়াবেটিস:</span>
-                      <PrintCheckbox checked={!hasDiabetes} label="নেই" />
-                      <PrintCheckbox checked={hasDiabetes} label="আছে" />
+                      <span className="text-zinc-600 mr-2">{isBn ? 'ডায়াবেটিস:' : 'Diabetes:'}</span>
+                      <PrintCheckbox checked={!hasDiabetes} label={isBn ? 'নেই' : 'No'} />
+                      <PrintCheckbox checked={hasDiabetes} label={isBn ? 'আছে' : 'Yes'} />
                     </div>
 
                     <div className="col-span-4">
-                      <span className="text-zinc-600">ওজন:</span>{' '}
+                      <span className="text-zinc-600">{isBn ? 'ওজন:' : 'Weight:'}</span>{' '}
                       <strong className="text-black font-mono font-bold">{weight}</strong>
                     </div>
                     <div className="col-span-8">
-                      <span className="text-zinc-600">সমস্যা কতদিন ধরে:</span>{' '}
+                      <span className="text-zinc-600">{isBn ? 'সমস্যা কতদিন ধরে:' : 'Problem Duration:'}</span>{' '}
                       <span className="text-black font-medium">{duration}</span>
                     </div>
 
                     <div className="col-span-12 pt-1 border-t border-zinc-200">
                       <span className="text-zinc-700 block mb-1 font-semibold text-[9.5px]">
-                        প্রধান সমস্যা / রোগের বিবরণ (Chief Complaint):
+                        {isBn ? 'প্রধান সমস্যা ও রোগের বিবরণ:' : 'Chief Complaints & Clinical Presentation:'}
                       </span>
                       <div className="p-1.5 px-2.5 bg-zinc-50 border border-zinc-300 rounded text-black font-medium min-h-[30px] text-[10px] leading-snug">
                         {chiefComplaint}
@@ -562,17 +589,17 @@ export function IntakeAssessmentPrintModal({
               {/* SECTION 3: Past Medical History */}
               <div className="mb-2 border border-zinc-300 rounded-[3px] overflow-hidden break-inside-avoid">
                 <div className="font-bold text-[10.5px] text-emerald-900 bg-emerald-50/80 border-b border-emerald-200 px-2 py-0.5 uppercase tracking-wide">
-                  ৩. পূর্বের চিকিৎসা সংক্রান্ত তথ্য (Past Medical History)
+                  {isBn ? '৩. পূর্বের চিকিৎসা সংক্রান্ত তথ্য' : '3. Past Medical & Treatment History'}
                 </div>
                 <div className="p-2 bg-white space-y-1 text-[10px]">
                   <div className="flex items-center justify-between">
                     <div className="w-1/2 flex items-center">
-                      <span className="text-zinc-700 mr-2">আগে কোনো ডাক্তার দেখিয়েছেন কি?</span>
-                      <PrintCheckbox checked={!seenDoctor} label="না" />
-                      <PrintCheckbox checked={seenDoctor} label="হ্যাঁ" />
+                      <span className="text-zinc-700 mr-2">{isBn ? 'আগে কোনো ডাক্তার দেখিয়েছেন কি?' : 'Consulted any doctor before?'}</span>
+                      <PrintCheckbox checked={!seenDoctor} label={isBn ? 'না' : 'No'} />
+                      <PrintCheckbox checked={seenDoctor} label={isBn ? 'হ্যাঁ' : 'Yes'} />
                     </div>
                     <div className="w-1/2 pl-3">
-                      <span className="text-zinc-500">কোথায় / কার কাছে:</span>{' '}
+                      <span className="text-zinc-500">{isBn ? 'কোথায় / কার কাছে:' : 'Where / Doctor details:'}</span>{' '}
                       <span className="text-black font-medium">
                         {seenDoctor ? raw.previousDoctorDetails || '—' : '—'}
                       </span>
@@ -581,12 +608,12 @@ export function IntakeAssessmentPrintModal({
 
                   <div className="flex items-center justify-between border-t border-zinc-200 pt-1">
                     <div className="w-1/2 flex items-center">
-                      <span className="text-zinc-700 mr-2">আগে কোনো পরীক্ষা / রিপোর্ট আছে কি?</span>
-                      <PrintCheckbox checked={!hasReports} label="না" />
-                      <PrintCheckbox checked={hasReports} label="হ্যাঁ" />
+                      <span className="text-zinc-700 mr-2">{isBn ? 'আগে কোনো পরীক্ষা / রিপোর্ট আছে কি?' : 'Any prior diagnostic reports?'}</span>
+                      <PrintCheckbox checked={!hasReports} label={isBn ? 'না' : 'No'} />
+                      <PrintCheckbox checked={hasReports} label={isBn ? 'হ্যাঁ' : 'Yes'} />
                     </div>
                     <div className="w-1/2 pl-3">
-                      <span className="text-zinc-500">পরীক্ষার নাম:</span>{' '}
+                      <span className="text-zinc-500">{isBn ? 'পরীক্ষার নাম:' : 'Investigation names:'}</span>{' '}
                       <span className="text-black font-medium">
                         {hasReports ? raw.previousReportNames || '—' : '—'}
                       </span>
@@ -595,12 +622,12 @@ export function IntakeAssessmentPrintModal({
 
                   <div className="flex items-center justify-between border-t border-zinc-200 pt-1">
                     <div className="w-1/2 flex items-center">
-                      <span className="text-zinc-700 mr-2">বর্তমানে কোনো নিয়মিত ওষুধ খান কি?</span>
-                      <PrintCheckbox checked={!regularMed} label="না" />
-                      <PrintCheckbox checked={regularMed} label="হ্যাঁ" />
+                      <span className="text-zinc-700 mr-2">{isBn ? 'বর্তমানে কোনো নিয়মিত ওষুধ খান কি?' : 'Taking regular medications?'}</span>
+                      <PrintCheckbox checked={!regularMed} label={isBn ? 'না' : 'No'} />
+                      <PrintCheckbox checked={regularMed} label={isBn ? 'হ্যাঁ' : 'Yes'} />
                     </div>
                     <div className="w-1/2 pl-3">
-                      <span className="text-zinc-500">ওষুধের বিবরণ:</span>{' '}
+                      <span className="text-zinc-500">{isBn ? 'ওষুধের বিবরণ:' : 'Medication details:'}</span>{' '}
                       <span className="text-black font-medium">
                         {regularMed ? raw.regularMedicationDetails || '—' : '—'}
                       </span>
@@ -609,12 +636,12 @@ export function IntakeAssessmentPrintModal({
 
                   <div className="flex items-center justify-between border-t border-zinc-200 pt-1">
                     <div className="w-1/2 flex items-center">
-                      <span className="text-zinc-700 font-semibold mr-2">কোনো ওষুধে অ্যালার্জি আছে কি?</span>
-                      <PrintCheckbox checked={!hasAllergy} label="না" />
-                      <PrintCheckbox checked={hasAllergy} label="হ্যাঁ" />
+                      <span className="text-zinc-700 font-semibold mr-2">{isBn ? 'কোনো ওষুধে অ্যালার্জি আছে কি?' : 'Any drug allergies?'}</span>
+                      <PrintCheckbox checked={!hasAllergy} label={isBn ? 'না' : 'No'} />
+                      <PrintCheckbox checked={hasAllergy} label={isBn ? 'হ্যাঁ' : 'Yes'} />
                     </div>
                     <div className="w-1/2 pl-3">
-                      <span className="text-zinc-500">অ্যালার্জির ওষুধ:</span>{' '}
+                      <span className="text-zinc-500">{isBn ? 'অ্যালার্জির ওষুধ:' : 'Allergic drugs:'}</span>{' '}
                       <span className="text-black font-bold text-rose-800">
                         {hasAllergy ? raw.drugAllergyDetails || '—' : '—'}
                       </span>
@@ -626,14 +653,14 @@ export function IntakeAssessmentPrintModal({
               {/* SECTION 4: Discovery Source */}
               <div className="mb-2 border border-zinc-300 rounded-[3px] overflow-hidden break-inside-avoid">
                 <div className="font-bold text-[10.5px] text-emerald-900 bg-emerald-50/80 border-b border-emerald-200 px-2 py-0.5 uppercase tracking-wide">
-                  ৪. আমাদের সেন্টারের কথা কীভাবে জেনেছেন? (Discovery Source)
+                  {isBn ? '৪. আমাদের সেন্টারের কথা কীভাবে জেনেছেন?' : '4. How did you learn about our center?'}
                 </div>
                 <div className="p-1.5 px-2 bg-white flex flex-wrap items-center gap-y-1 text-[10px]">
-                  <PrintCheckbox checked={isFacebook} label="Facebook" />
-                  <PrintCheckbox checked={isGoogle} label="Google" />
-                  <PrintCheckbox checked={isKnownPerson} label="পরিচিত ব্যক্তি" />
-                  <PrintCheckbox checked={isPrevPatient} label="পূর্বের রোগী" />
-                  <PrintCheckbox checked={isOther} label="অন্যান্য" />
+                  <PrintCheckbox checked={isFacebook} label={isBn ? 'ফেসবুক' : 'Facebook'} />
+                  <PrintCheckbox checked={isGoogle} label={isBn ? 'গুগল' : 'Google'} />
+                  <PrintCheckbox checked={isKnownPerson} label={isBn ? 'পরিচিত ব্যক্তি' : 'Friend / Family'} />
+                  <PrintCheckbox checked={isPrevPatient} label={isBn ? 'পূর্বের রোগী' : 'Previous Patient'} />
+                  <PrintCheckbox checked={isOther} label={isBn ? 'অন্যান্য' : 'Other'} />
                   {isOther && raw.referralOtherDetails && (
                     <span className="text-black font-medium ml-1 border-b border-dotted border-zinc-400">
                       ({raw.referralOtherDetails})
@@ -645,35 +672,35 @@ export function IntakeAssessmentPrintModal({
               {/* SECTION 5: Reception Desk & Chamber Assignment */}
               <div className="mb-2 border border-zinc-300 rounded-[3px] overflow-hidden break-inside-avoid">
                 <div className="font-bold text-[10.5px] text-emerald-900 bg-emerald-50/80 border-b border-emerald-200 px-2 py-0.5 uppercase tracking-wide flex justify-between items-center">
-                  <span>৫. রিসেপশন ও চেম্বার এসাইনমেন্ট (For Reception Desk Use)</span>
+                  <span>{isBn ? '৫. রিসেপশন ও চেম্বার এসাইনমেন্ট' : '5. Reception & Chamber Assignment'}</span>
                   {raw.doctorFee && (
                     <span className="font-mono text-emerald-900 font-bold text-[10px]">
-                      কনসালটেশন ফি: ৳{raw.doctorFee}
+                      {isBn ? `কনসালটেশন ফি: ৳${raw.doctorFee}` : `Consultation Fee: BDT ${raw.doctorFee}`}
                     </span>
                   )}
                 </div>
                 <div className="p-2 bg-white">
                   <div className="grid grid-cols-12 gap-y-1.5 gap-x-3 text-[10px] items-center">
                     <div className="col-span-6">
-                      <span className="text-zinc-600">রিসেপশনিস্ট:</span>{' '}
-                      <strong className="text-black font-semibold">{raw.receptionistName || 'রিসেপশন ডেস্ক'}</strong>
+                      <span className="text-zinc-600">{isBn ? 'রিসেপশনিস্ট:' : 'Receptionist:'}</span>{' '}
+                      <strong className="text-black font-semibold">{raw.receptionistName || (isBn ? 'রিসেপশন ডেস্ক' : 'Reception Desk')}</strong>
                     </div>
                     <div className="col-span-6">
-                      <span className="text-zinc-600">নির্ধারিত ডাক্তার:</span>{' '}
-                      <strong className="text-emerald-900 font-bold">{raw.doctorName || 'ডাক্তার কনসালটেশন'}</strong>
+                      <span className="text-zinc-600">{isBn ? 'নির্ধারিত ডাক্তার:' : 'Assigned Doctor:'}</span>{' '}
+                      <strong className="text-emerald-900 font-bold">{raw.doctorName || (isBn ? 'ডাক্তার কনসালটেশন' : 'Doctor Consultation')}</strong>
                       {raw.chamberRoomNumber && (
-                        <span className="ml-1 text-zinc-700 font-semibold">(রুম {raw.chamberRoomNumber})</span>
+                        <span className="ml-1 text-zinc-700 font-semibold">{isBn ? `(রুম ${raw.chamberRoomNumber})` : `(Room ${raw.chamberRoomNumber})`}</span>
                       )}
                     </div>
 
                     <div className="col-span-8">
-                      <span className="text-zinc-600">রেফারেন্স / বিশেষ নোট:</span>{' '}
+                      <span className="text-zinc-600">{isBn ? 'রেফারেন্স / বিশেষ নোট:' : 'Reference / Special Notes:'}</span>{' '}
                       <span className="text-black font-medium">{raw.specialNotes || '—'}</span>
                     </div>
                     <div className="col-span-4 text-right flex flex-col items-end justify-end">
                       <div className="border-b border-zinc-500 w-32 mb-0.5"></div>
                       <span className="text-[9px] text-zinc-600 w-32 text-center block">
-                        রিসেপশন স্বাক্ষর ও তারিখ
+                        {isBn ? 'রিসেপশন স্বাক্ষর ও তারিখ' : 'Reception Signature & Date'}
                       </span>
                     </div>
                   </div>
@@ -683,13 +710,13 @@ export function IntakeAssessmentPrintModal({
               {/* SECTION 6: Doctor's Clinical Assessment & Impression Space */}
               <div className="border-[1.5px] border-emerald-700/80 rounded-[3px] p-2 mb-1.5 bg-emerald-50/15 break-inside-avoid">
                 <div className="font-bold text-emerald-950 text-[10.5px] mb-1.5 flex items-center justify-between border-b border-emerald-300 pb-1">
-                  <span>৬. কনসালট্যান্ট ডাক্তারের প্রাথমিক মূল্যায়ন ও চেম্বার নোট (Doctor&apos;s Clinical Assessment Space)</span>
-                  <span className="text-[9px] text-zinc-600 font-normal">(চেম্বারে ডাক্তারের ব্যবহারের জন্য)</span>
+                  <span>{isBn ? '৬. কনসালট্যান্ট ডাক্তারের প্রাথমিক মূল্যায়ন ও চেম্বার নোট' : '6. Consultant Doctor\'s Initial Evaluation & Clinical Notes'}</span>
+                  <span className="text-[9px] text-zinc-600 font-normal">{isBn ? '(চেম্বারে ডাক্তারের ব্যবহারের জন্য)' : '(For Doctor\'s Chamber Use Only)'}</span>
                 </div>
                 <div className="space-y-1.5 text-[9.5px]">
                   <div>
                     <span className="text-zinc-800 font-semibold block text-[9.5px] mb-0.5">
-                      সাময়িক পর্যবেক্ষণ ও ডায়াগনোসিস (Provisional Diagnosis):
+                      {isBn ? 'সাময়িক পর্যবেক্ষণ ও ডায়াগনোসিস:' : 'Provisional Diagnosis & Clinical Impression:'}
                     </span>
                     <div className="border-b border-dashed border-zinc-400 h-4"></div>
                     <div className="border-b border-dashed border-zinc-400 h-4"></div>
@@ -697,7 +724,7 @@ export function IntakeAssessmentPrintModal({
                   </div>
                   <div>
                     <span className="text-zinc-800 font-semibold block text-[9.5px] mb-0.5">
-                      প্রস্তাবিত ফিজিওথেরাপি ও পরীক্ষা নির্দেশনা (Recommended Therapy / Advice):
+                      {isBn ? 'প্রস্তাবিত ফিজিওথেরাপি ও পরীক্ষা নির্দেশনা:' : 'Recommended Physiotherapy & Investigations:'}
                     </span>
                     <div className="border-b border-dashed border-zinc-400 h-4"></div>
                     <div className="border-b border-dashed border-zinc-400 h-4"></div>
@@ -705,12 +732,12 @@ export function IntakeAssessmentPrintModal({
                   </div>
                   <div className="flex justify-between items-end pt-2">
                     <div className="text-[9px] text-zinc-600 font-mono">
-                      তারিখ: .......................................
+                      {isBn ? 'তারিখ: .......................................' : 'Date: .......................................'}
                     </div>
                     <div className="text-right">
                       <div className="border-b border-zinc-700 w-44 mb-0.5 ml-auto"></div>
                       <span className="text-[9px] text-zinc-800 font-semibold text-center block w-44 ml-auto">
-                        ডাক্তারের স্বাক্ষর ও সিল
+                        {isBn ? 'ডাক্তারের স্বাক্ষর ও সিল' : 'Doctor\'s Signature & Seal'}
                       </span>
                     </div>
                   </div>
@@ -720,10 +747,10 @@ export function IntakeAssessmentPrintModal({
               {/* FOOTER with HPC branding & hotline */}
               <div className="pt-1.5 border-t-2 border-emerald-800 flex items-center justify-between text-[9px] text-zinc-600 gap-2 break-inside-avoid">
                 <div>
-                  <strong>হেলথ অ্যান্ড পেইন কেয়ার সেন্টার (HPC)</strong> · চাঁচরা পুলিশ ফাঁড়ির বিপরীতে, চাঁচরা ডালমিল মোড়, যশোর সদর
+                  <strong>{isBn ? 'হেলথ অ্যান্ড পেইন কেয়ার সেন্টার' : 'Health & Pain Care Center'}</strong> · {isBn ? 'চাঁচরা পুলিশ ফাঁড়ির বিপরীতে, চাঁচরা ডালমিল মোড়, যশোর সদর' : 'Opposite to Chanchra Police Outpost, Chanchra Dalmill Mor, Jashore'}
                 </div>
                 <div className="font-semibold text-emerald-900 text-right">
-                  হটলাইন: +৮৮০ ১৫১৫-৬১৫১৮৮ · E-mail: hpc@toufiquzzaman.com
+                  {isBn ? 'হটলাইন: +৮৮০ ১৫১৫-৬১৫১৮৮ · ইমেইল: hpc@toufiquzzaman.com' : 'Hotline: +880 1515-615188 · Email: hpc@toufiquzzaman.com'}
                 </div>
               </div>
             </div>
@@ -737,7 +764,6 @@ export function IntakeAssessmentPrintModal({
             margin: 8mm 10mm;
           }
           @media print {
-            /* 1. Global Reset: Strictly eliminate dark theme leakage and lock to single page */
             :root,
             html,
             body,
@@ -762,8 +788,6 @@ export function IntakeAssessmentPrintModal({
               print-color-adjust: exact !important;
             }
 
-            /* 2. COMPLETELY REMOVE background dashboard and sibling portals from layout flow!
-                  This eliminates all ghost layout height (which causes blank page 1 and page 2 spills) */
             body > *:not([data-radix-portal]),
             body.printing-intake-a4 > *:not([data-radix-portal]),
             [data-radix-portal]:not(:has(#hpc-intake-a4-sheet)),
@@ -777,7 +801,6 @@ export function IntakeAssessmentPrintModal({
               padding: 0 !important;
             }
 
-            /* 3. Hide all non-printable buttons, overlays, navbars */
             nav,
             header,
             aside,
@@ -796,7 +819,6 @@ export function IntakeAssessmentPrintModal({
               visibility: hidden !important;
             }
 
-            /* 4. Neutralize the print portal wrapper so content starts at top of page 1 */
             [data-radix-portal]:has(#hpc-intake-a4-sheet),
             [role="dialog"]:has(#hpc-intake-a4-sheet),
             [data-dialog-content]:has(#hpc-intake-a4-sheet),
@@ -815,7 +837,6 @@ export function IntakeAssessmentPrintModal({
               overflow: visible !important;
             }
 
-            /* 5. Robust Centered Single A4 Sheet: Guaranteed to fit exactly 1 page */
             #hpc-intake-a4-sheet {
               position: relative !important;
               display: flex !important;

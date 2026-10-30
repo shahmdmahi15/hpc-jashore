@@ -19,6 +19,7 @@ import { Badge } from './ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
 import { cn } from '../lib/utils';
 import { toast } from 'sonner';
+import { useLanguage } from '../lib/i18n';
 import { PatientTimelineModal } from './patient/PatientTimelineModal';
 import { IntakeAssessmentPrintModal } from './patient/IntakeAssessmentPrintModal';
 import InvoicePrintModal from './InvoicePrintModal';
@@ -57,6 +58,8 @@ interface PackagePreset {
   priceTaka: number;
   validityDays: number;
   tag?: string;
+  tagBn?: string;
+  tagEn?: string;
 }
 
 const SESSION_PRESETS: PackagePreset[] = [
@@ -66,7 +69,7 @@ const SESSION_PRESETS: PackagePreset[] = [
     count: 5,
     priceTaka: 1500,
     validityDays: 15,
-    tag: '৳300/session',
+    tagBn: '৳৩০০/সেশন', tagEn: 'BDT 300/session',
   },
   {
     name: '10-Session Comprehensive Rehab',
@@ -74,7 +77,7 @@ const SESSION_PRESETS: PackagePreset[] = [
     count: 10,
     priceTaka: 2800,
     validityDays: 30,
-    tag: 'Popular · ৳280/session',
+    tagBn: 'জনপ্রিয় · ৳২৮০/সেশন', tagEn: 'Popular · BDT 280/session',
   },
   {
     name: '15-Session Advanced Therapy',
@@ -82,7 +85,7 @@ const SESSION_PRESETS: PackagePreset[] = [
     count: 15,
     priceTaka: 3900,
     validityDays: 45,
-    tag: 'Best Value · ৳260/session',
+    tagBn: 'সেরা মান · ৳২৬০/সেশন', tagEn: 'Best Value · BDT 260/session',
   },
   {
     name: '20-Session Intensive Mobility',
@@ -90,7 +93,7 @@ const SESSION_PRESETS: PackagePreset[] = [
     count: 20,
     priceTaka: 4800,
     validityDays: 60,
-    tag: '৳240/session',
+    tagBn: '৳২৪০/সেশন', tagEn: 'BDT 240/session',
   },
 ];
 
@@ -101,7 +104,7 @@ const DAY_PRESETS: PackagePreset[] = [
     count: 7,
     priceTaka: 2500,
     validityDays: 14,
-    tag: '৳357/day',
+    tagBn: '৳৩৫৭/দিন', tagEn: 'BDT 357/day',
   },
   {
     name: '14-Day Full Mobility Package',
@@ -109,7 +112,7 @@ const DAY_PRESETS: PackagePreset[] = [
     count: 14,
     priceTaka: 4500,
     validityDays: 30,
-    tag: 'Recommended · ৳321/day',
+    tagBn: 'সুপারিশকৃত · ৳৩২১/দিন', tagEn: 'Recommended · BDT 321/day',
   },
   {
     name: '21-Day Pain Free Protocol',
@@ -117,7 +120,7 @@ const DAY_PRESETS: PackagePreset[] = [
     count: 21,
     priceTaka: 6300,
     validityDays: 45,
-    tag: '৳300/day',
+    tagBn: '৳৩০০/দিন', tagEn: 'BDT 300/day',
   },
   {
     name: '30-Day Monthly Recovery Package',
@@ -125,7 +128,7 @@ const DAY_PRESETS: PackagePreset[] = [
     count: 30,
     priceTaka: 8500,
     validityDays: 60,
-    tag: 'Best Value · ৳283/day',
+    tagBn: 'সেরা মান · ৳২৮৩/দিন', tagEn: 'Best Value · BDT 283/day',
   },
 ];
 
@@ -135,6 +138,8 @@ export interface CashierProps {
 
 export default function CashierView({ session: propSession }: CashierProps = {}) {
   const session = propSession || getSession();
+  const { language } = useLanguage();
+  const isBn = language === 'bn';
   const [mobileTab, setMobileTab] = useState<'billing' | 'ledger' | 'therapy_queue'>('billing');
   const [bills, setBills] = useState<any[]>([]);
   const [dues, setDues] = useState<any[]>([]);
@@ -377,16 +382,20 @@ export default function CashierView({ session: propSession }: CashierProps = {})
   const handleCreateBill = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!activeDrawer?.isOpen) {
-      toast.error('ক্যাশ ড্রয়ার বন্ধ রয়েছে! বিল তৈরির পূর্বে অবশ্যই ক্যাশ ড্রয়ার খুলতে হবে। (Cash drawer is closed!)');
+      toast.error(
+        isBn
+          ? 'ক্যাশ ড্রয়ার বন্ধ রয়েছে! বিল তৈরির পূর্বে অবশ্যই ক্যাশ ড্রয়ার খুলতে হবে।'
+          : 'Cash drawer is closed! Please open cash drawer before creating bills.'
+      );
       setShowOpenDrawerModal(true);
       return;
     }
     if (!selectedPatientId) {
-      toast.error('অনুগ্রহ করে একজন রোগী নির্বাচন করুন (Select a patient)');
+      toast.error(isBn ? 'অনুগ্রহ করে একজন রোগী নির্বাচন করুন' : 'Please select a patient');
       return;
     }
     if (billItems.length === 0) {
-      toast.error('কমপক্ষে একটি সেবা বা আইটেম যোগ করুন (Please add at least one item)');
+      toast.error(isBn ? 'কমপক্ষে একটি সেবা বা আইটেম যোগ করুন' : 'Please add at least one item');
       return;
     }
     try {
@@ -442,7 +451,11 @@ export default function CashierView({ session: propSession }: CashierProps = {})
 
   const openPaymentModal = (intake: any) => {
     if (!activeDrawer?.isOpen) {
-      toast.error('ক্যাশ ড্রয়ার বন্ধ রয়েছে! ফি সংগ্রহের পূর্বে অবশ্যই ক্যাশ ড্রয়ার খুলতে হবে। (Cash drawer is closed!)');
+      toast.error(
+        isBn
+          ? 'ক্যাশ ড্রয়ার বন্ধ রয়েছে! ফি সংগ্রহের পূর্বে অবশ্যই ক্যাশ ড্রয়ার খুলতে হবে।'
+          : 'Cash drawer is closed! Please open cash drawer before collecting fees.'
+      );
       setShowOpenDrawerModal(true);
       return;
     }
@@ -519,7 +532,11 @@ export default function CashierView({ session: propSession }: CashierProps = {})
   // Open Doctor Consultation Adjustment Modal (Refund or Payment Collection)
   const handleOpenAdjustmentModal = (adj: any) => {
     if (!activeDrawer?.isOpen) {
-      toast.error('ক্যাশ ড্রয়ার বন্ধ রয়েছে! লেনদেনের পূর্বে অবশ্যই ক্যাশ ড্রয়ার খুলতে হবে। (Cash drawer is closed!)');
+      toast.error(
+        isBn
+          ? 'ক্যাশ ড্রয়ার বন্ধ রয়েছে! লেনদেনের পূর্বে অবশ্যই ক্যাশ ড্রয়ার খুলতে হবে।'
+          : 'Cash drawer is closed! Please open cash drawer before transactions.'
+      );
       setShowOpenDrawerModal(true);
       return;
     }
@@ -573,7 +590,11 @@ export default function CashierView({ session: propSession }: CashierProps = {})
   // Open Therapy Bill Payment Modal
   const openTherapyPaymentModal = (bill: any) => {
     if (!activeDrawer?.isOpen) {
-      toast.error('ক্যাশ ড্রয়ার বন্ধ রয়েছে! বিল সংগ্রহের পূর্বে অবশ্যই ক্যাশ ড্রয়ার খুলতে হবে। (Cash drawer is closed!)');
+      toast.error(
+        isBn
+          ? 'ক্যাশ ড্রয়ার বন্ধ রয়েছে! বিল সংগ্রহের পূর্বে অবশ্যই ক্যাশ ড্রয়ার খুলতে হবে।'
+          : 'Cash drawer is closed! Please open cash drawer before collecting bills.'
+      );
       setShowOpenDrawerModal(true);
       return;
     }
@@ -637,7 +658,7 @@ export default function CashierView({ session: propSession }: CashierProps = {})
       if (effectivePrevDueTaka > 0) {
         invoiceItems.push({
           itemType: 'previous_due',
-          description: 'পূর্ববর্তী বকেয়া সমন্বয় (Previous Due Clearance)',
+          description: isBn ? 'পূর্ববর্তী বকেয়া সমন্বয়' : 'Previous Due Clearance',
           unitPriceTaka: effectivePrevDueTaka,
           quantity: 1,
           totalTaka: effectivePrevDueTaka,
@@ -646,21 +667,31 @@ export default function CashierView({ session: propSession }: CashierProps = {})
 
       let createdBillRes: any = null;
 
-      // Create paid/due/partially paid bill in database
-      createdBillRes = await api.billing.createBill({
-        patientId: bill.patientId,
-        visitId: bill.visitId || undefined,
-        items: invoiceItems.map((it) => ({
-          itemType: it.itemType,
-          description: it.description,
-          unitPricePaisa: Math.round(Number(it.unitPriceTaka) * 100),
-          quantity: it.quantity,
-        })),
-        discountPaisa: 0,
-        paidPaisa: Math.round(paidTaka * 100),
-        paymentMethod: therapyPaymentMethod,
-        txnId: therapyTxnId || undefined,
-      });
+      // Settle the existing draft bill if already created by therapy handler, preventing duplicate billing records
+      const hasExistingDraftBill = bill.id && !String(bill.id).startsWith('temp_') && !String(bill.id).startsWith('visit_');
+      if (hasExistingDraftBill && paidTaka > 0) {
+        createdBillRes = await api.billing.payBill(bill.id, {
+          amountPaisa: Math.round(paidTaka * 100),
+          method: therapyPaymentMethod,
+          txnId: therapyTxnId || undefined,
+        });
+      } else if (!hasExistingDraftBill) {
+        // Create paid/due/partially paid bill in database
+        createdBillRes = await api.billing.createBill({
+          patientId: bill.patientId,
+          visitId: bill.visitId || undefined,
+          items: invoiceItems.map((it) => ({
+            itemType: it.itemType,
+            description: it.description,
+            unitPricePaisa: Math.round(Number(it.unitPriceTaka) * 100),
+            quantity: it.quantity,
+          })),
+          discountPaisa: 0,
+          paidPaisa: Math.round(paidTaka * 100),
+          paymentMethod: therapyPaymentMethod,
+          txnId: therapyTxnId || undefined,
+        });
+      }
 
       // 3. Immediately clear from pending UI state
       setPendingTherapyBills((prev) =>
@@ -766,11 +797,19 @@ export default function CashierView({ session: propSession }: CashierProps = {})
       await api.billing.openDrawer({
         openingCashPaisa: Math.max(0, openingCashTaka) * 100,
       });
-      toast.success('ক্যাশ ড্রয়ার সফলভাবে খোলা হয়েছে! বিল গ্রহণ এখন সক্রিয়। (Cash Drawer Opened)');
+      toast.success(
+        isBn
+          ? 'ক্যাশ ড্রয়ার সফলভাবে খোলা হয়েছে! বিল গ্রহণ এখন সক্রিয়।'
+          : 'Cash drawer opened successfully! Billing is now active.'
+      );
       setShowOpenDrawerModal(false);
       loadData();
     } catch (err: any) {
-      toast.error(`ক্যাশ ড্রয়ার খুলতে ব্যর্থ: ${err.message || 'Failed to open drawer'}`);
+      toast.error(
+        isBn
+          ? `ক্যাশ ড্রয়ার খুলতে ব্যর্থ: ${err.message || 'ব্যর্থ হয়েছে'}`
+          : `Failed to open cash drawer: ${err.message || 'Operation failed'}`
+      );
     }
   };
 
@@ -782,7 +821,7 @@ export default function CashierView({ session: propSession }: CashierProps = {})
         closingCashActualPaisa: Math.max(0, closingCashActualTaka) * 100,
         varianceReason: closingReason || undefined,
       });
-      toast.success(`ক্যাশ ড্রয়ার বন্ধ সম্পন্ন! বিল গ্রহণ লক করা হয়েছে। (Drawer closed - billing locked)`);
+      toast.success(isBn ? 'ক্যাশ ড্রয়ার বন্ধ সম্পন্ন! বিল গ্রহণ লক করা হয়েছে।' : 'Cash drawer closed successfully. Billing is locked.');
       setShowCloseDrawerModal(false);
       loadData();
     } catch (err: any) {
@@ -811,20 +850,27 @@ export default function CashierView({ session: propSession }: CashierProps = {})
                 )}
               />
               <span className="text-base sm:text-lg font-bold text-foreground">
-                ক্যাশ ড্রয়ার: {activeDrawer?.isOpen ? 'সক্রিয় ও খোলা (OPEN)' : 'বন্ধ (CLOSED - বিল গ্রহণ লক্ড)'}
+                {isBn
+                  ? `ক্যাশ ড্রয়ার: ${activeDrawer?.isOpen ? 'সক্রিয় ও খোলা' : 'বন্ধ - বিল গ্রহণ লক্ড'}`
+                  : `Cash Drawer: ${activeDrawer?.isOpen ? 'Active & Open' : 'Closed - Billing Locked'}`}
               </span>
               <Badge variant={activeDrawer?.isOpen ? 'success' : 'destructive'} className="ml-1">
-                {activeDrawer?.isOpen ? 'ড্রয়ার খোলা (Active)' : 'লকড (Locked)'}
+                {activeDrawer?.isOpen ? (isBn ? 'ড্রয়ার খোলা' : 'Active') : (isBn ? 'লকড' : 'Locked')}
               </Badge>
             </div>
             <p className="text-xs sm:text-sm text-muted-foreground">
               {activeDrawer?.isOpen ? (
                 <span>
-                  ওপেনিং ক্যাশ: <strong className="text-foreground">৳{((activeDrawer.drawer.openingCashPaisa || 0) / 100).toFixed(0)}</strong> · ড্রয়ার ক্যাশ সংগ্রহ: <strong className="text-foreground">৳{((activeDrawer.cashCollectedPaisa || 0) / 100).toFixed(0)}</strong>
+                  {isBn ? 'ওপেনিং ক্যাশ: ' : 'Opening Cash: '}
+                  <strong className="text-foreground">৳{((activeDrawer.drawer.openingCashPaisa || 0) / 100).toFixed(0)}</strong> ·{' '}
+                  {isBn ? 'ড্রয়ার ক্যাশ সংগ্রহ: ' : 'Drawer Cash Collected: '}
+                  <strong className="text-foreground">৳{((activeDrawer.cashCollectedPaisa || 0) / 100).toFixed(0)}</strong>
                 </span>
               ) : (
                 <span className="text-red-600 dark:text-red-400 font-medium">
-                  ক্যাশ ড্রয়ার বন্ধ রয়েছে। বিল গ্রহণ বা ফি সংগ্রহের পূর্বে অবশ্যই ক্যাশ ড্রয়ার খুলতে হবে।
+                  {isBn
+                    ? 'ক্যাশ ড্রয়ার বন্ধ রয়েছে। বিল গ্রহণ বা ফি সংগ্রহের পূর্বে অবশ্যই ক্যাশ ড্রয়ার খুলতে হবে।'
+                    : 'Cash drawer is currently closed. You must open the cash drawer before collecting fees or bills.'}
                 </span>
               )}
             </p>
@@ -838,7 +884,7 @@ export default function CashierView({ session: propSession }: CashierProps = {})
                 onClick={() => setShowCloseDrawerModal(true)}
                 className="whitespace-nowrap border-red-500/30 text-red-600 hover:bg-red-500/10 cursor-pointer"
               >
-                🔒 ক্যাশ ড্রয়ার বন্ধ করুন (Close Drawer)
+                {isBn ? '🔒 ক্যাশ ড্রয়ার বন্ধ করুন' : '🔒 Close Cash Drawer'}
               </Button>
             ) : (
               <Button
@@ -847,7 +893,7 @@ export default function CashierView({ session: propSession }: CashierProps = {})
                 onClick={() => setShowOpenDrawerModal(true)}
                 className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold whitespace-nowrap cursor-pointer shadow-sm animate-pulse"
               >
-                🔓 ক্যাশ ড্রয়ার খুলুন (Open Drawer)
+                {isBn ? '🔓 ক্যাশ ড্রয়ার খুলুন' : '🔓 Open Cash Drawer'}
               </Button>
             )}
           </div>
@@ -860,9 +906,15 @@ export default function CashierView({ session: propSession }: CashierProps = {})
           <div className="flex items-center gap-3">
             <Lock className="size-5 shrink-0 text-red-600 dark:text-red-400" />
             <div>
-              <p className="font-bold text-sm sm:text-base">সতর্কবার্তা: ক্যাশ ড্রয়ার বন্ধ থাকায় বিলিং লক করা আছে (Cash Drawer Closed)</p>
+              <p className="font-bold text-sm sm:text-base">
+                {isBn
+                  ? 'সতর্কবার্তা: ক্যাশ ড্রয়ার বন্ধ থাকায় বিলিং লক করা আছে'
+                  : 'Warning: Billing is locked because cash drawer is closed'}
+              </p>
               <p className="text-xs opacity-90">
-                ড্রয়ার না খোলা পর্যন্ত ক্যাশিয়ার কোনো প্রকার কনসালটেশন ফি বা থেরাপি বিল গ্রহণ করতে পারবেন না। কাজ শুরু করতে ড্রয়ার ওপেন করুন।
+                {isBn
+                  ? 'ড্রয়ার না খোলা পর্যন্ত ক্যাশিয়ার কোনো প্রকার কনসালটেশন ফি বা থেরাপি বিল গ্রহণ করতে পারবেন না। কাজ শুরু করতে ড্রয়ার ওপেন করুন।'
+                  : 'The cashier cannot collect consultation fees or therapy bills until the drawer is opened. Please open drawer to begin.'}
               </p>
             </div>
           </div>
@@ -871,7 +923,7 @@ export default function CashierView({ session: propSession }: CashierProps = {})
             onClick={() => setShowOpenDrawerModal(true)}
             className="bg-red-600 hover:bg-red-700 text-white font-bold whitespace-nowrap cursor-pointer shadow-xs self-start sm:self-auto"
           >
-            🔓 ড্রয়ার খুলুন (Open Float)
+            {isBn ? '🔓 ড্রয়ার খুলুন' : '🔓 Open Cash Drawer'}
           </Button>
         </div>
       )}
@@ -888,14 +940,16 @@ export default function CashierView({ session: propSession }: CashierProps = {})
             <div>
               <div className="flex items-center gap-2">
                 <CardTitle className="text-base sm:text-lg font-bold flex items-center gap-1.5">
-                  <span>⚡ থেরাপি হল থেকে প্রেরিত বিলসমূহ (Billed from Therapy Hall)</span>
+                  <span>{isBn ? '⚡ থেরাপি হল থেকে প্রেরিত বিলসমূহ' : '⚡ Bills Forwarded from Therapy Hall'}</span>
                 </CardTitle>
                 <Badge className="bg-indigo-600 text-white font-mono text-xs">
-                  {pendingTherapyBills.length} টি অপেক্ষমাণ
+                  {isBn ? `${pendingTherapyBills.length} টি অপেক্ষমাণ` : `${pendingTherapyBills.length} Pending`}
                 </Badge>
               </div>
               <p className="text-xs text-muted-foreground mt-0.5">
-                থেরাপি হল হ্যান্ডলার কর্তৃক নির্ধারিত ফিক্সড বিল গ্রহণ করুন এবং রোগীকে রিসেপশনে চেক-আউটের জন্য পাঠান
+                {isBn
+                  ? 'থেরাপি হল হ্যান্ডলার কর্তৃক নির্ধারিত ফিক্সড বিল গ্রহণ করুন এবং রোগীকে রিসেপশনে চেক-আউটের জন্য পাঠান'
+                  : 'Collect fixed bills determined by the therapy hall handler and forward the patient to reception for checkout'}
               </p>
             </div>
           </div>
@@ -907,7 +961,7 @@ export default function CashierView({ session: propSession }: CashierProps = {})
             className="h-8 text-xs gap-1.5 self-start sm:self-auto cursor-pointer"
           >
             <Clock className={`size-3.5 ${loading ? 'animate-spin' : ''}`} />
-            রিফ্রেশ
+            {isBn ? 'রিফ্রেশ' : 'Refresh'}
           </Button>
         </CardHeader>
 
@@ -915,9 +969,11 @@ export default function CashierView({ session: propSession }: CashierProps = {})
           {pendingTherapyBills.length === 0 ? (
             <div className="p-5 text-center rounded-xl border border-dashed border-border/80 bg-muted/20 text-muted-foreground text-xs space-y-1">
               <CheckCircle2 className="size-6 mx-auto opacity-40 text-indigo-500" />
-              <p className="font-medium">বর্তমানে থেরাপি হল থেকে অপেক্ষমাণ কোনো বিল নেই</p>
+              <p className="font-medium">{isBn ? 'বর্তমানে থেরাপি হল থেকে অপেক্ষমাণ কোনো বিল নেই' : 'No pending bills from Therapy Hall currently'}</p>
               <p className="text-[11px] text-muted-foreground/80">
-                হ্যান্ডলার থেরাপি হলের রোগীকে &quot;Send to Cashier&quot; বাটনে ক্লিক করে পাঠালে তা এখানে স্বয়ংক্রিয়ভাবে প্রদর্শিত হবে।
+                {isBn
+                  ? 'হ্যান্ডলার থেরাপি হলের রোগীকে ক্যাশিয়ারে পাঠালে তা এখানে স্বয়ংক্রিয়ভাবে প্রদর্শিত হবে।'
+                  : 'When the handler sends a patient to the cashier, it will appear here automatically.'}
               </p>
             </div>
           ) : (
@@ -944,7 +1000,7 @@ export default function CashierView({ session: propSession }: CashierProps = {})
                         </div>
                       </div>
                       <Badge variant="outline" className="border-indigo-500/50 text-indigo-600 dark:text-indigo-400 text-[10px] shrink-0 font-semibold flex items-center gap-1">
-                        <span>🔒 ফিক্সড ফি</span>
+                        <span>{isBn ? '🔒 ফিক্সড ফি' : '🔒 Fixed Fee'}</span>
                       </Badge>
                     </div>
 
@@ -960,16 +1016,16 @@ export default function CashierView({ session: propSession }: CashierProps = {})
                         </div>
                       </div>
                       <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-                        <span>হ্যান্ডলার কর্তৃক নির্ধারিত</span>
+                        <span>{isBn ? 'হ্যান্ডলার কর্তৃক নির্ধারিত' : 'Assigned by Handler'}</span>
                         <span className="text-indigo-600 dark:text-indigo-400 font-semibold text-[10px]">
-                          ✓ পরিবর্তন নিষিদ্ধ (Locked)
+                          {isBn ? '✓ পরিবর্তন নিষিদ্ধ' : '✓ Locked'}
                         </span>
                       </div>
                     </div>
 
                     {bill.notes && (
                       <p className="text-[11px] text-muted-foreground line-clamp-1 italic bg-muted/40 px-2 py-1 rounded">
-                        নোট: {bill.notes}
+                        {isBn ? 'নোট: ' : 'Note: '}{bill.notes}
                       </p>
                     )}
 
@@ -990,12 +1046,12 @@ export default function CashierView({ session: propSession }: CashierProps = {})
                         {activeDrawer?.isOpen ? (
                           <>
                             <CreditCard className="size-3.5" />
-                            <span>বিল গ্রহণ করুন (Collect Fixed Bill)</span>
+                            <span>{isBn ? 'বিল গ্রহণ করুন' : 'Collect Fixed Bill'}</span>
                           </>
                         ) : (
                           <>
                             <Lock className="size-3.5 text-red-500" />
-                            <span>ক্যাশ ড্রয়ার বন্ধ (লকড)</span>
+                            <span>{isBn ? 'ক্যাশ ড্রয়ার বন্ধ' : 'Cash Drawer Closed'}</span>
                           </>
                         )}
                       </Button>
@@ -1020,7 +1076,7 @@ export default function CashierView({ session: propSession }: CashierProps = {})
             <div>
               <div className="flex items-center gap-2">
                 <CardTitle className="text-base sm:text-lg font-bold">
-                  ডাক্তার চেম্বার থেকে আগত অনুরোধ (Doctor Chamber Adjustments)
+                  {isBn ? 'ডাক্তার চেম্বার থেকে আগত অনুরোধ' : 'Doctor Chamber Adjustments'}
                 </CardTitle>
                 <Badge
                   className={`font-mono text-xs ${
@@ -1198,7 +1254,7 @@ export default function CashierView({ session: propSession }: CashierProps = {})
             <div>
               <div className="flex items-center gap-2">
                 <CardTitle className="text-base sm:text-lg font-bold">
-                  রিসেপশন থেকে আগত রোগী (Forwarded from Reception)
+                  {isBn ? 'রিসেপশন থেকে আগত রোগী' : 'Patients Forwarded from Reception'}
                 </CardTitle>
                 <Badge className="bg-emerald-600 text-white font-mono text-xs">
                   {forwardedIntakes.length} জন অপেক্ষমাণ
@@ -1305,7 +1361,7 @@ export default function CashierView({ session: propSession }: CashierProps = {})
                           setIntakePrintModalOpen(true);
                         }}
                         className="h-8 px-2.5 text-xs gap-1 flex-1 cursor-pointer"
-                        title="ইনটেক ফরম প্রিন্ট (A4 সাইজ)"
+                        title={isBn ? "ইনটেক ফরম প্রিন্ট" : "Print Intake Form (A4)"}
                       >
                         <Printer className="size-3.5 text-emerald-600" />
                         <span>ইনটেক ফরম</span>
@@ -1445,7 +1501,7 @@ export default function CashierView({ session: propSession }: CashierProps = {})
                       onClick={() => setShowPackageModal(true)}
                     >
                       <Sparkles className="size-3.5" />
-                      <span>+ Package (প্যাকেজ)</span>
+                      <span>{isBn ? '+ প্যাকেজ' : '+ Package'}</span>
                     </Button>
                   </div>
                 </CardHeader>
@@ -1454,10 +1510,10 @@ export default function CashierView({ session: propSession }: CashierProps = {})
                   <form onSubmit={handleCreateBill} className="flex flex-col gap-4" autoComplete="off" data-lpignore="true" data-1p-ignore="true">
                     {/* Patient Selection using shadcn/ui */}
                     <div className="space-y-1.5">
-                      <Label className="text-xs font-semibold text-muted-foreground">Select Patient *</Label>
+                      <Label className="text-xs font-semibold text-muted-foreground">{isBn ? 'রোগী নির্বাচন করুন *' : 'Select Patient *'}</Label>
                       <Select value={selectedPatientId} onValueChange={setSelectedPatientId}>
                         <SelectTrigger className="w-full">
-                          <SelectValue placeholder="-- Select Patient --" />
+                          <SelectValue placeholder={isBn ? '-- রোগী নির্বাচন করুন --' : '-- Select Patient --'} />
                         </SelectTrigger>
                         <SelectContent>
                           {patients.map((p) => (
@@ -1474,7 +1530,7 @@ export default function CashierView({ session: propSession }: CashierProps = {})
                       <div className="flex items-center gap-2">
                         <Sparkles className="size-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
                         <span className="font-semibold">
-                          Consultation &amp; Therapy included during package length
+                          {isBn ? 'প্যাকেজের মেয়াদে কনসালটেশন ও থেরাপি অন্তর্ভুক্ত থাকে' : 'Consultation & Therapy included during package length'}
                         </span>
                       </div>
                       <Button
@@ -1484,7 +1540,7 @@ export default function CashierView({ session: propSession }: CashierProps = {})
                         onClick={() => setShowPackageModal(true)}
                         className="h-7 text-xs border-emerald-500/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/20 px-2.5 self-start sm:self-auto cursor-pointer"
                       >
-                        📦 প্যাকেজ কনফিগার করুন
+                        {isBn ? '📦 প্যাকেজ কনফিগার করুন' : '📦 Configure Package'}
                       </Button>
                     </div>
 
@@ -1493,10 +1549,10 @@ export default function CashierView({ session: propSession }: CashierProps = {})
                       <table className="w-full text-left text-xs sm:text-sm">
                         <thead className="bg-muted/50 border-b border-border text-muted-foreground font-semibold">
                           <tr>
-                            <th className="p-2.5">Item Description</th>
-                            <th className="p-2.5 w-24">Rate (৳)</th>
-                            <th className="p-2.5 w-16">Qty</th>
-                            <th className="p-2.5">Total</th>
+                            <th className="p-2.5">{isBn ? 'বিবরণ' : 'Item Description'}</th>
+                            <th className="p-2.5 w-24">{isBn ? 'দর (৳)' : 'Rate (BDT)'}</th>
+                            <th className="p-2.5 w-16">{isBn ? 'পরিমাণ' : 'Qty'}</th>
+                            <th className="p-2.5">{isBn ? 'মোট' : 'Total'}</th>
                             <th className="p-2.5 w-10 text-center">✕</th>
                           </tr>
                         </thead>
@@ -1562,11 +1618,11 @@ export default function CashierView({ session: propSession }: CashierProps = {})
                     {/* Financial Calculations */}
                     <div className="flex flex-col gap-3 p-4 rounded-xl border border-border bg-muted/20">
                       <div className="flex justify-between items-center text-xs sm:text-sm">
-                        <span className="text-muted-foreground">Subtotal:</span>
+                        <span className="text-muted-foreground">{isBn ? 'সাবটোটাল:' : 'Subtotal:'}</span>
                         <span className="font-semibold text-foreground">৳{subtotalTaka}</span>
                       </div>
                       <div className="flex justify-between items-center gap-4">
-                        <span className="text-xs sm:text-sm text-muted-foreground">Discount (৳):</span>
+                        <span className="text-xs sm:text-sm text-muted-foreground">{isBn ? 'ছাড় (৳):' : 'Discount (BDT):'}</span>
                         <Input
                           type="number"
                           min="0"
@@ -1580,11 +1636,11 @@ export default function CashierView({ session: propSession }: CashierProps = {})
                         />
                       </div>
                       <div className="flex justify-between items-center text-sm sm:text-base font-bold border-t border-border pt-2">
-                        <span>Total Payable:</span>
+                        <span>{isBn ? 'মোট প্রদেয়:' : 'Total Payable:'}</span>
                         <span className="text-emerald-600 dark:text-emerald-400">৳{totalTaka}</span>
                       </div>
                       <div className="flex justify-between items-center gap-4">
-                        <span className="text-xs sm:text-sm text-muted-foreground">Amount Paid (৳):</span>
+                        <span className="text-xs sm:text-sm text-muted-foreground">{isBn ? 'পরিশোধিত টাকা (৳):' : 'Amount Paid (BDT):'}</span>
                         <Input
                           type="number"
                           min="0"
@@ -1594,7 +1650,7 @@ export default function CashierView({ session: propSession }: CashierProps = {})
                         />
                       </div>
                       <div className="flex justify-between items-center text-xs font-semibold text-red-500">
-                        <span>Due Amount:</span>
+                        <span>{isBn ? 'বাকি টাকা:' : 'Due Amount:'}</span>
                         <span>৳{dueTaka}</span>
                       </div>
                     </div>
@@ -1602,17 +1658,17 @@ export default function CashierView({ session: propSession }: CashierProps = {})
                     {/* Payment Method Selector */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div className="space-y-1.5">
-                        <Label className="text-xs font-semibold text-muted-foreground">Payment Method *</Label>
+                        <Label className="text-xs font-semibold text-muted-foreground">{isBn ? 'পেমেন্ট মেথড *' : 'Payment Method *'}</Label>
                         <Select value={paymentMethod} onValueChange={(val: any) => setPaymentMethod(val)}>
                           <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Payment Method" />
+                            <SelectValue placeholder={isBn ? 'পেমেন্ট মেথড' : 'Payment Method'} />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="cash">Cash (নগদ)</SelectItem>
-                            <SelectItem value="bkash">bKash (বিকাশ)</SelectItem>
-                            <SelectItem value="nagad">Nagad (নগদ)</SelectItem>
-                            <SelectItem value="rocket">Rocket (রকেট)</SelectItem>
-                            <SelectItem value="card">Card (কার্ড / POS)</SelectItem>
+                            <SelectItem value="cash">{isBn ? 'নগদ' : 'Cash'}</SelectItem>
+                            <SelectItem value="bkash">{isBn ? 'বিকাশ' : 'bKash'}</SelectItem>
+                            <SelectItem value="nagad">{isBn ? 'নগদ' : 'Nagad'}</SelectItem>
+                            <SelectItem value="rocket">{isBn ? 'রকেট' : 'Rocket'}</SelectItem>
+                            <SelectItem value="card">{isBn ? 'কার্ড / পিওএস' : 'Card / POS'}</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -1741,13 +1797,15 @@ export default function CashierView({ session: propSession }: CashierProps = {})
           <DialogHeader>
             <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-bold text-xs uppercase tracking-wider">
               <Sparkles className="size-4" />
-              <span>প্যাকেজ বিলিং কনফিগারেশন (Therapy Packages)</span>
+              <span>{isBn ? 'প্যাকেজ বিলিং কনফিগারেশন' : 'Therapy Packages Configuration'}</span>
             </div>
             <DialogTitle className="text-lg font-bold">
-              প্যাকেজ নির্বাচন ও কনফিগারেশন
+              {isBn ? 'প্যাকেজ নির্বাচন ও কনফিগারেশন' : 'Package Selection & Configuration'}
             </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground">
-              সেশন ভিত্তিক বা দিন ভিত্তিক প্যাকেজ নির্বাচন করুন। প্যাকেজ চলাকালীন সব কনসালটেশন ও থেরাপি অন্তর্ভুক্ত থাকবে।
+              {isBn
+                ? 'সেশন ভিত্তিক বা দিন ভিত্তিক প্যাকেজ নির্বাচন করুন। প্যাকেজ চলাকালীন সব কনসালটেশন ও থেরাপি অন্তর্ভুক্ত থাকবে।'
+                : 'Select per-session or per-day packages. All consultations and therapies are covered during package duration.'}
             </DialogDescription>
           </DialogHeader>
 
@@ -1771,7 +1829,7 @@ export default function CashierView({ session: propSession }: CashierProps = {})
                     : 'text-muted-foreground hover:text-foreground'
                 )}
               >
-                🔢 সেশন ভিত্তিক (Per Session)
+                {isBn ? '🔢 সেশন ভিত্তিক' : '🔢 Per Session'}
               </button>
               <button
                 type="button"
@@ -1790,13 +1848,13 @@ export default function CashierView({ session: propSession }: CashierProps = {})
                     : 'text-muted-foreground hover:text-foreground'
                 )}
               >
-                📅 দিন ভিত্তিক (Per Day)
+                {isBn ? '📅 দিন ভিত্তিক' : '📅 Per Day'}
               </button>
             </div>
 
             {/* Presets List */}
             <div className="space-y-2">
-              <Label className="text-xs text-muted-foreground">জনপ্রিয় প্যাকেজসমূহ (Select a Preset):</Label>
+              <Label className="text-xs text-muted-foreground">{isBn ? 'জনপ্রিয় প্যাকেজসমূহ:' : 'Select a Preset:'}</Label>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {(packageType === 'per_session' ? SESSION_PRESETS : DAY_PRESETS).map((preset) => {
                   const isSelected = packageTitle === preset.name && packageCount === preset.count;
@@ -1819,15 +1877,15 @@ export default function CashierView({ session: propSession }: CashierProps = {})
                     >
                       <div className="flex items-start justify-between gap-1">
                         <span className="font-semibold text-xs leading-snug">{preset.name}</span>
-                        {preset.tag && (
+                        {(preset.tagBn || preset.tagEn) && (
                           <Badge variant="outline" className="text-[9px] px-1 py-0 border-emerald-500/40 text-emerald-600 shrink-0">
-                            {preset.tag}
+                            {isBn ? preset.tagBn : preset.tagEn}
                           </Badge>
                         )}
                       </div>
                       <div className="flex items-center justify-between text-xs pt-1 border-t border-border/40 font-mono">
                         <span className="text-muted-foreground">
-                          {preset.count} {packageType === 'per_session' ? 'সেশন' : 'দিন'}
+                          {preset.count} {packageType === 'per_session' ? (isBn ? 'সেশন' : 'Sessions') : (isBn ? 'দিন' : 'Days')}
                         </span>
                         <span className="font-bold text-emerald-600 dark:text-emerald-400">
                           ৳{preset.priceTaka}
@@ -1842,7 +1900,7 @@ export default function CashierView({ session: propSession }: CashierProps = {})
             {/* Custom Configuration Details */}
             <div className="p-3.5 rounded-xl border border-border/80 bg-muted/20 space-y-3">
               <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">প্যাকেজের নাম (Package Name / Label)</Label>
+                <Label className="text-xs text-muted-foreground">{isBn ? 'প্যাকেজের নাম' : 'Package Name'}</Label>
                 <Input
                   type="text"
                   value={packageTitle}
@@ -1854,7 +1912,7 @@ export default function CashierView({ session: propSession }: CashierProps = {})
               <div className="grid grid-cols-3 gap-2">
                 <div className="space-y-1.5">
                   <Label className="text-xs text-muted-foreground">
-                    {packageType === 'per_session' ? 'সেশন সংখ্যা (Count)' : 'দিন সংখ্যা (Days)'}
+                    {packageType === 'per_session' ? (isBn ? 'সেশন সংখ্যা' : 'Session Count') : (isBn ? 'দিন সংখ্যা' : 'Day Count')}
                   </Label>
                   <Input
                     type="number"
@@ -1864,12 +1922,12 @@ export default function CashierView({ session: propSession }: CashierProps = {})
                     className="h-8 text-xs font-mono"
                   />
                   <p className="text-[10px] text-muted-foreground">
-                    {packageType === 'per_session' ? 'মোট থেরাপি সেশন' : 'ক্লিনিক ভিজিট দিন'}
+                    {packageType === 'per_session' ? (isBn ? 'মোট থেরাপি সেশন' : 'Total Therapy Sessions') : (isBn ? 'ক্লিনিক ভিজিট দিন' : 'Clinic Visit Days')}
                   </p>
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">প্যাকেজ মূল্য (Price ৳)</Label>
+                  <Label className="text-xs text-muted-foreground">{isBn ? 'প্যাকেজ মূল্য (৳)' : 'Package Price (BDT)'}</Label>
                   <Input
                     type="number"
                     min={0}
@@ -1878,12 +1936,12 @@ export default function CashierView({ session: propSession }: CashierProps = {})
                     className="h-8 text-xs font-mono font-bold text-emerald-600"
                   />
                   <p className="text-[10px] text-muted-foreground">
-                    মোট প্রদেয় ফি (৳)
+                    {isBn ? 'মোট প্রদেয় ফি (৳)' : 'Total Fee (BDT)'}
                   </p>
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">কার্যকর মেয়াদ (Validity Days)</Label>
+                  <Label className="text-xs text-muted-foreground">{isBn ? 'কার্যকর মেয়াদ (দিন)' : 'Validity (Days)'}</Label>
                   <Input
                     type="number"
                     min={1}
@@ -1891,7 +1949,7 @@ export default function CashierView({ session: propSession }: CashierProps = {})
                     onChange={(e) => setPackageValidityDays(parseInt(e.target.value) || 30)}
                     className="h-8 text-xs font-mono"
                   />
-                  <p className="text-[10px] text-muted-foreground">প্যাকেজ মেয়াদের দিন</p>
+                  <p className="text-[10px] text-muted-foreground">{isBn ? 'প্যাকেজ মেয়াদের দিন' : 'Validity in days'}</p>
                 </div>
               </div>
             </div>
@@ -1903,7 +1961,7 @@ export default function CashierView({ session: propSession }: CashierProps = {})
                   {packageTitle}
                 </div>
                 <div className="text-[11px] text-muted-foreground">
-                  {packageCount} {packageType === 'per_session' ? 'Sessions' : 'Visit Days (Multiple visits/day = 1 day)'} • Validity: {packageValidityDays} days
+                  {packageCount} {packageType === 'per_session' ? (isBn ? 'সেশন' : 'Sessions') : (isBn ? 'ভিজিট দিন' : 'Visit Days')} • {isBn ? 'মেয়াদ: ' : 'Validity: '}{packageValidityDays} {isBn ? 'দিন' : 'days'}
                 </div>
               </div>
               <div className="text-right">
@@ -1911,7 +1969,7 @@ export default function CashierView({ session: propSession }: CashierProps = {})
                   ৳{packagePriceTaka}
                 </div>
                 <div className="text-[10px] text-muted-foreground">
-                  ≈ ৳{Math.round(packagePriceTaka / (packageCount || 1))} per {packageType === 'per_session' ? 'session' : 'day'}
+                  ≈ ৳{Math.round(packagePriceTaka / (packageCount || 1))} / {packageType === 'per_session' ? (isBn ? 'সেশন' : 'session') : (isBn ? 'দিন' : 'day')}
                 </div>
               </div>
             </div>
@@ -1925,7 +1983,7 @@ export default function CashierView({ session: propSession }: CashierProps = {})
               onClick={() => setShowPackageModal(false)}
               className="text-xs cursor-pointer"
             >
-              বাতিল (Cancel)
+              {isBn ? 'বাতিল' : 'Cancel'}
             </Button>
             <Button
               type="button"
@@ -1934,7 +1992,7 @@ export default function CashierView({ session: propSession }: CashierProps = {})
               className="text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-bold gap-1.5 shadow-xs cursor-pointer"
             >
               <Plus className="size-3.5" />
-              বিলে যুক্ত করুন (৳{packagePriceTaka})
+              {isBn ? `বিলে যুক্ত করুন (৳${packagePriceTaka})` : `Add to Bill (BDT ${packagePriceTaka})`}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1944,15 +2002,15 @@ export default function CashierView({ session: propSession }: CashierProps = {})
       <Dialog open={showOpenDrawerModal} onOpenChange={setShowOpenDrawerModal}>
         <DialogContent className="max-w-md" onClose={() => setShowOpenDrawerModal(false)}>
           <DialogHeader>
-            <DialogTitle className="text-lg font-bold">Open Cash Drawer Float</DialogTitle>
+            <DialogTitle className="text-lg font-bold">{isBn ? 'ক্যাশ ড্রয়ার ওপেন ফ্লোট' : 'Open Cash Drawer Float'}</DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground">
-              Enter the starting cash float for this shift to open the drawer.
+              {isBn ? 'এই শিফটের জন্য ড্রয়ার খোলার প্রারম্ভিক ক্যাশ ফ্লোট প্রবেশ করান।' : 'Enter the starting cash float for this shift to open the drawer.'}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleOpenDrawer} className="flex flex-col gap-4 mt-2" autoComplete="off" data-lpignore="true" data-1p-ignore="true">
             <div className="space-y-1.5">
               <Label htmlFor="opening-cash" className="text-xs font-semibold">
-                Opening Cash Float (৳) *
+                {isBn ? 'ওপেনিং ক্যাশ ফ্লোট (৳) *' : 'Opening Cash Float (BDT) *'}
               </Label>
               <Input
                 id="opening-cash"
@@ -1965,10 +2023,10 @@ export default function CashierView({ session: propSession }: CashierProps = {})
             </div>
             <DialogFooter className="flex flex-row justify-end gap-3 mt-4 pt-2 border-t border-border">
               <Button type="button" variant="outline" onClick={() => setShowOpenDrawerModal(false)} className="cursor-pointer">
-                Cancel
+                {isBn ? 'বাতিল' : 'Cancel'}
               </Button>
               <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold cursor-pointer">
-                Confirm Open Float
+                {isBn ? 'ওপেন ফ্লোট নিশ্চিত করুন' : 'Confirm Open Float'}
               </Button>
             </DialogFooter>
           </form>
@@ -1979,15 +2037,15 @@ export default function CashierView({ session: propSession }: CashierProps = {})
       <Dialog open={showCloseDrawerModal} onOpenChange={setShowCloseDrawerModal}>
         <DialogContent className="max-w-md" onClose={() => setShowCloseDrawerModal(false)}>
           <DialogHeader>
-            <DialogTitle className="text-lg font-bold">Close Shift &amp; Reconcile Drawer</DialogTitle>
+            <DialogTitle className="text-lg font-bold">{isBn ? 'শিফট সমাপ্ত ও ড্রয়ার সমন্বয়' : 'Close Shift & Reconcile Drawer'}</DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground">
-              Enter the physical cash count in drawer to reconcile and close the shift.
+              {isBn ? 'শিফট বন্ধ করার জন্য ড্রয়ারে থাকা বাস্তব নগদ টাকা গণনা করে প্রবেশ করান।' : 'Enter the physical cash count in drawer to reconcile and close the shift.'}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleCloseDrawer} className="flex flex-col gap-4 mt-2" autoComplete="off" data-lpignore="true" data-1p-ignore="true">
             <div className="space-y-1.5">
               <Label htmlFor="closing-cash" className="text-xs font-semibold">
-                Physical Cash Count in Drawer (৳) *
+                {isBn ? 'ড্রয়ারে নগদ ক্যাশ গণনা (৳) *' : 'Physical Cash Count in Drawer (BDT) *'}
               </Label>
               <Input
                 id="closing-cash"
@@ -2065,18 +2123,18 @@ export default function CashierView({ session: propSession }: CashierProps = {})
               {/* Patient Info Card */}
               <div className="p-3 rounded-xl border border-border/60 bg-muted/30 grid grid-cols-2 gap-2 text-[11px]">
                 <div>
-                  <span className="text-muted-foreground">ফোন:</span>{' '}
+                  <span className="text-muted-foreground">{isBn ? 'ফোন:' : 'Phone:'}</span>{' '}
                   <span className="font-semibold text-foreground">{selectedTherapyBillForPayment.phone || 'N/A'}</span>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">লিঙ্গ / বয়স:</span>{' '}
+                  <span className="text-muted-foreground">{isBn ? 'লিঙ্গ ও বয়স:' : 'Gender & Age:'}</span>{' '}
                   <span className="font-semibold text-foreground">
-                    {selectedTherapyBillForPayment.gender === 'female' ? 'মহিলা' : 'পুরুষ'}
-                    {selectedTherapyBillForPayment.ageYears ? ` • ${selectedTherapyBillForPayment.ageYears} বছর` : ''}
+                    {selectedTherapyBillForPayment.gender === 'female' ? (isBn ? 'মহিলা' : 'Female') : (isBn ? 'পুরুষ' : 'Male')}
+                    {selectedTherapyBillForPayment.ageYears ? ` • ${selectedTherapyBillForPayment.ageYears} ${isBn ? 'বছর' : 'Y'}` : ''}
                   </span>
                 </div>
                 <div className="col-span-2">
-                  <span className="text-muted-foreground">থেরাপি সেবা:</span>{' '}
+                  <span className="text-muted-foreground">{isBn ? 'থেরাপি সেবা:' : 'Therapy Service:'}</span>{' '}
                   <span className="font-bold text-indigo-600 dark:text-indigo-400">{selectedTherapyBillForPayment.modalityName}</span>
                 </div>
               </div>
@@ -2152,7 +2210,7 @@ export default function CashierView({ session: propSession }: CashierProps = {})
                 return (
                   <div className="space-y-3">
                     <div className="space-y-1.5">
-                      <Label className="text-xs font-semibold text-muted-foreground">পেমেন্ট প্রকার (Payment Type) *</Label>
+                      <Label className="text-xs font-semibold text-muted-foreground">{isBn ? 'পেমেন্ট প্রকার *' : 'Payment Type *'}</Label>
                       <div className="grid grid-cols-3 gap-1.5">
                         <Button
                           type="button"
@@ -2164,7 +2222,7 @@ export default function CashierView({ session: propSession }: CashierProps = {})
                           }}
                           className={cn("h-8 text-xs font-bold", therapyPaymentMode === 'full' && "bg-emerald-600 hover:bg-emerald-500 text-white")}
                         >
-                          সম্পূর্ণ পরিশোধ
+                          {isBn ? 'সম্পূর্ণ পরিশোধ' : 'Full Payment'}
                         </Button>
                         <Button
                           type="button"
@@ -2176,7 +2234,7 @@ export default function CashierView({ session: propSession }: CashierProps = {})
                           }}
                           className={cn("h-8 text-xs font-bold", therapyPaymentMode === 'partial' && "bg-amber-600 hover:bg-amber-500 text-white")}
                         >
-                          আংশিক পরিশোধ
+                          {isBn ? 'আংশিক পরিশোধ' : 'Partial Payment'}
                         </Button>
                         <Button
                           type="button"
@@ -2188,7 +2246,7 @@ export default function CashierView({ session: propSession }: CashierProps = {})
                           }}
                           className={cn("h-8 text-xs font-bold", therapyPaymentMode === 'due' && "bg-rose-600 hover:bg-rose-500 text-white")}
                         >
-                          সম্পূর্ণ বাকি (Due)
+                          {isBn ? 'সম্পূর্ণ বাকি' : 'Full Due'}
                         </Button>
                       </div>
                     </div>
@@ -2197,9 +2255,9 @@ export default function CashierView({ session: propSession }: CashierProps = {})
                     {therapyPaymentMode === 'partial' && (
                       <div className="space-y-1.5 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20">
                         <div className="flex items-center justify-between">
-                          <Label className="text-xs font-bold text-foreground">পরিশোধিত অর্থ (Amount Paid ৳) *</Label>
+                          <Label className="text-xs font-bold text-foreground">{isBn ? 'পরিশোধিত অর্থ (৳) *' : 'Amount Paid (BDT) *'}</Label>
                           <span className="text-[11px] font-mono font-bold text-rose-600 dark:text-rose-400">
-                            বকেয়া থাকবে: ৳{currentDue}
+                            {isBn ? `বকেয়া থাকবে: ৳${currentDue}` : `Remaining Due: BDT ${currentDue}`}
                           </span>
                         </div>
                         <Input
@@ -2216,15 +2274,15 @@ export default function CashierView({ session: propSession }: CashierProps = {})
                     {/* Total Summary Strip */}
                     <div className="p-2.5 rounded-xl bg-muted/40 border border-border/70 flex items-center justify-between font-mono text-xs">
                       <div>
-                        <span className="text-muted-foreground text-[11px]">মোট বিল:</span>{' '}
+                        <span className="text-muted-foreground text-[11px]">{isBn ? 'মোট বিল:' : 'Total Bill:'}</span>{' '}
                         <strong className="text-foreground text-sm">৳{totalPayable}</strong>
                       </div>
                       <div>
-                        <span className="text-muted-foreground text-[11px]">পরিশোধ:</span>{' '}
+                        <span className="text-muted-foreground text-[11px]">{isBn ? 'পরিশোধ:' : 'Paid:'}</span>{' '}
                         <strong className="text-emerald-600 dark:text-emerald-400">৳{currentPaid}</strong>
                       </div>
                       <div>
-                        <span className="text-muted-foreground text-[11px]">বকেয়া:</span>{' '}
+                        <span className="text-muted-foreground text-[11px]">{isBn ? 'বকেয়া:' : 'Due:'}</span>{' '}
                         <strong className="text-rose-600 dark:text-rose-400">৳{currentDue}</strong>
                       </div>
                     </div>
@@ -2234,20 +2292,20 @@ export default function CashierView({ session: propSession }: CashierProps = {})
 
               {/* Payment Method Selector */}
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-muted-foreground">পেমেন্ট মেথড (Payment Method) *</Label>
+                <Label className="text-xs font-semibold text-muted-foreground">{isBn ? 'পেমেন্ট মেথড *' : 'Payment Method *'}</Label>
                 <Select
                   value={therapyPaymentMethod}
                   onValueChange={(val: any) => setTherapyPaymentMethod(val)}
                 >
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="-- পেমেন্ট মেথড নির্বাচন করুন --" />
+                    <SelectValue placeholder={isBn ? '-- পেমেন্ট মেথড নির্বাচন করুন --' : '-- Select Payment Method --'} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="cash">Cash (নগদ)</SelectItem>
-                    <SelectItem value="bkash">bKash (বিকাশ)</SelectItem>
-                    <SelectItem value="nagad">Nagad (নগদ অ্যাপ)</SelectItem>
-                    <SelectItem value="rocket">Rocket (রকেট)</SelectItem>
-                    <SelectItem value="card">POS Card (কার্ড)</SelectItem>
+                    <SelectItem value="cash">{isBn ? 'নগদ' : 'Cash'}</SelectItem>
+                    <SelectItem value="bkash">{isBn ? 'বিকাশ' : 'bKash'}</SelectItem>
+                    <SelectItem value="nagad">{isBn ? 'নগদ' : 'Nagad'}</SelectItem>
+                    <SelectItem value="rocket">{isBn ? 'রকেট' : 'Rocket'}</SelectItem>
+                    <SelectItem value="card">{isBn ? 'পিওএস কার্ড' : 'POS Card'}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -2272,7 +2330,7 @@ export default function CashierView({ session: propSession }: CashierProps = {})
               <div className="p-3 rounded-lg border border-indigo-500/20 bg-indigo-500/5 text-muted-foreground text-[11px] leading-relaxed flex items-start gap-2">
                 <Sparkles className="size-4 shrink-0 text-indigo-600 mt-0.5" />
                 <span>
-                  ফি গ্রহণ নিশ্চিত করামাত্র রোগীকে স্বয়ংক্রিয়ভাবে <strong>রিসেপশনে চেক-আউট ও ডিসচার্জের জন্য</strong> পাঠানো হবে এবং সাথে সাথে <strong>HPC সাইজ ইনভয়েস (5.5&quot; × 8.27&quot;)</strong> প্রিন্ট হবে।
+                  {isBn ? 'ফি গ্রহণ নিশ্চিত করামাত্র রোগীকে স্বয়ংক্রিয়ভাবে রিসেপশনে চেক-আউট ও ডিসচার্জের জন্য পাঠানো হবে এবং সাথে সাথে এইচপিসি সাইজ ইনভয়েস প্রিন্ট হবে।' : 'Upon confirming payment, patient will be routed to reception for checkout and HPC size invoice will print automatically.'}
                 </span>
               </div>
             </div>
@@ -2297,11 +2355,11 @@ export default function CashierView({ session: propSession }: CashierProps = {})
               >
                 {collectingTherapyBill ? (
                   <>
-                    <Loader2 className="size-3.5 animate-spin" /> প্রক্রিয়াধীন...
+                    <Loader2 className="size-3.5 animate-spin" /> {isBn ? 'প্রক্রিয়াধীন...' : 'Processing...'}
                   </>
                 ) : (
                   <>
-                    <CheckCircle className="size-3.5" /> ফি গ্রহণ ও রিসেপশনে পাঠান (Collect &amp; Forward to Reception)
+                    <CheckCircle className="size-3.5" /> {isBn ? 'ফি গ্রহণ ও রিসেপশনে পাঠান' : 'Collect & Forward to Reception'}
                   </>
                 )}
               </Button>
@@ -2322,14 +2380,14 @@ export default function CashierView({ session: propSession }: CashierProps = {})
             <DialogHeader>
               <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-bold text-xs uppercase tracking-wider">
                 <CreditCard className="size-4" />
-                <span>পরামর্শ ফি গ্রহণ ও সিরিয়াল অন্তর্ভুক্তি</span>
+                <span>{isBn ? 'পরামর্শ ফি গ্রহণ ও সিরিয়াল অন্তর্ভুক্তি' : 'Consultation Fee Collection & Queue Admission'}</span>
               </div>
               <DialogTitle className="text-lg font-bold">
                 {selectedIntakeForPayment.name}
               </DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground">
-                ফোন: {selectedIntakeForPayment.phone} • ডাক্তার: {selectedIntakeForPayment.doctorName || 'নির্ধারিত ডাক্তার'}
-                {selectedIntakeForPayment.chamberRoomNumber ? ` (রুম ${selectedIntakeForPayment.chamberRoomNumber})` : ''}
+                {isBn ? 'ফোন: ' : 'Phone: '}{selectedIntakeForPayment.phone} • {isBn ? 'ডাক্তার: ' : 'Doctor: '}{selectedIntakeForPayment.doctorName || (isBn ? 'নির্ধারিত ডাক্তার' : 'Assigned Doctor')}
+                {selectedIntakeForPayment.chamberRoomNumber ? ` (${isBn ? 'রুম' : 'Room'} ${selectedIntakeForPayment.chamberRoomNumber})` : ''}
               </DialogDescription>
             </DialogHeader>
 
@@ -2338,10 +2396,10 @@ export default function CashierView({ session: propSession }: CashierProps = {})
                 <div>
                   <div className="text-xs text-muted-foreground font-semibold flex items-center gap-1.5">
                     <ShieldCheck className="size-3.5 text-emerald-600" />
-                    <span>ডাক্তার কনসালটেশন ফি (নির্দিষ্ট)</span>
+                    <span>{isBn ? 'ডাক্তার কনসালটেশন ফি (নির্দিষ্ট)' : 'Doctor Consultation Fee (Fixed)'}</span>
                   </div>
                   <div className="text-[11px] text-emerald-700 dark:text-emerald-300 font-medium mt-0.5">
-                    বকেয়া নিষিদ্ধ · সম্পূর্ণ পরিশোধ আবশ্যক
+                    {isBn ? 'বকেয়া নিষিদ্ধ · সম্পূর্ণ পরিশোধ আবশ্যক' : 'No Dues Allowed · Full Payment Required'}
                   </div>
                 </div>
                 <div className="text-right">
@@ -2355,20 +2413,20 @@ export default function CashierView({ session: propSession }: CashierProps = {})
               </div>
 
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-muted-foreground">পেমেন্ট মেথড (Payment Method) *</Label>
+                <Label className="text-xs font-semibold text-muted-foreground">{isBn ? 'পেমেন্ট মেথড *' : 'Payment Method *'}</Label>
                 <Select
                   value={consultationPaymentMethod}
                   onValueChange={(val: any) => setConsultationPaymentMethod(val)}
                 >
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="-- পেমেন্ট মেথড নির্বাচন করুন --" />
+                    <SelectValue placeholder={isBn ? '-- পেমেন্ট মেথড নির্বাচন করুন --' : '-- Select Payment Method --'} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="cash">Cash (নগদ)</SelectItem>
-                    <SelectItem value="bkash">bKash (বিকাশ)</SelectItem>
-                    <SelectItem value="nagad">Nagad (নগদ অ্যাপ)</SelectItem>
-                    <SelectItem value="rocket">Rocket (রকেট)</SelectItem>
-                    <SelectItem value="card">POS Card (কার্ড)</SelectItem>
+                    <SelectItem value="cash">{isBn ? 'নগদ' : 'Cash'}</SelectItem>
+                    <SelectItem value="bkash">{isBn ? 'বিকাশ' : 'bKash'}</SelectItem>
+                    <SelectItem value="nagad">{isBn ? 'নগদ' : 'Nagad'}</SelectItem>
+                    <SelectItem value="rocket">{isBn ? 'রকেট' : 'Rocket'}</SelectItem>
+                    <SelectItem value="card">{isBn ? 'পিওএস কার্ড' : 'POS Card'}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -2376,7 +2434,7 @@ export default function CashierView({ session: propSession }: CashierProps = {})
               {consultationPaymentMethod !== 'cash' && (
                 <div className="space-y-1.5">
                   <Label className="text-xs font-semibold text-muted-foreground">
-                    ট্রানজ্যাকশন আইডি (Transaction ID / POS Slip Ref)
+                    {isBn ? 'ট্রানজ্যাকশন আইডি' : 'Transaction ID / POS Slip Ref'}
                   </Label>
                   <Input
                     type="text"
@@ -2390,31 +2448,31 @@ export default function CashierView({ session: propSession }: CashierProps = {})
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold text-muted-foreground">সিরিয়াল অগ্রাধিকার (Priority)</Label>
+                  <Label className="text-xs font-semibold text-muted-foreground">{isBn ? 'সিরিয়াল অগ্রাধিকার' : 'Priority'}</Label>
                   <Select
                     value={selectedIntakePriority}
                     onValueChange={(val: any) => setSelectedIntakePriority(val)}
                   >
                     <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Priority" />
+                      <SelectValue placeholder={isBn ? 'অগ্রাধিকার' : 'Priority'} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="normal">Normal (সাধারণ)</SelectItem>
-                      <SelectItem value="emergency">Emergency (জরুরি)</SelectItem>
-                      <SelectItem value="vip">VIP (অগ্রাধিকার)</SelectItem>
+                      <SelectItem value="normal">{isBn ? 'সাধারণ' : 'Normal'}</SelectItem>
+                      <SelectItem value="emergency">{isBn ? 'জরুরি' : 'Emergency'}</SelectItem>
+                      <SelectItem value="vip">{isBn ? 'ভিআইপি / অগ্রাধিকার' : 'VIP'}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold text-muted-foreground">গন্তব্য কিউ (Target Queue)</Label>
+                  <Label className="text-xs font-semibold text-muted-foreground">{isBn ? 'গন্তব্য কিউ' : 'Target Queue'}</Label>
                   <div className="h-9 px-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 flex items-center justify-between text-xs font-bold text-emerald-800 dark:text-emerald-300">
                     <span className="flex items-center gap-1.5 truncate">
                       <Stethoscope className="size-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                      <span className="truncate">ডাক্তার চেম্বার কিউ</span>
+                      <span className="truncate">{isBn ? 'ডাক্তার চেম্বার কিউ' : 'Doctor Chamber Queue'}</span>
                     </span>
                     <Badge variant="outline" className="text-[10px] font-mono border-emerald-500/40 bg-emerald-500/20 text-emerald-900 dark:text-emerald-200 shrink-0">
-                      রুম {selectedIntakeForPayment.chamberRoomNumber || '—'}
+                      {isBn ? 'রুম' : 'Room'} {selectedIntakeForPayment.chamberRoomNumber || '—'}
                     </Badge>
                   </div>
                 </div>
@@ -2423,7 +2481,9 @@ export default function CashierView({ session: propSession }: CashierProps = {})
               <div className="p-3 rounded-lg border border-emerald-500/20 bg-emerald-500/5 text-muted-foreground text-[11px] leading-relaxed flex items-start gap-2">
                 <Sparkles className="size-4 shrink-0 text-emerald-600 mt-0.5" />
                 <span>
-                  ফি গ্রহণ নিশ্চিত করামাত্র রোগীকে স্বয়ংক্রিয়ভাবে <strong>ডাক্তার চেম্বার কনসালটেশন কিউতে</strong> পাঠানো হবে, ওয়েটিং রুম ও অ্যান্ড্রয়েড টিভিতে সিরিয়াল ভেসে উঠবে এবং সাথে সাথে <strong>HPC সাইজ ইনভয়েস (5.5&quot; × 8.27&quot;)</strong> প্রিন্ট হবে।
+                  {isBn
+                    ? (isBn ? 'ফি গ্রহণ নিশ্চিত করামাত্র রোগীকে স্বয়ংক্রিয়ভাবে ডাক্তার চেম্বার কনসালটেশন কিউতে পাঠানো হবে, ওয়েটিং রুম ও অ্যান্ড্রয়েড টিভিতে সিরিয়াল ভেসে উঠবে এবং সাথে সাথে এইচপিসি সাইজ ইনভয়েস প্রিন্ট হবে।' : 'Upon confirming fee receipt, patient will be queued for doctor consultation chamber, broadcast on waiting room TV, and HPC size invoice will print automatically.')
+                    : 'Upon fee collection, the patient is automatically admitted to the doctor consultation queue, announced on Android TV, and an invoice preview is generated.'}
                 </span>
               </div>
             </div>
@@ -2437,7 +2497,7 @@ export default function CashierView({ session: propSession }: CashierProps = {})
                 disabled={admittingToQueue}
                 className="flex-1 text-xs cursor-pointer"
               >
-                বাতিল
+                {isBn ? 'বাতিল' : 'Cancel'}
               </Button>
               <Button
                 type="button"
@@ -2448,11 +2508,11 @@ export default function CashierView({ session: propSession }: CashierProps = {})
               >
                 {admittingToQueue ? (
                   <>
-                    <Loader2 className="size-3.5 animate-spin" /> ফি আদায় হচ্ছে...
+                    <Loader2 className="size-3.5 animate-spin" /> {isBn ? 'ফি আদায় হচ্ছে...' : 'Collecting fee...'}
                   </>
                 ) : (
                   <>
-                    <CheckCircle className="size-3.5" /> ফি গ্রহণ, কনসালটেশন কিউ ও ইনভয়েস
+                    <CheckCircle className="size-3.5" /> {isBn ? 'ফি গ্রহণ, কনসালটেশন কিউ ও ইনভয়েস' : 'Collect Fee, Queue & Invoice'}
                   </>
                 )}
               </Button>
@@ -2484,11 +2544,11 @@ export default function CashierView({ session: propSession }: CashierProps = {})
                 <div>
                   <DialogTitle className="text-base font-bold">
                     {selectedAdjustmentForProcessing.consultationAdjustmentType === 'refund'
-                      ? 'কনসালটেশন ফি রিফান্ড প্রদান'
-                      : 'কনসালটেশন ফি সংগ্রহ ও ইনভয়েস'}
+                      ? (isBn ? 'কনসালটেশন ফি রিফান্ড প্রদান' : 'Consultation Fee Refund')
+                      : (isBn ? 'কনসালটেশন ফি সংগ্রহ ও ইনভয়েস' : 'Consultation Fee Collection & Invoice')}
                   </DialogTitle>
                   <DialogDescription className="text-xs text-muted-foreground">
-                    রোগী: {selectedAdjustmentForProcessing.patient?.nameEn || 'Patient'}{' '}
+                    {isBn ? 'রোগী: ' : 'Patient: '}{selectedAdjustmentForProcessing.patient?.nameEn || 'Patient'}{' '}
                     (MRN: {selectedAdjustmentForProcessing.patient?.mrn || 'N/A'})
                   </DialogDescription>
                 </div>
@@ -2506,8 +2566,8 @@ export default function CashierView({ session: propSession }: CashierProps = {})
               >
                 <div className="text-xs font-medium text-muted-foreground">
                   {selectedAdjustmentForProcessing.consultationAdjustmentType === 'refund'
-                    ? 'রিফান্ডের পরিমাণ (ক্যাশ ফেরত)'
-                    : 'আদায়ের পরিমাণ'}
+                    ? (isBn ? 'রিফান্ডের পরিমাণ (ক্যাশ ফেরত)' : 'Refund Amount (Cash Return)')
+                    : (isBn ? 'আদায়ের পরিমাণ' : 'Collection Amount')}
                 </div>
                 <div
                   className={`text-2xl font-black font-mono ${
@@ -2520,7 +2580,7 @@ export default function CashierView({ session: propSession }: CashierProps = {})
                 </div>
                 {selectedAdjustmentForProcessing.consultationAdjustmentReason && (
                   <div className="text-xs text-muted-foreground pt-1 border-t border-border/40 mt-1">
-                    কারণ: {selectedAdjustmentForProcessing.consultationAdjustmentReason}
+                    {isBn ? 'কারণ: ' : 'Reason: '}{selectedAdjustmentForProcessing.consultationAdjustmentReason}
                   </div>
                 )}
               </div>
@@ -2529,8 +2589,8 @@ export default function CashierView({ session: propSession }: CashierProps = {})
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold text-foreground">
                   {selectedAdjustmentForProcessing.consultationAdjustmentType === 'refund'
-                    ? 'রিফান্ড প্রদানের মাধ্যম *'
-                    : 'পেমেন্ট মাধ্যম *'}
+                    ? (isBn ? 'রিফান্ড প্রদানের মাধ্যম *' : 'Refund Method *')
+                    : (isBn ? 'পেমেন্ট মাধ্যম *' : 'Payment Method *')}
                 </Label>
                 <Select
                   value={adjustmentProcessingMethod}
@@ -2540,11 +2600,11 @@ export default function CashierView({ session: propSession }: CashierProps = {})
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="cash">নগদ (Cash Drawer)</SelectItem>
-                    <SelectItem value="bkash">বিকাশ (bKash)</SelectItem>
-                    <SelectItem value="nagad">নগদ (Nagad)</SelectItem>
-                    <SelectItem value="rocket">রকেট (Rocket)</SelectItem>
-                    <SelectItem value="card">কার্ড / পিওএস (Card)</SelectItem>
+                    <SelectItem value="cash">{isBn ? 'নগদ ড্রয়ার' : 'Cash Drawer'}</SelectItem>
+                    <SelectItem value="bkash">{isBn ? 'বিকাশ' : 'bKash'}</SelectItem>
+                    <SelectItem value="nagad">{isBn ? 'নগদ' : 'Nagad'}</SelectItem>
+                    <SelectItem value="rocket">{isBn ? 'রকেট' : 'Rocket'}</SelectItem>
+                    <SelectItem value="card">{isBn ? 'কার্ড / পিওএস' : 'Card / POS'}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -2552,7 +2612,7 @@ export default function CashierView({ session: propSession }: CashierProps = {})
               {adjustmentProcessingMethod !== 'cash' && (
                 <div className="space-y-1.5">
                   <Label className="text-xs font-semibold text-foreground">
-                    ট্রানজেকশন আইডি (Txn ID)
+                    {isBn ? 'ট্রানজেকশন আইডি' : 'Transaction ID'}
                   </Label>
                   <Input
                     placeholder="e.g. 9J28DA10K"
@@ -2564,9 +2624,9 @@ export default function CashierView({ session: propSession }: CashierProps = {})
               )}
 
               <div className="p-2.5 rounded-lg border border-border bg-muted/30 text-[11px] text-muted-foreground flex items-center justify-between">
-                <span>ক্যাশ ড্রয়ার স্ট্যাটাস:</span>
+                <span>{isBn ? 'ক্যাশ ড্রয়ার স্ট্যাটাস:' : 'Cash Drawer Status:'}</span>
                 <span className={`font-bold ${activeDrawer?.isOpen ? 'text-emerald-600' : 'text-red-500'}`}>
-                  {activeDrawer?.isOpen ? '✓ ড্রয়ার উন্মুক্ত (Open)' : '✕ ড্রয়ার বন্ধ (Closed)'}
+                  {activeDrawer?.isOpen ? (isBn ? '✓ ড্রয়ার উন্মুক্ত' : '✓ Drawer Open') : (isBn ? '✕ ড্রয়ার বন্ধ' : '✕ Drawer Closed')}
                 </span>
               </div>
             </div>

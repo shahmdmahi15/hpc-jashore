@@ -27,6 +27,7 @@ import {
   FileSpreadsheet,
   FileText,
   Clock,
+  History,
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -51,6 +52,8 @@ import { EditPatientDialog } from './EditPatientDialog';
 import { PatientDetailModal } from './PatientDetailModal';
 import { PatientIntakeFormModal } from './PatientIntakeFormModal';
 import { PatientTimelineModal } from './PatientTimelineModal';
+import { Patient360HistoryModal } from './Patient360HistoryModal';
+import { getLegacyFileInfo } from '../../lib/legacy-patient';
 
 const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'] as const;
 
@@ -82,6 +85,8 @@ export function PatientManagementView() {
   const [isIntakeOpen, setIsIntakeOpen] = useState(false);
   const [selectedPatientForTimeline, setSelectedPatientForTimeline] = useState<{ id: string; name?: string } | null>(null);
   const [isTimelineOpen, setIsTimelineOpen] = useState(false);
+  const [selectedPatientFor360, setSelectedPatientFor360] = useState<any>(null);
+  const [is360HistoryOpen, setIs360HistoryOpen] = useState(false);
 
   // Clipboard copy state
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -166,7 +171,7 @@ export function PatientManagementView() {
               </h2>
               <p className="text-xs sm:text-sm text-muted-foreground">
                 {isBn
-                  ? 'সকল রোগীর ডিজিটাল প্রোফাইল, স্বয়ংক্রিয় MRN তৈরি, সিরিয়াল ও প্রেসক্রিপশন ইতিহাস'
+                  ? 'সকল রোগীর ডিজিটাল প্রোফাইল, স্বয়ংক্রিয় রেজি নম্বর তৈরি, সিরিয়াল ও প্রেসক্রিপশন ইতিহাস'
                   : 'Centralized patient records, automatic HPC-2026 MRN sequence, visits & clinical EMR'}
               </p>
             </div>
@@ -252,7 +257,7 @@ export function PatientManagementView() {
               <Input
                 placeholder={
                   isBn
-                    ? 'MRN, নাম, মোবাইল (০১XXXXXXXXX), ইমেইল বা ঠিকানা দিয়ে খুঁজুন...'
+                    ? 'রেজি নম্বর, নাম, মোবাইল নম্বর, ইমেইল বা ঠিকানা দিয়ে খুঁজুন...'
                     : 'Search by MRN, name, phone (01XXXXXXXXX), email, or address...'
                 }
                 value={searchQuery}
@@ -386,6 +391,24 @@ export function PatientManagementView() {
                         )}
                       </button>
 
+                      {(() => {
+                        const legacy = getLegacyFileInfo(patient.notes);
+                        if (!legacy.isLegacy) return null;
+                        return (
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] py-0 px-1.5 border-amber-500/50 bg-amber-500/10 text-amber-700 dark:text-amber-300 font-semibold gap-1 shrink-0"
+                          >
+                            <span>📁 {isBn ? 'পুরাতন ফাইল' : 'Paper File'}</span>
+                            {legacy.fileNo && (
+                              <span className="font-mono font-bold text-amber-900 dark:text-amber-100">
+                                #{legacy.fileNo}
+                              </span>
+                            )}
+                          </Badge>
+                        );
+                      })()}
+
                       {/* Gender badge */}
                       <Badge
                         variant="outline"
@@ -471,32 +494,46 @@ export function PatientManagementView() {
                 </div>
 
                 {/* Touch Actions Button Bar */}
-                <div className="grid grid-cols-2 gap-2 pt-1 border-t border-border/40">
+                <div className="flex flex-col gap-2 pt-1 border-t border-border/40">
                   <Button
                     size="sm"
-                    variant="outline"
+                    variant="default"
                     onClick={() => {
-                      setSelectedPatientForDetail(patient.id);
-                      setIsDetailOpen(true);
+                      setSelectedPatientFor360(patient);
+                      setIs360HistoryOpen(true);
                     }}
-                    className="h-10 text-xs font-semibold gap-1.5 cursor-pointer touch-manipulation"
+                    className="w-full h-10 text-xs font-semibold gap-1.5 cursor-pointer touch-manipulation bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
                   >
-                    <Eye className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>{isBn ? 'প্রোফাইল দেখুন' : 'View Profile'}</span>
+                    <History className="w-4 h-4" />
+                    <span>{isBn ? 'সম্পূর্ণ রোগী ইতিহাস (360° EMR)' : 'Full Patient History (360° EMR)'}</span>
                   </Button>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setSelectedPatientForDetail(patient.id);
+                        setIsDetailOpen(true);
+                      }}
+                      className="h-9 text-xs font-semibold gap-1.5 cursor-pointer touch-manipulation"
+                    >
+                      <Eye className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>{isBn ? 'প্রোফাইল দেখুন' : 'View Profile'}</span>
+                    </Button>
 
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      setSelectedPatientForEdit(patient);
-                      setIsEditOpen(true);
-                    }}
-                    className="h-10 text-xs font-semibold gap-1.5 cursor-pointer touch-manipulation"
-                  >
-                    <Edit2 className="w-3.5 h-3.5" />
-                    <span>{isBn ? 'সম্পাদনা' : 'Edit'}</span>
-                  </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setSelectedPatientForEdit(patient);
+                        setIsEditOpen(true);
+                      }}
+                      className="h-9 text-xs font-semibold gap-1.5 cursor-pointer touch-manipulation"
+                    >
+                      <Edit2 className="w-3.5 h-3.5" />
+                      <span>{isBn ? 'সম্পাদনা' : 'Edit'}</span>
+                    </Button>
+                  </div>
                 </div>
               </div>
             ))}
@@ -508,7 +545,7 @@ export function PatientManagementView() {
               <table className="w-full text-xs text-left">
                 <thead className="bg-muted/50 border-b border-border/60 text-muted-foreground font-semibold">
                   <tr>
-                    <th className="py-3 px-4">{isBn ? 'রোগী ও MRN' : 'Patient & MRN'}</th>
+                    <th className="py-3 px-4">{isBn ? 'রোগী ও রেজি নম্বর' : 'Patient & MRN'}</th>
                     <th className="py-3 px-4">{isBn ? 'যোগাযোগ' : 'Contact'}</th>
                     <th className="py-3 px-4">{isBn ? 'লিঙ্গ ও বয়স' : 'Gender & Age'}</th>
                     <th className="py-3 px-4">{isBn ? 'রক্তের গ্রুপ' : 'Blood'}</th>
@@ -556,6 +593,26 @@ export function PatientManagementView() {
                               <Copy className="w-2.5 h-2.5 opacity-60" />
                             )}
                           </button>
+                          {(() => {
+                            const legacy = getLegacyFileInfo(patient.notes);
+                            if (!legacy.isLegacy) return null;
+                            return (
+                              <div className="pt-0.5">
+                                <Badge
+                                  variant="outline"
+                                  className="text-[10px] py-0 px-1.5 border-amber-500/50 bg-amber-500/10 text-amber-700 dark:text-amber-300 font-medium inline-flex items-center gap-1"
+                                  title={isBn ? 'সফটওয়্যার চালুর পূর্বের পুরাতন পেপার ফাইল' : 'Existing physical paper file'}
+                                >
+                                  <span>📁 {isBn ? 'পুরাতন ফাইল' : 'Paper File'}</span>
+                                  {legacy.fileNo && (
+                                    <span className="font-mono font-bold text-amber-900 dark:text-amber-100">
+                                      #{legacy.fileNo}
+                                    </span>
+                                  )}
+                                </Badge>
+                              </div>
+                            );
+                          })()}
                         </div>
                       </td>
 
@@ -662,13 +719,30 @@ export function PatientManagementView() {
                         <div className="flex items-center justify-end gap-1.5">
                           <Button
                             size="sm"
+                            variant="default"
+                            onClick={() => {
+                              setSelectedPatientFor360(patient);
+                              setIs360HistoryOpen(true);
+                            }}
+                            className="h-8 px-2.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 cursor-pointer shadow-xs"
+                            title={isBn ? 'সম্পূর্ণ রোগী ইতিহাস (360° EMR)' : 'Full Patient History (360° EMR)'}
+                          >
+                            <History className="w-3.5 h-3.5" />
+                            <span>{isBn ? 'সম্পূর্ণ ইতিহাস' : '360° History'}</span>
+                          </Button>
+                          <Button
+                            size="sm"
                             variant="ghost"
                             onClick={() => {
                               setSelectedPatientForIntake(patient);
                               setIsIntakeOpen(true);
                             }}
                             className="h-8 px-2.5 text-xs text-muted-foreground hover:text-teal-600 cursor-pointer"
-                            title={isBn ? 'প্রাথমিক তথ্য ফরম' : 'Intake Form'}
+                            title={
+                              getLegacyFileInfo(patient.notes).isLegacy
+                                ? (isBn ? 'প্রাথমিক তথ্য ফরম (ঐচ্ছিক - পুরাতন পেপার ফাইল বিদ্যমান)' : 'Intake Form (Optional - Paper File exists)')
+                                : (isBn ? 'প্রাথমিক তথ্য ফরম' : 'Intake Form')
+                            }
                           >
                             <FileText className="w-3.5 h-3.5 text-teal-600" />
                           </Button>
@@ -817,6 +891,13 @@ export function PatientManagementView() {
         onOpenChange={setIsTimelineOpen}
         patientId={selectedPatientForTimeline?.id}
         patientName={selectedPatientForTimeline?.name}
+      />
+
+      <Patient360HistoryModal
+        open={is360HistoryOpen}
+        onOpenChange={setIs360HistoryOpen}
+        patientId={selectedPatientFor360?.id}
+        patientData={selectedPatientFor360}
       />
     </div>
   );

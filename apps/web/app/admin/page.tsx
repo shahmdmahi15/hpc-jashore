@@ -22,8 +22,12 @@ import { CheckInWorkstationView } from '../../components/checkin/CheckInWorkstat
 import { CheckoutWorkstationView } from '../../components/checkout/CheckoutWorkstationView';
 import { ConsultationBookingView } from '../../components/consultation/ConsultationBookingView';
 import { ClinicRealtimeChatView } from '../../components/chat/ClinicRealtimeChatView';
+import { ReportsManagementTab } from '../../components/admin/ReportsManagementTab';
+import CashierView from '../../components/CashierView';
 import { useLanguage } from '../../lib/i18n';
 import { useChatNotifier } from '../../lib/use-chat-notifier';
+import { useDashboardBadges } from '../../lib/use-dashboard-badges';
+import { WorkstationTabBadge } from '../../components/WorkstationTabBadge';
 import {
   ShieldCheck,
   BarChart3,
@@ -67,7 +71,7 @@ const ADMIN_ROW1_TABS = [
   {
     id: 'patients_emr',
     titleEn: 'Patients & EMR',
-    titleBn: 'রোগী ডাটাবেস ও EMR',
+    titleBn: 'রোগী ডাটাবেস ও রেকর্ড',
     icon: Users,
     descriptionEn: 'Central patient directory, electronic medical records (EMR), registration, and medical history.',
     descriptionBn: 'কেন্দ্রীয় রোগী ডাটাবেস, চিকিৎসা ইতিহাস এবং রেজিস্ট্রেশন ব্যবস্থাপনা।',
@@ -233,6 +237,7 @@ export default function AdminPage() {
   const { language } = useLanguage();
   const [activeTab, setActiveTab] = useState('overview');
   const { unreadCount } = useChatNotifier(activeTab === 'chat');
+  const badges = useDashboardBadges();
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -308,6 +313,15 @@ export default function AdminPage() {
                       >
                         <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
                         <span>{language === 'bn' ? tab.titleBn : tab.titleEn}</span>
+                        {tab.id === 'consultation_serial' && (
+                          <WorkstationTabBadge count={badges.consultationWaiting} color="emerald" pulse={activeTab !== 'consultation_serial'} />
+                        )}
+                        {(tab.id === 'therapy_queue' || tab.id === 'therapy_slot') && (
+                          <WorkstationTabBadge count={badges.therapyWaiting} color="blue" pulse={activeTab !== tab.id} />
+                        )}
+                        {tab.id === 'dues' && (
+                          <WorkstationTabBadge count={badges.cashierUnpaid} color="amber" pulse={activeTab !== 'dues'} />
+                        )}
                         {isChat && unreadCount > 0 && (
                           <span className="flex items-center gap-1 ml-1">
                             <span className="size-2 rounded-full bg-rose-500 animate-ping" />
@@ -364,7 +378,11 @@ export default function AdminPage() {
               <AuditLogsTab />
             </TabsContent>
 
-            {ADMIN_ROW1_TABS.filter((t) => t.id !== 'overview' && t.id !== 'users_devices' && t.id !== 'bulletins' && t.id !== 'patients_emr' && t.id !== 'room_config' && t.id !== 'therapy_slot_config' && t.id !== 'modalities' && t.id !== 'consultation_serial_config' && t.id !== 'medicine_directory' && t.id !== 'audit_logs').map((tab) => (
+            <TabsContent value="reports" className="mt-4 focus-visible:outline-none">
+              <ReportsManagementTab />
+            </TabsContent>
+
+            {ADMIN_ROW1_TABS.filter((t) => t.id !== 'overview' && t.id !== 'users_devices' && t.id !== 'bulletins' && t.id !== 'patients_emr' && t.id !== 'room_config' && t.id !== 'therapy_slot_config' && t.id !== 'modalities' && t.id !== 'consultation_serial_config' && t.id !== 'medicine_directory' && t.id !== 'audit_logs' && t.id !== 'reports').map((tab) => (
               <TabsContent key={tab.id} value={tab.id} className="mt-4 focus-visible:outline-none">
                 <WorkstationTabPlaceholder
                   titleEn={tab.titleEn}
@@ -391,6 +409,18 @@ export default function AdminPage() {
               <PatientManagementView />
             </TabsContent>
 
+            <TabsContent value="dues" className="mt-4 focus-visible:outline-none">
+              <CashierView />
+            </TabsContent>
+
+            <TabsContent value="paid" className="mt-4 focus-visible:outline-none">
+              <CashierView />
+            </TabsContent>
+
+            <TabsContent value="refunds" className="mt-4 focus-visible:outline-none">
+              <CashierView />
+            </TabsContent>
+
             <TabsContent value="consultation_serial" className="mt-4 focus-visible:outline-none">
               <ConsultationBookingView />
             </TabsContent>
@@ -411,7 +441,7 @@ export default function AdminPage() {
               <ClinicRealtimeChatView />
             </TabsContent>
 
-            {ADMIN_ROW2_TABS.filter((t) => t.id !== 'checkin' && t.id !== 'checkout' && t.id !== 'consultation_serial' && t.id !== 'therapy_slot' && t.id !== 'therapy_queue' && t.id !== 'patients' && t.id !== 'extra_slot' && t.id !== 'chat').map((tab) => (
+            {ADMIN_ROW2_TABS.filter((t) => t.id !== 'checkin' && t.id !== 'checkout' && t.id !== 'consultation_serial' && t.id !== 'therapy_slot' && t.id !== 'therapy_queue' && t.id !== 'patients' && t.id !== 'extra_slot' && t.id !== 'chat' && t.id !== 'dues' && t.id !== 'paid' && t.id !== 'refunds').map((tab) => (
               <TabsContent key={tab.id} value={tab.id} className="mt-4 focus-visible:outline-none">
                 <WorkstationTabPlaceholder
                   titleEn={tab.titleEn}

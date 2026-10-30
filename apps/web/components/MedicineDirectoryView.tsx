@@ -44,6 +44,7 @@ import {
   Info,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useLanguage } from '../lib/i18n';
 
 interface Medicine {
   id: string;
@@ -58,19 +59,21 @@ interface Medicine {
 }
 
 const MEDICINE_FORMS = [
-  { value: 'tablet', label: 'Tablet (ট্যাবলেট)' },
-  { value: 'capsule', label: 'Capsule (ক্যাপসুল)' },
-  { value: 'syrup', label: 'Syrup / Suspension (সিরাপ)' },
-  { value: 'injection', label: 'Injection (ইনজেকশন)' },
-  { value: 'ointment', label: 'Ointment / Cream (মলম / ক্রিম)' },
-  { value: 'drop', label: 'Drops (ড্রপ)' },
-  { value: 'inhaler', label: 'Inhaler / Rotacap (ইনহেলার)' },
-  { value: 'gel', label: 'Gel (জেল)' },
-  { value: 'spray', label: 'Nasal / Oral Spray (স্প্রে)' },
-  { value: 'suppository', label: 'Suppository (সাপোজিটরি)' },
+  { value: 'tablet', bn: 'ট্যাবলেট', en: 'Tablet' },
+  { value: 'capsule', bn: 'ক্যাপসুল', en: 'Capsule' },
+  { value: 'syrup', bn: 'সিরাপ', en: 'Syrup / Suspension' },
+  { value: 'injection', bn: 'ইনজেকশন', en: 'Injection' },
+  { value: 'ointment', bn: 'মলম / ক্রিম', en: 'Ointment / Cream' },
+  { value: 'drop', bn: 'ড্রপ', en: 'Drops' },
+  { value: 'inhaler', bn: 'ইনহেলার', en: 'Inhaler / Rotacap' },
+  { value: 'gel', bn: 'জেল', en: 'Gel' },
+  { value: 'spray', bn: 'স্প্রে', en: 'Nasal / Oral Spray' },
+  { value: 'suppository', bn: 'সাপোজিটরি', en: 'Suppository' },
 ];
 
 export default function MedicineDirectoryView() {
+  const { language } = useLanguage();
+  const isBn = language === 'bn';
   const [medicines, setMedicines] = useState<Medicine[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -206,14 +209,16 @@ export default function MedicineDirectoryView() {
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <h2 className="text-base sm:text-lg font-bold text-foreground">
-                প্রেসক্রিপশন ওষুধ ডাইরেক্টরি (Prescription Medicine Directory)
+                {isBn ? 'প্রেসক্রিপশন ওষুধ ডাইরেক্টরি' : 'Prescription Medicine Directory'}
               </h2>
               <Badge variant="outline" className="border-emerald-500/40 text-emerald-600 dark:text-emerald-400 text-xs font-mono">
-                {medicines.length} টি ওষুধ
+                {isBn ? `${medicines.length} টি ওষুধ` : `${medicines.length} Medicines`}
               </Badge>
             </div>
             <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
-              এইচপিসি ফিজিওথেরাপিতে কোনো ওষুধ বিক্রি করা হয় না। এটি শুধুমাত্র ডাক্তার চেম্বারে চিকিৎসকদের প্রেসক্রিপশন লেখার জন্য অনুমোদিত ওষুধের তালিকা।
+              {isBn
+                ? 'এইচপিসি ফিজিওথেরাপিতে কোনো ওষুধ বিক্রি করা হয় না। এটি শুধুমাত্র ডাক্তার চেম্বারে চিকিৎসকদের প্রেসক্রিপশন লেখার জন্য অনুমোদিত ওষুধের তালিকা।'
+                : 'HPC center does not sell medicines. This directory is strictly an authorized formulary for doctors to prescribe in consultations.'}
             </p>
           </div>
         </div>
@@ -223,7 +228,7 @@ export default function MedicineDirectoryView() {
           className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold gap-1.5 shrink-0 shadow-xs cursor-pointer self-start sm:self-auto"
         >
           <Plus className="size-4" />
-          <span>নতুন ওষুধ যোগ করুন (Add Medicine)</span>
+          <span>{isBn ? 'নতুন ওষুধ যোগ করুন' : 'Add Medicine'}</span>
         </Button>
       </div>
 
@@ -235,20 +240,20 @@ export default function MedicineDirectoryView() {
             <Input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="ব্র্যান্ড নাম, জেনেরিক নাম অথবা কোম্পানি দিয়ে খুঁজুন (Search by brand, generic, or manufacturer)..."
+              placeholder={isBn ? 'ব্র্যান্ড নাম, জেনেরিক নাম অথবা কোম্পানি দিয়ে খুঁজুন...' : 'Search by brand, generic, or manufacturer...'}
               className="pl-9 h-9 text-xs sm:text-sm"
             />
           </div>
           <div className="w-full sm:w-64">
             <Select value={selectedForm} onValueChange={setSelectedForm}>
               <SelectTrigger className="h-9 text-xs sm:text-sm">
-                <SelectValue placeholder="সব ধরণের ফর্ম (All Forms)" />
+                <SelectValue placeholder={isBn ? 'সব ধরণের ফর্ম' : 'All Dosage Forms'} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">সব ফর্ম (All Forms)</SelectItem>
+                <SelectItem value="all">{isBn ? 'সব ফর্ম' : 'All Forms'}</SelectItem>
                 {MEDICINE_FORMS.map((f) => (
                   <SelectItem key={f.value} value={f.value}>
-                    {f.label}
+                    {isBn ? f.bn : f.en}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -295,11 +300,11 @@ export default function MedicineDirectoryView() {
               <table className="w-full text-left text-xs sm:text-sm">
                 <thead className="bg-muted/50 border-b text-muted-foreground text-xs">
                   <tr>
-                    <th className="py-3 px-4 font-semibold">ব্র্যান্ড নাম (Brand Name)</th>
-                    <th className="py-3 px-4 font-semibold">জেনেরিক নাম (Generic Name)</th>
-                    <th className="py-3 px-4 font-semibold">ফর্ম ও শক্তিমাত্রা (Form &amp; Strength)</th>
-                    <th className="py-3 px-4 font-semibold">ফার্মা কোম্পানি (Manufacturer)</th>
-                    <th className="py-3 px-4 font-semibold text-right">একশন (Actions)</th>
+                    <th className="py-3 px-4 font-semibold">{isBn ? 'ব্র্যান্ড নাম' : 'Brand Name'}</th>
+                    <th className="py-3 px-4 font-semibold">{isBn ? 'জেনেরিক নাম' : 'Generic Name'}</th>
+                    <th className="py-3 px-4 font-semibold">{isBn ? 'ফর্ম ও মাত্রা' : 'Form & Strength'}</th>
+                    <th className="py-3 px-4 font-semibold">{isBn ? 'ফার্মা কোম্পানি' : 'Manufacturer'}</th>
+                    <th className="py-3 px-4 font-semibold text-right">{isBn ? 'অ্যাকশন' : 'Actions'}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/60">
@@ -369,7 +374,9 @@ export default function MedicineDirectoryView() {
             <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
               <Pill className="size-5 text-emerald-600" />
               <span>
-                {editingMed ? 'ওষুধ তথ্য সম্পাদনা করুন' : 'প্রেসক্রিপশন ডিরেক্টরিতে নতুন ওষুধ যোগ'}
+                {editingMed
+                  ? (isBn ? 'ওষুধ তথ্য সম্পাদনা করুন' : 'Edit Medicine Details')
+                  : (isBn ? 'প্রেসক্রিপশন ডিরেক্টরিতে নতুন ওষুধ যোগ' : 'Add New Medicine to Directory')}
               </span>
             </DialogTitle>
           </DialogHeader>
@@ -377,12 +384,12 @@ export default function MedicineDirectoryView() {
           <form onSubmit={handleSubmit} className="space-y-4 pt-2">
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold">
-                ব্র্যান্ড নাম (Brand Name) *
+                {isBn ? 'ব্র্যান্ড নাম *' : 'Brand Name *'}
               </Label>
               <Input
                 value={brandName}
                 onChange={(e) => setBrandName(e.target.value)}
-                placeholder="যেমন: Tab. Ace Plus, Cap. Seclo 20mg"
+                placeholder={isBn ? 'যেমন: ট্যাব. এইস প্লাস, ক্যাপ. সেকলো ২০ মি.গ্রা.' : 'e.g. Tab. Ace Plus, Cap. Seclo 20mg'}
                 required
                 className="text-xs sm:text-sm"
               />
@@ -390,12 +397,12 @@ export default function MedicineDirectoryView() {
 
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold">
-                জেনেরিক নাম (Generic Name) *
+                {isBn ? 'জেনেরিক নাম *' : 'Generic Name *'}
               </Label>
               <Input
                 value={genericName}
                 onChange={(e) => setGenericName(e.target.value)}
-                placeholder="যেমন: Paracetamol + Caffeine, Omeprazole"
+                placeholder={isBn ? 'যেমন: প্যারাসিটামল + ক্যাফেইন, ওমিপ্রাজল' : 'e.g. Paracetamol + Caffeine, Omeprazole'}
                 required
                 className="text-xs sm:text-sm"
               />
@@ -403,15 +410,15 @@ export default function MedicineDirectoryView() {
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold">ফর্ম (Dosage Form) *</Label>
+                <Label className="text-xs font-semibold">{isBn ? 'ওষুধের ধরন *' : 'Dosage Form *'}</Label>
                 <Select value={form} onValueChange={setForm}>
                   <SelectTrigger className="text-xs">
-                    <SelectValue placeholder="ফর্ম নির্বাচন করুন" />
+                    <SelectValue placeholder={isBn ? 'ফর্ম নির্বাচন করুন' : 'Select Form'} />
                   </SelectTrigger>
                   <SelectContent position="popper" side="bottom" sideOffset={4} className="max-h-56 overflow-y-auto">
                     {MEDICINE_FORMS.map((f) => (
                       <SelectItem key={f.value} value={f.value}>
-                        {f.label}
+                        {isBn ? f.bn : f.en}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -419,22 +426,22 @@ export default function MedicineDirectoryView() {
               </div>
 
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold">শক্তিমাত্রা (Strength)</Label>
+                <Label className="text-xs font-semibold">{isBn ? 'শক্তিমাত্রা' : 'Strength'}</Label>
                 <Input
                   value={strength}
                   onChange={(e) => setStrength(e.target.value)}
-                  placeholder="যেমন: 500mg, 20mg, 100ml"
+                  placeholder={isBn ? 'যেমন: ৫০০ মি.গ্রা., ২০ মি.গ্রা., ১০০ মি.লি.' : 'e.g. 500mg, 20mg, 100ml'}
                   className="text-xs"
                 />
               </div>
             </div>
 
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold">ফার্মা কোম্পানি (Manufacturer / Company)</Label>
+              <Label className="text-xs font-semibold">{isBn ? 'ফার্মা কোম্পানি' : 'Manufacturer'}</Label>
               <Input
                 value={manufacturer}
                 onChange={(e) => setManufacturer(e.target.value)}
-                placeholder="যেমন: Square Pharmaceuticals, Beximco, Incepta"
+                placeholder={isBn ? 'যেমন: স্কয়ার ফার্মাসিউটিক্যালস, বেক্সিমকো, ইনসেপ্টা' : 'e.g. Square Pharmaceuticals, Beximco, Incepta'}
                 className="text-xs sm:text-sm"
               />
             </div>

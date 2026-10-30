@@ -57,13 +57,13 @@ export interface InstantTherapySlotCheckInModalProps {
 }
 
 const COMMON_MODALITIES = [
-  'Traction (ট্র্যাকশন)',
-  'UST (আল্ট্রাসাউন্ড)',
-  'TENS (টেনস)',
-  'IRR (ইনফ্রারেড)',
-  'Exercise Therapy (ব্যায়াম)',
-  'Wax Bath (প্যারাফিন ওয়াক্স)',
-  'Manual Therapy (ম্যানুয়াল)',
+  { id: 'Traction', bn: 'ট্র্যাকশন', en: 'Traction' },
+  { id: 'UST', bn: 'আল্ট্রাসাউন্ড', en: 'UST' },
+  { id: 'TENS', bn: 'টেনস', en: 'TENS' },
+  { id: 'IRR', bn: 'ইনফ্রারেড', en: 'IRR' },
+  { id: 'Exercise Therapy', bn: 'ব্যায়াম থেরাপি', en: 'Exercise Therapy' },
+  { id: 'Wax Bath', bn: 'প্যারাফিন ওয়াক্স', en: 'Wax Bath' },
+  { id: 'Manual Therapy', bn: 'ম্যানুয়াল থেরাপি', en: 'Manual Therapy' },
 ];
 
 export function InstantTherapySlotCheckInModal({
@@ -387,12 +387,12 @@ export function InstantTherapySlotCheckInModal({
             </Label>
             <div className="flex flex-wrap gap-1.5">
               {COMMON_MODALITIES.map((mod) => {
-                const isSelected = selectedModalities.includes(mod);
+                const isSelected = selectedModalities.includes(mod.id);
                 return (
                   <button
-                    key={mod}
+                    key={mod.id}
                     type="button"
-                    onClick={() => toggleModality(mod)}
+                    onClick={() => toggleModality(mod.id)}
                     className={`px-2.5 py-1 rounded-lg border text-[11px] font-medium transition-all cursor-pointer flex items-center gap-1 ${
                       isSelected
                         ? 'border-teal-500 bg-teal-500/15 text-teal-800 dark:text-teal-200 font-semibold'
@@ -400,7 +400,7 @@ export function InstantTherapySlotCheckInModal({
                     }`}
                   >
                     {isSelected && <Check className="size-3 text-teal-600 dark:text-teal-400" />}
-                    <span>{mod}</span>
+                    <span>{isBn ? mod.bn : mod.en}</span>
                   </button>
                 );
               })}
@@ -411,7 +411,7 @@ export function InstantTherapySlotCheckInModal({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <Label className="text-xs font-semibold text-foreground mb-1 block">
-                {isBn ? 'অগ্রাধিকার (Priority)' : 'Priority'}
+                {isBn ? 'অগ্রাধিকার' : 'Priority'}
               </Label>
               <Select value={priority} onValueChange={(v: any) => setPriority(v)}>
                 <SelectTrigger className="h-9 text-xs border-border bg-card">
@@ -419,13 +419,13 @@ export function InstantTherapySlotCheckInModal({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="normal" className="text-xs">
-                    {isBn ? 'সাধারণ (Normal)' : 'Normal'}
+                    {isBn ? 'সাধারণ' : 'Normal'}
                   </SelectItem>
                   <SelectItem value="emergency" className="text-xs text-rose-600 font-bold">
-                    {isBn ? 'জরুরি (Emergency)' : 'Emergency'}
+                    {isBn ? '🚨 জরুরি' : '🚨 Emergency'}
                   </SelectItem>
                   <SelectItem value="vip" className="text-xs text-amber-600 font-bold">
-                    {isBn ? 'বীর মুক্তিযোদ্ধা / ভিআইপি (VIP)' : 'VIP'}
+                    {isBn ? '⭐ বীর মুক্তিযোদ্ধা / ভিআইপি' : '⭐ VIP'}
                   </SelectItem>
                 </SelectContent>
               </Select>

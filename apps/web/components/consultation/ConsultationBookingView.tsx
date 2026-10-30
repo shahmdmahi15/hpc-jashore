@@ -138,7 +138,7 @@ export function ConsultationBookingView({ defaultDoctorId }: ConsultationBooking
   const [loadingCheckedIn, setLoadingCheckedIn] = useState<boolean>(false);
   const [selectedFreePatient, setSelectedFreePatient] = useState<PatientRecord | null>(null);
   const [freeDoctorId, setFreeDoctorId] = useState<string>('');
-  const [freeReason, setFreeReason] = useState<string>('রিপোর্ট দেখানো (Show Investigation Report)');
+  const [freeReason, setFreeReason] = useState<string>('রিপোর্ট দেখানো');
   const [freeNotes, setFreeNotes] = useState<string>('');
   const [freeSubmitting, setFreeSubmitting] = useState<boolean>(false);
 
@@ -352,7 +352,7 @@ export function ConsultationBookingView({ defaultDoctorId }: ConsultationBooking
         toast.success(
           language === 'bn'
             ? `রোগী ${selectedFreePatient.nameEn}-কে কনসালটেশন ফি (৳${res.feeTaka}) গ্রহণের জন্য ক্যাশিয়ারে পাঠানো হয়েছে! ক্যাশিয়ার ফি গ্রহণ করলে সরাসরি ডাক্তারের কিউতে চলে যাবে।`
-            : `Patient ${selectedFreePatient.nameEn} sent to Cashier for fee collection (৳${res.feeTaka})! Will enter doctor queue upon payment.`
+            : `Patient ${selectedFreePatient.nameEn} sent to Cashier for fee collection (BDT ${res.feeTaka})! Will enter doctor queue upon payment.`
         );
       } else {
         toast.success(
@@ -646,7 +646,7 @@ export function ConsultationBookingView({ defaultDoctorId }: ConsultationBooking
                 <Input
                   placeholder={
                     language === 'bn'
-                      ? 'রোগীর নাম, ফোন, MRN বা সিরিয়াল খুঁজুন...'
+                      ? 'রোগীর নাম, ফোন, রেজি নম্বর বা সিরিয়াল খুঁজুন...'
                       : 'Search patient name, MRN, phone...'
                   }
                   value={searchQuery}
@@ -734,13 +734,13 @@ export function ConsultationBookingView({ defaultDoctorId }: ConsultationBooking
                 let punctualityText = '';
                 if (b.punctualityStatus === 'on_time') {
                   punctualityColor = 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30';
-                  punctualityText = language === 'bn' ? 'সময়মতো (Green)' : 'On Time';
+                  punctualityText = language === 'bn' ? 'সময়মতো' : 'On Time';
                 } else if (b.punctualityStatus === 'moderate_delay') {
                   punctualityColor = 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30';
-                  punctualityText = language === 'bn' ? `${b.delayMinutes}মি. বিলম্ব (Yellow)` : `${b.delayMinutes}m Late`;
+                  punctualityText = language === 'bn' ? `${b.delayMinutes}মি. বিলম্ব` : `${b.delayMinutes}m Late`;
                 } else if (b.punctualityStatus === 'critical_delay') {
                   punctualityColor = 'bg-red-500/15 text-red-700 dark:text-red-300 border-red-500/30';
-                  punctualityText = language === 'bn' ? `${b.delayMinutes}মি. অতিরিক্ত বিলম্ব (Red)` : `${b.delayMinutes}m Late`;
+                  punctualityText = language === 'bn' ? `${b.delayMinutes}মি. অতিরিক্ত বিলম্ব` : `${b.delayMinutes}m Critical Delay`;
                 }
 
                 return (
@@ -1092,7 +1092,7 @@ export function ConsultationBookingView({ defaultDoctorId }: ConsultationBooking
                     <Input
                       placeholder={
                         language === 'bn'
-                          ? 'রোগীর নাম, ফোন নম্বর বা MRN লিখুন...'
+                          ? 'রোগীর নাম, ফোন নম্বর বা রেজি নম্বর লিখুন...'
                           : 'Search patient by name, phone or MRN...'
                       }
                       value={patientSearch}
@@ -1248,7 +1248,7 @@ export function ConsultationBookingView({ defaultDoctorId }: ConsultationBooking
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-foreground">
-                  {language === 'bn' ? 'রোগীকে জানানো সময় (Told Time)' : 'Instructed Told Time'}
+                  {language === 'bn' ? 'রোগীকে জানানো সময়' : 'Instructed Arrival Time'}
                 </label>
                 <Input
                   value={toldTime}
@@ -1416,7 +1416,7 @@ export function ConsultationBookingView({ defaultDoctorId }: ConsultationBooking
                   <span className="text-base">🆓</span>
                   <div>
                     <div className="text-xs font-semibold leading-tight">
-                      {language === 'bn' ? 'সম্পূর্ণ ফ্রি (৳০)' : 'Free (৳0)'}
+                      {language === 'bn' ? 'সম্পূর্ণ বিনামূল্যে (৳০)' : 'Free of Charge (BDT 0)'}
                     </div>
                     <div className="text-[10px] text-muted-foreground mt-0.5">
                       {language === 'bn' ? 'রিপোর্ট / তাৎক্ষণিক কিউ' : 'Instant Queue'}
@@ -1482,7 +1482,7 @@ export function ConsultationBookingView({ defaultDoctorId }: ConsultationBooking
                   <div className="relative">
                     <Search className="size-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
                     <Input
-                      placeholder={language === 'bn' ? 'চেক-ইন করা রোগীর নাম, ফোন বা MRN দিয়ে খুঁজুন...' : 'Search checked-in patients by name, phone, or MRN...'}
+                      placeholder={language === 'bn' ? 'চেক-ইন করা রোগীর নাম, ফোন বা রেজি নম্বর দিয়ে খুঁজুন...' : 'Search checked-in patients by name, phone, or MRN...'}
                       value={freePatientSearch}
                       onChange={(e) => setFreePatientSearch(e.target.value)}
                       className="pl-8 h-9 text-xs"
@@ -1593,33 +1593,33 @@ export function ConsultationBookingView({ defaultDoctorId }: ConsultationBooking
             {/* 3. Reason for Consultation */}
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold text-foreground">
-                {language === 'bn' ? 'পরামর্শের সুনির্দিষ্ট কারণ (Reason of Visiting) *' : 'Reason for Visit *'}
+                {language === 'bn' ? 'পরামর্শের সুনির্দিষ্ট কারণ *' : 'Reason for Visit *'}
               </Label>
               <Select value={freeReason} onValueChange={setFreeReason}>
                 <SelectTrigger className="h-9 text-xs">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="রিপোর্ট দেখানো (Show Investigation Report)">
-                    📑 রিপোর্ট দেখানো (Show Investigation Report)
+                  <SelectItem value="রিপোর্ট দেখানো">
+                    {language === 'bn' ? '📑 রিপোর্ট দেখানো' : '📑 Show Investigation Report'}
                   </SelectItem>
-                  <SelectItem value="পরামর্শ / কথা বলতে চান (Want to Talk / General Consultation)">
-                    💬 পরামর্শ / কথা বলতে চান (Want to Talk / Consultation)
+                  <SelectItem value="পরামর্শ / কথা বলতে চান">
+                    {language === 'bn' ? '💬 সাধারণ পরামর্শ / কথা বলতে চান' : '💬 General Consultation'}
                   </SelectItem>
-                  <SelectItem value="নতুন কনসালটেশন (New Consultation)">
-                    🩺 নতুন কনসালটেশন (New Consultation)
+                  <SelectItem value="নতুন কনসালটেশন">
+                    {language === 'bn' ? '🩺 নতুন কনসালটেশন' : '🩺 New Consultation'}
                   </SelectItem>
-                  <SelectItem value="ফলো-আপ চেকআপ (Follow-up Evaluation)">
-                    🔄 ফলো-আপ চেকআপ (Follow-up Evaluation)
+                  <SelectItem value="ফলো-আপ চেকআপ">
+                    {language === 'bn' ? '🔄 ফলো-আপ চেকআপ' : '🔄 Follow-up Evaluation'}
                   </SelectItem>
-                  <SelectItem value="ওষুধের ডোজ সমন্বয় (Prescription / Dosage Adjustment)">
-                    💊 ওষুধের ডোজ সমন্বয় (Dosage Adjustment)
+                  <SelectItem value="ওষুধের ডোজ সমন্বয়">
+                    {language === 'bn' ? '💊 ওষুধের ডোজ সমন্বয়' : '💊 Dosage Adjustment'}
                   </SelectItem>
-                  <SelectItem value="জরুরি পর্যবেক্ষণ (Urgent Evaluation)">
-                    🚨 জরুরি পর্যবেক্ষণ (Urgent Evaluation)
+                  <SelectItem value="জরুরি পর্যবেক্ষণ">
+                    {language === 'bn' ? '🚨 জরুরি পর্যবেক্ষণ' : '🚨 Urgent Evaluation'}
                   </SelectItem>
-                  <SelectItem value="অন্যান্য / বিশেষ কারণ (Other / Custom Note)">
-                    ✏️ অন্যান্য / বিশেষ কারণ (Other)
+                  <SelectItem value="অন্যান্য">
+                    {language === 'bn' ? '✏️ অন্যান্য / বিশেষ কারণ' : '✏️ Other / Custom Reason'}
                   </SelectItem>
                 </SelectContent>
               </Select>
@@ -1643,7 +1643,7 @@ export function ConsultationBookingView({ defaultDoctorId }: ConsultationBooking
               <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-[11px] flex items-center justify-between">
                 <div className="flex items-center gap-1.5 font-semibold">
                   <span>🆓</span>
-                  <span>{language === 'bn' ? 'ফি গ্রহণ: সম্পূর্ণ ফ্রি (Free - ৳0)' : 'Fee: Free of Charge (৳0)'}</span>
+                  <span>{language === 'bn' ? 'ফি গ্রহণ: সম্পূর্ণ বিনামূল্যে (৳০)' : 'Fee: Free of Charge (BDT 0)'}</span>
                 </div>
                 <Badge className="bg-emerald-500 text-black font-bold text-[10px]">
                   {language === 'bn' ? 'সরাসরি কিউ' : 'Direct Queue'}
@@ -1653,7 +1653,7 @@ export function ConsultationBookingView({ defaultDoctorId }: ConsultationBooking
               <div className="p-2.5 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-800 dark:text-cyan-300 text-[11px] flex items-center justify-between">
                 <div className="flex items-center gap-1.5 font-semibold">
                   <span>💳</span>
-                  <span>{language === 'bn' ? `ধার্যকৃত ফি: ৳${queueFeeAmount}` : `Applicable Fee: ৳${queueFeeAmount}`}</span>
+                  <span>{language === 'bn' ? `ধার্যকৃত ফি: ৳${queueFeeAmount}` : `Applicable Fee: BDT ${queueFeeAmount}`}</span>
                 </div>
                 <Badge className="bg-cyan-600 text-white font-bold text-[10px]">
                   {language === 'bn' ? 'ক্যাশিয়ারে ফরোয়ার্ড' : 'Forward to Cashier'}
@@ -1693,7 +1693,7 @@ export function ConsultationBookingView({ defaultDoctorId }: ConsultationBooking
               <span>
                 {queueFeeType === 'free'
                   ? (language === 'bn' ? 'সরাসরি কিউতে যুক্ত করুন (ফ্রি)' : 'Add to Queue (Instant Free)')
-                  : (language === 'bn' ? `ক্যাশিয়ারে পাঠান (ফি: ৳${queueFeeAmount})` : `Send to Cashier (Fee: ৳${queueFeeAmount})`)}
+                  : (language === 'bn' ? `ক্যাশিয়ারে পাঠান (ফি: ৳${queueFeeAmount})` : `Send to Cashier (Fee: BDT ${queueFeeAmount})`)}
               </span>
             </Button>
           </DialogFooter>

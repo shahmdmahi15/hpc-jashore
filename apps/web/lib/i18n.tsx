@@ -99,7 +99,7 @@ export const translations: Record<Language, Translations> = {
   bn: {
     brandName: 'এইচপিসি যশোর',
     brandSub: 'হেলথ অ্যান্ড পেইন কেয়ার সেন্টার · যশোর',
-    doctorName: 'ডাঃ মোঃ তৌফিক উজ জামান',
+    doctorName: 'ডাক্তার মোঃ তৌফিক উজ জামান',
     tagline: 'বিশেষায়িত ফিজিওথেরাপি ও পেইন কেয়ার সেন্টার',
 
     tvQueue: 'স্মার্ট টিভি কিউ',
@@ -110,7 +110,7 @@ export const translations: Record<Language, Translations> = {
     loginTitle: 'স্টাফ ও পেশেন্ট লগইন',
     loginSub: 'হেলথ অ্যান্ড পেইন কেয়ার সেন্টার · যশোর ক্লিনিক পোর্টাল',
     emailLabel: 'ইমেইল অ্যাড্রেস',
-    emailPlaceholder: 'hpc@toufiquzzaman.com বা yourname@email.com',
+    emailPlaceholder: 'ইমেইল অ্যাড্রেস লিখুন',
     passwordLabel: 'পাসওয়ার্ড',
     passwordPlaceholder: '••••••••',
     forgotPasswordLink: 'পাসওয়ার্ড ভুলে গেছেন?',
@@ -124,7 +124,7 @@ export const translations: Record<Language, Translations> = {
     registerTitle: 'অ্যাকাউন্ট রেজিস্ট্রেশন',
     registerSub: 'নতুন ব্যবহারকারী ও ক্লিনিক্যাল স্টাফ নিবন্ধন',
     nameLabel: 'পূর্ণ নাম',
-    namePlaceholder: 'ডাঃ / স্টাফ / রোগীর নাম',
+    namePlaceholder: 'ডাক্তার / স্টাফ / রোগীর নাম',
     whatsappLabel: 'হোয়াটসঅ্যাপ নম্বর',
     whatsappPlaceholder: '+8801XXXXXXXXX',
     confirmPasswordLabel: 'পাসওয়ার্ড নিশ্চিতকরণ',
@@ -166,8 +166,8 @@ export const translations: Record<Language, Translations> = {
     sendCodeBtn: 'ভেরিফিকেশন লিঙ্ক পাঠান',
     alreadyHaveCode: 'ইতিমধ্যে লিঙ্ক পেয়েছেন?',
 
-    sslStatus: 'ক্লাউডফ্লেয়ার SSL 256-বিট সুরক্ষিত',
-    pwaUniversal: 'PWA ইউনিভার্সাল অ্যাপ',
+    sslStatus: 'ক্লাউডফ্লেয়ার ২৫৬-বিট এনক্রিপশন সুরক্ষিত',
+    pwaUniversal: 'ইনস্টলযোগ্য ইউনিভার্সাল অ্যাপ',
     themeDark: 'ডার্ক থিম',
     themeLight: 'লাইট থিম',
     langBangla: 'বাংলা',
@@ -176,7 +176,7 @@ export const translations: Record<Language, Translations> = {
   en: {
     brandName: 'HPC Jashore',
     brandSub: 'Health & Pain Care Center · Jashore',
-    doctorName: 'Dr. Md. Toufiq Uz Zaman',
+    doctorName: 'Doctor Md. Toufiq Uz Zaman',
     tagline: 'Specialized Physiotherapy & Pain Care Center',
 
     tvQueue: 'Smart TV Queue',
@@ -201,7 +201,7 @@ export const translations: Record<Language, Translations> = {
     registerTitle: 'Create Account',
     registerSub: 'New user & clinical staff registration',
     nameLabel: 'Full Name',
-    namePlaceholder: 'Dr. / Staff / Patient Name',
+    namePlaceholder: 'Doctor / Staff / Patient Name',
     whatsappLabel: 'WhatsApp Number',
     whatsappPlaceholder: '+8801XXXXXXXXX',
     confirmPasswordLabel: 'Confirm Password',

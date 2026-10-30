@@ -317,6 +317,18 @@ export class BillingService {
       });
     }
 
+    // Update linked visit status to 'billed' now that payment has been recorded
+    if (bill.visitId) {
+      try {
+        await this.db
+          .update(visits)
+          .set({ status: 'billed', updatedAt: now })
+          .where(eq(visits.id, bill.visitId));
+      } catch (visitErr) {
+        console.warn('Could not update visit status to billed:', visitErr);
+      }
+    }
+
     const payload = {
       paymentId,
       billId,

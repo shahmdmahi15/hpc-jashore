@@ -11,6 +11,7 @@ import { AuditService } from '../audit/audit.service';
 import { DB, type Db } from '../db/db.module';
 import {
   patients,
+  sequences,
   therapySlotBookings,
   therapySlotConfigs,
   users,
@@ -480,87 +481,112 @@ export class TherapySlotsService {
       );
     }
 
-    // 3. Capacity Check for patient gender
-    const existingBookings = await this.db
-      .select({
-        id: therapySlotBookings.id,
-        capacityType: therapySlotBookings.capacityType,
-      })
-      .from(therapySlotBookings)
-      .where(
-        and(
-          eq(therapySlotBookings.bookingDate, dto.bookingDate),
-          eq(therapySlotBookings.slotHour, dto.slotHour),
-          eq(therapySlotBookings.patientGender, gender),
-          isNull(therapySlotBookings.deletedAt),
-          sql`${therapySlotBookings.status} != 'cancelled'`,
-        ),
-      );
+    // 3. Atomic Capacity Check & Booking Reservation (Transaction-enforced to prevent concurrent overbooking)
+    const { newBooking, assignedCapacityType } = this.db.transaction((tx) => {
+      const existingBookings = tx
+        .select({
+          id: therapySlotBookings.id,
+          capacityType: therapySlotBookings.capacityType,
+        })
+        .from(therapySlotBookings)
+        .where(
+          and(
+            eq(therapySlotBookings.bookingDate, dto.bookingDate),
+            eq(therapySlotBookings.slotHour, dto.slotHour),
+            eq(therapySlotBookings.patientGender, gender),
+            isNull(therapySlotBookings.deletedAt),
+            sql`${therapySlotBookings.status} != 'cancelled'`,
+          ),
+        )
+        .all();
 
-    const regCap =
-      gender === 'male'
-        ? config.slotMaleRegularCapacity
-        : config.slotFemaleRegularCapacity;
-    const extraCap =
-      gender === 'male'
-        ? config.slotMaleExtraCapacity
-        : config.slotFemaleExtraCapacity;
+      const regCap =
+        gender === 'male'
+          ? config.slotMaleRegularCapacity
+          : config.slotFemaleRegularCapacity;
+      const extraCap =
+        gender === 'male'
+          ? config.slotMaleExtraCapacity
+          : config.slotFemaleExtraCapacity;
 
-    const regularBookedCount = existingBookings.filter((b) => b.capacityType === 'regular').length;
-    const extraBookedCount = existingBookings.filter((b) => b.capacityType === 'extra').length;
+      const regularBookedCount = existingBookings.filter((b) => b.capacityType === 'regular').length;
+      const extraBookedCount = existingBookings.filter((b) => b.capacityType === 'extra').length;
 
-    let assignedCapacityType: 'regular' | 'extra';
-    if (dto.capacityType === 'extra') {
-      if (extraBookedCount < extraCap) {
-        assignedCapacityType = 'extra';
+      let capacityTypeAssigned: 'regular' | 'extra';
+      if (dto.capacityType === 'extra') {
+        if (extraBookedCount < extraCap) {
+          capacityTypeAssigned = 'extra';
+        } else {
+          throw new ConflictException(
+            `No extra capacity left for ${gender} patients in slot ${dto.slotHour} on ${dto.bookingDate} (${dayOfWeek}). Extra capacity is fully booked (${extraBookedCount}/${extraCap}).`,
+          );
+        }
+      } else if (regularBookedCount < regCap) {
+        capacityTypeAssigned = 'regular';
+      } else if (extraBookedCount < extraCap) {
+        capacityTypeAssigned = 'extra';
       } else {
         throw new ConflictException(
-          `No extra capacity left for ${gender} patients in slot ${dto.slotHour} on ${dto.bookingDate} (${dayOfWeek}). Extra capacity is fully booked (${extraBookedCount}/${extraCap}).`,
+          `No capacity left for ${gender} patients in slot ${dto.slotHour} on ${dto.bookingDate} (${dayOfWeek}). Slot is fully booked.`,
         );
       }
-    } else if (regularBookedCount < regCap) {
-      assignedCapacityType = 'regular';
-    } else if (extraBookedCount < extraCap) {
-      assignedCapacityType = 'extra';
-    } else {
-      throw new ConflictException(
-        `No capacity left for ${gender} patients in slot ${dto.slotHour} on ${dto.bookingDate} (${dayOfWeek}). Slot is fully booked.`,
-      );
-    }
 
-    // 4. Generate Booking Number
-    const dateClean = dto.bookingDate.replace(/-/g, '');
-    const randSuffix = Math.floor(1000 + Math.random() * 9000);
-    const bookingNumber = `TSB-${dateClean}-${randSuffix}`;
+      // Generate Collision-Proof Sequential Booking Number
+      const dateClean = dto.bookingDate.replace(/-/g, '');
+      const yr = parseInt(dto.bookingDate.split('-')[0], 10) || new Date().getFullYear();
+      const scope = `tsb_${dateClean}`;
+      const seqRows = tx
+        .select()
+        .from(sequences)
+        .where(and(eq(sequences.scope, scope), eq(sequences.year, yr)))
+        .all();
 
-    const id = randomUUID();
-    const now = new Date().toISOString();
-    const isExtra = assignedCapacityType === 'extra';
+      let nextSeq = 1;
+      if (seqRows.length === 0) {
+        tx.insert(sequences).values({ scope, year: yr, lastValue: 1 }).run();
+      } else {
+        nextSeq = seqRows[0].lastValue + 1;
+        tx.update(sequences)
+          .set({ lastValue: nextSeq })
+          .where(and(eq(sequences.scope, scope), eq(sequences.year, yr)))
+          .run();
+      }
+      const seqFormatted = String(nextSeq).padStart(3, '0');
+      const bookingNumber = `TSB-${dateClean}-${seqFormatted}`;
 
-    const newBooking = {
-      id,
-      bookingNumber,
-      patientId: dto.patientId,
-      bookingDate: dto.bookingDate,
-      dayOfWeek,
-      slotHour: dto.slotHour,
-      toldTime: dto.toldTime ? dto.toldTime.trim() : null,
-      patientGender: gender,
-      capacityType: assignedCapacityType,
-      status: isExtra ? ('booked' as const) : ('confirmed' as const),
-      approvalStatus: isExtra ? ('pending' as const) : ('approved' as const),
-      approvedBy: isExtra ? null : actor.sub,
-      approvedAt: isExtra ? null : now,
-      rejectedBy: null,
-      rejectedAt: null,
-      rejectionReason: null,
-      notes: dto.notes ? dto.notes.trim() : null,
-      bookedBy: actor.sub,
-      createdAt: now,
-      updatedAt: now,
-    };
+      const id = randomUUID();
+      const now = new Date().toISOString();
+      const isExtra = capacityTypeAssigned === 'extra';
 
-    await this.db.insert(therapySlotBookings).values(newBooking);
+      const bookingRecord = {
+        id,
+        bookingNumber,
+        patientId: dto.patientId,
+        bookingDate: dto.bookingDate,
+        dayOfWeek,
+        slotHour: dto.slotHour,
+        toldTime: dto.toldTime ? dto.toldTime.trim() : null,
+        patientGender: gender,
+        capacityType: capacityTypeAssigned,
+        status: isExtra ? ('booked' as const) : ('confirmed' as const),
+        approvalStatus: isExtra ? ('pending' as const) : ('approved' as const),
+        approvedBy: isExtra ? null : actor.sub,
+        approvedAt: isExtra ? null : now,
+        rejectedBy: null,
+        rejectedAt: null,
+        rejectionReason: null,
+        notes: dto.notes ? dto.notes.trim() : null,
+        bookedBy: actor.sub,
+        createdAt: now,
+        updatedAt: now,
+      };
+
+      tx.insert(therapySlotBookings).values(bookingRecord).run();
+      return { newBooking: bookingRecord, assignedCapacityType: capacityTypeAssigned };
+    });
+
+    const id = newBooking.id;
+    const now = newBooking.createdAt;
 
     // Auto-link to any active visit today so patient immediately appears in therapy queue
     try {
@@ -615,7 +641,7 @@ export class TherapySlotsService {
     this.gateway.emit('clinic:global', 'therapy.slot.updated', {
       slotHour: dto.slotHour,
       date: dto.bookingDate,
-      isExtra,
+      isExtra: newBooking.capacityType === 'extra',
     });
     this.realtime.publish('therapy.booking.created', result);
 

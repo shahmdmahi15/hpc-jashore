@@ -1365,6 +1365,28 @@ export type Db = BetterSQLite3Database<typeof schema>;
               CREATE INDEX IF NOT EXISTS idx_assessment_files_patient ON patient_assessment_files(patient_id);
               CREATE INDEX IF NOT EXISTS idx_assessment_files_date ON patient_assessment_files(assessment_date);
               CREATE INDEX IF NOT EXISTS idx_assessment_files_doctor ON patient_assessment_files(doctor_id);
+
+              CREATE TABLE IF NOT EXISTS auth_verification_codes (
+                id TEXT PRIMARY KEY NOT NULL,
+                email TEXT NOT NULL,
+                code TEXT NOT NULL,
+                type TEXT NOT NULL,
+                expires_at TEXT NOT NULL,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+              );
+              CREATE INDEX IF NOT EXISTS idx_auth_verif_email ON auth_verification_codes(email);
+
+              CREATE TABLE IF NOT EXISTS therapy_session_modalities (
+                id TEXT PRIMARY KEY NOT NULL,
+                session_id TEXT NOT NULL REFERENCES therapy_sessions(id) ON DELETE CASCADE,
+                modality_code TEXT NOT NULL,
+                duration_minutes INTEGER NOT NULL DEFAULT 15,
+                status TEXT NOT NULL DEFAULT 'pending',
+                notes TEXT,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+              );
+              CREATE INDEX IF NOT EXISTS idx_session_modalities_session ON therapy_session_modalities(session_id);
             `);
           } catch (intakeErr) {
             console.error('Error creating patient assessment, intake, and timeline tables:', intakeErr);

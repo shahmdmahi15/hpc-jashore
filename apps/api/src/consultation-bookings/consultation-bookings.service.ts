@@ -587,42 +587,48 @@ export class ConsultationBookingsService {
     const today = item.booking.bookingDate || todayDateString();
     const now = new Date().toISOString();
 
-    // Generate next serial number for this doctor today
-    const priorSerials = await this.db
-      .select()
-      .from(serials)
-      .where(and(eq(serials.doctorId, item.doctor.id), eq(serials.date, today)));
+    // Atomic transaction for doctor chamber serial assignment: prevents race conditions under concurrent check-ins
+    const { serialRow } = this.db.transaction((tx) => {
+      // Find current maximum serial for this doctor on this day
+      const maxRow = tx
+        .select({ maxSerial: sql<number>`COALESCE(MAX(${serials.serialNumber}), 0)` })
+        .from(serials)
+        .where(and(eq(serials.doctorId, item.doctor.id), eq(serials.date, today)))
+        .all();
 
-    const nextSerialNum = priorSerials.length + 1;
-    const serialId = randomUUID();
+      const nextSerialNum = (maxRow[0]?.maxSerial ?? 0) + 1;
+      const serialId = randomUUID();
 
-    const serialRow = {
-      id: serialId,
-      doctorId: item.doctor.id,
-      date: today,
-      serialNumber: nextSerialNum,
-      visitId: visitId!,
-      patientId: item.patient.id,
-      status: 'waiting' as const,
-      calledAt: null,
-      completedAt: null,
-      createdAt: now,
-      updatedAt: now,
-    };
-    await this.db.insert(serials).values(serialRow);
-
-    // Update Consultation Booking
-    await this.db
-      .update(consultationBookings)
-      .set({
-        status: 'in_queue',
+      const row = {
+        id: serialId,
+        doctorId: item.doctor.id,
+        date: today,
         serialNumber: nextSerialNum,
-        serialId,
-        inQueueAt: now,
-        queuedBy: actor.sub,
+        visitId: visitId!,
+        patientId: item.patient.id,
+        status: 'waiting' as const,
+        calledAt: null,
+        completedAt: null,
+        createdAt: now,
         updatedAt: now,
-      })
-      .where(eq(consultationBookings.id, bookingId));
+      };
+      tx.insert(serials).values(row).run();
+
+      // Update Consultation Booking
+      tx.update(consultationBookings)
+        .set({
+          status: 'in_queue',
+          serialNumber: nextSerialNum,
+          serialId,
+          inQueueAt: now,
+          queuedBy: actor.sub,
+          updatedAt: now,
+        })
+        .where(eq(consultationBookings.id, bookingId))
+        .run();
+
+      return { serialRow: row };
+    });
 
     // Update Visit status
     await this.db
@@ -637,8 +643,8 @@ export class ConsultationBookingsService {
 
     const queuedPayload = {
       bookingId,
-      serialId,
-      serialNumber: nextSerialNum,
+      serialId: serialRow.id,
+      serialNumber: serialRow.serialNumber,
       patientId: item.patient.id,
       patientName: item.patient.nameEn,
       doctorId: item.doctor.id,

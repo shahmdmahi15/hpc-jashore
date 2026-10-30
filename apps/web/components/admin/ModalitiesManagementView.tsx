@@ -181,14 +181,14 @@ const DEFAULT_MODALITY_VISUAL: ModalityVisualConfig = {
 };
 
 const PRESET_TEMPLATES = [
-  { code: 'IFT', nameEn: 'Interferential Therapy', nameBn: 'ইন্টারফেরেনশিয়াল থেরাপি (IFT)', duration: 20, priceBdt: 300 },
-  { code: 'UST', nameEn: 'Ultrasound Therapy', nameBn: 'আল্ট্রাসাউন্ড থেরাপি (UST)', duration: 15, priceBdt: 300 },
-  { code: 'TENS', nameEn: 'TENS Nerve Stimulation', nameBn: 'টেনস নার্ভ স্টিমুলেশন (TENS)', duration: 20, priceBdt: 250 },
-  { code: 'IRR', nameEn: 'Infrared Radiation Therapy', nameBn: 'ইনফ্রারেড রেডিয়েশন (IRR)', duration: 15, priceBdt: 200 },
+  { code: 'IFT', nameEn: 'Interferential Therapy', nameBn: 'ইন্টারফেরেনশিয়াল থেরাপি', duration: 20, priceBdt: 300 },
+  { code: 'UST', nameEn: 'Ultrasound Therapy', nameBn: 'আল্ট্রাসাউন্ড থেরাপি', duration: 15, priceBdt: 300 },
+  { code: 'TENS', nameEn: 'TENS Nerve Stimulation', nameBn: 'টেনস নার্ভ স্টিমুলেশন', duration: 20, priceBdt: 250 },
+  { code: 'IRR', nameEn: 'Infrared Radiation Therapy', nameBn: 'ইনফ্রারেড রেডিয়েশন', duration: 15, priceBdt: 200 },
   { code: 'TRACTION', nameEn: 'Cervical / Lumbar Traction', nameBn: 'স্পাইনাল ট্র্যাকশন থেরাপি', duration: 30, priceBdt: 400 },
   { code: 'HYDRO', nameEn: 'Hydrocollator Moist Heat Pack', nameBn: 'হাইড্রো ময়েস্ট হিট প্যাক', duration: 20, priceBdt: 200 },
   { code: 'MANUAL', nameEn: 'Manual Mobilization Therapy', nameBn: 'ম্যানুয়াল মোবিলাইজেশন থেরাপি', duration: 30, priceBdt: 500 },
-  { code: 'SWD', nameEn: 'Shortwave Diathermy', nameBn: 'শর্টওয়েভ ডায়াথার্মি (SWD)', duration: 20, priceBdt: 350 },
+  { code: 'SWD', nameEn: 'Shortwave Diathermy', nameBn: 'শর্টওয়েভ ডায়াথার্মি', duration: 20, priceBdt: 350 },
   { code: 'LASER', nameEn: 'High-Intensity Laser Therapy', nameBn: 'হাই-ইনটেনসিটি লেজার থেরাপি', duration: 15, priceBdt: 600 },
   { code: 'EXERCISE', nameEn: 'Therapeutic Exercise & Rehab', nameBn: 'থেরাপিউটিক এক্সারসাইজ ও রিহ্যাব', duration: 30, priceBdt: 300 },
 ];
@@ -400,7 +400,7 @@ export function ModalitiesManagementView() {
       toast.success(
         isBn
           ? `${pricingModality.code} এর নতুন ফি ৳${toBnDigits(quickPriceBdt)} নির্ধারিত হয়েছে`
-          : `${pricingModality.code} fee updated to ৳${quickPriceBdt}`,
+          : `${pricingModality.code} fee updated to BDT ${quickPriceBdt}`,
       );
       setIsQuickPriceOpen(false);
       setPricingModality(null);
@@ -786,7 +786,7 @@ export function ModalitiesManagementView() {
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder={
                 isBn
-                  ? 'কোড বা নাম দিয়ে খুঁজুন (যেমনঃ IFT, Ultrasound, ইন্টারফেরেনশিয়াল)...'
+                  ? (isBn ? 'কোড বা নাম দিয়ে খুঁজুন...' : 'Search by code or name (e.g. IFT, Ultrasound)...')
                   : 'Search by code or name (e.g., IFT, Ultrasound, Traction)...'
               }
               className="pl-9 pr-8 h-10 rounded-xl bg-background border-border/80 text-xs sm:text-sm"
@@ -1272,7 +1272,7 @@ export function ModalitiesManagementView() {
             <div className="space-y-1">
               <label className="text-xs font-bold text-foreground flex items-center justify-between">
                 <span>{isBn ? 'মডালিটি কোড (ইউনিক শর্টকোড)' : 'Modality Code (Unique uppercase)'}</span>
-                <span className="text-[10px] text-muted-foreground">{isBn ? 'যেমনঃ IFT, UST, TENS' : 'e.g. IFT, UST, TENS'}</span>
+                <span className="text-[10px] text-muted-foreground">{isBn ? 'যেমন: আইএফটি, ইউএসটি, টেনস' : 'e.g. IFT, UST, TENS'}</span>
               </label>
               <Input
                 type="text"
@@ -1371,7 +1371,7 @@ export function ModalitiesManagementView() {
             {/* Price in BDT with Quick Chips */}
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-foreground flex items-center justify-between">
-                <span>{isBn ? 'সেশন ফি (টাকা / BDT)' : 'Session Fee in BDT'}</span>
+                <span>{isBn ? 'সেশন ফি (টাকা)' : 'Session Fee in BDT'}</span>
                 <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
                   {formatCurrency((addPriceBdt || 0) * 100)} = {toBnDigits((addPriceBdt || 0) * 100)} Paisa
                 </span>
@@ -1576,7 +1576,7 @@ export function ModalitiesManagementView() {
             {/* Price in BDT with Quick Chips */}
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-foreground flex items-center justify-between">
-                <span>{isBn ? 'সেশন ফি (টাকা / BDT)' : 'Session Fee in BDT'}</span>
+                <span>{isBn ? 'সেশন ফি (টাকা)' : 'Session Fee in BDT'}</span>
                 <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
                   {formatCurrency((editPriceBdt || 0) * 100)} = {toBnDigits((editPriceBdt || 0) * 100)} Paisa
                 </span>

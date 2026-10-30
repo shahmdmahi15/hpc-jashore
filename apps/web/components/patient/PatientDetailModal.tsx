@@ -39,6 +39,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '../ui/tabs';
 import { toast } from 'sonner';
 import { useLanguage } from '../../lib/i18n';
 import { getPatientDetailAction, type PatientDetailRecord, type PatientRecord } from '../../lib/actions/patients';
+import { getLegacyFileInfo } from '../../lib/legacy-patient';
 
 interface PatientDetailModalProps {
   patientId: string | null;
@@ -83,7 +84,7 @@ export function PatientDetailModal({
     if (type === 'mrn') {
       setCopiedMrn(true);
       setTimeout(() => setCopiedMrn(false), 2000);
-      toast.success(isBn ? 'MRN কপি করা হয়েছে' : 'MRN copied to clipboard');
+      toast.success(isBn ? 'রেজি নম্বর কপি করা হয়েছে' : 'MRN copied to clipboard');
     } else {
       setCopiedPhone(true);
       setTimeout(() => setCopiedPhone(false), 2000);
@@ -133,8 +134,26 @@ export function PatientDetailModal({
                         title="Click to copy MRN"
                       >
                         <span>MRN: {detail.mrn}</span>
-                        {copiedMrn ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3 opacity-60" />}
+                        {copiedMrn ? <Check className="w-3" /> : <Copy className="w-3 opacity-60" />}
                       </button>
+
+                      {(() => {
+                        const legacy = getLegacyFileInfo(detail.notes);
+                        if (!legacy.isLegacy) return null;
+                        return (
+                          <Badge
+                            variant="outline"
+                            className="text-xs font-semibold border-amber-500/60 bg-amber-500/15 text-amber-700 dark:text-amber-300 px-2 py-0.5 gap-1.5"
+                          >
+                            <span>📁 {isBn ? 'পুরাতন পেপার ফাইল' : 'Legacy Paper File'}</span>
+                            {legacy.fileNo && (
+                              <span className="font-mono font-bold text-amber-900 dark:text-amber-100 bg-amber-500/25 px-1 rounded">
+                                #{legacy.fileNo}
+                              </span>
+                            )}
+                          </Badge>
+                        );
+                      })()}
 
                       {/* Gender badge */}
                       <Badge
@@ -323,7 +342,7 @@ export function PatientDetailModal({
                   <div className="space-y-1 sm:col-span-3 pt-2 border-t border-border/40">
                     <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
                       <FileText className="w-3 h-3 text-emerald-600" />
-                      <span>{isBn ? 'মন্তব্য ও নির্দেশনা (Notes)' : 'Patient Notes & Remarks'}</span>
+                      <span>{isBn ? 'মন্তব্য ও নির্দেশনা' : 'Patient Notes & Remarks'}</span>
                     </span>
                     <p className="text-sm font-medium text-foreground whitespace-pre-wrap bg-background/50 p-2.5 rounded-lg border border-border/40">
                       {detail.notes}

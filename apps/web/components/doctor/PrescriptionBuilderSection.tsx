@@ -25,6 +25,7 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useLanguage } from '@/lib/i18n';
 import { toast } from 'sonner';
 
 export interface PrescribedMedicineItem {
@@ -58,7 +59,7 @@ export const COMMON_PAIN_MEDICINES = [
   { brandName: 'Gel Voltral 1%', genericName: 'Diclofenac Sodium', form: 'Gel', strength: '1%', defaultDosage: '২-৩ বার', defaultDuration: '৭ দিন', defaultInstructions: 'আক্রান্ত স্থানে মালিশ' },
 ];
 
-export const DOSAGE_PRESETS = ['1+0+1', '1+1+1', '1+0+0', '0+0+1', '1+1+1+1', '0+1+0', '1/2+0+1/2', 'ব্যথা হলে (SOS)'];
+export const DOSAGE_PRESETS = ['1+0+1', '1+1+1', '1+0+0', '0+0+1', '1+1+1+1', '0+1+0', '1/2+0+1/2', 'SOS'];
 export const DURATION_PRESETS = ['৩ দিন', '৫ দিন', '৭ দিন', '১০ দিন', '১৪ দিন', '২১ দিন', '১ মাস', 'চলবে'];
 export const INSTRUCTION_PRESETS = [
   'খাবারের পর',
@@ -111,6 +112,8 @@ export function PrescriptionBuilderSection({
   onResetNewPrescription,
   saving = false,
 }: PrescriptionBuilderSectionProps) {
+  const { language } = useLanguage();
+  const isBn = language === 'bn';
   const [activeSuggestionIdx, setActiveSuggestionIdx] = useState<number | null>(null);
 
   const handleAddMedicine = () => {
@@ -177,13 +180,13 @@ export function PrescriptionBuilderSection({
           </div>
           <div>
             <CardTitle className="text-base sm:text-lg font-bold flex items-center gap-2">
-              <span>ডিজিটাল প্রেসক্রিপশন বিল্ডার (Rx Builder)</span>
+              <span>{isBn ? 'ডিজিটাল প্রেসক্রিপশন বিল্ডার' : 'Digital Prescription Builder'}</span>
               <Badge variant="outline" className="text-[10.5px] font-mono text-emerald-600 bg-emerald-500/10 border-emerald-500/20">
                 5.50" × 8.27" Paper
               </Badge>
             </CardTitle>
             <p className="text-xs text-muted-foreground">
-              ঔষধ, মাত্রা, সেবনবিধি এবং ক্লিনিক্যাল নির্দেশিকা নির্ধারণ করুন
+              {isBn ? 'ঔষধ, মাত্রা, সেবনবিধি এবং ক্লিনিক্যাল নির্দেশিকা নির্ধারণ করুন' : 'Configure medicines, dosages, timing, and clinical instructions'}
             </p>
           </div>
         </div>
@@ -279,7 +282,7 @@ export function PrescriptionBuilderSection({
                   {/* Brand Name Input with Autocomplete Suggestion Dropdown */}
                   <div className="sm:col-span-5 relative">
                     <Input
-                      placeholder="Brand Name (যেমন: Ace Plus 500mg)"
+                      placeholder={isBn ? 'ঔষধের নাম (যেমন: এইস প্লাস ৫০০ মিগ্রা)' : 'Brand Name (e.g. Ace Plus 500mg)'}
                       value={med.brandName}
                       onFocus={() => setActiveSuggestionIdx(idx)}
                       onChange={(e) => {
@@ -331,7 +334,7 @@ export function PrescriptionBuilderSection({
                   {/* Generic Name */}
                   <div className="sm:col-span-4">
                     <Input
-                      placeholder="Generic (যেমন: Paracetamol + Caffeine)"
+                      placeholder={isBn ? 'জেনেরিক নাম (যেমন: প্যারাসিটামল + ক্যাফেইন)' : 'Generic Name (e.g. Paracetamol + Caffeine)'}
                       value={med.genericName || ''}
                       onChange={(e) => handleUpdateMedicine(idx, { genericName: e.target.value })}
                       className="h-9 text-xs font-mono text-muted-foreground"
@@ -363,7 +366,7 @@ export function PrescriptionBuilderSection({
                   {/* Dosage Input + Quick Chips (4 cols) */}
                   <div className="md:col-span-4 space-y-1">
                     <div className="flex items-center justify-between">
-                      <Label className="text-[11px] font-semibold text-muted-foreground">মাত্রা (Dosage):</Label>
+                      <Label className="text-[11px] font-semibold text-muted-foreground">{isBn ? 'মাত্রা:' : 'Dosage:'}</Label>
                       <span className="text-[10px] font-mono font-bold text-emerald-600">{med.dosage}</span>
                     </div>
                     <Input
@@ -394,7 +397,7 @@ export function PrescriptionBuilderSection({
                   {/* Timing / Instructions + Quick Chips (5 cols) */}
                   <div className="md:col-span-5 space-y-1">
                     <div className="flex items-center justify-between">
-                      <Label className="text-[11px] font-semibold text-muted-foreground">সেবনবিধি (Timing):</Label>
+                      <Label className="text-[11px] font-semibold text-muted-foreground">{isBn ? 'সেবনবিধি:' : 'Timing:'}</Label>
                       <span className="text-[10px] text-muted-foreground truncate">{med.instructions}</span>
                     </div>
                     <Input
@@ -425,7 +428,7 @@ export function PrescriptionBuilderSection({
                   {/* Duration + Quick Chips (3 cols) */}
                   <div className="md:col-span-3 space-y-1">
                     <div className="flex items-center justify-between">
-                      <Label className="text-[11px] font-semibold text-muted-foreground">সময়কাল (Duration):</Label>
+                      <Label className="text-[11px] font-semibold text-muted-foreground">{isBn ? 'সময়কাল:' : 'Duration:'}</Label>
                       <span className="text-[10px] font-mono text-muted-foreground">{med.duration}</span>
                     </div>
                     <Input
@@ -462,7 +465,7 @@ export function PrescriptionBuilderSection({
         <div className="space-y-2 pt-2 border-t border-border/60">
           <div className="flex items-center justify-between">
             <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
-              <span>বিশেষ পরামর্শ ও নির্দেশাবলী (Special Advice)</span>
+              <span>{isBn ? 'বিশেষ পরামর্শ ও নির্দেশাবলী' : 'Special Advice & Instructions'}</span>
             </Label>
             <span className="text-[11px] text-muted-foreground">
               ক্লিক করে দ্রুত পরামর্শ যুক্ত করুন
@@ -496,7 +499,7 @@ export function PrescriptionBuilderSection({
           <div className="sm:col-span-4">
             <Label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
               <Calendar className="size-3.5 text-emerald-600" />
-              <span>পরবর্তী সাক্ষাতের সম্ভাব্য তারিখ (Next Follow-up):</span>
+              <span>{isBn ? 'পরবর্তী সাক্ষাতের সম্ভাব্য তারিখ:' : 'Next Follow-up Date:'}</span>
             </Label>
           </div>
           <div className="sm:col-span-8 flex flex-wrap items-center gap-1.5">
@@ -530,7 +533,7 @@ export function PrescriptionBuilderSection({
           >
             <Printer className="size-5" />
             <span>
-              {saving ? 'প্রেসক্রিপশন সেভ হচ্ছে...' : '📄 Save & Print 5.50" × 8.27" Prescription (প্রিন্ট করুন)'}
+              {saving ? (isBn ? 'প্রেসক্রিপশন সেভ হচ্ছে...' : 'Saving prescription...') : (isBn ? '📄 প্রেসক্রিপশন সংরক্ষণ ও প্রিন্ট করুন' : '📄 Save & Print Prescription (5.5" × 8.27"')}
             </span>
           </Button>
         </div>

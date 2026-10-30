@@ -114,7 +114,7 @@ export function CreateRoomDialog({ open, onOpenChange, onSuccess }: CreateRoomDi
 
     const roomNumber = form.roomNumber.trim().toUpperCase();
     if (!roomNumber) {
-      setErrorMsg(isBn ? 'রুম নম্বর অবশ্যই লিখুন (যেমন: DOC-101, TH-01)' : 'Room number is required (e.g. DOC-101)');
+      setErrorMsg(isBn ? 'রুম নম্বর অবশ্যই লিখুন' : 'Room number is required (e.g. DOC-101)');
       return;
     }
 
@@ -257,7 +257,7 @@ export function CreateRoomDialog({ open, onOpenChange, onSuccess }: CreateRoomDi
               <div className="space-y-1.5 sm:col-span-2 md:col-span-4">
                 <Label className="text-xs font-semibold flex items-center gap-1">
                   <Layers className="w-3.5 h-3.5 text-muted-foreground" />
-                  <span>{isBn ? 'রুমের ধরন (Room Type)' : 'Room Type'}</span>
+                  <span>{isBn ? 'রুমের ধরন' : 'Room Type'}</span>
                   <span className="text-destructive font-bold">*</span>
                 </Label>
                 <Select
@@ -323,7 +323,7 @@ export function CreateRoomDialog({ open, onOpenChange, onSuccess }: CreateRoomDi
 
               {/* Status */}
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold">{isBn ? 'রুমের অবস্থা (Status)' : 'Operational Status'}</Label>
+                <Label className="text-xs font-semibold">{isBn ? 'রুমের অবস্থা' : 'Operational Status'}</Label>
                 <div className="grid grid-cols-2 gap-2">
                   {[
                     { value: 'available', labelEn: 'Available', labelBn: 'উপলব্ধ / খালি', color: 'bg-emerald-500' },
@@ -354,7 +354,7 @@ export function CreateRoomDialog({ open, onOpenChange, onSuccess }: CreateRoomDi
           <div className="space-y-2">
             <Label htmlFor="create-room-notes" className="text-xs font-semibold flex items-center gap-1">
               <FileText className="w-3.5 h-3.5 text-muted-foreground" />
-              <span>{isBn ? 'রুম সম্পর্কিত নোট বা নির্দেশনা (Notes)' : 'Operational Notes & Equipment Details'}</span>
+              <span>{isBn ? 'রুম সম্পর্কিত নোট বা নির্দেশনা' : 'Operational Notes & Equipment Details'}</span>
             </Label>
             <Textarea
               id="create-room-notes"

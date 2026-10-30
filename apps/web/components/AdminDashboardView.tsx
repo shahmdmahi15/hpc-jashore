@@ -45,10 +45,11 @@ import Link from 'next/link';
 import { cn } from '../lib/utils';
 import { AuditLogsTab } from './admin/AuditLogsTab';
 import { TherapyQueueManagementTab } from './therapy/TherapyQueueManagementTab';
+import { ReportsManagementTab } from './admin/ReportsManagementTab';
 
 export interface AdminDashboardViewProps {
   session?: UserSession | null;
-  initialTab?: 'overview' | 'audit_logs' | 'therapy_queue';
+  initialTab?: 'overview' | 'reports' | 'audit_logs' | 'therapy_queue';
 }
 
 export default function AdminDashboardView({ session: propSession, initialTab = 'overview' }: AdminDashboardViewProps = {}) {
@@ -56,7 +57,7 @@ export default function AdminDashboardView({ session: propSession, initialTab = 
   const isBn = language === 'bn';
 
   const [session, setSession] = useState<UserSession | null>(propSession || null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'audit_logs' | 'therapy_queue'>(initialTab);
+  const [activeTab, setActiveTab] = useState<'overview' | 'reports' | 'audit_logs' | 'therapy_queue'>(initialTab);
 
   useEffect(() => {
     if (!session) {
@@ -173,30 +174,19 @@ export default function AdminDashboardView({ session: propSession, initialTab = 
             </Button>
           </Link>
 
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="secondary" size="sm" className="rounded-xl gap-1.5 text-xs font-bold">
-                <FileSpreadsheet className="size-3.5" />
-                <span>{isBn ? 'রিপোর্ট' : 'Reports'}</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuLabel>{isBn ? 'এক্সপোর্ট রিপোর্ট' : 'Export Reports'}</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => window.print()} className="gap-2 cursor-pointer">
-                <Printer className="size-3.5 text-emerald-500" />
-                <span>{isBn ? 'প্রিন্ট সামারি' : 'Print Summary'}</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => toast.info('Exporting report...')} className="gap-2 cursor-pointer">
-                <Download className="size-3.5 text-teal-500" />
-                <span>{isBn ? 'CSV ডাউনলোড' : 'Download CSV'}</span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => setActiveTab('reports')}
+            className="rounded-xl gap-1.5 text-xs font-bold cursor-pointer"
+          >
+            <FileSpreadsheet className="size-3.5" />
+            <span>{isBn ? 'রিপোর্ট হাব' : 'Reports Hub'}</span>
+          </Button>
         </div>
       </div>
 
-      {/* Top Tab Switcher: Overview vs System Audit Logs vs Therapy Queue */}
+      {/* Top Tab Switcher: Overview vs Reports vs System Audit Logs vs Therapy Queue */}
       <div className="flex items-center gap-1.5 sm:gap-2 p-1.5 bg-muted/60 border border-border/50 rounded-2xl w-full sm:w-auto self-start overflow-x-auto">
         <button
           type="button"
@@ -209,7 +199,21 @@ export default function AdminDashboardView({ session: propSession, initialTab = 
           )}
         >
           <BarChart3 className="size-4 shrink-0" />
-          <span>{isBn ? '📊 ওভারভিউ ও দৈনিক অডিট (Overview & Daily KPIs)' : '📊 Overview & Daily KPIs'}</span>
+          <span>{isBn ? '📊 ওভারভিউ ও দৈনিক অডিট' : '📊 Overview & Daily KPIs'}</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('reports')}
+          className={cn(
+            'flex items-center gap-2 px-3.5 py-2 text-xs sm:text-sm font-bold rounded-xl transition-all cursor-pointer whitespace-nowrap',
+            activeTab === 'reports'
+              ? 'bg-background text-emerald-600 dark:text-emerald-400 shadow-xs'
+              : 'text-muted-foreground hover:text-foreground'
+          )}
+        >
+          <FileSpreadsheet className="size-4 shrink-0" />
+          <span>{isBn ? '📈 পূর্ণাঙ্গ ক্লিনিক্যাল রিপোর্ট' : '📈 Comprehensive Reports'}</span>
         </button>
 
         <button
@@ -223,7 +227,7 @@ export default function AdminDashboardView({ session: propSession, initialTab = 
           )}
         >
           <ShieldCheck className="size-4 shrink-0" />
-          <span>{isBn ? '🛡️ সিস্টেম অডিট লগ (System Audit Logs)' : '🛡️ System Audit Logs'}</span>
+          <span>{isBn ? '🛡️ সিস্টেম অডিট লগ' : '🛡️ System Audit Logs'}</span>
         </button>
 
         <button
@@ -237,12 +241,14 @@ export default function AdminDashboardView({ session: propSession, initialTab = 
           )}
         >
           <PhoneCall className="size-4 shrink-0" />
-          <span>{isBn ? '🚪 থেরাপি কিউ (Therapy Queue)' : '🚪 Therapy Queue'}</span>
+          <span>{isBn ? '🚪 থেরাপি কিউ' : '🚪 Therapy Queue'}</span>
         </button>
       </div>
 
       {/* Content Rendering based on Active Dashboard Tab */}
-      {activeTab === 'audit_logs' ? (
+      {activeTab === 'reports' ? (
+        <ReportsManagementTab />
+      ) : activeTab === 'audit_logs' ? (
         <AuditLogsTab />
       ) : activeTab === 'therapy_queue' ? (
         <TherapyQueueManagementTab />
@@ -455,7 +461,7 @@ export default function AdminDashboardView({ session: propSession, initialTab = 
                 <p className="text-xs text-muted-foreground font-medium">{isBn ? 'রিয়েলটাইম কিউ সংযোগ' : 'Realtime Queue Stream'}</p>
                 <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
                   <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
-                  <span>{isBn ? 'সক্রিয় (SSE / Socket.IO)' : 'Active (SSE / Socket.IO)'}</span>
+                  <span>{isBn ? 'সক্রিয়' : 'Active (Live)'}</span>
                 </p>
               </div>
             </Card>

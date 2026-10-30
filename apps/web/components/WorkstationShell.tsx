@@ -11,6 +11,8 @@ import { useRouter } from 'next/navigation';
 import { cn } from '../lib/utils';
 import { useLanguage } from '../lib/i18n';
 import { useChatNotifier } from '../lib/use-chat-notifier';
+import { useDashboardBadges, handleDashboardRealtimeEvent } from '../lib/use-dashboard-badges';
+import { WorkstationTabBadge } from './WorkstationTabBadge';
 
 interface WorkstationShellProps {
   activeTab: string;
@@ -37,6 +39,7 @@ export function WorkstationShell({
   const { language } = useLanguage();
   const [session, setSession] = useState<UserSession | null>(null);
   const { unreadCount } = useChatNotifier(activeTab === 'chat');
+  const badges = useDashboardBadges();
 
   useEffect(() => {
     setSession(getSession());
@@ -48,8 +51,7 @@ export function WorkstationShell({
   }, [session?.role]);
 
   const { isConnected } = useRealtime((evt) => {
-    // eslint-disable-next-line no-console
-    console.log('Realtime event received in workstation:', evt);
+    handleDashboardRealtimeEvent(evt, language === 'bn');
   });
 
   return (
@@ -128,12 +130,45 @@ export function WorkstationShell({
                       <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-500" />
                     </span>
                   )}
+                  {item.id === 'doctor' && badges.consultationWaiting > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
+                    </span>
+                  )}
+                  {item.id === 'handler' && badges.therapyWaiting > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75" />
+                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-blue-500" />
+                    </span>
+                  )}
+                  {item.id === 'cashier' && badges.cashierUnpaid > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500" />
+                    </span>
+                  )}
                 </div>
                 <span className="truncate max-w-[64px] flex items-center gap-1">
                   <span>{language === 'bn' ? item.labelBn : item.labelEn}</span>
                   {isChat && unreadCount > 0 && (
                     <span className="px-1 py-0 text-[8px] font-black rounded-full bg-rose-500 text-white">
                       {unreadCount}
+                    </span>
+                  )}
+                  {item.id === 'doctor' && badges.consultationWaiting > 0 && (
+                    <span className="px-1 py-0 text-[8px] font-black rounded-full bg-emerald-500 text-white">
+                      {badges.consultationWaiting}
+                    </span>
+                  )}
+                  {item.id === 'handler' && badges.therapyWaiting > 0 && (
+                    <span className="px-1 py-0 text-[8px] font-black rounded-full bg-blue-500 text-white">
+                      {badges.therapyWaiting}
+                    </span>
+                  )}
+                  {item.id === 'cashier' && badges.cashierUnpaid > 0 && (
+                    <span className="px-1 py-0 text-[8px] font-black rounded-full bg-amber-500 text-white">
+                      {badges.cashierUnpaid}
                     </span>
                   )}
                 </span>

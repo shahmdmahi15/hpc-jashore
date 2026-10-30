@@ -415,8 +415,8 @@ export function PatientTimelineModal({
                   }`}
                 >
                   {isBrandNew
-                    ? (isBn ? 'নতুন রোগী (New Patient)' : 'Brand New Patient')
-                    : (isBn ? 'পুরাতন রোগী (Follow-up)' : 'Follow-up Patient')}
+                    ? (isBn ? 'নতুন রোগী' : 'Brand New Patient')
+                    : (isBn ? 'পুরাতন রোগী' : 'Follow-up Patient')}
                 </Badge>
               )}
             </div>

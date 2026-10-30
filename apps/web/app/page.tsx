@@ -226,8 +226,8 @@ export default function LandingPage() {
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
             <span>
               {isBn
-                ? 'প্রতিষ্ঠাতা · সিইও · চিফ কনসালট্যান্ট · ডাঃ মোঃ তৌফিক উজ জামান'
-                : 'Founder · CEO · Head Doctor · Dr. Toufiq Uz Zaman'}
+                ? 'প্রতিষ্ঠাতা · সিইও · চিফ কনসালট্যান্ট · ডাক্তার মোঃ তৌফিক উজ জামান'
+                : 'Founder · CEO · Head Doctor · Doctor Toufiq Uz Zaman'}
             </span>
           </Badge>
 
@@ -270,8 +270,8 @@ export default function LandingPage() {
                 <MessageCircle className="size-5" />
                 <span>
                   {isBn
-                    ? 'ডাঃ তৌফিকের সাথে কথা বলুন (WhatsApp)'
-                    : 'Talk to Dr. Toufiq (WhatsApp)'}
+                    ? 'ডাক্তার তৌফিকের সাথে সরাসরি কথা বলুন'
+                    : 'Talk to Doctor Toufiq (WhatsApp)'}
                 </span>
                 <ArrowUpRight className="size-4" />
               </Button>
@@ -339,7 +339,7 @@ export default function LandingPage() {
                 100%
               </div>
               <div className="text-xs sm:text-sm text-muted-foreground mt-1">
-                {isBn ? 'রিয়েলটাইম EMR সিস্টেম' : 'Realtime EMR System'}
+                {isBn ? 'রিয়েলটাইম মেডিকেল রেকর্ড সিস্টেম' : 'Realtime EMR System'}
               </div>
             </div>
           </div>
@@ -375,7 +375,7 @@ export default function LandingPage() {
                     {isBn ? 'হেড ডক্টর ও পরিচালক' : 'Head Doctor & Director'}
                   </Badge>
                   <CardTitle className="text-lg font-bold text-foreground mt-1">
-                    {isBn ? 'ডাঃ মোঃ তৌফিক উজ জামান' : 'Dr. Md. Toufiq Uz Zaman'}
+                    {isBn ? 'ডাক্তার মোঃ তৌফিক উজ জামান' : 'Doctor Md. Toufiq Uz Zaman'}
                   </CardTitle>
                   <CardDescription className="text-xs text-muted-foreground mt-1 leading-relaxed">
                     BPT (DU), PGD (Acupuncture, China), MDMR (Pain Management,
@@ -463,8 +463,8 @@ export default function LandingPage() {
             </h2>
             <p className="text-sm sm:text-base text-muted-foreground mt-2 max-w-2xl">
               {isBn
-                ? 'মেরুদণ্ডের সমস্যা থেকে শুরু করে স্ট্রোক রিহ্যাবিলিটেশন—ডাঃ তৌফিকের নেতৃত্বে পরিচালিত হয় সমন্বিত চিকিৎসা।'
-                : 'From everyday spinal strain to complex neurological recovery, Dr. Toufiq combines modern clinical modalities with personalized attention.'}
+                ? 'মেরুদণ্ডের সমস্যা থেকে শুরু করে স্ট্রোক রিহ্যাবিলিটেশন—ডাক্তার তৌফিকের নেতৃত্বে পরিচালিত হয় সমন্বিত চিকিৎসা।'
+                : 'From everyday spinal strain to complex neurological recovery, Doctor Toufiq combines modern clinical modalities with personalized attention.'}
             </p>
           </div>
 
@@ -480,7 +480,7 @@ export default function LandingPage() {
                 </CardTitle>
                 <CardDescription className="text-xs text-muted-foreground leading-relaxed pt-1">
                   {isBn
-                    ? 'PLID, সায়াটিকা, লাম্বার স্পন্ডাইলোসিস এবং ডিস্ক প্রোল্যাপ্স চিকিৎসায় উন্নত স্পাইনাল ট্র্যাকশন ও রিহ্যাব।'
+                    ? 'সায়াটিকা, লাম্বার স্পন্ডাইলোসিস এবং ডিস্ক প্রোল্যাপ্স চিকিৎসায় উন্নত স্পাইনাল ট্র্যাকশন ও রিহ্যাব।'
                     : 'Targeted protocols for lumbar disc herniation, sciatica, postural strain, and acute disc pain.'}
                 </CardDescription>
               </CardHeader>
@@ -542,8 +542,8 @@ export default function LandingPage() {
             </h2>
             <p className="text-sm sm:text-base text-muted-foreground mt-2 max-w-2xl">
               {isBn
-                ? 'রিসেপশন, ডাক্তার চেম্বার, থেরাপি হল, ক্যাশিয়ার এবং ফার্মেসি সবই ইউনিফাইড অ্যাডমিন হাবের অন্তর্ভুক্ত এবং ওয়েটিং টিভি সম্পূর্ণ অফলাইন ও রিয়েলটাইমে সিঙ্ক থাকে।'
-                : 'All clinical workstations (Reception, Doctor Chamber, Therapy Hall, Cashier, and Pharmacy) are unified within the secure Admin Hub, while the Waiting Room Smart TV operates in continuous live sync.'}
+                ? 'রিসেপশন, ডাক্তার চেম্বার, থেরাপি হল, ক্যাশিয়ার এবং অ্যানালিটিক্স সবই ইউনিফাইড অ্যাডমিন হাবের অন্তর্ভুক্ত এবং ওয়েটিং টিভি সম্পূর্ণ অফলাইন ও রিয়েলটাইমে সিঙ্ক থাকে।'
+                : 'All clinical workstations (Reception, Doctor Chamber, Therapy Hall, Cashier, and Clinical Analytics) are unified within the secure Admin Hub, while the Waiting Room Smart TV operates in continuous live sync.'}
             </p>
           </div>
 
@@ -593,7 +593,7 @@ export default function LandingPage() {
                 </CardTitle>
                 <CardDescription className="text-xs text-muted-foreground mt-1.5">
                   {isBn
-                    ? 'ডাঃ তৌফিকের জন্য ওয়ান-ট্যাপ টোকেন কল, ডিজিটাল প্রেসক্রিপশন ও থেরাপিউটিক প্ল্যান।'
+                    ? 'ডাক্তার তৌফিকের জন্য ওয়ান-ট্যাপ টোকেন কল, ডিজিটাল প্রেসক্রিপশন ও থেরাপিউটিক প্ল্যান।'
                     : 'One-click patient call, integrated SOAP clinical records, and direct modality prescribing.'}
                 </CardDescription>
               </CardHeader>
@@ -649,13 +649,13 @@ export default function LandingPage() {
               </CardHeader>
             </Card>
 
-            {/* 5. Pharmacy */}
+            {/* 5. Clinical Reports & Analytics */}
             <Card className="rounded-2xl border-border bg-card hover:border-emerald-500/40 transition-all flex flex-col justify-between shadow-sm">
               <CardHeader className="p-5 pb-3">
                 <div className="flex items-center justify-between mb-2">
                   <Badge variant="emerald" className="gap-1.5 font-mono text-[11px]">
-                    <Pill className="size-3.5" />
-                    <span>Admin Hub · Pharmacy</span>
+                    <Activity className="size-3.5" />
+                    <span>Admin Hub · Analytics</span>
                   </Badge>
                   <Link href="/admin">
                     <Button variant="ghost" size="icon-sm" className="rounded-full">
@@ -664,12 +664,12 @@ export default function LandingPage() {
                   </Link>
                 </div>
                 <CardTitle className="text-base font-bold text-foreground">
-                  {isBn ? 'ফার্মেসি ও ঔষধ ব্যবস্থাপনা' : 'Pharmacy & Dispensary'}
+                  {isBn ? 'রিপোর্টস ও ক্লিনিক্যাল অ্যানালিটিক্স' : 'Clinical Reports & Audit'}
                 </CardTitle>
                 <CardDescription className="text-xs text-muted-foreground mt-1.5">
                   {isBn
-                    ? 'প্রেসক্রিপশন অনুযায়ী ডিসপেন্সিং, ড্রাগ ইনভেন্টরি ট্র্যাকিং ও স্টক অ্যালার্ট।'
-                    : 'Prescription dispensing, batch/expiry inventory tracking, and reorder alerts.'}
+                    ? 'দৈনিক আয়, মডালিটি ব্যবহার, রোগীর ফুটফল এবং রিয়েলটাইম ফিনান্সিয়াল অডিট।'
+                    : 'Daily collections, modality utilization stats, patient footfall, and clinical auditing.'}
                 </CardDescription>
               </CardHeader>
             </Card>
@@ -780,7 +780,7 @@ export default function LandingPage() {
                       +880 1515-615188
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      {isBn ? 'ডাঃ তৌফিকের নিজস্ব হোয়াটসঅ্যাপ' : 'Direct WhatsApp reply from Dr. Toufiq'}
+                      {isBn ? 'ডাক্তার তৌফিকের নিজস্ব হোয়াটসঅ্যাপ' : 'Direct WhatsApp reply from Doctor Toufiq'}
                     </div>
                   </div>
                 </div>

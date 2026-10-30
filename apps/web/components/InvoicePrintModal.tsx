@@ -13,6 +13,7 @@ import {
   X,
 } from 'lucide-react';
 import { printElementViaIframe, generateElementPdf } from '../lib/print-pdf';
+import { useLanguage } from '../lib/i18n';
 
 export interface InvoiceItem {
   itemType?: string;
@@ -106,6 +107,9 @@ export default function InvoicePrintModal({
   data,
 }: InvoicePrintModalProps) {
   if (!data) return null;
+
+  const { language } = useLanguage();
+  const isBn = language === 'bn';
 
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
@@ -255,14 +259,14 @@ export default function InvoicePrintModal({
                 </div>
                 <div className="min-w-0">
                   <DialogTitle className="text-xs sm:text-sm font-bold text-foreground truncate">
-                    মানি রসিদ ও ইনভয়েস (Money Receipt &amp; Invoice)
+                    {isBn ? 'মানি রসিদ ও ইনভয়েস' : 'Money Receipt & Invoice'}
                   </DialogTitle>
                   <div className="flex items-center gap-2 text-[10px] sm:text-[11px] text-muted-foreground mt-0.5 flex-wrap">
                     <span>
-                      বিল নম্বর: <strong className="text-foreground font-mono">{data.billNumber}</strong>
+                      {isBn ? 'বিল নম্বর:' : 'Bill No:'} <strong className="text-foreground font-mono">{data.billNumber}</strong>
                     </span>
                     <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 text-[9.5px] font-semibold">
-                      📄 HPC Custom Size (5.50&quot; × 8.27&quot;)
+                      {isBn ? '📄 এইচপিসি স্ট্যান্ডার্ড সাইজ (৫.৫০" × ৮.২৭")' : '📄 HPC Custom Size (5.50" × 8.27")'}
                     </span>
                   </div>
                 </div>
@@ -277,7 +281,7 @@ export default function InvoicePrintModal({
                 className="sm:hidden text-xs h-7 px-2 border border-border/60 text-foreground hover:bg-muted cursor-pointer shrink-0"
               >
                 <X className="size-3.5 mr-1" />
-                বন্ধ
+                {isBn ? 'বন্ধ' : 'Close'}
               </Button>
             </div>
 
@@ -291,7 +295,7 @@ export default function InvoicePrintModal({
                 className="hidden sm:inline-flex text-xs h-8 border-border text-foreground hover:bg-muted cursor-pointer"
               >
                 <X className="size-3.5 mr-1" />
-                বন্ধ করুন
+                {isBn ? 'বন্ধ করুন' : 'Close'}
               </Button>
               <Button
                 type="button"
@@ -304,12 +308,12 @@ export default function InvoicePrintModal({
                 {isExportingPdf ? (
                   <>
                     <Loader2 className="size-3.5 animate-spin text-emerald-600" />
-                    <span>পিডিএফ হচ্ছে...</span>
+                    <span>{isBn ? 'পিডিএফ হচ্ছে...' : 'Generating PDF...'}</span>
                   </>
                 ) : (
                   <>
                     <Download className="size-3.5 text-emerald-600 dark:text-emerald-400" />
-                    <span>HPC সাইজ পিডিএফ</span>
+                    <span>{isBn ? 'পিডিএফ ডাউনলোড' : 'Download PDF'}</span>
                   </>
                 )}
               </Button>
@@ -323,12 +327,12 @@ export default function InvoicePrintModal({
                 {isPrinting ? (
                   <>
                     <Loader2 className="size-3.5 animate-spin" />
-                    <span>প্রিন্টার লোড...</span>
+                    <span>{isBn ? 'প্রিন্টার লোড...' : 'Loading Printer...'}</span>
                   </>
                 ) : (
                   <>
                     <Printer className="size-3.5" />
-                    <span>প্রিন্ট HPC সাইজ ইনভয়েস (5.5&quot; × 8.27&quot;)</span>
+                    <span>{isBn ? 'ইনভয়েস প্রিন্ট (৫.৫" × ৮.২৭")' : 'Print Invoice (5.5" × 8.27")'}</span>
                   </>
                 )}
               </Button>
@@ -453,47 +457,47 @@ export default function InvoicePrintModal({
               {/* Money Receipt Meta Header Bar */}
               <div className="my-1.5 py-1 px-2.5 rounded bg-zinc-100 border border-zinc-200 flex items-center justify-between text-[9px]">
                 <div>
-                  <strong className="text-zinc-700">BILL NO:</strong>{' '}
+                  <strong className="text-zinc-700">{isBn ? 'বিল নম্বর:' : 'BILL NO:'}</strong>{' '}
                   <span className="font-mono font-bold text-emerald-800 text-[10px]">{data.billNumber}</span>
                 </div>
                 <div className="flex items-center gap-1 font-black text-zinc-900 tracking-wider uppercase text-[9.5px]">
                   <FileText className="size-3 text-emerald-600 inline" />
-                  <span>মানি রসিদ (MONEY RECEIPT)</span>
+                  <span>{isBn ? 'মানি রসিদ' : 'MONEY RECEIPT'}</span>
                 </div>
                 <div className="font-mono text-zinc-700 text-[8.5px]">
-                  <strong>DATE:</strong> {formattedDate} {formattedTime}
+                  <strong>{isBn ? 'তারিখ:' : 'DATE:'}</strong> {formattedDate} {formattedTime}
                 </div>
               </div>
 
               {/* Patient & Admission Clinical Details Box */}
               <div className="p-2 rounded border border-zinc-200 bg-zinc-50/70 grid grid-cols-2 gap-x-3 gap-y-1 text-[9.5px] mb-1.5">
                 <div>
-                  <span className="text-zinc-500">রোগীর নাম (Patient):</span>{' '}
+                  <span className="text-zinc-500">{isBn ? 'রোগীর নাম:' : 'Patient Name:'}</span>{' '}
                   <strong className="text-zinc-900">
-                    {data.patientName} {data.patientNameBn && `(${data.patientNameBn})`}
+                    {isBn ? (data.patientNameBn || data.patientName) : (data.patientName || data.patientNameBn)}
                   </strong>
                 </div>
                 <div className="text-right">
-                  <span className="text-zinc-500">MRN / রেজি নং:</span>{' '}
+                  <span className="text-zinc-500">{isBn ? 'রেজি নং:' : 'MRN:'}</span>{' '}
                   <strong className="font-mono text-zinc-900 font-bold">{data.mrn}</strong>
                 </div>
                 <div>
-                  <span className="text-zinc-500">মোবাইল (Phone):</span>{' '}
+                  <span className="text-zinc-500">{isBn ? 'মোবাইল:' : 'Phone:'}</span>{' '}
                   <span className="font-mono font-medium text-zinc-800">{data.phone || 'N/A'}</span>
                 </div>
                 <div className="text-right">
-                  <span className="text-zinc-500">বয়স / লিঙ্গ:</span>{' '}
+                  <span className="text-zinc-500">{isBn ? 'বয়স / লিঙ্গ:' : 'Age / Gender:'}</span>{' '}
                   <span className="text-zinc-800">
-                    {data.ageYears ? `${data.ageYears} Y` : '-'} /{' '}
-                    {data.gender === 'female' ? 'মহিলা (Female)' : 'পুরুষ (Male)'}
+                    {data.ageYears ? (isBn ? `${data.ageYears} বছর` : `${data.ageYears} Y`) : '-'} /{' '}
+                    {data.gender === 'female' ? (isBn ? 'মহিলা' : 'Female') : (isBn ? 'পুরুষ' : 'Male')}
                   </span>
                 </div>
                 <div className="col-span-2 pt-0.5 border-t border-zinc-200/70 text-[8.5px] text-zinc-600 flex justify-between items-center">
                   <span>
-                    আদায়কারী ক্যাশিয়ার: <strong className="text-zinc-800">{data.cashierName || 'Cashier Desk'}</strong>
+                    {isBn ? 'আদায়কারী ক্যাশিয়ার:' : 'Cashier:'} <strong className="text-zinc-800">{data.cashierName || 'Cashier Desk'}</strong>
                   </span>
                   <span className="uppercase font-mono">
-                    পদ্ধতি: <strong className="text-zinc-800">{data.paymentMethod}</strong>
+                    {isBn ? 'পদ্ধতি:' : 'Method:'} <strong className="text-zinc-800">{data.paymentMethod}</strong>
                     {data.txnId ? ` (Txn: ${data.txnId})` : ''}
                   </span>
                 </div>
@@ -504,10 +508,10 @@ export default function InvoicePrintModal({
                 <thead className="bg-zinc-100 border-b border-zinc-300 font-bold text-zinc-800">
                   <tr>
                     <th className="py-1 px-1.5 w-6 text-center border-r border-zinc-300">#</th>
-                    <th className="py-1 px-2 border-r border-zinc-300">সেবা / বিবরণের নাম (Item Description)</th>
-                    <th className="py-1 px-1.5 w-10 text-center border-r border-zinc-300">পরিমাণ</th>
-                    <th className="py-1 px-2 w-14 text-right border-r border-zinc-300">দর (৳)</th>
-                    <th className="py-1 px-2 w-16 text-right">মোট (৳)</th>
+                    <th className="py-1 px-2 border-r border-zinc-300">{isBn ? 'সেবা / বিবরণের নাম' : 'Item Description'}</th>
+                    <th className="py-1 px-1.5 w-10 text-center border-r border-zinc-300">{isBn ? 'পরিমাণ' : 'Qty'}</th>
+                    <th className="py-1 px-2 w-14 text-right border-r border-zinc-300">{isBn ? 'দর (টাকা)' : 'Rate (BDT)'}</th>
+                    <th className="py-1 px-2 w-16 text-right">{isBn ? 'মোট (টাকা)' : 'Total (BDT)'}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-200">
@@ -542,58 +546,65 @@ export default function InvoicePrintModal({
                 <div className="col-span-7 flex flex-col justify-between space-y-1.5">
                   <div className="p-1.5 rounded border border-emerald-200 bg-emerald-50/50 text-[8.5px]">
                     <span className="text-zinc-600 font-semibold block text-[8px] uppercase tracking-wider">
-                      টাকার পরিমাণ কথায় (Amount in Words):
+                      {isBn ? 'টাকার পরিমাণ কথায়:' : 'Amount in Words:'}
                     </span>
                     <div className="font-bold text-emerald-950 leading-tight mt-0.5">
-                      {wordsBn}
-                    </div>
-                    <div className="text-zinc-600 italic text-[7.5px] mt-0.5">
-                      ({wordsEn})
+                      {isBn ? wordsBn : wordsEn}
                     </div>
                   </div>
 
                   <div className="text-[8px] text-zinc-500 space-y-0.5 leading-tight pl-0.5">
-                    <p>• এটি একটি কম্পিউটার জেনারেটেড ডিজিটাল মানি রসিদ।</p>
-                    <p>• সেবা গ্রহণের সময় এই রসিদটি সাথে রাখা আবশ্যক।</p>
-                    <p>• যেকোনো তথ্যে গরমিল পরিলক্ষিত হলে অবিলম্বে কর্তৃপক্ষকে জানান।</p>
+                    {isBn ? (
+                      <>
+                        <p>• এটি একটি কম্পিউটার জেনারেটেড ডিজিটাল মানি রসিদ।</p>
+                        <p>• সেবা গ্রহণের সময় এই রসিদটি সাথে রাখা আবশ্যক।</p>
+                        <p>• যেকোনো তথ্যে গরমিল পরিলক্ষিত হলে অবিলম্বে কর্তৃপক্ষকে জানান।</p>
+                      </>
+                    ) : (
+                      <>
+                        <p>• This is a computer-generated digital money receipt.</p>
+                        <p>• Please retain this receipt during clinic service hours.</p>
+                        <p>• Please notify management of any billing discrepancies.</p>
+                      </>
+                    )}
                   </div>
                 </div>
 
                 {/* Right Column: Financial Calculation Summary Box */}
                 <div className="col-span-5 text-[9px] space-y-0.5 font-mono border border-zinc-200 rounded p-1.5 bg-zinc-50/50">
                   <div className="flex justify-between py-0.5 border-b border-zinc-200">
-                    <span className="text-zinc-600">সর্বমোট (Subtotal):</span>
+                    <span className="text-zinc-600">{isBn ? 'উপমোট:' : 'Subtotal:'}</span>
                     <strong className="text-zinc-900">৳{data.subtotalTaka.toLocaleString('en-IN')}</strong>
                   </div>
 
                   {data.discountTaka > 0 && (
                     <div className="flex justify-between py-0.5 border-b border-zinc-200 text-emerald-700">
-                      <span>ছাড় (Discount):</span>
+                      <span>{isBn ? 'ছাড়:' : 'Discount:'}</span>
                       <strong>-৳{data.discountTaka.toLocaleString('en-IN')}</strong>
                     </div>
                   )}
 
                   <div className="flex justify-between py-0.5 border-b-2 border-emerald-600 text-[10px] font-bold text-emerald-900 bg-emerald-50/60 px-1 rounded">
-                    <span>নীট প্রদেয় (Net Total):</span>
+                    <span>{isBn ? 'নীট প্রদেয়:' : 'Net Total:'}</span>
                     <span>৳{data.totalTaka.toLocaleString('en-IN')}</span>
                   </div>
 
                   <div className="flex justify-between py-0.5 text-emerald-800 font-bold px-1">
-                    <span>পরিশোধিত (Paid):</span>
+                    <span>{isBn ? 'পরিশোধিত:' : 'Paid:'}</span>
                     <span>৳{data.paidTaka.toLocaleString('en-IN')}</span>
                   </div>
 
                   {data.dueTaka > 0 ? (
                     <div className="flex justify-between py-0.5 text-red-600 font-bold border-t border-dashed border-red-300 px-1">
-                      <span>বকেয়া (Balance Due):</span>
+                      <span>{isBn ? 'বকেয়া:' : 'Balance Due:'}</span>
                       <span>৳{data.dueTaka.toLocaleString('en-IN')}</span>
                     </div>
                   ) : (
                     <div className="flex justify-between py-0.5 text-emerald-700 font-bold text-[8px] px-1 border-t border-emerald-200">
-                      <span>স্থিতি:</span>
+                      <span>{isBn ? 'স্থিতি:' : 'Status:'}</span>
                       <span className="flex items-center gap-0.5">
                         <CheckCircle2 className="size-2.5 inline" />
-                        সম্পূর্ণ পরিশোধিত (FULL PAID)
+                        {isBn ? 'সম্পূর্ণ পরিশোধিত' : 'FULLY PAID'}
                       </span>
                     </div>
                   )}
@@ -605,15 +616,13 @@ export default function InvoicePrintModal({
                 <div className="grid grid-cols-2 gap-4 text-center text-[8.5px] mb-1.5">
                   <div className="pt-4">
                     <div className="border-t border-dashed border-zinc-400 mx-3 pt-0.5 font-semibold text-zinc-700">
-                      গ্রাহক / জমাদানকারীর স্বাক্ষর
+                      {isBn ? 'গ্রাহক / জমাদানকারীর স্বাক্ষর' : 'Patient / Payee Signature'}
                     </div>
-                    <div className="text-[7.5px] text-zinc-500">(Patient / Payee Signature)</div>
                   </div>
                   <div className="pt-4">
                     <div className="border-t border-dashed border-zinc-400 mx-3 pt-0.5 font-semibold text-zinc-700">
-                      কর্তৃপক্ষ / আদায়কারী ক্যাশিয়ারের স্বাক্ষর
+                      {isBn ? 'কর্তৃপক্ষ / আদায়কারী ক্যাশিয়ারের স্বাক্ষর' : 'Authorized Cashier Signature'}
                     </div>
-                    <div className="text-[7.5px] text-zinc-500">(Authorized Cashier Signature)</div>
                   </div>
                 </div>
 
@@ -636,7 +645,7 @@ export default function InvoicePrintModal({
             className="w-full sm:w-auto text-xs h-8 border-border text-foreground hover:bg-muted cursor-pointer"
           >
             <X className="size-3.5 mr-1" />
-            বন্ধ করুন (Close)
+            {isBn ? 'বন্ধ করুন' : 'Close'}
           </Button>
 
           <div className="flex items-center gap-2 w-full sm:w-auto">
@@ -656,7 +665,7 @@ export default function InvoicePrintModal({
               ) : (
                 <>
                   <Download className="size-3.5 text-emerald-600 dark:text-emerald-400" />
-                  <span>HPC সাইজ পিডিএফ</span>
+                  <span>{isBn ? 'পিডিএফ ডাউনলোড' : 'Download PDF'}</span>
                 </>
               )}
             </Button>
@@ -676,7 +685,7 @@ export default function InvoicePrintModal({
               ) : (
                 <>
                   <Printer className="size-3.5" />
-                  <span>প্রিন্ট HPC সাইজ ইনভয়েস (5.5&quot; × 8.27&quot;)</span>
+                  <span>{isBn ? 'ইনভয়েস প্রিন্ট করুন' : 'Print Invoice'}</span>
                 </>
               )}
             </Button>

@@ -139,6 +139,27 @@ const ROLE_CONFIG = {
 
 type PermittedRole = keyof typeof ROLE_CONFIG;
 
+function compareSemver(v1: string, v2: string): number {
+  const clean = (v: string) => (v || '').replace(/^v/i, '').trim();
+  const c1 = clean(v1);
+  const c2 = clean(v2);
+
+  const core1 = c1.split('-')[0] ?? '';
+  const core2 = c2.split('-')[0] ?? '';
+
+  const parts1 = core1.split('.').map((n) => parseInt(n, 10) || 0);
+  const parts2 = core2.split('.').map((n) => parseInt(n, 10) || 0);
+
+  const len = Math.max(parts1.length, parts2.length);
+  for (let i = 0; i < len; i++) {
+    const p1 = parts1[i] ?? 0;
+    const p2 = parts2[i] ?? 0;
+    if (p1 > p2) return 1;
+    if (p1 < p2) return -1;
+  }
+  return 0;
+}
+
 export default function UsersAndDeviceManagementView() {
   const { language } = useLanguage();
   const isBn = language === 'bn';
@@ -151,6 +172,7 @@ export default function UsersAndDeviceManagementView() {
   const [tvDevices, setTvDevices] = useState<TvDeviceRecord[]>([]);
   const [sessions, setSessions] = useState<UserSessionRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [latestTvVersion, setLatestTvVersion] = useState<string>('0.1.54');
 
   // Filter & Search states
   const [searchQuery, setSearchQuery] = useState('');
@@ -227,6 +249,18 @@ export default function UsersAndDeviceManagementView() {
       if (uRes.success && uRes.data) setUsers(uRes.data);
       if (tvRes.success && tvRes.data) setTvDevices(tvRes.data);
       if (sRes.success && sRes.data) setSessions(sRes.data);
+
+      try {
+        const updateRes = await fetch('/api/updates/check?platform=android-tv');
+        if (updateRes.ok) {
+          const updateData = await updateRes.json();
+          if (updateData?.latestVersion) {
+            setLatestTvVersion(updateData.latestVersion);
+          }
+        }
+      } catch {
+        // Fallback to default
+      }
     } catch {
       toast.error(isBn ? 'তথ্য লোড করতে ব্যর্থ হয়েছে' : 'Failed to load data');
     } finally {
@@ -245,9 +279,29 @@ export default function UsersAndDeviceManagementView() {
   }, []);
 
   useRealtime((event) => {
-    if (
-      event.type.startsWith('tv:')
-    ) {
+    if (event.type.startsWith('tv:')) {
+      if (event.payload) {
+        setTvDevices((prev) =>
+          prev.map((d) => {
+            const matchesId = event.payload.id && d.id === event.payload.id;
+            const matchesCode = event.payload.pairingCode && d.pairingCode === event.payload.pairingCode;
+            if (matchesId || matchesCode) {
+              return {
+                ...d,
+                ...(event.payload.appVersion ? { appVersion: event.payload.appVersion } : {}),
+                ...(event.payload.lastSeenAt
+                  ? { lastSeenAt: event.payload.lastSeenAt }
+                  : { lastSeenAt: new Date().toISOString() }),
+                isOnline: event.payload.isOnline !== undefined ? Boolean(event.payload.isOnline) : true,
+                ...(event.payload.forceUpdate !== undefined ? { forceUpdate: event.payload.forceUpdate ? 1 : 0 } : {}),
+                ...(event.payload.deviceName ? { deviceName: event.payload.deviceName } : {}),
+                ...(event.payload.status ? { status: event.payload.status } : {}),
+              };
+            }
+            return d;
+          }),
+        );
+      }
       listTvDevicesAction().then((tvRes) => {
         if (tvRes.success && tvRes.data) setTvDevices(tvRes.data);
       });
@@ -826,12 +880,12 @@ export default function UsersAndDeviceManagementView() {
                     <SelectValue placeholder={isBn ? 'পদবী ফিল্টার' : 'Filter by role'} />
                   </SelectTrigger>
                   <SelectContent className="bg-popover/95 backdrop-blur-md border-border/80 shadow-xl">
-                    <SelectItem value="all">{isBn ? 'সকল পদবী (All Roles)' : 'All Roles'}</SelectItem>
-                    <SelectItem value="admin">Admin · এডমিন</SelectItem>
-                    <SelectItem value="doctor">Doctor · ডাক্তার</SelectItem>
-                    <SelectItem value="handler">Handler · হ্যান্ডলার</SelectItem>
-                    <SelectItem value="cashier">Cashier · ক্যাশিয়ার</SelectItem>
-                    <SelectItem value="receptionist">Receptionist · রিসেপশনিস্ট</SelectItem>
+                    <SelectItem value="all">{isBn ? 'সকল পদবী' : 'All Roles'}</SelectItem>
+                    <SelectItem value="admin">{isBn ? 'এডমিন' : 'Admin'}</SelectItem>
+                    <SelectItem value="doctor">{isBn ? 'ডাক্তার' : 'Doctor'}</SelectItem>
+                    <SelectItem value="handler">{isBn ? 'হ্যান্ডলার' : 'Handler'}</SelectItem>
+                    <SelectItem value="cashier">{isBn ? 'ক্যাশিয়ার' : 'Cashier'}</SelectItem>
+                    <SelectItem value="receptionist">{isBn ? 'রিসেপশনিস্ট' : 'Receptionist'}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -854,7 +908,7 @@ export default function UsersAndDeviceManagementView() {
                   <TableHeader>
                     <TableRow className="hover:bg-transparent border-border/80">
                       <TableHead className="w-[280px]">{isBn ? 'ব্যবহারকারী' : 'User'}</TableHead>
-                      <TableHead>{isBn ? 'পদবী (Role)' : 'Role'}</TableHead>
+                      <TableHead>{isBn ? 'পদবী' : 'Role'}</TableHead>
                       <TableHead>{isBn ? 'ফোন / হোয়াটসঅ্যাপ' : 'Phone / WhatsApp'}</TableHead>
                       <TableHead>{isBn ? 'অনুমোদন' : 'Approval'}</TableHead>
                       <TableHead>{isBn ? 'স্ট্যাটাস' : 'Status'}</TableHead>
@@ -1128,7 +1182,7 @@ export default function UsersAndDeviceManagementView() {
                 </div>
                 <p className="text-xs text-muted-foreground max-w-3xl leading-relaxed">
                   {isBn
-                    ? 'যেকোনো অ্যান্ড্রয়েড টিভিতে HPC TV অ্যাপটি ইনস্টল করে ওপেন করলে স্ক্রিনে একটি ৪-সংখ্যার পেয়ারিং কোড (যেমন: HPC-7824) দেখাবে। "নতুন টিভি সংযুক্ত করুন" বাটনে ক্লিক করে কোডটি দিলেই সাথে সাথে টিভিটি লাইভ কিউ ডিসপ্লে শুরু করবে।'
+                    ? (isBn ? 'যেকোনো অ্যান্ড্রয়েড টিভিতে এইচপিসি টিভি অ্যাপটি ইনস্টল করে ওপেন করলে স্ক্রিনে একটি ৪-সংখ্যার পেয়ারিং কোড দেখাবে। "নতুন টিভি সংযুক্ত করুন" বাটনে ক্লিক করে কোডটি দিলেই সাথে সাথে টিভিটি লাইভ কিউ ডিসপ্লে শুরু করবে।' : 'Install and open HPC TV app on Android TV to see a 4-digit pairing code. Click "Pair New TV" to connect live queue display.')
                     : 'When the HPC TV Android app is launched on any waiting room TV, an activation screen displays a pairing code (e.g. HPC-7824). Click "Pair New TV" and submit the code to activate the live queue stream instantly.'}
                 </p>
               </div>
@@ -1228,14 +1282,14 @@ export default function UsersAndDeviceManagementView() {
                         <div className="text-[11px] text-muted-foreground flex items-center gap-1">
                           <span className="font-semibold">{isBn ? 'থিম:' : 'Theme:'}</span>
                           <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5 font-bold">
-                            {tv.theme === 'light' ? '☀️ Light' : '🌙 Dark'}
+                            {tv.theme === 'light' ? (isBn ? '☀️ লাইট' : '☀️ Light') : (isBn ? '🌙 ডার্ক' : '🌙 Dark')}
                           </Badge>
                         </div>
 
                         <div className="text-[11px] text-muted-foreground flex items-center gap-1">
                           <span className="font-semibold">{isBn ? 'ভাষা:' : 'Lang:'}</span>
                           <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5 font-bold">
-                            {tv.language === 'en' ? '🇬🇧 English' : '🇧🇩 বাংলা'}
+                            {tv.language === 'en' ? (isBn ? '🇬🇧 ইংরেজি' : '🇬🇧 English') : (isBn ? '🇧🇩 বাংলা' : '🇧🇩 Bengali')}
                           </Badge>
                         </div>
 
@@ -1244,16 +1298,25 @@ export default function UsersAndDeviceManagementView() {
                             <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 font-mono">
                               v{tv.appVersion}
                             </Badge>
-                            {tv.appVersion !== '0.1.50' && (
+                            {compareSemver(latestTvVersion, tv.appVersion) > 0 ? (
                               <Badge className="bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 text-[9px] px-1.5 py-0 h-4 font-semibold">
-                                {isBn ? 'আপডেট আবশ্যক' : 'Outdated'}
+                                {isBn ? 'আপডেট আবশ্যক' : 'Update available'}
+                              </Badge>
+                            ) : (
+                              <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 text-[9px] px-1.5 py-0 h-4 font-semibold">
+                                {isBn ? 'সর্বশেষ সংস্করণ' : 'Up to date'}
                               </Badge>
                             )}
                           </div>
                         ) : (
-                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 font-mono text-muted-foreground">
-                            v0.1.0
-                          </Badge>
+                          <div className="flex items-center gap-1">
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 font-mono text-muted-foreground">
+                              v0.1.0
+                            </Badge>
+                            <Badge className="bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 text-[9px] px-1.5 py-0 h-4 font-semibold">
+                              {isBn ? 'আপডেট আবশ্যক' : 'Update available'}
+                            </Badge>
+                          </div>
                         )}
 
                         {tv.ipAddress && (
@@ -1549,7 +1612,7 @@ export default function UsersAndDeviceManagementView() {
                 <Label className="text-xs font-bold">{isBn ? 'পূর্ণ নাম' : 'Display Name'} *</Label>
                 <Input
                   required
-                  placeholder={isBn ? 'যেমন: ডা. বিশেষজ্ঞ' : 'e.g. Dr. Specialist'}
+                  placeholder={isBn ? 'যেমন: ডাক্তার বিশেষজ্ঞ' : 'e.g. Doctor Specialist'}
                   value={createForm.displayName}
                   onChange={(e) => setCreateForm({ ...createForm, displayName: e.target.value })}
                   className="rounded-xl h-10 text-xs sm:text-sm"
@@ -1570,7 +1633,7 @@ export default function UsersAndDeviceManagementView() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-bold">{isBn ? 'অনুমোদিত পদবী (Role)' : 'Role'} *</Label>
+                  <Label className="text-xs font-bold">{isBn ? 'অনুমোদিত পদবী' : 'Role'} *</Label>
                   <Select
                     value={createForm.role}
                     onValueChange={(val: PermittedRole) => setCreateForm({ ...createForm, role: val })}
@@ -1579,11 +1642,11 @@ export default function UsersAndDeviceManagementView() {
                       <SelectValue placeholder={isBn ? 'পদবী নির্বাচন' : 'Select role'} />
                     </SelectTrigger>
                     <SelectContent className="bg-popover/95 backdrop-blur-md border-border/80 shadow-xl">
-                      <SelectItem value="admin">Admin · এডমিন</SelectItem>
-                      <SelectItem value="doctor">Doctor · ডাক্তার</SelectItem>
-                      <SelectItem value="handler">Handler · হ্যান্ডলার</SelectItem>
-                      <SelectItem value="cashier">Cashier · ক্যাশিয়ার</SelectItem>
-                      <SelectItem value="receptionist">Receptionist · রিসেপশনিস্ট</SelectItem>
+                      <SelectItem value="admin">{isBn ? 'এডমিন' : 'Admin'}</SelectItem>
+                      <SelectItem value="doctor">{isBn ? 'ডাক্তার' : 'Doctor'}</SelectItem>
+                      <SelectItem value="handler">{isBn ? 'হ্যান্ডলার' : 'Handler'}</SelectItem>
+                      <SelectItem value="cashier">{isBn ? 'ক্যাশিয়ার' : 'Cashier'}</SelectItem>
+                      <SelectItem value="receptionist">{isBn ? 'রিসেপশনিস্ট' : 'Receptionist'}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -1672,7 +1735,7 @@ export default function UsersAndDeviceManagementView() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-bold">{isBn ? 'অনুমোদিত পদবী (Role)' : 'Role'} *</Label>
+                  <Label className="text-xs font-bold">{isBn ? 'অনুমোদিত পদবী' : 'Role'} *</Label>
                   <Select
                     value={editForm.role}
                     onValueChange={(val: PermittedRole) => setEditForm({ ...editForm, role: val })}
@@ -1681,11 +1744,11 @@ export default function UsersAndDeviceManagementView() {
                       <SelectValue placeholder={isBn ? 'পদবী নির্বাচন' : 'Select role'} />
                     </SelectTrigger>
                     <SelectContent className="bg-popover/95 backdrop-blur-md border-border/80 shadow-xl">
-                      <SelectItem value="admin">Admin · এডমিন</SelectItem>
-                      <SelectItem value="doctor">Doctor · ডাক্তার</SelectItem>
-                      <SelectItem value="handler">Handler · হ্যান্ডলার</SelectItem>
-                      <SelectItem value="cashier">Cashier · ক্যাশিয়ার</SelectItem>
-                      <SelectItem value="receptionist">Receptionist · রিসেপশনিস্ট</SelectItem>
+                      <SelectItem value="admin">{isBn ? 'এডমিন' : 'Admin'}</SelectItem>
+                      <SelectItem value="doctor">{isBn ? 'ডাক্তার' : 'Doctor'}</SelectItem>
+                      <SelectItem value="handler">{isBn ? 'হ্যান্ডলার' : 'Handler'}</SelectItem>
+                      <SelectItem value="cashier">{isBn ? 'ক্যাশিয়ার' : 'Cashier'}</SelectItem>
+                      <SelectItem value="receptionist">{isBn ? 'রিসেপশনিস্ট' : 'Receptionist'}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -1846,8 +1909,8 @@ export default function UsersAndDeviceManagementView() {
                       <SelectValue placeholder={isBn ? 'থিম নির্বাচন করুন' : 'Select Theme'} />
                     </SelectTrigger>
                     <SelectContent className="bg-popover/95 backdrop-blur-md border-border/80 shadow-xl">
-                      <SelectItem value="dark">🌙 {isBn ? 'ডার্ক থিম (Dark)' : 'Dark Theme'}</SelectItem>
-                      <SelectItem value="light">☀️ {isBn ? 'লাইট থিম (Light)' : 'Light Theme'}</SelectItem>
+                      <SelectItem value="dark">🌙 {isBn ? 'ডার্ক থিম' : 'Dark Theme'}</SelectItem>
+                      <SelectItem value="light">☀️ {isBn ? 'লাইট থিম' : 'Light Theme'}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -1864,8 +1927,8 @@ export default function UsersAndDeviceManagementView() {
                       <SelectValue placeholder={isBn ? 'ভাষা নির্বাচন করুন' : 'Select Language'} />
                     </SelectTrigger>
                     <SelectContent className="bg-popover/95 backdrop-blur-md border-border/80 shadow-xl">
-                      <SelectItem value="bn">🇧🇩 {isBn ? 'বাংলা (Bangla)' : 'Bangla'}</SelectItem>
-                      <SelectItem value="en">🇬🇧 {isBn ? 'ইংরেজি (English)' : 'English'}</SelectItem>
+                      <SelectItem value="bn">🇧🇩 {isBn ? 'বাংলা' : 'Bangla'}</SelectItem>
+                      <SelectItem value="en">🇬🇧 {isBn ? 'ইংরেজি' : 'English'}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

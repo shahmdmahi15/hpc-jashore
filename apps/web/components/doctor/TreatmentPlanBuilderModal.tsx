@@ -30,6 +30,7 @@ import {
   SelectValue,
 } from '../ui/select';
 import { api } from '../../lib/api';
+import { useLanguage } from '../../lib/i18n';
 import { toast } from 'sonner';
 import {
   Activity,
@@ -73,7 +74,8 @@ export interface TreatmentPlanBuilderModalProps {
 
 const COMMON_PRESETS = [
   {
-    name: 'ল্যাম্বার স্পন্ডিলোসিস / কোমর ব্যথা (Lumbar Pack)',
+    nameBn: 'ল্যাম্বার প্যাক (কোমর ব্যথা)',
+    nameEn: 'Lumbar Pack (Low Back Pain)',
     items: [
       { modalityCode: 'IFT', modalityName: 'Interferential Therapy (IFT)', modalityNameBn: 'ইন্টারফেরেনশিয়াল থেরাপি', durationMinutes: 10, totalSessionsPrescribed: 10, frequency: 'daily', notes: '4-pole sweep 80-120Hz' },
       { modalityCode: 'MANUAL', modalityName: 'Manual Therapy & Mobilization', modalityNameBn: 'ম্যানুয়াল থেরাপি', durationMinutes: 15, totalSessionsPrescribed: 10, frequency: 'daily', notes: 'Lumbar spine mobilization & stretching' },
@@ -81,7 +83,8 @@ const COMMON_PRESETS = [
     ],
   },
   {
-    name: 'সারভাইকাল রেডিকুলোপ্যাথি / ঘাড় ব্যথা (Cervical Pack)',
+    nameBn: 'সারভাইকাল প্যাক (ঘাড় ব্যথা)',
+    nameEn: 'Cervical Pack (Neck Pain)',
     items: [
       { modalityCode: 'TRACTION', modalityName: 'Cervical Traction', modalityNameBn: 'সারভাইকাল ট্র্যাকশন', durationMinutes: 15, totalSessionsPrescribed: 10, frequency: 'daily', notes: 'Intermittent 8kg - 10kg' },
       { modalityCode: 'UST', modalityName: 'Ultrasound Therapy (UST)', modalityNameBn: 'আল্ট্রাসাউন্ড থেরাপি', durationMinutes: 10, totalSessionsPrescribed: 10, frequency: 'daily', notes: '1.2 W/cm² pulsed mode' },
@@ -89,7 +92,8 @@ const COMMON_PRESETS = [
     ],
   },
   {
-    name: 'হাঁটু ব্যথা / অস্টিওআর্থ্রাইটিস (Knee OA Pack)',
+    nameBn: 'হাঁটু ব্যথা প্যাক (অস্টিওআর্থ্রাইটিস)',
+    nameEn: 'Knee OA Pack (Osteoarthritis)',
     items: [
       { modalityCode: 'SWD', modalityName: 'Shortwave Diathermy (SWD)', modalityNameBn: 'শর্টওয়েভ ডায়াথার্মি', durationMinutes: 20, totalSessionsPrescribed: 10, frequency: 'daily', notes: 'Contra-planar knee placement' },
       { modalityCode: 'IFT', modalityName: 'IFT / TENS', modalityNameBn: 'আইএফটি / টেনস', durationMinutes: 15, totalSessionsPrescribed: 10, frequency: 'daily', notes: 'Pain gate modulation' },
@@ -97,7 +101,8 @@ const COMMON_PRESETS = [
     ],
   },
   {
-    name: 'ফ্রোজেন শোল্ডার (Frozen Shoulder Pack)',
+    nameBn: 'ফ্রোজেন শোল্ডার প্যাক',
+    nameEn: 'Frozen Shoulder Pack',
     items: [
       { modalityCode: 'IRR', modalityName: 'Infrared Radiation (IRR)', modalityNameBn: 'ইনফ্রারেড রেডিয়েশন', durationMinutes: 15, totalSessionsPrescribed: 10, frequency: 'daily', notes: 'Pre-heating shoulder capsule' },
       { modalityCode: 'UST', modalityName: 'Ultrasound Therapy (UST)', modalityNameBn: 'আল্ট্রাসাউন্ড থেরাপি', durationMinutes: 10, totalSessionsPrescribed: 10, frequency: 'daily', notes: 'Deep thermal on anterior/posterior capsule' },
@@ -115,6 +120,8 @@ export function TreatmentPlanBuilderModal({
   onPlansSaved,
   initialPlans = [],
 }: TreatmentPlanBuilderModalProps) {
+  const { language } = useLanguage();
+  const isBn = language === 'bn';
   const [modalitiesCatalog, setModalitiesCatalog] = useState<any[]>([]);
   const [loadingCatalog, setLoadingCatalog] = useState(false);
   const [searchModality, setSearchModality] = useState('');
@@ -240,7 +247,7 @@ export function TreatmentPlanBuilderModal({
     };
 
     setSelectedPlans([...selectedPlans, newItem]);
-    toast.success(`${modality.nameEn} ধাপ ${nextSeq} হিসেবে যুক্ত করা হয়েছে`);
+    toast.success(isBn ? `${modality.nameBn || modality.nameEn} ধাপ ${nextSeq} হিসেবে যুক্ত করা হয়েছে` : `${modality.nameEn || modality.nameBn} added as step ${nextSeq}`);
   };
 
   const handleApplyPreset = (preset: typeof COMMON_PRESETS[0]) => {
@@ -249,7 +256,7 @@ export function TreatmentPlanBuilderModal({
       sequenceOrder: idx + 1,
     }));
     setSelectedPlans(newItems);
-    toast.success(`${preset.name} সফলভাবে প্রয়োগ করা হয়েছে!`);
+    toast.success(isBn ? `${preset.nameBn} সফলভাবে প্রয়োগ করা হয়েছে!` : `${preset.nameEn} applied successfully!`);
   };
 
   const handleMoveUp = (index: number) => {
@@ -361,10 +368,12 @@ export function TreatmentPlanBuilderModal({
                   <span className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
                     <Activity className="size-5" />
                   </span>
-                  <span>থেরাপি ট্রিটমেন্ট প্ল্যান বিল্ডার (Therapy Plan Builder)</span>
+                  <span>{isBn ? 'থেরাপি ট্রিটমেন্ট প্ল্যান বিল্ডার' : 'Therapy Plan Builder'}</span>
                 </DialogTitle>
                 <DialogDescription className="text-xs text-muted-foreground mt-0.5">
-                  মডালিটির সিকোয়েন্স (১ম, ২য়, ৩য়...), প্রতিটির সময়সীমা (মিনিট) ও মোট সেশন নির্ধারণ করুন
+                  {isBn
+                    ? 'মডালিটির সিকোয়েন্স (১ম, ২য়, ৩য়...), প্রতিটির সময়সীমা (মিনিট) ও মোট সেশন নির্ধারণ করুন'
+                    : 'Set modality sequence, duration per modality (minutes), and total sessions'}
                 </DialogDescription>
               </div>
 
@@ -387,9 +396,9 @@ export function TreatmentPlanBuilderModal({
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
                   <Sparkles className="size-3.5 text-amber-500" />
-                  <span>ক্লিনিক্যাল ট্রিটমেন্ট প্রি-সেট প্যাকেজ (Quick Presets):</span>
+                  <span>{isBn ? 'ক্লিনিক্যাল ট্রিটমেন্ট প্রি-সেট প্যাকেজ:' : 'Clinical Treatment Presets:'}</span>
                 </span>
-                <span className="text-[10px] text-muted-foreground">১-ক্লিকে রেডি প্ল্যান লোড করুন</span>
+                <span className="text-[10px] text-muted-foreground">{isBn ? '১-ক্লিকে রেডি প্ল্যান লোড করুন' : '1-click load ready plan'}</span>
               </div>
               <div className="flex flex-wrap gap-1.5">
                 {COMMON_PRESETS.map((preset, idx) => (
@@ -401,7 +410,7 @@ export function TreatmentPlanBuilderModal({
                     onClick={() => handleApplyPreset(preset)}
                     className="h-7 text-[11px] rounded-lg border-border hover:border-emerald-500/50 hover:bg-emerald-500/10 font-medium"
                   >
-                    <span>{preset.name}</span>
+                    <span>{isBn ? preset.nameBn : preset.nameEn}</span>
                   </Button>
                 ))}
               </div>
@@ -413,17 +422,17 @@ export function TreatmentPlanBuilderModal({
                 <div>
                   <Label className="text-xs sm:text-sm font-bold flex items-center gap-1.5 text-foreground">
                     <Layers className="size-4 text-emerald-500" />
-                    <span>মডালিটি নির্বাচন করুন (Select Modalities)</span>
+                    <span>{isBn ? 'মডালিটি নির্বাচন করুন' : 'Select Modalities'}</span>
                   </Label>
                   <p className="text-[11px] text-muted-foreground">
-                    তালিকা থেকে যেকোনো মডালিটি ক্লিক করে প্ল্যানের সিকোয়েন্সে যোগ করুন
+                    {isBn ? 'তালিকা থেকে যেকোনো মডালিটি ক্লিক করে প্ল্যানের সিকোয়েন্সে যোগ করুন' : 'Click any modality to append into your sequenced plan'}
                   </p>
                 </div>
 
                 <div className="w-full sm:w-64 relative">
                   <Search className="size-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
                   <Input
-                    placeholder="মডালিটি খুঁজুন (Search)..."
+                    placeholder={isBn ? 'মডালিটি খুঁজুন...' : 'Search modalities...'}
                     value={searchModality}
                     onChange={(e) => setSearchModality(e.target.value)}
                     className="h-8 text-xs pl-8 bg-muted/30"
@@ -459,17 +468,19 @@ export function TreatmentPlanBuilderModal({
               <div className="flex items-center justify-between">
                 <Label className="text-xs sm:text-sm font-bold flex items-center gap-1.5 text-foreground">
                   <FileText className="size-4 text-emerald-500" />
-                  <span>নির্ধারিত থেরাপি সিকোয়েন্স ও শিডিউল (Sequenced Plan)</span>
+                  <span>{isBn ? 'নির্ধারিত থেরাপি সিকোয়েন্স ও শিডিউল' : 'Sequenced Therapy Plan'}</span>
                 </Label>
                 <Badge variant="outline" className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
-                  {selectedPlans.length} টি ধাপ নির্ধারিত
+                  {selectedPlans.length} {isBn ? 'টি ধাপ নির্ধারিত' : 'Steps Configured'}
                 </Badge>
               </div>
 
               {selectedPlans.length === 0 ? (
                 <div className="p-8 text-center rounded-xl border border-dashed border-border/80 bg-muted/10">
                   <p className="text-xs sm:text-sm text-muted-foreground">
-                    এখনও কোনো থেরাপি মডালিটি যুক্ত করা হয়নি। উপরের প্রি-সেট অথবা ক্যাটালগ থেকে মডালিটি যোগ করুন।
+                    {isBn
+                      ? 'এখনও কোনো থেরাপি মডালিটি যুক্ত করা হয়নি। উপরের প্রি-সেট অথবা ক্যাটালগ থেকে মডালিটি যোগ করুন।'
+                      : 'No modalities added yet. Click presets above or choose from catalog.'}
                   </p>
                 </div>
               ) : (
@@ -477,13 +488,13 @@ export function TreatmentPlanBuilderModal({
                   <Table>
                     <TableHeader className="bg-muted/40">
                       <TableRow>
-                        <TableHead className="w-16 font-bold text-center">ক্রম</TableHead>
-                        <TableHead className="font-bold">মডালিটি (Modality)</TableHead>
-                        <TableHead className="w-28 font-bold">সময়সীমা (Min)</TableHead>
-                        <TableHead className="w-28 font-bold">মোট সেশন</TableHead>
-                        <TableHead className="w-36 font-bold">ফ্রিকোয়েন্সি</TableHead>
-                        <TableHead className="font-bold">ক্লিনিক্যাল নির্দেশিকা</TableHead>
-                        <TableHead className="w-24 text-right">অ্যাকশন</TableHead>
+                        <TableHead className="w-16 font-bold text-center">{isBn ? 'ক্রম' : 'Seq'}</TableHead>
+                        <TableHead className="font-bold">{isBn ? 'মডালিটি' : 'Modality'}</TableHead>
+                        <TableHead className="w-28 font-bold">{isBn ? 'সময়সীমা (মি.)' : 'Duration (Min)'}</TableHead>
+                        <TableHead className="w-28 font-bold">{isBn ? 'মোট সেশন' : 'Total Sessions'}</TableHead>
+                        <TableHead className="w-36 font-bold">{isBn ? 'ফ্রিকোয়েন্সি' : 'Frequency'}</TableHead>
+                        <TableHead className="font-bold">{isBn ? 'ক্লিনিক্যাল নির্দেশিকা' : 'Clinical Instructions'}</TableHead>
+                        <TableHead className="w-24 text-right">{isBn ? 'অ্যাকশন' : 'Action'}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -551,11 +562,11 @@ export function TreatmentPlanBuilderModal({
                                 <SelectValue placeholder="Frequency" />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="daily">প্রতিদিন (Daily)</SelectItem>
-                                <SelectItem value="alternate_days">একদিন পরপর</SelectItem>
-                                <SelectItem value="weekly">সাপ্তাহিক</SelectItem>
-                                <SelectItem value="twice_weekly">সপ্তাহে ২ দিন</SelectItem>
-                                <SelectItem value="thrice_weekly">সপ্তাহে ৩ দিন</SelectItem>
+                                <SelectItem value="daily">{isBn ? 'প্রতিদিন' : 'Daily'}</SelectItem>
+                                <SelectItem value="alternate_days">{isBn ? 'একদিন পরপর' : 'Alternate Days'}</SelectItem>
+                                <SelectItem value="weekly">{isBn ? 'সাপ্তাহিক' : 'Weekly'}</SelectItem>
+                                <SelectItem value="twice_weekly">{isBn ? 'সপ্তাহে ২ দিন' : 'Twice Weekly'}</SelectItem>
+                                <SelectItem value="thrice_weekly">{isBn ? 'সপ্তাহে ৩ দিন' : 'Thrice Weekly'}</SelectItem>
                               </SelectContent>
                             </Select>
                           </TableCell>
@@ -563,7 +574,7 @@ export function TreatmentPlanBuilderModal({
                           {/* Clinical Notes / Intensity */}
                           <TableCell>
                             <Input
-                              placeholder="তীব্রতা / টেকনিক (যেমন: 15 min, coplanar)..."
+                              placeholder={isBn ? 'তীব্রতা / টেকনিক (যেমন: ১৫ মিনিট, কোপ্ল্যানার)...' : 'Intensity / technique (e.g., 15 min, coplanar)...'}
                               value={plan.notes || ''}
                               onChange={(e) =>
                                 handleUpdateItem(idx, { notes: e.target.value })
@@ -629,7 +640,7 @@ export function TreatmentPlanBuilderModal({
                 className="h-9 text-xs font-semibold gap-1.5 w-full sm:w-auto"
               >
                 <Printer className="size-3.5 text-emerald-600" />
-                <span>A4 প্রিন্ট প্রিভিউ (Print A4 Plan)</span>
+                <span>{isBn ? 'প্রিন্ট প্রিভিউ' : 'Print A4 Plan'}</span>
               </Button>
             </div>
 
@@ -641,7 +652,7 @@ export function TreatmentPlanBuilderModal({
                 onClick={() => onOpenChange(false)}
                 className="h-9 text-xs"
               >
-                বন্ধ করুন
+                {isBn ? 'বন্ধ করুন' : 'Close'}
               </Button>
 
               <Button
@@ -656,7 +667,7 @@ export function TreatmentPlanBuilderModal({
                 ) : (
                   <Save className="size-3.5" />
                 )}
-                <span>ট্রিটমেন্ট প্ল্যান সংরক্ষণ করুন (Save Plan)</span>
+                <span>{isBn ? 'ট্রিটমেন্ট প্ল্যান সংরক্ষণ করুন' : 'Save Treatment Plan'}</span>
               </Button>
             </div>
           </DialogFooter>

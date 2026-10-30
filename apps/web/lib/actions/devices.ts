@@ -145,3 +145,17 @@ export async function restartTvDeviceAction(
     return { success: false, error: err?.message || 'Failed to trigger TV restart' };
   }
 }
+
+export async function getLatestTvVersionAction(): Promise<{
+  success: boolean;
+  latestVersion?: string;
+  error?: string;
+}> {
+  try {
+    const data = await serverFetch<{ latestVersion?: string }>('/updates/check?platform=android-tv');
+    return { success: true, latestVersion: data?.latestVersion || '0.1.54' };
+  } catch (err: any) {
+    return { success: false, latestVersion: '0.1.54', error: err?.message || 'Failed to check updates' };
+  }
+}
+

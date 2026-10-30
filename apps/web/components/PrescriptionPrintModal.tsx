@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogTitle } from './ui/dialog';
 import { Button } from './ui/button';
 import { Printer, FileText, Download, X, Loader2 } from 'lucide-react';
 import { printElementViaIframe, generateElementPdf } from '../lib/print-pdf';
+import { useLanguage } from '../lib/i18n';
 
 export interface PrescriptionData {
   id: string;
@@ -67,6 +68,8 @@ export default function PrescriptionPrintModal({
   open,
   onOpenChange,
 }: PrescriptionPrintModalProps) {
+  const { language } = useLanguage();
+  const isBn = language === 'bn';
   const [isPrinting, setIsPrinting] = useState(false);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
 
@@ -203,11 +206,11 @@ export default function PrescriptionPrintModal({
                 </div>
                 <div>
                   <h3 className="font-bold text-sm sm:text-base text-foreground leading-tight">
-                    ওষুধ প্রেসক্রিপশন (Medicine Prescription)
+                    {isBn ? 'ওষুধ প্রেসক্রিপশন' : 'Medicine Prescription'}
                   </h3>
                   <p className="text-xs text-muted-foreground font-mono">
                     Rx No: <strong className="text-foreground">{rxNumber}</strong> · MRN:{' '}
-                    <strong className="text-foreground">{mrn}</strong> · রোগী:{' '}
+                    <strong className="text-foreground">{mrn}</strong> · {isBn ? 'রোগী:' : 'Patient:'}{' '}
                     <strong className="text-foreground">{patientName}</strong>
                   </p>
                 </div>
@@ -255,7 +258,7 @@ export default function PrescriptionPrintModal({
                 ) : (
                   <>
                     <Download className="size-3.5 text-emerald-600 dark:text-emerald-400" />
-                    <span>HPC সাইজ পিডিএফ</span>
+                    <span>{isBn ? 'পিডিএফ ডাউনলোড' : 'Download PDF'}</span>
                   </>
                 )}
               </Button>
@@ -367,9 +370,9 @@ export default function PrescriptionPrintModal({
               {/* Vitals & Provisional Diagnosis Banner */}
               <div className="mb-2 px-2 py-1 rounded bg-zinc-100 border border-zinc-200 flex items-center justify-between text-[9px]">
                 <div>
-                  <span className="text-zinc-600 font-medium">রোগের বিবরণ / Diagnosis:</span>{' '}
+                  <span className="text-zinc-600 font-medium">{isBn ? 'রোগের বিবরণ:' : 'Diagnosis:'}</span>{' '}
                   <strong className="text-emerald-800 font-bold">
-                    {prescription.clinicalNotes?.diagnosis || 'Musculoskeletal Pain Disorder / ব্যথাজনিত সমস্যা'}
+                    {prescription.clinicalNotes?.diagnosis?.trim() || '—'}
                   </strong>
                 </div>
                 <div className="flex items-center gap-2 font-mono text-[8.5px]">
@@ -394,7 +397,7 @@ export default function PrescriptionPrintModal({
                   {prescription.clinicalNotes?.chiefComplaints && (
                     <div>
                       <h3 className="font-bold text-zinc-700 uppercase tracking-wider text-[8.5px] mb-0.5">
-                        Chief Complaints / উপসর্গ:
+                        {isBn ? 'প্রধান উপসর্গ:' : 'Chief Complaints:'}
                       </h3>
                       <p className="text-zinc-800 leading-snug text-[9px]">
                         {prescription.clinicalNotes.chiefComplaints}
@@ -406,7 +409,7 @@ export default function PrescriptionPrintModal({
                   {prescription.advice && (
                     <div className="pt-1.5 border-t border-zinc-200">
                       <h3 className="font-bold text-zinc-700 uppercase tracking-wider text-[8.5px] mb-0.5">
-                        Advice / সাধারণ উপদেশ:
+                        {isBn ? 'পরামর্শ ও উপদেশ:' : 'Advice:'}
                       </h3>
                       <p className="text-zinc-800 whitespace-pre-line leading-relaxed text-[8.5px]">
                         {prescription.advice}
@@ -485,7 +488,7 @@ export default function PrescriptionPrintModal({
               <div className="text-center w-44">
                 <div className="h-6"></div>
                 <div className="border-t border-dashed border-zinc-800 pt-0.5 font-bold text-zinc-800 text-[8.5px]">
-                  অনুমোদিত স্বাক্ষর / Authorized Signature
+                  {isBn ? 'অনুমোদিত স্বাক্ষর' : 'Authorized Signature'}
                 </div>
                 <div className="text-[7px] text-zinc-500">Health &amp; Pain Care Center, Jashore</div>
               </div>
