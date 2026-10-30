@@ -248,6 +248,7 @@ export class VisitsService {
         );
       activeBooking = bRows[0] ?? null;
     } else {
+      // Prioritize regular or approved extra bookings first
       const bRows = await this.db
         .select()
         .from(therapySlotBookings)
@@ -255,12 +256,33 @@ export class VisitsService {
           and(
             eq(therapySlotBookings.patientId, patient.id),
             eq(therapySlotBookings.bookingDate, today),
-            sql`${therapySlotBookings.status} NOT IN ('cancelled')`,
+            sql`${therapySlotBookings.status} NOT IN ('cancelled', 'completed')`,
             isNull(therapySlotBookings.deletedAt),
+            sql`(${therapySlotBookings.capacityType} = 'regular' OR (${therapySlotBookings.capacityType} = 'extra' AND ${therapySlotBookings.approvalStatus} = 'approved'))`,
           ),
         )
+        .orderBy(desc(therapySlotBookings.createdAt))
         .limit(1);
-      activeBooking = bRows[0] ?? null;
+
+      if (bRows[0]) {
+        activeBooking = bRows[0];
+      } else {
+        // Fallback: check if there is an unapproved/pending or rejected extra booking for informative error
+        const pendingRows = await this.db
+          .select()
+          .from(therapySlotBookings)
+          .where(
+            and(
+              eq(therapySlotBookings.patientId, patient.id),
+              eq(therapySlotBookings.bookingDate, today),
+              sql`${therapySlotBookings.status} NOT IN ('cancelled', 'completed')`,
+              isNull(therapySlotBookings.deletedAt),
+            ),
+          )
+          .orderBy(desc(therapySlotBookings.createdAt))
+          .limit(1);
+        activeBooking = pendingRows[0] ?? null;
+      }
     }
 
     if (activeBooking && activeBooking.capacityType === 'extra') {
@@ -1192,6 +1214,8 @@ export class VisitsService {
               eq(therapySlotBookings.patientId, visit.patientId),
               eq(therapySlotBookings.bookingDate, today),
               sql`${therapySlotBookings.status} NOT IN ('cancelled', 'completed')`,
+              sql`(${therapySlotBookings.capacityType} = 'regular' OR (${therapySlotBookings.capacityType} = 'extra' AND ${therapySlotBookings.approvalStatus} = 'approved'))`,
+              sql`${therapySlotBookings.approvalStatus} NOT IN ('pending', 'rejected')`,
             ),
           )
           .catch(() => {});

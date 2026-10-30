@@ -477,11 +477,12 @@ export function BookTherapySlotDialog({
                               size="sm"
                               variant="ghost"
                               className="h-7 px-2 text-xs text-emerald-600"
-                          >
-                            {isBn ? 'বাছাই' : 'Select'}
-                          </Button>
-                        </div>
-                      ))}
+                            >
+                              {isBn ? 'বাছাই' : 'Select'}
+                            </Button>
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>

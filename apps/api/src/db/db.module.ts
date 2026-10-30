@@ -927,6 +927,13 @@ export type Db = BetterSQLite3Database<typeof schema>;
             if (!bookingColNames.has('therapy_type')) {
               sqlite.exec("ALTER TABLE therapy_slot_bookings ADD COLUMN therapy_type TEXT DEFAULT 'therapy'");
             }
+
+            // Data remediation: Repair any extra slot bookings that were accidentally marked 'completed' while pending approval
+            sqlite.exec(`
+              UPDATE therapy_slot_bookings
+              SET status = 'booked'
+              WHERE capacity_type = 'extra' AND (approval_status = 'pending' OR approval_status IS NULL) AND status = 'completed';
+            `);
           } catch (bookingErr) {
             console.error('Error initializing therapy_slot_bookings table:', bookingErr);
           }

@@ -221,6 +221,10 @@ for DB_FILE in "${DB_LOCATIONS[@]}"; do
       echo "   [ADDING] Added legacy_id to patients"
     fi
 
+    # 7. Repair any unapproved extra slot bookings erroneously marked completed
+    echo "🩺 Repairing unapproved extra slot bookings..."
+    sqlite3 "$DB_FILE" "UPDATE therapy_slot_bookings SET status = 'booked' WHERE capacity_type = 'extra' AND (approval_status = 'pending' OR approval_status IS NULL) AND status = 'completed';" 2>/dev/null || true
+
     echo "📊 Current users schema in $DB_FILE:"
     sqlite3 "$DB_FILE" "PRAGMA table_info('users');"
   fi

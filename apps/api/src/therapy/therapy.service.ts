@@ -382,16 +382,38 @@ export class TherapyService {
     // Mark therapy slot booking completed for this patient/session today
     try {
       const today = now.slice(0, 10);
-      await this.db
-        .update(therapySlotBookings)
-        .set({ status: 'completed', updatedAt: now })
+      let linkedBookingId: string | null = null;
+      const vRows = await this.db
+        .select({ therapyBookingId: visits.therapyBookingId })
+        .from(visits)
         .where(
           and(
-            eq(therapySlotBookings.patientId, session.patientId),
-            eq(therapySlotBookings.bookingDate, today),
-            sql`${therapySlotBookings.status} NOT IN ('cancelled', 'completed')`,
+            eq(visits.patientId, session.patientId),
+            sql`${visits.status} IN ('in_therapy', 'checked_in')`,
           ),
-        );
+        )
+        .limit(1);
+      linkedBookingId = vRows[0]?.therapyBookingId ?? null;
+
+      if (linkedBookingId) {
+        await this.db
+          .update(therapySlotBookings)
+          .set({ status: 'completed', updatedAt: now })
+          .where(eq(therapySlotBookings.id, linkedBookingId));
+      } else {
+        await this.db
+          .update(therapySlotBookings)
+          .set({ status: 'completed', updatedAt: now })
+          .where(
+            and(
+              eq(therapySlotBookings.patientId, session.patientId),
+              eq(therapySlotBookings.bookingDate, today),
+              sql`${therapySlotBookings.status} NOT IN ('cancelled', 'completed')`,
+              sql`(${therapySlotBookings.capacityType} = 'regular' OR (${therapySlotBookings.capacityType} = 'extra' AND ${therapySlotBookings.approvalStatus} = 'approved'))`,
+              sql`${therapySlotBookings.approvalStatus} NOT IN ('pending', 'rejected')`,
+            ),
+          );
+      }
     } catch {}
 
     // Update therapy plan if applicable
@@ -1777,12 +1799,10 @@ export class TherapyService {
       } catch {}
     }
 
-    // 2. Mark any matching therapySlotBookings for this patient/visit on today's date as 'completed'
+    // 2. Mark matching therapySlotBooking for this patient/visit as 'completed'
+    // Strict guard: only update the explicitly linked booking or approved regular/extra bookings.
+    // An unapproved extra slot (approvalStatus = 'pending') must NEVER be auto-completed without doctor/admin approval!
     try {
-      const bookingConditions = [
-        eq(therapySlotBookings.patientId, visit.patientId),
-        eq(therapySlotBookings.bookingDate, today),
-      ];
       if (visit.therapyBookingId) {
         await this.db
           .update(therapySlotBookings)
@@ -1790,12 +1810,7 @@ export class TherapyService {
             status: 'completed',
             updatedAt: now,
           })
-          .where(
-            or(
-              eq(therapySlotBookings.id, visit.therapyBookingId),
-              and(...bookingConditions),
-            ),
-          );
+          .where(eq(therapySlotBookings.id, visit.therapyBookingId));
       } else {
         await this.db
           .update(therapySlotBookings)
@@ -1803,16 +1818,32 @@ export class TherapyService {
             status: 'completed',
             updatedAt: now,
           })
-          .where(and(...bookingConditions));
+          .where(
+            and(
+              eq(therapySlotBookings.patientId, visit.patientId),
+              eq(therapySlotBookings.bookingDate, today),
+              sql`${therapySlotBookings.status} NOT IN ('cancelled', 'completed')`,
+              sql`(${therapySlotBookings.capacityType} = 'regular' OR (${therapySlotBookings.capacityType} = 'extra' AND ${therapySlotBookings.approvalStatus} = 'approved'))`,
+              sql`${therapySlotBookings.approvalStatus} NOT IN ('pending', 'rejected')`,
+            ),
+          );
       }
     } catch (bookingErr) {
       console.warn('Failed to mark therapySlotBookings as completed in sendToCashier:', bookingErr);
       try {
-        (this.db as any).session?.client
-          ?.prepare(
-            "UPDATE therapy_slot_bookings SET status = 'completed', updated_at = ? WHERE (patient_id = ? AND booking_date = ?) OR id = ?"
-          )
-          ?.run(now, visit.patientId, today, visit.therapyBookingId || '');
+        if (visit.therapyBookingId) {
+          (this.db as any).session?.client
+            ?.prepare(
+              "UPDATE therapy_slot_bookings SET status = 'completed', updated_at = ? WHERE id = ?"
+            )
+            ?.run(now, visit.therapyBookingId);
+        } else {
+          (this.db as any).session?.client
+            ?.prepare(
+              "UPDATE therapy_slot_bookings SET status = 'completed', updated_at = ? WHERE patient_id = ? AND booking_date = ? AND status NOT IN ('cancelled', 'completed') AND (capacity_type = 'regular' OR (capacity_type = 'extra' AND approval_status = 'approved')) AND (approval_status IS NULL OR approval_status NOT IN ('pending', 'rejected'))"
+            )
+            ?.run(now, visit.patientId, today);
+        }
       } catch {}
     }
 

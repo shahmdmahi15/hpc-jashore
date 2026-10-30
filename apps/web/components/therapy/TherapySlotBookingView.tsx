@@ -80,6 +80,8 @@ import {
   listTherapyBookingsAction,
   deleteTherapyBookingAction,
   restoreTherapyBookingAction,
+  approveExtraSlotBookingAction,
+  rejectExtraSlotBookingAction,
   type DayOfWeek,
   type SlotHour,
   type TherapyBookingStatus,
@@ -262,6 +264,58 @@ export function TherapySlotBookingView() {
         loadData();
       } else {
         toast.error(res.error || (isBn ? 'রিস্টোর করতে ব্যর্থ' : 'Failed to restore'));
+      }
+    } finally {
+      setActionInProgressId(null);
+    }
+  };
+
+  // State for rejecting extra slot
+  const [rejectingBookingId, setRejectingBookingId] = useState<string | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
+
+  // Approve extra slot booking handler (Doctor/Admin)
+  const handleApproveExtraSlot = async (id: string) => {
+    setActionInProgressId(id);
+    try {
+      const res = await approveExtraSlotBookingAction(id);
+      if (res.success) {
+        toast.success(
+          isBn
+            ? 'অতিরিক্ত স্লট সফলভাবে অনুমোদন করা হয়েছে'
+            : 'Extra slot booking approved successfully',
+        );
+        loadData();
+      } else {
+        toast.error(res.error || (isBn ? 'অনুমোদন করতে ব্যর্থ' : 'Failed to approve'));
+      }
+    } finally {
+      setActionInProgressId(null);
+    }
+  };
+
+  // Reject extra slot booking handler (Doctor/Admin)
+  const handleConfirmRejectExtraSlot = async () => {
+    if (!rejectingBookingId) return;
+    const id = rejectingBookingId;
+    if (!rejectReason.trim()) {
+      toast.error(isBn ? 'প্রত্যাখ্যানের কারণ লিখুন' : 'Please provide a reason');
+      return;
+    }
+    setActionInProgressId(id);
+    try {
+      const res = await rejectExtraSlotBookingAction(id, rejectReason.trim());
+      if (res.success) {
+        toast.success(
+          isBn
+            ? 'অতিরিক্ত স্লট বুকিং প্রত্যাখ্যাত হয়েছে'
+            : 'Extra slot booking rejected',
+        );
+        setRejectingBookingId(null);
+        setRejectReason('');
+        loadData();
+      } else {
+        toast.error(res.error || (isBn ? 'প্রত্যাখ্যান করতে ব্যর্থ' : 'Failed to reject'));
       }
     } finally {
       setActionInProgressId(null);
@@ -705,6 +759,11 @@ export function TherapySlotBookingView() {
                         </div>
                       ) : (
                         slotBookings.map((b) => {
+                          const isPendingExtra =
+                            b.capacityType === 'extra' &&
+                            (b.approvalStatus === 'pending' || !b.approvalStatus);
+                          const isRejectedExtra =
+                            b.capacityType === 'extra' && b.approvalStatus === 'rejected';
                           const stCfg = STATUS_CONFIG[b.status] || STATUS_CONFIG.booked;
                           return (
                             <div
@@ -730,7 +789,7 @@ export function TherapySlotBookingView() {
                                   </span>
                                   {b.capacityType === 'extra' && (
                                     <>
-                                      {b.approvalStatus === 'pending' || !b.approvalStatus ? (
+                                      {isPendingExtra ? (
                                         <Badge
                                           variant="outline"
                                           className="text-[9px] px-1.5 py-0 h-4 border-amber-500/50 text-amber-700 dark:text-amber-300 bg-amber-500/15 font-semibold"
@@ -744,7 +803,7 @@ export function TherapySlotBookingView() {
                                         >
                                           {isBn ? '✓ অনুমোদিত অতিরিক্ত' : '✓ Approved Extra'}
                                         </Badge>
-                                      ) : b.approvalStatus === 'rejected' ? (
+                                      ) : isRejectedExtra ? (
                                         <Badge
                                           variant="outline"
                                           className="text-[9px] px-1.5 py-0 h-4 border-rose-500/40 text-rose-600 dark:text-rose-400 bg-rose-500/10 font-semibold"
@@ -770,17 +829,59 @@ export function TherapySlotBookingView() {
                                       {b.toldTime}
                                     </span>
                                   )}
-                                  <span
-                                    className={`inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[10px] font-semibold border ${stCfg.badgeClass}`}
-                                  >
-                                    <span className={`w-1.5 h-1.5 rounded-full ${stCfg.dotColor}`} />
-                                    <span>{isBn ? stCfg.labelBn : stCfg.labelEn}</span>
-                                  </span>
+                                  {isPendingExtra ? (
+                                    <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[10px] font-semibold border border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                                      <span>{isBn ? 'অনুমোদন প্রয়োজন' : 'Approval Required'}</span>
+                                    </span>
+                                  ) : isRejectedExtra ? (
+                                    <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[10px] font-semibold border border-rose-500/40 bg-rose-500/10 text-rose-700 dark:text-rose-400">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                                      <span>{isBn ? 'প্রত্যাখ্যাত' : 'Rejected'}</span>
+                                    </span>
+                                  ) : (
+                                    <span
+                                      className={`inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[10px] font-semibold border ${stCfg.badgeClass}`}
+                                    >
+                                      <span className={`w-1.5 h-1.5 rounded-full ${stCfg.dotColor}`} />
+                                      <span>{isBn ? stCfg.labelBn : stCfg.labelEn}</span>
+                                    </span>
+                                  )}
                                 </div>
                               </div>
 
-                              {/* ONE SINGLE BUTTON: Cancel Booking (or Restore if cancelled) */}
-                              <div className="flex items-center shrink-0">
+                              {/* Action Buttons: Quick Approve/Reject for extra slot + Cancel/Restore */}
+                              <div className="flex items-center gap-1 shrink-0 flex-wrap justify-end">
+                                {isPendingExtra && (
+                                  <>
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      onClick={() => handleApproveExtraSlot(b.id)}
+                                      disabled={actionInProgressId === b.id}
+                                      className="h-7 px-2 text-[11px] font-semibold bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg shadow-xs cursor-pointer transition-all active:scale-95"
+                                      title={isBn ? 'অতিরিক্ত স্লট অনুমোদন করুন' : 'Approve Extra Slot'}
+                                    >
+                                      <Check className="w-3 h-3 mr-1" />
+                                      <span>{isBn ? 'অনুমোদন' : 'Approve'}</span>
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => {
+                                        setRejectingBookingId(b.id);
+                                        setRejectReason('');
+                                      }}
+                                      disabled={actionInProgressId === b.id}
+                                      className="h-7 px-2 text-[11px] font-medium border-rose-500/40 text-rose-600 hover:bg-rose-500/10 rounded-lg cursor-pointer transition-all active:scale-95"
+                                      title={isBn ? 'অতিরিক্ত স্লট প্রত্যাখ্যান করুন' : 'Reject Extra Slot'}
+                                    >
+                                      <X className="w-3 h-3 mr-1" />
+                                      <span>{isBn ? 'প্রত্যাখ্যান' : 'Reject'}</span>
+                                    </Button>
+                                  </>
+                                )}
                                 {b.status !== 'cancelled' ? (
                                   <Button
                                     type="button"
@@ -923,12 +1024,24 @@ export function TherapySlotBookingView() {
                         </TableCell>
                         <TableCell>
                           <div className="space-y-1">
-                            <span
-                              className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-xs font-semibold border ${stCfg.badgeClass}`}
-                            >
-                              <span className={`w-2 h-2 rounded-full ${stCfg.dotColor}`} />
-                              <span>{isBn ? stCfg.labelBn : stCfg.labelEn}</span>
-                            </span>
+                            {b.capacityType === 'extra' && (b.approvalStatus === 'pending' || !b.approvalStatus) ? (
+                              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-xs font-semibold border border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400">
+                                <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                                <span>{isBn ? 'অনুমোদন প্রয়োজন' : 'Approval Required'}</span>
+                              </span>
+                            ) : b.capacityType === 'extra' && b.approvalStatus === 'rejected' ? (
+                              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-xs font-semibold border border-rose-500/40 bg-rose-500/10 text-rose-700 dark:text-rose-400">
+                                <span className="w-2 h-2 rounded-full bg-rose-500" />
+                                <span>{isBn ? 'প্রত্যাখ্যাত' : 'Rejected'}</span>
+                              </span>
+                            ) : (
+                              <span
+                                className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-xs font-semibold border ${stCfg.badgeClass}`}
+                              >
+                                <span className={`w-2 h-2 rounded-full ${stCfg.dotColor}`} />
+                                <span>{isBn ? stCfg.labelBn : stCfg.labelEn}</span>
+                              </span>
+                            )}
                             {b.capacityType === 'extra' && (
                               <div>
                                 {b.approvalStatus === 'pending' || !b.approvalStatus ? (
@@ -970,7 +1083,37 @@ export function TherapySlotBookingView() {
                           )}
                         </TableCell>
                         <TableCell className="text-right">
-                          <div className="inline-flex items-center justify-end">
+                          <div className="inline-flex items-center justify-end gap-1.5 flex-wrap">
+                            {b.capacityType === 'extra' && (b.approvalStatus === 'pending' || !b.approvalStatus) && (
+                              <>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  onClick={() => handleApproveExtraSlot(b.id)}
+                                  disabled={actionInProgressId === b.id}
+                                  className="h-7 px-2 text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg shadow-xs cursor-pointer transition-all active:scale-95"
+                                  title={isBn ? 'অতিরিক্ত স্লট অনুমোদন করুন' : 'Approve Extra Slot'}
+                                >
+                                  <Check className="w-3 h-3 mr-1" />
+                                  <span>{isBn ? 'অনুমোদন' : 'Approve'}</span>
+                                </Button>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    setRejectingBookingId(b.id);
+                                    setRejectReason('');
+                                  }}
+                                  disabled={actionInProgressId === b.id}
+                                  className="h-7 px-2 text-xs font-medium border-rose-500/40 text-rose-600 hover:bg-rose-500/10 rounded-lg cursor-pointer transition-all active:scale-95"
+                                  title={isBn ? 'অতিরিক্ত স্লট প্রত্যাখ্যান করুন' : 'Reject Extra Slot'}
+                                >
+                                  <X className="w-3 h-3 mr-1" />
+                                  <span>{isBn ? 'প্রত্যাখ্যান' : 'Reject'}</span>
+                                </Button>
+                              </>
+                            )}
                             {b.status !== 'cancelled' ? (
                               <Button
                                 type="button"
@@ -1061,6 +1204,68 @@ export function TherapySlotBookingView() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* REJECT EXTRA SLOT REASON DIALOG */}
+      <Dialog
+        open={Boolean(rejectingBookingId)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setRejectingBookingId(null);
+            setRejectReason('');
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-rose-600 dark:text-rose-400 flex items-center gap-2">
+              <AlertCircle className="w-5 h-5" />
+              <span>{isBn ? 'অতিরিক্ত স্লট প্রত্যাখ্যান' : 'Reject Extra Slot'}</span>
+            </DialogTitle>
+            <DialogDescription>
+              {isBn
+                ? 'এই অতিরিক্ত স্লটটি প্রত্যাখ্যান করার কারণ লিখুন। এটি বুকিং রেকর্ডে সংরক্ষিত থাকবে।'
+                : 'Provide a reason for rejecting this extra slot booking. It will be recorded on the patient booking.'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-2 space-y-1.5">
+            <Label className="text-xs font-semibold">
+              {isBn ? 'প্রত্যাখ্যানের কারণ' : 'Reason for Rejection'}
+            </Label>
+            <Textarea
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              placeholder={
+                isBn
+                  ? 'যেমন: চেম্বারে অতিরিক্ত ভিড় / সময় অমিল...'
+                  : 'e.g. Excessive hall congestion / time mismatch...'
+              }
+              className="text-xs"
+              rows={3}
+            />
+          </div>
+          <DialogFooter className="flex gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setRejectingBookingId(null);
+                setRejectReason('');
+              }}
+              disabled={actionInProgressId !== null}
+            >
+              {isBn ? 'ফিরে যান' : 'Cancel'}
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={handleConfirmRejectExtraSlot}
+              disabled={actionInProgressId !== null || !rejectReason.trim()}
+            >
+              {isBn ? 'প্রত্যাখ্যান নিশ্চিত করুন' : 'Confirm Rejection'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

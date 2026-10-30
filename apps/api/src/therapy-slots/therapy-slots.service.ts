@@ -865,6 +865,15 @@ export class TherapySlotsService {
     };
 
     if (dto.status !== undefined) {
+      if (
+        existing.capacityType === 'extra' &&
+        existing.approvalStatus !== 'approved' &&
+        (dto.status === 'completed' || dto.status === 'attended')
+      ) {
+        throw new BadRequestException(
+          'An extra standby slot must be explicitly approved by a doctor or admin before its status can be completed or attended.',
+        );
+      }
       patch.status = dto.status;
       if (dto.status === 'cancelled') {
         patch.deletedAt = new Date().toISOString();
